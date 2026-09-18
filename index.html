@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071327" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <title>NFL FLAG Private Playbook</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="NFL FLAG playbook home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>NFL FLAG</strong><small>PRIVATE PLAYBOOK</small></span>
+        </a>
+        <div class="privacy"><span></span> Owner-only access</div>
+      </header>
+
+      <main id="top">
+        <section class="playbook-head" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">SIDELINE LIBRARY</p>
+            <h1 id="page-title">Find the next call.<br /><em>Fast.</em></h1>
+            <p class="lede">Browse all 56 source-derived cards by formation, search by play name, and open a print-true preview.</p>
+          </div>
+          <div class="ratio-card" aria-label="Card print specification">
+            <span class="ratio-icon">4.5 × 2.02</span>
+            <div><strong>Print ratio verified</strong><small>2.2277 : 1 · exact card proportions</small></div>
+          </div>
+        </section>
+
+        <section class="library" aria-labelledby="library-title">
+          <div class="controls">
+            <label class="search-wrap">
+              <span class="sr-only">Search plays</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
+              <input id="search" type="search" placeholder="Search play or formation…" autocomplete="off" />
+              <kbd>/</kbd>
+            </label>
+            <div class="count"><strong id="result-count">56</strong> cards</div>
+          </div>
+          <div class="filters" id="filters" aria-label="Filter by formation"></div>
+          <div class="section-line">
+            <div><p class="eyebrow">PLAY CARDS</p><h2 id="library-title">All formations</h2></div>
+            <button class="clear-button" id="clear-filter" type="button" hidden>Clear filter</button>
+          </div>
+          <div class="play-grid" id="play-grid" aria-live="polite"></div>
+          <div class="empty-state" id="empty-state" hidden>
+            <span>00</span><h3>No plays found</h3><p>Try another play name or formation.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer><span>NFL FLAG PLAYBOOK</span><span>56 source cards · private workspace</span></footer>
+    </div>
+
+    <dialog id="preview-dialog" aria-labelledby="preview-title">
+      <div class="preview-shell">
+        <div class="preview-top">
+          <div><p id="preview-meta" class="eyebrow"></p><h2 id="preview-title"></h2></div>
+          <button class="icon-button" id="close-preview" aria-label="Close preview">×</button>
+        </div>
+        <div class="card-stage">
+          <button class="nav-button prev" id="previous-play" aria-label="Previous play">‹</button>
+          <figure class="print-card" id="print-card"><img id="preview-image" alt="" /></figure>
+          <button class="nav-button next" id="next-play" aria-label="Next play">›</button>
+        </div>
+        <div class="preview-bottom">
+          <div class="validation"><span>✓</span><div><strong>4.5 × 2.02 in</strong><small id="pixel-check">900 × 404 px · ratio checked</small></div></div>
+          <button id="print-button" class="print-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3m-10-4h10v8H7v-8Z" /></svg>Print this card</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
