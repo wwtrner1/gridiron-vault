@@ -1,4 +1,4 @@
-NFL FLAG PRIVATE PLAYBOOK — OFFLINE SITE
+GRID1RONVAULT PRIVATE PLAYBOOK — OFFLINE SITE
 
 HOW TO OPEN
 1. Extract the ZIP file to a folder.
@@ -6,7 +6,7 @@ HOW TO OPEN
 3. Keep the cards folder, app.js, and styles.css beside index.html.
 
 WHAT IS INCLUDED
-- 56 source-derived NFL FLAG route cards
+- 56 source-derived route cards
 - Search by play or formation
 - Formation filters
 - Full card previews
