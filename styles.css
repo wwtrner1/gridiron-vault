@@ -49,7 +49,12 @@ main:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .eyebrow { margin: 0 0 11px; color: var(--blue); font-size: 11px; font-weight: 900; letter-spacing: .18em; }
 .playbook-head .eyebrow { color: var(--blue-on-dark); }
 h1 { max-width: 760px; margin: 0; font-size: clamp(54px, 7vw, 94px); line-height: .88; letter-spacing: -.07em; text-transform: uppercase; font-style: italic; }
-h1 em { color: transparent; -webkit-text-stroke: 2px #4e9ce6; font-style: inherit; }
+/* The outlined word in the headline. The transparent fill is scoped to engines
+   that actually paint the stroke, so it can never render as invisible text. */
+h1 em { color: #4e9ce6; font-style: inherit; }
+@supports (-webkit-text-stroke: 2px currentColor) {
+  h1 em { color: transparent; -webkit-text-stroke: 2px #4e9ce6; }
+}
 .lede { max-width: 660px; margin: 28px 0 0; color: #aebed2; font-size: 16px; line-height: 1.65; }
 .ratio-card { z-index: 1; align-self: end; display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; background: rgba(255,255,255,.07); backdrop-filter: blur(8px); }
 .ratio-icon { min-width: 94px; height: 43px; display: grid; place-items: center; border: 2px solid #58a7f0; border-radius: 5px; color: white; font-size: 12px; font-weight: 900; }

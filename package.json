@@ -1,8 +1,8 @@
 {
-  "name": "nfl-flag-private-playbook",
+  "name": "grid1ronvault",
   "version": "1.0.0",
   "private": true,
-  "description": "Static NFL FLAG play-card library with a Markdown-for-agents edge function.",
+  "description": "Static Grid1ronVault play-card library with a Markdown-for-agents edge function.",
   "dependencies": {
     "turndown": "^7.2.0"
   }
