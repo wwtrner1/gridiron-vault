@@ -3,7 +3,7 @@
 # repo root and there is no build step.
 [build]
   publish = "."
-[build.environment]
+  [build.environment]
   # The Next.js Runtime (@netlify/plugin-nextjs) is installed on this site at
   # the account level, left over from an earlier configuration. There is no
   # Next.js here, but the runtime still runs its onBuild hook and fails with
