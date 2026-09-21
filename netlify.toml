@@ -2,7 +2,7 @@
 # served straight from the repository root, so the publish directory is the
 # repo root and there is no build step.
 [build]
-  publish = "."
+  publish = "dist"
 
 [build.environment]
   # The Next.js Runtime (@netlify/plugin-nextjs) is installed on this site at
