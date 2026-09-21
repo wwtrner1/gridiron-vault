@@ -1,0 +1,31 @@
+# This project is a static site: index.html, styles.css, app.js and cards/ are
+# served straight from the repository root, so the publish directory is the
+# repo root and there is no build step.
+[build]
+  publish = "."
+
+[build.environment]
+  # The Next.js Runtime (@netlify/plugin-nextjs) is installed on this site at
+  # the account level, left over from an earlier configuration. There is no
+  # Next.js here, but the runtime still runs its onBuild hook and fails with
+  # "Your publish directory cannot be the same as the base directory of your
+  # site" — a check that a root-published static site can never satisfy.
+  # This is the runtime's own documented opt-out; remove it if the site is ever
+  # rebuilt on Next.js.
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+
+# Markdown-for-agents edge function.
+#
+# Every block below puts one content path in scope for `netlify/edge-functions/
+# markdown.ts`, which answers `Accept: text/markdown` requests with Markdown
+# instead of HTML. Add a page by adding a block; remove one by deleting its
+# block. Asset paths (/cards/*, /styles.css, /app.js) are deliberately absent —
+# there is nothing to convert there.
+
+[[edge_functions]]
+  function = "markdown"
+  path = "/"
+
+[[edge_functions]]
+  function = "markdown"
+  path = "/index.html"

@@ -67,6 +67,7 @@ const grid = document.querySelector("#play-grid");
 const filters = document.querySelector("#filters");
 const search = document.querySelector("#search");
 const count = document.querySelector("#result-count");
+const status = document.querySelector("#result-status");
 const heading = document.querySelector("#library-title");
 const clearButton = document.querySelector("#clear-filter");
 const emptyState = document.querySelector("#empty-state");
@@ -75,28 +76,41 @@ const previewImage = document.querySelector("#preview-image");
 const previewTitle = document.querySelector("#preview-title");
 const previewMeta = document.querySelector("#preview-meta");
 const pixelCheck = document.querySelector("#pixel-check");
+const closeButton = document.querySelector("#close-preview");
 const previous = document.querySelector("#previous-play");
 const next = document.querySelector("#next-play");
 
 const formations = ["All", ...new Set(plays.map((play) => play.formation))];
+const cardLabel = (play) => `${String(play.number).padStart(2, "0")}`;
 
-function renderFilters() {
-  filters.replaceChildren(...formations.map((formation) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `filter-button${state.formation === formation ? " active" : ""}`;
-    button.textContent = formation;
-    button.setAttribute("aria-pressed", state.formation === formation);
-    button.addEventListener("click", () => {
-      state.formation = formation;
-      render();
-    });
-    return button;
-  }));
+// Filter buttons are built once and then updated in place, so that a keyboard
+// user who activates a filter keeps focus on the button they just pressed.
+const filterButtons = formations.map((formation) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "filter-button";
+  button.textContent = formation;
+  button.dataset.formation = formation;
+  button.addEventListener("click", () => {
+    state.formation = formation;
+    render();
+  });
+  return button;
+});
+filters.replaceChildren(...filterButtons);
+
+function syncFilters() {
+  for (const button of filterButtons) {
+    const isActive = button.dataset.formation === state.formation;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
 }
 
 function openPreview(play) {
-  state.selectedIndex = state.visible.findIndex((item) => item.number === play.number);
+  const index = state.visible.findIndex((item) => item.number === play.number);
+  if (index === -1) return;
+  state.selectedIndex = index;
   updatePreview();
   dialog.showModal();
 }
@@ -105,13 +119,41 @@ function makeCard(play) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "play-card";
-  button.setAttribute("aria-label", `Open ${play.name}`);
-  button.innerHTML = `
-    <div class="thumb"><img src="${play.image}" alt="${play.name} route diagram" loading="lazy" width="900" height="404"></div>
-    <div class="card-info"><span><strong>${play.name}</strong><small>${play.formation}</small></span><b class="card-number">${String(play.number).padStart(2, "0")}</b></div>`;
+  button.setAttribute(
+    "aria-label",
+    `Open ${play.name}, ${play.formation} formation, card ${cardLabel(play)} of ${plays.length}`,
+  );
+
+  const thumb = document.createElement("div");
+  thumb.className = "thumb";
+  const image = document.createElement("img");
+  image.src = play.image;
+  image.alt = ""; // Decorative here: the button label already names the play.
+  image.loading = "lazy";
+  image.decoding = "async";
+  image.width = 900;
+  image.height = 404;
+  thumb.append(image);
+
+  const info = document.createElement("div");
+  info.className = "card-info";
+  const text = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = play.name;
+  const formation = document.createElement("small");
+  formation.textContent = play.formation;
+  text.append(name, formation);
+  const number = document.createElement("b");
+  number.className = "card-number";
+  number.textContent = cardLabel(play);
+  info.append(text, number);
+
+  button.append(thumb, info);
   button.addEventListener("click", () => openPreview(play));
   return button;
 }
+
+let hasRendered = false;
 
 function render() {
   const normalized = state.query.trim().toLowerCase();
@@ -122,22 +164,39 @@ function render() {
   });
   count.textContent = state.visible.length;
   heading.textContent = state.formation === "All" ? (normalized ? "Search results" : "All formations") : state.formation;
+
+  // Hiding the focused button would drop focus to the page body.
+  const clearHadFocus = document.activeElement === clearButton;
   clearButton.hidden = state.formation === "All" && !normalized;
+  if (clearButton.hidden && clearHadFocus) search.focus();
+
   emptyState.hidden = state.visible.length > 0;
   grid.hidden = state.visible.length === 0;
   grid.replaceChildren(...state.visible.map(makeCard));
-  renderFilters();
+  syncFilters();
+
+  // Announce the new result count, but not the initial page load.
+  if (hasRendered) {
+    status.textContent = state.visible.length === 1 ? "1 card matches." : `${state.visible.length} cards match.`;
+  }
+  hasRendered = true;
 }
 
 function updatePreview() {
   const play = state.visible[state.selectedIndex];
   if (!play) return;
   previewImage.src = play.image;
-  previewImage.alt = `${play.name} route diagram`;
+  previewImage.alt = `${play.name} route diagram, ${play.formation} formation`;
   previewTitle.textContent = play.name;
-  previewMeta.textContent = `${play.formation} · CARD ${String(play.number).padStart(2, "0")} OF 56`;
+  previewMeta.textContent = `${play.formation} · CARD ${cardLabel(play)} OF ${plays.length}`;
+
+  // Disabling the focused arrow would drop focus, so hand it to a live control.
+  const activeBefore = document.activeElement;
   previous.disabled = state.selectedIndex === 0;
   next.disabled = state.selectedIndex === state.visible.length - 1;
+  if (activeBefore === previous && previous.disabled) (next.disabled ? closeButton : next).focus();
+  if (activeBefore === next && next.disabled) (previous.disabled ? closeButton : previous).focus();
+
   previewImage.onload = () => {
     const ratio = previewImage.naturalWidth / previewImage.naturalHeight;
     const expected = 4.5 / 2.02;
@@ -147,14 +206,21 @@ function updatePreview() {
 
 search.addEventListener("input", (event) => { state.query = event.target.value; render(); });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "/" && document.activeElement !== search && !dialog.open) {
+  const target = event.target;
+  const isTyping = target instanceof HTMLElement
+    && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+  if (event.key === "/" && !isTyping && !dialog.open && !event.metaKey && !event.ctrlKey && !event.altKey) {
     event.preventDefault(); search.focus();
   }
   if (dialog.open && event.key === "ArrowLeft" && state.selectedIndex > 0) { state.selectedIndex -= 1; updatePreview(); }
   if (dialog.open && event.key === "ArrowRight" && state.selectedIndex < state.visible.length - 1) { state.selectedIndex += 1; updatePreview(); }
 });
-clearButton.addEventListener("click", () => { state.query = ""; state.formation = "All"; search.value = ""; render(); });
-document.querySelector("#close-preview").addEventListener("click", () => dialog.close());
+clearButton.addEventListener("click", () => {
+  state.query = ""; state.formation = "All"; search.value = "";
+  render();
+  search.focus();
+});
+closeButton.addEventListener("click", () => dialog.close());
 document.querySelector("#print-button").addEventListener("click", () => window.print());
 previous.addEventListener("click", () => { if (state.selectedIndex > 0) { state.selectedIndex -= 1; updatePreview(); } });
 next.addEventListener("click", () => { if (state.selectedIndex < state.visible.length - 1) { state.selectedIndex += 1; updatePreview(); } });
