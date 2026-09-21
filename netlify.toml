@@ -12,7 +12,6 @@
   # This is the runtime's own documented opt-out; remove it if the site is ever
   # rebuilt on Next.js.
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
-
 # Markdown-for-agents edge function.
 #
 # Every block below puts one content path in scope for `netlify/edge-functions/
