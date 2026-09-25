@@ -12,12 +12,21 @@ type Props = {
   children: React.ReactNode;
 };
 
-const NAV = [
+type NavItem = { to: string; icon: string; label: string; hint: string };
+
+/** The side menu, the same on every signed-in page. */
+const PLAYBOOK_NAV: NavItem[] = [
   {
     to: "/vault",
     icon: "folder",
     label: "The Vault",
     hint: "Every play you have drawn, plus the plays other coaches made public.",
+  },
+  {
+    to: "/upload",
+    icon: "upload",
+    label: "Upload plays",
+    hint: "Turn a whiteboard photo, screenshot or PowerPoint deck into editable plays.",
   },
   {
     to: "/playbooks",
@@ -32,11 +41,29 @@ const NAV = [
     hint: "Your live call sheet. Sort it, paint it, print it.",
   },
   {
+    to: "/wristbands",
+    icon: "wristband",
+    label: "Wristbands",
+    hint: "Print quarterback wristband cards from your Season Grid or a playbook.",
+  },
+  {
     to: "/starters",
     icon: "sparkle",
     label: "Starter plays",
     hint: "Fifty-six ready-made plays you can copy and edit as your own.",
   },
+  {
+    to: "/language",
+    icon: "language",
+    label: "Playbook language",
+    hint: "Your own names for formations, routes and calls.",
+  },
+];
+
+const ACCOUNT_NAV: NavItem[] = [
+  { to: "/pricing", icon: "sparkle", label: "Plans", hint: "Compare plans and see what your plan includes." },
+  { to: "/account", icon: "user", label: "Your account", hint: "Your name, plan, exports and data." },
+  { to: "/help", icon: "help", label: "Help & feedback", hint: "Get help, report a problem or tell us what to improve." },
 ];
 
 export function Shell({ title, actions, children }: Props) {
@@ -76,31 +103,18 @@ export function Shell({ title, actions, children }: Props) {
 
         <nav className="rail-group" aria-labelledby="rail-playbook">
           <p id="rail-playbook">Playbook</p>
-          {NAV.map((item) => (
-            <Tooltip key={item.to} title={item.label} hint={item.hint}>
-              <NavLink
-                to={item.to}
-                className={({ isActive }) => `rail-link${isActive ? " is-active" : ""}`}
-                onClick={() => setOpen(false)}
-              >
-                <Icon name={item.icon} size={16} />
-                {item.label}
-                {item.to === "/vault" && plays.length > 0 && <b>{plays.length}</b>}
-              </NavLink>
-            </Tooltip>
+          {PLAYBOOK_NAV.map((item) => (
+            <RailLink key={item.to} item={item} onNavigate={() => setOpen(false)}>
+              {item.to === "/vault" && plays.length > 0 && <b>{plays.length}</b>}
+            </RailLink>
           ))}
         </nav>
 
         <nav className="rail-group" aria-labelledby="rail-account">
           <p id="rail-account">Account</p>
-          <NavLink to="/pricing" className={({ isActive }) => `rail-link${isActive ? " is-active" : ""}`}>
-            <Icon name="sparkle" size={16} />
-            Plans
-          </NavLink>
-          <NavLink to="/account" className={({ isActive }) => `rail-link${isActive ? " is-active" : ""}`}>
-            <Icon name="user" size={16} />
-            Your account
-          </NavLink>
+          {ACCOUNT_NAV.map((item) => (
+            <RailLink key={item.to} item={item} onNavigate={() => setOpen(false)} />
+          ))}
         </nav>
 
         <div className="rail-foot">
@@ -166,6 +180,22 @@ export function Shell({ title, actions, children }: Props) {
         <main id="main">{children}</main>
       </div>
     </div>
+  );
+}
+
+function RailLink({ item, onNavigate, children }: { item: NavItem; onNavigate: () => void; children?: React.ReactNode }) {
+  return (
+    <Tooltip title={item.label} hint={item.hint}>
+      <NavLink
+        to={item.to}
+        className={({ isActive }) => `rail-link${isActive ? " is-active" : ""}`}
+        onClick={onNavigate}
+      >
+        <Icon name={item.icon} size={16} />
+        {item.label}
+        {children}
+      </NavLink>
+    </Tooltip>
   );
 }
 
