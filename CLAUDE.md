@@ -62,7 +62,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 
 ## Conventions
 
-- **Styling:** plain CSS. Design tokens live only in `src/styles/tokens.css` (mirrors the Grid1ronVault design system); `global.css` consumes them. Change a value in tokens, not in component styles. Fonts: Saira Condensed, Barlow, IBM Plex Mono (Google Fonts, loaded in `index.html`).
+- **Styling:** plain CSS. Design tokens live only in `src/styles/tokens.css`; `global.css` consumes them. **The Grid1ron Design canvas (https://claude.ai/artifact/6gfQeotou5QDBHLrA4P8vn) is the source of truth** for every screen, color, font and size; the Grid1ronVault design system artifact is a reference only, and the canvas wins where they differ. Change a value in tokens, not in component styles. Fonts: Saira Condensed, Barlow, IBM Plex Mono (Google Fonts, loaded in `index.html`).
 - **Colors in scene data** are hex constants in `types.ts` (`PALETTE`, `FIRST_READ`, `STROKE_WEIGHTS`) and `presets.ts` (position colors: Q black · C cyan · X blue · Y red · Z green · H orange · S light purple), since they are serialised into saved plays and exports.
 - **Copy:** user-facing text speaks to "coach", is specific and action-oriented, and never leaks raw library/server errors. `docs/copy-audit.md` records the standard and past fixes.
 - **Accessibility:** WCAG 2.1 AA. Reuse `Modal` (focus trap, Escape, `aria-labelledby`), `Tooltip` (`aria-describedby`) and `Panel` (`aria-expanded`) rather than building new ones. `docs/accessibility.md` is the record of what was fixed and why.

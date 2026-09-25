@@ -1,7 +1,8 @@
 /* ============================================================
    Grid1ronVault design tokens — the one shared source.
-   Mirrors the Grid1ronVault design system (tokens.json). Change a
-   value here, not in component styles. Loaded before global.css.
+   Values follow the Grid1ron Design canvas (the source of truth; the
+   design system artifact is a reference only). Change a value here, not
+   in component styles. Loaded before global.css.
    ============================================================ */
 :root {
   /* ---- Color: ink ramp (dark grounds) ---- */
