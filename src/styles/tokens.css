@@ -58,6 +58,16 @@
   --defense-bg: #e8f3fb;
   --special-bg: #ecf0f4; /* text: --ink-4 */
 
+  /* ---- Color: default position colors (fill / letter) ----
+     Mirrors OFFENSE_TOKENS in src/lib/presets.ts, which draws the players. */
+  --pos-q: #111111;    --pos-q-text: #fff;
+  --pos-c: #16c8e8;    --pos-c-text: #04212a; /* square */
+  --pos-x: #1e4fd8;    --pos-x-text: #fff;
+  --pos-y: #d24b3e;    --pos-y-text: #fff;
+  --pos-z: #1d7a50;    --pos-z-text: #fff;
+  --pos-h: #f28c28;    --pos-h-text: #0b1524; /* running back */
+  --pos-s: #c9b8f5;    --pos-s-text: #0b1524;
+
   /* ---- Color: semantic layer (flips with theme) ---- */
   --surface: var(--paper);
   --surface-raised: var(--white);
