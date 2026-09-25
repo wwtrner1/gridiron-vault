@@ -1,0 +1,136 @@
+/* ============================================================
+   Grid1ronVault design tokens — the one shared source.
+   Mirrors the Grid1ronVault design system (tokens.json). Change a
+   value here, not in component styles. Loaded before global.css.
+   ============================================================ */
+:root {
+  /* ---- Color: ink ramp (dark grounds) ---- */
+  --ink: #0b1524;
+  --ink-2: #122036;
+  --ink-3: #1b2e49;
+  --ink-4: #26405f; /* strong line on light only; never text on ink */
+
+  /* ---- Color: the accent ---- */
+  --cyan: #16c8e8;
+  --cyan-2: #0fa8c4; /* pressed state, primary button lip */
+  --cyan-hover: #2fd6f2;
+  /* App value kept; the design system lists #127b8f. Both clear AA on white. */
+  --cyan-ink: #0b8096; /* cyan as text on white */
+  --cyan-soft: #e3f8fd;
+  --on-cyan: #04212a; /* text on a cyan fill */
+
+  /* ---- Color: light grounds and lines ---- */
+  --paper: #f5f8fa;
+  --white: #fff;
+  --border: #dde5ec;
+  --border-2: #eef3f6;
+
+  /* ---- Color: secondary text ---- */
+  /* App value kept; the design system currently lists #0e5b9c (a blue). */
+  --muted: #60788c; /* on white / paper */
+  --muted-2: #8fa6bb; /* on ink / ink-2 */
+  --rail-text: #b6cadb;
+  --panel-head: #9fb8cb;
+  --tool-icon: #a8c1d4;
+
+  /* ---- Color: status fills ---- */
+  --green: #2e9e6b;
+  --amber: #d99a28;
+  --red: #d24b3e;
+  --violet: #7a6bd2;
+
+  /* ---- Color: pill pairs (text on tint) ---- */
+  --green-fg: #1d7a50;
+  --green-bg: #e4f4ec;
+  --amber-fg: #83662e;
+  --amber-bg: #fdf2dd;
+  --red-fg: #9e3428;
+  --red-bg: #fbe8e6;
+  --violet-fg: #4f429c;
+  --violet-bg: #ecebfa;
+  --pill-dark-fg: #cfe2f0;
+
+  /* ---- Color: play-type coding ---- */
+  --pass-fg: #0a6c80; /* on --cyan-soft */
+  --run-fg: #97382c;
+  --run-bg: #fdeee9;
+  --defense-fg: #1c567f;
+  --defense-bg: #e8f3fb;
+  --special-bg: #ecf0f4; /* text: --ink-4 */
+
+  /* ---- Color: semantic layer (flips with theme) ---- */
+  --surface: var(--paper);
+  --surface-raised: var(--white);
+  --surface-sunken: var(--border-2);
+  --text: var(--ink);
+  --text-muted: var(--muted);
+  --line: var(--border);
+  --accent-text: var(--cyan-ink);
+
+  /* ---- Type: families ---- */
+  --display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* ---- Type: scale (size / line-height) ---- */
+  --fs-display-hero: 74px;  --lh-display-hero: 0.98;
+  --fs-heading-1: 46px;     --lh-heading-1: 1.04;
+  --fs-heading-2: 30px;     --lh-heading-2: 1.04;
+  --fs-stat-number: 34px;
+  --fs-button: 14px;
+  --fs-panel-label: 12.5px;
+  --fs-lede: 16px;          --lh-lede: 1.6;
+  --fs-body: 15px;          --lh-body: 1.5;
+  --fs-body-ui: 14px;
+  --fs-small: 13.5px;
+  --fs-eyebrow: 10px;
+  --fs-mono: 12px;
+
+  /* ---- Spacing ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-20: 80px;
+
+  /* ---- Radii ---- */
+  --radius-xs: 4px; /* pills, badges, focus outline */
+  --radius-sm: 5px; /* swatches */
+  --radius-md: 7px; /* buttons, inputs, tool buttons */
+  --radius-lg: 10px; /* cards, stage frame */
+  --radius-xl: 12px; /* window frames */
+  --radius-2xl: 13px; /* modals */
+  --radius-round: 50%; /* player tokens, avatars */
+
+  /* ---- Shadows ---- */
+  --shadow-s: 0 1px 2px rgba(11, 21, 36, 0.06);
+  --shadow-m: 0 6px 18px rgba(11, 21, 36, 0.09);
+  --shadow-l: 0 24px 60px rgba(11, 21, 36, 0.22);
+  --shadow-press: 0 2px 0 var(--cyan-2);
+  --shadow-focus-halo: 0 0 0 3px var(--cyan-soft);
+
+  /* ---- Layout ---- */
+  --rail-width: 232px;
+  --rail: var(--rail-width);
+  --control-height: 38px;
+  --control-height-sm: 30px;
+  --control-height-lg: 46px;
+  --content-max: 1280px;
+  --nav-height: 68px;
+}
+
+/* Dark theme for the semantic layer. Nothing sets data-theme yet; surfaces
+   that are always dark (rail, builder, hero) use the ink ramp directly. */
+[data-theme="dark"] {
+  --surface: var(--ink);
+  --surface-raised: #133466;
+  --surface-sunken: #08101c;
+  --text: var(--white);
+  --text-muted: #edf6ff;
+  --line: var(--ink-3);
+  --accent-text: var(--cyan);
+}
