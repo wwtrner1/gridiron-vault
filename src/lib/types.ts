@@ -55,6 +55,8 @@ export type PathNode = NodeCommon & {
   /** Auto-connect lines remember the tokens they join and follow them. */
   fromId: string | null;
   toId: string | null;
+  /** The quarterback's first read. Drawn in FIRST_READ; at most one per play. */
+  firstRead?: boolean;
 };
 
 export type ShapeNode = NodeCommon & {
@@ -163,6 +165,9 @@ export const PALETTE = [
   "#667F94",
   "#FFFFFF",
 ];
+
+/** Route colour for the first read (design token --cyan-2). */
+export const FIRST_READ = "#0FA8C4";
 
 /** Grid1ronVault ink weights — thicker than the old cards so plays read across a huddle. */
 export const STROKE_WEIGHTS = [2.6, 3.4, 4.4, 5.6];

@@ -228,7 +228,23 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             </>
           )}
 
-          {one?.kind === "path" && <PathFields node={one} patch={patch} />}
+          {one?.kind === "path" && (
+            <PathFields
+              node={one}
+              patch={patch}
+              onFirstRead={(on) =>
+                onScene(
+                  {
+                    ...scene,
+                    nodes: scene.nodes.map((n) =>
+                      n.kind !== "path" ? n : n.id === one.id ? { ...n, firstRead: on } : on && n.firstRead ? { ...n, firstRead: false } : n,
+                    ),
+                  },
+                  "First read",
+                )
+              }
+            />
+          )}
           {one?.kind === "shape" && <ShapeFields node={one} patch={patch} />}
           {one?.kind === "text" && <TextFields node={one} patch={patch} />}
 
@@ -332,9 +348,13 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
 
 type PatchFn = (changes: Partial<SceneNode> | ((n: SceneNode) => Partial<SceneNode>), label?: string) => void;
 
-function PathFields({ node, patch }: { node: PathNode; patch: PatchFn }) {
+function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: PatchFn; onFirstRead: (on: boolean) => void }) {
   return (
     <>
+      <label className="switch">
+        <input type="checkbox" checked={!!node.firstRead} onChange={(e) => onFirstRead(e.target.checked)} />
+        First read (draws this route in cyan)
+      </label>
       <p className="mini-label" style={{ color: "var(--muted)" }}>Line weight</p>
       <div className="chip-row">
         {STROKE_WEIGHTS.map((w) => (

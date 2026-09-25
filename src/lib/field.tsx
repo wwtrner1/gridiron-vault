@@ -5,12 +5,12 @@ type Props = { view: FieldView; losY: number };
 
 /* Grid1ronVault field: paper-white turf, cool navy chalk. Prints clean at any size. */
 const TURF = "#FFFFFF";
-const BAND = "#F4F8FA";
+const BAND = "#F5F8FA"; // --paper
 const CHALK = "#CBDAE4";
 const CHALK_SOFT = "#E4ECF1";
-const NUMBERS = "#AFC2D0";
-const NAVY = "#0B1524";
-const CYAN = "#16C8E8";
+const NUMBERS = "#8FA6BB"; // --muted-2
+const NAVY = "#0B1524"; // --ink
+const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
 /** Yard spacing for each view, in canvas units per 5 yards. */
 const SPACING: Record<FieldView, number> = {
@@ -84,16 +84,17 @@ export function FieldBackground({ view, losY }: Props) {
               />
               {numbered && i % 2 === 1 && (
                 <>
-                  <text x={inset + 32} y={y - 7} fontSize={16} fill={NUMBERS} fontWeight={800} letterSpacing="2.5">
+                  <text x={inset + 32} y={y - 7} fontSize={15} fill={NUMBERS} fontWeight={600} fontFamily={MONO} letterSpacing="1">
                     {Math.min(50, (i + 1) * 5)}
                   </text>
                   <text
                     x={CANVAS_W - inset - 32}
                     y={y - 7}
-                    fontSize={16}
+                    fontSize={15}
                     fill={NUMBERS}
-                    fontWeight={800}
-                    letterSpacing="2.5"
+                    fontWeight={600}
+                    fontFamily={MONO}
+                    letterSpacing="1"
                     textAnchor="end"
                   >
                     {Math.min(50, (i + 1) * 5)}
@@ -120,12 +121,11 @@ export function FieldBackground({ view, losY }: Props) {
         y2={losY}
         stroke={NAVY}
         strokeWidth={2.6}
-        strokeDasharray="10 7"
-        opacity={0.5}
+        strokeDasharray="13 10"
       />
       <g>
-        <rect x={inset + 4} y={losY - 23} width={132} height={16} rx={3} fill={NAVY} opacity={0.9} />
-        <text x={inset + 10} y={losY - 11} fontSize={10} fill={CYAN} fontWeight={800} letterSpacing="1.8">
+        <rect x={inset + 4} y={losY - 25} width={148} height={20} rx={4} fill={NAVY} />
+        <text x={inset + 12} y={losY - 11} fontSize={11.5} fill="#FFFFFF" fontWeight={600} fontFamily={MONO} letterSpacing="1.2">
           LINE OF SCRIMMAGE
         </text>
       </g>
