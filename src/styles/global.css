@@ -137,6 +137,8 @@ footer.mkt a:focus-visible,
 .rail-user div { min-width: 0; }
 .rail-user strong { display: block; font-size: 13px; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-user small { font-size: 11px; color: var(--muted-2); }
+.rail-user .btn-quiet { color: var(--muted-2); }
+.rail-user .btn-quiet:hover { color: var(--white); }
 
 .work { display: flex; flex-direction: column; min-width: 0; }
 .topbar {
