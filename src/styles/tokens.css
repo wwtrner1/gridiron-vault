@@ -14,8 +14,7 @@
   --cyan: #16c8e8;
   --cyan-2: #0fa8c4; /* pressed state, primary button lip */
   --cyan-hover: #2fd6f2;
-  /* App value kept; the design system lists #127b8f. Both clear AA on white. */
-  --cyan-ink: #0b8096; /* cyan as text on white */
+  --cyan-ink: #127b8f; /* cyan as text on white (4.9:1; 4.6:1 on paper) */
   --cyan-soft: #e3f8fd;
   --on-cyan: #04212a; /* text on a cyan fill */
 
@@ -26,8 +25,7 @@
   --border-2: #eef3f6;
 
   /* ---- Color: secondary text ---- */
-  /* App value kept; the design system currently lists #0e5b9c (a blue). */
-  --muted: #60788c; /* on white / paper */
+  --muted: #0e5b9c; /* secondary text on white (7.0:1) / paper (6.6:1) */
   --muted-2: #8fa6bb; /* on ink / ink-2 */
   --rail-text: #b6cadb;
   --panel-head: #9fb8cb;

@@ -136,7 +136,9 @@ footer.mkt a:focus-visible,
 .avatar { width: 30px; height: 30px; border-radius: var(--radius-round); background: var(--cyan); color: var(--on-cyan); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 13px; flex: none; }
 .rail-user div { min-width: 0; }
 .rail-user strong { display: block; font-size: 13px; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rail-user small { font-size: 11px; color: var(--muted); }
+.rail-user small { font-size: 11px; color: var(--muted-2); }
+.rail-user .btn-quiet { color: var(--muted-2); }
+.rail-user .btn-quiet:hover { color: var(--white); }
 
 .work { display: flex; flex-direction: column; min-width: 0; }
 .topbar {
@@ -365,7 +367,7 @@ ul.suggest { position: absolute; z-index: 60; min-width: 150px; max-height: 190p
 .hero h1 em { font-style: normal; color: var(--cyan); }
 .hero p.lede { color: var(--tool-icon); font-size: clamp(16px, 1.5vw, 19px); max-width: 52ch; margin-top: 20px; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 28px; }
-.hero-note { margin-top: 15px; font-size: 13px; color: var(--muted); }
+.hero-note { margin-top: 15px; font-size: 13px; color: var(--muted-2); }
 .hero-art { border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--ink-3); box-shadow: var(--shadow-l); background: var(--white); }
 .hero-art > svg { display: block; width: 100%; height: auto; }
 .trust { display: flex; flex-wrap: wrap; gap: 26px; padding: 18px clamp(18px, 4vw, 54px); background: var(--ink-2); color: var(--muted-2); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
@@ -390,7 +392,7 @@ ul.suggest { position: absolute; z-index: 60; min-width: 150px; max-height: 190p
 .cta-band { background: var(--ink); color: var(--white); padding: clamp(44px, 6vw, 76px) clamp(18px, 4vw, 54px); text-align: center; }
 .cta-band h2 { font-size: clamp(30px, 4.4vw, 50px); text-transform: uppercase; }
 .cta-band p { color: var(--muted-2); margin: 12px auto 24px; max-width: 46ch; }
-footer.mkt { background: #060e18; color: var(--muted); padding: 34px clamp(18px, 4vw, 54px); display: flex; flex-wrap: wrap; gap: 18px; align-items: center; font-size: 13px; }
+footer.mkt { background: #060e18; color: var(--muted-2); padding: 34px clamp(18px, 4vw, 54px); display: flex; flex-wrap: wrap; gap: 18px; align-items: center; font-size: 13px; }
 footer.mkt .spacer { margin-left: auto; }
 footer.mkt a:hover { color: var(--cyan); }
 
