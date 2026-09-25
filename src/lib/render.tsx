@@ -76,10 +76,10 @@ function PlayerGlyph({ node }: { node: PlayerNode }) {
           y={0}
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize={node.size * 0.52}
-          fontWeight={800}
+          fontSize={node.size * 0.6}
+          fontWeight={700}
           fill={node.textColor}
-          fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+          fontFamily="'Saira Condensed', 'Arial Narrow', sans-serif"
         >
           {node.label}
         </text>
@@ -150,7 +150,7 @@ function TextGlyph({ node }: { node: TextNode }) {
         fontSize={node.fontSize}
         fontWeight={node.weight}
         fill={node.color}
-        fontFamily="'Manrope', system-ui, sans-serif"
+        fontFamily="'Barlow', system-ui, sans-serif"
       >
         {node.text}
       </text>

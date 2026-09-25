@@ -806,10 +806,10 @@ function TokenGlyph({ preset }: { preset: TokenPreset }) {
         <text
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize={11}
-          fontWeight={800}
+          fontSize={12}
+          fontWeight={700}
           fill={preset.textColor}
-          fontFamily="IBM Plex Mono, monospace"
+          fontFamily="'Saira Condensed', 'Arial Narrow', sans-serif"
         >
           {preset.label}
         </text>
