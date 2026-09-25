@@ -5,25 +5,13 @@ import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PlayThumb } from "../components/PlayThumb";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
+import { DesignerTour } from "./home/DesignerTour";
 import "../styles/home.css";
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
-const FEATURE_PLAYS = [9, 30, 43, 53];
+const FEATURE_PLAYS = [30, 43, 53];
 
 const FEATURES = [
-  {
-    icon: "cursor",
-    kicker: "The designer",
-    title: "Draw a play the way you draw on a whiteboard",
-    body: "Drag tokens where you want them. Pull a route and it snaps into an arrow. Multi-select, duplicate-by-drag, rotate, scale from any anchor, click through a group to grab one man — the moves you already know from PowerPoint, aimed at a football field.",
-    points: [
-      "Solid, dashed, block and motion lines",
-      "Bezier nodes for the routes that bend",
-      "Auto-connect for handoffs and coverage",
-    ],
-    to: "/build",
-    cta: "Open the designer",
-  },
   {
     icon: "table",
     kicker: "The call sheet",
@@ -161,7 +149,9 @@ export function Landing() {
           <p>Draw a play once. It shows up in the Vault, drops into your call sheet, and prints at any size.</p>
         </section>
 
-        <section className="section" id="designer" aria-labelledby="tools-h">
+        <DesignerTour />
+
+        <section className="section" aria-label="More tools">
           <div className="feature-zig">
             {FEATURES.map((f, i) => (
               <article className={`feature-row${i % 2 ? " is-flip" : ""}`} key={f.title}>
