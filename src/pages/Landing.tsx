@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { Mark } from "../components/Shell";
+import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PlayThumb } from "../components/PlayThumb";
-import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
 
@@ -84,44 +84,20 @@ const STEPS = [
 ];
 
 export function Landing() {
-  const { account } = useAuth();
   const scene = starterScene(HERO_PLAY);
+  const { hash } = useLocation();
+
+  // The shared nav links to /#how from any page; scroll there once the section exists.
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash]);
 
   return (
     <div className="marketing">
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
-      <header className="mkt-nav">
-        <Link to="/" className="mkt-brand">
-          <Mark size={30} />
-          <span>
-            Grid1ron<b>Vault</b>
-          </span>
-        </Link>
-        <nav aria-label="Main">
-          <a href="#designer">Designer</a>
-          <a href="#how">How it works</a>
-          <Link to="/starters">Starter plays</Link>
-          <Link to="/pricing">Pricing</Link>
-        </nav>
-        <div className="mkt-nav-actions">
-          {account ? (
-            <Link to="/vault" className="btn btn-primary btn-sm">
-              Your Vault
-            </Link>
-          ) : (
-            <>
-              <Link to="/signin" className="btn btn-quiet btn-sm">
-                Sign in
-              </Link>
-              <Link to="/build" className="btn btn-primary btn-sm">
-                Draw a play free
-              </Link>
-            </>
-          )}
-        </div>
-      </header>
+      <MarketingNav />
 
       <main id="main">
         <section className="hero">
@@ -271,43 +247,7 @@ export function Landing() {
         </section>
       </main>
 
-      <footer className="mkt">
-        <h2 className="sr-only">Site footer</h2>
-        <div className="mkt-foot-inner">
-          <div className="mkt-foot-brand">
-            <Mark size={26} />
-            <span>
-              Grid1ron<b>Vault</b>
-            </span>
-            <small>Playbook studio for 5-on-5 flag football.</small>
-          </div>
-          <div className="mkt-foot-cols">
-            <nav aria-labelledby="foot-product">
-              <h3 id="foot-product">Product</h3>
-              <Link to="/build">Designer</Link>
-              <Link to="/grid">Season Grid</Link>
-              <Link to="/vault">The Vault</Link>
-              <Link to="/playbooks">Playbooks</Link>
-            </nav>
-            <nav aria-labelledby="foot-learn">
-              <h3 id="foot-learn">Learn</h3>
-              <Link to="/starters">Starter plays</Link>
-              <Link to="/starters">Route tree</Link>
-              <Link to="/pricing">Plans</Link>
-            </nav>
-            <nav aria-labelledby="foot-account">
-              <h3 id="foot-account">Account</h3>
-              <Link to="/signin">Sign in</Link>
-              <Link to="/signin">Create an account</Link>
-              <Link to="/account">Your account</Link>
-            </nav>
-          </div>
-          <p className="mkt-legal">
-            Grid1ronVault is an independent tool. It is not affiliated with, endorsed by, or sponsored by any league or governing
-            body. Diagrams and terminology are provided for coaching and teaching use.
-          </p>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

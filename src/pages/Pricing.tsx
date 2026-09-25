@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { Mark } from "../components/Shell";
-import { useAuth } from "../lib/auth";
+import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { tierStore, useTier } from "../lib/tier";
@@ -88,7 +87,6 @@ const FAQ = [
 ];
 
 export function Pricing() {
-  const { account } = useAuth();
   const tier = useTier();
   const toast = useToast();
 
@@ -106,30 +104,7 @@ export function Pricing() {
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
-      <header className="mkt-nav">
-        <Link to="/" className="mkt-brand">
-          <Mark size={30} />
-          <span>
-            Grid1ron<b>Vault</b>
-          </span>
-        </Link>
-        <nav aria-label="Main">
-          <Link to="/starters">Starter plays</Link>
-          <Link to="/build">Designer</Link>
-          <Link to="/pricing">Pricing</Link>
-        </nav>
-        <div className="mkt-nav-actions">
-          {account ? (
-            <Link to="/vault" className="btn btn-primary btn-sm">
-              Your Vault
-            </Link>
-          ) : (
-            <Link to="/signin" className="btn btn-primary btn-sm">
-              Create an account
-            </Link>
-          )}
-        </div>
-      </header>
+      <MarketingNav />
 
       <main id="main">
         <section className="price-head">
@@ -251,6 +226,7 @@ export function Pricing() {
           </Link>
         </section>
       </main>
+      <MarketingFooter />
     </div>
   );
 }
