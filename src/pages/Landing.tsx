@@ -10,22 +10,9 @@ import { FeatureSection } from "./home/FeatureSection";
 import "../styles/home.css";
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
-const FEATURE_PLAYS = [43, 53];
+const FEATURE_PLAYS = [53];
 
 const FEATURES = [
-  {
-    icon: "print",
-    kicker: "Export and print",
-    title: "From a wristband to a binder",
-    body: "One diagram, every size. Six, eight or ten plays on a wristband card. Full 8.5 × 11 landscape with the coaching notes underneath for the three-ring binder. PNG at 600 DPI when you want it on a banner.",
-    points: [
-      "Wristband cards at 6, 8 or 10 per sheet",
-      "Letter PDFs with notes under the diagram",
-      "High-resolution PNG, JPEG and raw SVG",
-    ],
-    to: "/starters",
-    cta: "See the starter plays",
-  },
   {
     icon: "board",
     kicker: "The Vault",
@@ -156,6 +143,21 @@ export function Landing() {
             "Rename columns, color-code rows and let it learn your shorthand",
           ]}
           cta={{ to: "/grid", label: "Build a call sheet" }}
+        />
+
+        <FeatureSection
+          id="export"
+          visual="exportPrint"
+          ground="paper"
+          eyebrow="Export and print"
+          title="From a wristband to a binder"
+          body="One diagram, every size. Six, eight or ten plays on a wristband card. Full 8.5 × 11 landscape with the coaching notes underneath for the three-ring binder. PNG at 600 DPI when you want it on a banner."
+          points={[
+            "Wristband cards at 6, 8 or 10 per sheet",
+            "Letter PDFs with notes under the diagram",
+            "High-resolution PNG, JPEG and raw SVG",
+          ]}
+          cta={{ to: "/starters", label: "See the starter plays" }}
         />
 
         <section className="section" aria-label="More tools">
