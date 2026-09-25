@@ -1,0 +1,192 @@
+export type Point = { x: number; y: number };
+
+export type FieldView = "full" | "half" | "redzone" | "flag" | "blank";
+
+export type PlayerShape =
+  | "circle"
+  | "square"
+  | "triangle"
+  | "diamond"
+  | "cross"
+  | "ball";
+
+export type LineStyle = "solid" | "dashed" | "dotted" | "motion";
+export type LineCurve = "straight" | "spline" | "bezier";
+export type EndCap = "none" | "arrow" | "tee" | "dot" | "chevron";
+
+type NodeCommon = {
+  id: string;
+  x: number;
+  y: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  z: number;
+  groupId: string | null;
+  locked: boolean;
+  hidden: boolean;
+  name: string;
+};
+
+export type PlayerNode = NodeCommon & {
+  kind: "player";
+  shape: PlayerShape;
+  label: string;
+  size: number;
+  fill: string;
+  stroke: string;
+  textColor: string;
+  side: "offense" | "defense" | "ball";
+};
+
+export type PathNode = NodeCommon & {
+  kind: "path";
+  points: Point[];
+  handles: Record<number, Point>; // bezier control offsets, keyed by point index
+  style: LineStyle;
+  curve: LineCurve;
+  startCap: EndCap;
+  endCap: EndCap;
+  stroke: string;
+  width: number;
+  closed: boolean;
+  fill: string;
+  fillOpacity: number;
+  /** Auto-connect lines remember the tokens they join and follow them. */
+  fromId: string | null;
+  toId: string | null;
+};
+
+export type ShapeNode = NodeCommon & {
+  kind: "shape";
+  shapeType: "rect" | "ellipse" | "polygon";
+  w: number;
+  h: number;
+  sides: number;
+  fill: string;
+  fillOpacity: number;
+  stroke: string;
+  width: number;
+  dash: LineStyle;
+  radius: number;
+};
+
+export type TextNode = NodeCommon & {
+  kind: "text";
+  text: string;
+  fontSize: number;
+  color: string;
+  weight: number;
+  align: "start" | "middle" | "end";
+  boxed: boolean;
+};
+
+export type SceneNode = PlayerNode | PathNode | ShapeNode | TextNode;
+
+export type Scene = {
+  version: 2;
+  view: FieldView;
+  width: number;
+  height: number;
+  losY: number;
+  /** Fixed rotation centre dropped by the Pivot Point tool. */
+  pivot: Point | null;
+  nodes: SceneNode[];
+};
+
+export type PlayMeta = {
+  name: string;
+  formation: string;
+  playType: "pass" | "run" | "defense" | "special";
+  personnel: string;
+  description: string;
+  tags: string[];
+  isPublic: boolean;
+};
+
+export type StoredPlay = PlayMeta & {
+  id: string;
+  ownerName: string;
+  fieldView: FieldView;
+  scene: Scene;
+  preview: string;
+  saveCount: number;
+  updatedAt: string;
+  remote: boolean;
+};
+
+export const CANVAS_W = 1040;
+export const CANVAS_H = 660;
+
+export const FORMATIONS = [
+  "Single Back",
+  "Spread",
+  "Bunch",
+  "Trips",
+  "Trips Stack",
+  "Twins",
+  "Twins Stack",
+  "I Formation",
+  "Double Back",
+  "Single Set",
+  "Empty",
+  "Goal Line",
+  "Defense",
+];
+
+export const ROUTE_TREE = [
+  "Flat",
+  "Slant",
+  "Hitch",
+  "Out",
+  "In / Dig",
+  "Corner",
+  "Post",
+  "Fly / Go",
+  "Drag",
+  "Cross",
+  "Wheel",
+  "Chair",
+  "Option",
+  "Screen",
+  "Jet",
+];
+
+export const PALETTE = [
+  "#0B1524",
+  "#16C8E8",
+  "#D24B3E",
+  "#F2A63B",
+  "#2E9E6B",
+  "#7A6BD2",
+  "#2E7DBE",
+  "#667F94",
+  "#FFFFFF",
+];
+
+/** Grid1ronVault ink weights — thicker than the old cards so plays read across a huddle. */
+export const STROKE_WEIGHTS = [2.6, 3.4, 4.4, 5.6];
+export const DEFAULT_STROKE = 3.4;
+
+let counter = 0;
+export const uid = (prefix = "n") =>
+  `${prefix}_${Date.now().toString(36)}${(counter++).toString(36)}${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+
+export function baseNode(overrides: Partial<NodeCommon> = {}): NodeCommon {
+  return {
+    id: uid(),
+    x: 0,
+    y: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    z: 0,
+    groupId: null,
+    locked: false,
+    hidden: false,
+    name: "",
+    ...overrides,
+  };
+}

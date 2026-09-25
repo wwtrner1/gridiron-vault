@@ -1,0 +1,81 @@
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { ToastProvider } from "./lib/toast";
+import { Landing } from "./pages/Landing";
+import { Pricing } from "./pages/Pricing";
+import { Builder } from "./pages/Builder";
+import { Vault } from "./pages/Vault";
+import { Playbooks } from "./pages/Playbooks";
+import { SeasonGrid } from "./pages/SeasonGrid";
+import { Starters } from "./pages/Starters";
+import { Account } from "./pages/Account";
+import { SignIn } from "./pages/SignIn";
+import { NotFound } from "./pages/NotFound";
+
+const TITLES: Record<string, string> = {
+  "/": "Grid1ronVault — Flag football playbook studio",
+  "/build": "Designer — Grid1ronVault",
+  "/vault": "The Vault — Grid1ronVault",
+  "/playbooks": "Playbooks — Grid1ronVault",
+  "/grid": "Season Grid — Grid1ronVault",
+  "/starters": "Starter plays — Grid1ronVault",
+  "/pricing": "Plans — Grid1ronVault",
+  "/account": "Your account — Grid1ronVault",
+  "/signin": "Sign in — Grid1ronVault",
+};
+
+const NAMES: Record<string, string> = {
+  "/": "Home",
+  "/build": "Designer",
+  "/vault": "The Vault",
+  "/playbooks": "Playbooks",
+  "/grid": "Season Grid",
+  "/starters": "Starter plays",
+  "/pricing": "Plans",
+  "/account": "Your account",
+  "/signin": "Sign in",
+};
+
+/**
+ * A single-page app swaps the view without a page load, so a screen reader
+ * gets no announcement. This sets the document title and speaks the new page
+ * name through a live region.
+ */
+function RouteChrome() {
+  const { pathname } = useLocation();
+  const [spoken, setSpoken] = useState("");
+  useEffect(() => {
+    const key = pathname.startsWith("/build") ? "/build" : pathname;
+    document.title = TITLES[key] ?? "Grid1ronVault";
+    setSpoken(`${NAMES[key] ?? "Page not found"} page`);
+    if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
+  }, [pathname]);
+  return (
+    <p className="sr-only" role="status" aria-live="polite">
+      {spoken}
+    </p>
+  );
+}
+
+export function App() {
+  return (
+    <ToastProvider>
+      <RouteChrome />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/build" element={<Builder />} />
+        <Route path="/build/:id" element={<Builder />} />
+        <Route path="/vault" element={<Vault />} />
+        <Route path="/playbooks" element={<Playbooks />} />
+        <Route path="/grid" element={<SeasonGrid />} />
+        <Route path="/grid/:id" element={<SeasonGrid />} />
+        <Route path="/starters" element={<Starters />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/login" element={<Navigate to="/signin" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ToastProvider>
+  );
+}
