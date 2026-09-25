@@ -216,3 +216,37 @@
 @media (max-width: 620px) {
   .home-feature-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Feature rows: call sheet, export, Vault, game film ---- */
+.home-feature-row {
+  display: flex;
+  flex-direction: row-reverse; /* art is first in the DOM; this draws it on the right */
+  align-items: center;
+  gap: 64px;
+  padding: var(--space-20) clamp(18px, 3.2vw, 46px);
+}
+.home-feature-row.art-left { flex-direction: row; }
+.home-feature-row.is-white { background: var(--white); }
+.home-feature-row.is-paper { background: var(--paper); }
+.home-feature-row.is-wide { gap: 56px; align-items: flex-start; }
+.home-feature-art { flex: 1; min-width: 0; overflow-x: auto; }
+.home-feature-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.home-feature-row.is-wide .home-feature-art { flex: 1.1; }
+.home-feature-row.is-wide .home-feature-copy { flex: 0.9; }
+.home-feature-row h2 {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, var(--fs-heading-1));
+  line-height: var(--lh-heading-1);
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+.home-feature-body { margin: 0; max-width: 520px; font-size: var(--fs-lede); line-height: 1.6; color: var(--muted); }
+.home-checks { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; font-size: 15px; }
+.home-checks li { display: flex; align-items: center; gap: 10px; }
+.home-checks svg { flex: none; color: var(--cyan-ink); }
+
+@media (max-width: 1080px) {
+  .home-feature-row,
+  .home-feature-row.art-left { flex-direction: column-reverse; align-items: stretch; gap: 36px; }
+  .home-feature-row .home-feature-art { width: 100%; }
+}
