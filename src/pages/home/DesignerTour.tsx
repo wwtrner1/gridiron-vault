@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { DESIGNER_FEATURES } from "./designerTour";
+import { DESIGNER_FEATURES } from "./designerSlides";
 
 /**
  * Home's "The Designer" section: eight features on the left, a slide per
