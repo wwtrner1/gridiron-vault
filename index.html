@@ -2,95 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#071327" />
-    <meta name="robots" content="noindex,nofollow,noarchive" />
-    <meta
-      name="description"
-      content="Grid1ronVault is a private sideline playbook. Browse 56 route cards by formation, search by play name, and open a print-true preview sized to 4.5 by 2.02 inches."
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1524" />
+    <title>Grid1ronVault — Flag Football Playbook Studio</title>
+    <meta name="description" content="Draw plays, build your Vault, and print wristbands. The playbook studio built for the flag football sideline." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Grid1ronVault" />
+    <meta property="og:title" content="Grid1ronVault — Flag Football Playbook Studio" />
+    <meta property="og:description" content="Draw plays, build your Vault, and print wristbands. Built for the flag football sideline." />
+    <meta property="og:image" content="/social-card.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/mark.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
     />
-    <title>Grid1ronVault — Private Playbook</title>
-    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#top">Skip to main content</a>
-
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="#top">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span><strong>Grid1ronVault</strong><small>PRIVATE PLAYBOOK</small></span>
-        </a>
-        <p class="privacy"><span aria-hidden="true"></span> Owner-only access</p>
-      </header>
-
-      <main id="top" tabindex="-1">
-        <section class="playbook-head" aria-labelledby="page-title">
-          <div>
-            <p class="eyebrow">SIDELINE LIBRARY</p>
-            <h1 id="page-title">Find the next call.<br />
-              <em>Fast.</em>
-            </h1>
-            <p class="lede">Browse all 56 source-derived cards by formation, search by play name, and open a print-true preview.</p>
-          </div>
-          <div class="ratio-card" role="group" aria-label="Card print specification">
-            <span class="ratio-icon" aria-hidden="true">4.5 × 2.02</span>
-            <div><strong>Print ratio verified</strong><small>2.2277 : 1 · exact card proportions</small></div>
-          </div>
-        </section>
-
-        <section class="library" aria-labelledby="library-title">
-          <div class="controls">
-            <div class="search-wrap">
-              <label class="sr-only" for="search">Search plays</label>
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
-              <input
-                id="search"
-                type="search"
-                placeholder="Search play or formation…"
-                autocomplete="off"
-                aria-describedby="search-hint"
-                aria-keyshortcuts="/"
-              />
-              <kbd aria-hidden="true">/</kbd>
-              <p id="search-hint" class="sr-only">Press the slash key to jump to this search box.</p>
-            </div>
-            <p class="count"><strong id="result-count">56</strong> cards</p>
-          </div>
-          <div class="filters" id="filters" role="group" aria-label="Filter by formation"></div>
-          <div class="section-line">
-            <div><p class="eyebrow">PLAY CARDS</p><h2 id="library-title">All formations</h2></div>
-            <button class="clear-button" id="clear-filter" type="button" hidden>Clear filter</button>
-          </div>
-          <p class="sr-only" id="result-status" role="status"></p>
-          <div class="play-grid" id="play-grid"></div>
-          <div class="empty-state" id="empty-state" hidden>
-            <span aria-hidden="true">00</span><h3>No plays found</h3><p>Try another play name or formation.</p>
-          </div>
-        </section>
-      </main>
-
-      <footer><span>GRID1RONVAULT</span><span>56 source cards · private workspace</span></footer>
-    </div>
-
-    <dialog id="preview-dialog" aria-labelledby="preview-title">
-      <div class="preview-shell">
-        <div class="preview-top">
-          <div aria-live="polite"><p id="preview-meta" class="eyebrow"></p><h2 id="preview-title"></h2></div>
-          <button class="icon-button" id="close-preview" type="button" aria-label="Close preview">×</button>
-        </div>
-        <div class="card-stage">
-          <button class="nav-button prev" id="previous-play" type="button" aria-label="Previous play">‹</button>
-          <figure class="print-card" id="print-card"><img id="preview-image" alt="" /></figure>
-          <button class="nav-button next" id="next-play" type="button" aria-label="Next play">›</button>
-        </div>
-        <div class="preview-bottom">
-          <div class="validation"><span aria-hidden="true">✓</span><div><strong>4.5 × 2.02 in</strong><small id="pixel-check">900 × 404 px · ratio checked</small></div></div>
-          <button id="print-button" class="print-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V3h10v5M7 17H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3m-10-4h10v8H7v-8Z" /></svg>Print this card</button>
-        </div>
-      </div>
-    </dialog>
-
-    <script src="./app.js" defer></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

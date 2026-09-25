@@ -1,0 +1,230 @@
+/**
+ * Grid1ronVault plans and entitlements.
+ *
+ * One module owns every gate so the UI, the export pipeline and the API all
+ * read the same rules. Plans are stored per-account; until billing is wired up
+ * the tier is read from the workspace so beta coaches can be upgraded by hand.
+ */
+
+export type TierId = "beta" | "free" | "solo" | "crew" | "program";
+
+export type Tier = {
+  id: TierId;
+  name: string;
+  blurb: string;
+  price: string;
+  cadence: string;
+  seats: string;
+  featured?: boolean;
+  /** Plays a coach may keep in their Vault. */
+  playLimit: number;
+  /** Season Grids they may keep. */
+  gridLimit: number;
+  /** Public Vault plays they may copy into their own Vault each month. */
+  copyLimit: number;
+  /** Export sizes unlocked, by id from EXPORT_SIZES. */
+  sizes: "starter" | "all";
+  /** Highest raster DPI allowed. Free exports stay screen-grade. */
+  maxDpi: number;
+  /** Stamp a Grid1ronVault watermark across exports. */
+  watermark: boolean;
+  /** Multi-play PDF and wristband sheets. */
+  sheets: boolean;
+  /** Share links and playbook hand-off. */
+  share: boolean;
+  /** Tools held back on the free tier. */
+  lockedTools: string[];
+  /** Assistant runs per month. */
+  aiRuns: number;
+  perks: string[];
+};
+
+export const TIERS: Record<TierId, Tier> = {
+  beta: {
+    id: "beta",
+    name: "Beta Coach",
+    blurb: "Everything unlocked while we are in beta. Tell us what breaks.",
+    price: "Free",
+    cadence: "during beta",
+    seats: "1 coach",
+    playLimit: 200,
+    gridLimit: 10,
+    copyLimit: 100,
+    sizes: "all",
+    maxDpi: 300,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    aiRuns: 60,
+    perks: ["Every tool on", "Full export and print", "Founding-coach pricing for life"],
+  },
+  free: {
+    id: "free",
+    name: "Sideline",
+    blurb: "Draw plays, keep a short stack, print a test card.",
+    price: "$0",
+    cadence: "forever",
+    seats: "1 coach",
+    playLimit: 8,
+    gridLimit: 1,
+    copyLimit: 5,
+    sizes: "starter",
+    maxDpi: 96,
+    watermark: true,
+    sheets: false,
+    share: false,
+    lockedTools: ["pen", "polygon", "zone", "motion", "connect"],
+    aiRuns: 3,
+    perks: [
+      "8 plays in your Vault",
+      "1 Season Grid",
+      "Wristband + letter export, watermarked",
+      "5 starter plays from the public Vault",
+    ],
+  },
+  solo: {
+    id: "solo",
+    name: "Head Coach",
+    blurb: "One coach, one program, no limits worth thinking about.",
+    price: "$9",
+    cadence: "per month",
+    seats: "1 coach",
+    featured: true,
+    playLimit: 400,
+    gridLimit: 25,
+    copyLimit: 200,
+    sizes: "all",
+    maxDpi: 300,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    aiRuns: 100,
+    perks: [
+      "400 plays in your Vault",
+      "Every drawing tool and mode",
+      "Clean 300-DPI export and print",
+      "Wristband sheets at 6, 8 or 10 per card",
+      "Share links for parents and players",
+    ],
+  },
+  crew: {
+    id: "crew",
+    name: "Staff",
+    blurb: "You and your assistants in the same playbook.",
+    price: "$19",
+    cadence: "per month",
+    seats: "Up to 3 coaches",
+    playLimit: 1200,
+    gridLimit: 60,
+    copyLimit: 600,
+    sizes: "all",
+    maxDpi: 600,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    aiRuns: 300,
+    perks: [
+      "3 seats on one shared playbook",
+      "Everything in Head Coach",
+      "600-DPI print for booklets",
+      "Practice-plan and install exports",
+    ],
+  },
+  program: {
+    id: "program",
+    name: "Program",
+    blurb: "A league or a multi-team program on one system.",
+    price: "$49",
+    cadence: "per month",
+    seats: "Up to 12 coaches",
+    playLimit: 5000,
+    gridLimit: 250,
+    copyLimit: 5000,
+    sizes: "all",
+    maxDpi: 600,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    aiRuns: 1200,
+    perks: [
+      "12 seats and shared team Vaults",
+      "League-wide play standards",
+      "Bulk wristband runs for every team",
+      "Priority support during the season",
+    ],
+  },
+};
+
+export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
+
+/** Sizes a free coach can print, so the product is genuinely usable first. */
+export const STARTER_SIZES = ["wristband", "letter-p"];
+
+export function tierFor(id: string | null | undefined): Tier {
+  return TIERS[(id as TierId) ?? "beta"] ?? TIERS.beta;
+}
+
+export type Gate =
+  | { ok: true }
+  | { ok: false; reason: string; cta: string };
+
+export function gateSave(tier: Tier, currentPlays: number): Gate {
+  if (currentPlays < tier.playLimit) return { ok: true };
+  return {
+    ok: false,
+    reason: `Your ${tier.name} Vault holds ${tier.playLimit} plays and it is full. Delete one, or move up a plan to keep the whole install.`,
+    cta: "See plans",
+  };
+}
+
+export function gateGrid(tier: Tier, currentGrids: number): Gate {
+  if (currentGrids < tier.gridLimit) return { ok: true };
+  return {
+    ok: false,
+    reason: `${tier.name} includes ${tier.gridLimit} Season Grid${tier.gridLimit === 1 ? "" : "s"}. Move up a plan to run a grid per opponent.`,
+    cta: "See plans",
+  };
+}
+
+export function gateSize(tier: Tier, sizeId: string): Gate {
+  if (tier.sizes === "all" || STARTER_SIZES.includes(sizeId)) return { ok: true };
+  return {
+    ok: false,
+    reason: "Wristband and letter portrait are open on every plan. The rest of the print sizes come with Head Coach.",
+    cta: "Unlock print sizes",
+  };
+}
+
+export function gateSheets(tier: Tier): Gate {
+  if (tier.sheets) return { ok: true };
+  return {
+    ok: false,
+    reason: "Multi-play sheets and wristband runs come with Head Coach. Single-play export stays free.",
+    cta: "Unlock sheets",
+  };
+}
+
+export function gateTool(tier: Tier, toolId: string): Gate {
+  if (!tier.lockedTools.includes(toolId)) return { ok: true };
+  return {
+    ok: false,
+    reason: "Freehand, polygon, zones, motion and auto-connect come with Head Coach. Lines, shapes and tokens stay free.",
+    cta: "Unlock the full kit",
+  };
+}
+
+export function gateShare(tier: Tier): Gate {
+  if (tier.share) return { ok: true };
+  return {
+    ok: false,
+    reason: "Share links let players and parents open a play without an account. That comes with Head Coach.",
+    cta: "Unlock sharing",
+  };
+}
+
+/** Export DPI actually used, after the plan cap. */
+export const cappedDpi = (tier: Tier, wanted: number) => Math.min(wanted, tier.maxDpi);
