@@ -1,5 +1,9 @@
 import type { PathNode, PlayerNode, SceneNode, ShapeNode, TextNode } from "./types";
+import { FIRST_READ } from "./types";
 import { dashFor, motionPath, pathData, polygonPoints } from "./geometry";
+
+/** The colour a line is drawn in: the first read always shows cyan. */
+export const lineColor = (node: PathNode) => (node.firstRead ? FIRST_READ : node.stroke);
 
 /** Marker definitions shared by the editor, thumbnails and exports. */
 export function MarkerDefs({ colors }: { colors: string[] }) {
@@ -87,6 +91,7 @@ function PlayerGlyph({ node }: { node: PlayerNode }) {
 function PathGlyph({ node }: { node: PathNode }) {
   const d = node.style === "motion" ? motionPath(node.points) : pathData(node);
   if (!d) return null;
+  const stroke = lineColor(node);
   return (
     <>
       {node.closed && node.fill !== "none" && (
@@ -95,13 +100,13 @@ function PathGlyph({ node }: { node: PathNode }) {
       <path
         d={d}
         fill="none"
-        stroke={node.stroke}
+        stroke={stroke}
         strokeWidth={node.width}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={dashFor(node.style, node.width)}
-        markerStart={markerUrl(node.startCap, node.stroke)}
-        markerEnd={markerUrl(node.endCap, node.stroke)}
+        markerStart={markerUrl(node.startCap, stroke)}
+        markerEnd={markerUrl(node.endCap, stroke)}
       />
     </>
   );
@@ -178,4 +183,4 @@ export function NodeLayer({
 }
 
 export const strokeColors = (nodes: SceneNode[]) =>
-  nodes.filter((n): n is PathNode => n.kind === "path").map((n) => n.stroke);
+  nodes.filter((n): n is PathNode => n.kind === "path").map(lineColor);

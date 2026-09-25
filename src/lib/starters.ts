@@ -107,6 +107,8 @@ type Assign = {
   /** Force the break direction instead of letting it follow the token's side. */
   flip?: boolean;
   dashed?: boolean;
+  /** The quarterback's first read, drawn in cyan. */
+  read?: boolean;
 };
 
 export type StarterSpec = PlayMeta & {
@@ -173,6 +175,7 @@ function tokenScene(spec: StarterSpec) {
         endCap: isBlock ? "tee" : "arrow",
         style: a.dashed ? "dashed" : "solid",
         curve: a.route === "wheel" || a.route === "sweep" || a.route === "counter" ? "spline" : "straight",
+        firstRead: a.read ?? false,
       }),
     );
   }
@@ -349,7 +352,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "X", route: "go" }, { on: "Y", route: "slant" }, { on: "Z", route: "go" }, { on: "RB", route: "slant" },
   ]),
   P(8, "Spread — Flood Right", "Spread", "pass", "Three levels to the right side: flat, out, corner. Read it high to low.", ["spread", "flood"], [
-    { on: "Z", route: "corner" }, { on: "RB", route: "out" }, { on: "Y", route: "flat", flip: true }, { on: "X", route: "post" },
+    { on: "Z", route: "corner", read: true }, { on: "RB", route: "out" }, { on: "Y", route: "flat", flip: true }, { on: "X", route: "post" },
   ]),
   P(9, "Spread — Double Slants", "Spread", "pass", "Both sides slant inside. Snap, one step, throw — this is your two-minute answer.", ["spread", "quick"], [
     { on: "X", route: "slant" }, { on: "Y", route: "slant" }, { on: "Z", route: "slant" }, { on: "RB", route: "slant" },
@@ -375,7 +378,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "Y", route: "hitch" }, { on: "Z", route: "go" }, { on: "RB", route: "flat" }, { on: "X", route: "slant" },
   ]),
   P(16, "Trips — Flood", "Trips", "pass", "Classic three-level flood to the trips side. First read is the flat.", ["trips", "flood"], [
-    { on: "Z", route: "corner" }, { on: "Y", route: "out" }, { on: "RB", route: "flat" }, { on: "X", route: "dig" },
+    { on: "Z", route: "corner" }, { on: "Y", route: "out" }, { on: "RB", route: "flat", read: true }, { on: "X", route: "dig" },
   ]),
   P(17, "Trips — Y Cross", "Trips", "pass", "Send the inside man all the way across. He clears the middle at twelve yards.", ["trips", "cross"], [
     { on: "Y", route: "cross" }, { on: "Z", route: "go" }, { on: "RB", route: "hitch" }, { on: "X", route: "comeback" },
@@ -401,7 +404,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "X", route: "slant" }, { on: "Z", route: "go" }, { on: "RB", route: "flat", flip: true },
   ]),
   P(24, "Twins — Slant Flat", "Twins", "pass", "Slant and flat off the same side. If the linebacker jumps the slant, hit the flat.", ["twins", "quick"], [
-    { on: "X", route: "slant" }, { on: "Z", route: "flat" }, { on: "RB", route: "drag", flip: true },
+    { on: "X", route: "slant", read: true }, { on: "Z", route: "flat" }, { on: "RB", route: "drag", flip: true },
   ]),
   P(25, "Twins — Post Wheel", "Twins", "pass", "Inside man to the post, back on the wheel underneath him. Two deep answers.", ["twins", "wheel"], [
     { on: "X", route: "post" }, { on: "Z", route: "wheel" }, { on: "RB", route: "hitch", flip: true },
