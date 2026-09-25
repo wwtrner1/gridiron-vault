@@ -19,7 +19,7 @@ const SEED: Memory = {
   distance: ["Short", "Medium", "Long", "Goal"],
   hash: ["Left", "Middle", "Right"],
   route: ["Flat", "Slant", "Hitch", "Out", "Dig", "Corner", "Post", "Go", "Drag", "Cross", "Wheel"],
-  position: ["QB", "C", "X", "Y", "Z", "RB", "H"],
+  position: ["Q", "C", "X", "Y", "Z", "H", "S"],
   formation: ["Single Back", "Spread", "Trips", "Trips Stack", "Twins", "Bunch", "Empty"],
 };
 
