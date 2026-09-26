@@ -7,12 +7,11 @@ import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
+import { FormationLibrary } from "../components/FormationLibrary";
 import { FIELD_VIEWS } from "../lib/field";
 import { LINE_TOOLS, MODES, SHAPE_TOOLS, type ModeId, type ToolId } from "../lib/tools";
 import {
   DEFENSE_TOKENS,
-  FORMATION_PRESETS,
-  buildFormation,
   emptyScene,
   makePlayer,
   type TokenPreset,
@@ -29,6 +28,7 @@ import { useToast } from "../lib/toast";
 import { useCaptureGuard } from "../lib/guard";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
+import { tokenFor, type Placed } from "../lib/formations";
 import "../styles/designer.css";
 
 const blankMeta: PlayMeta = {
@@ -161,12 +161,18 @@ export function Builder() {
     setSelection([node.id]);
   };
 
-  const applyFormation = (preset: (typeof FORMATION_PRESETS)[number]) => {
-    const nodes = buildFormation(preset, scene.losY, offense);
-    applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${preset.name} set`);
+  const applyFormation = (set: { name: string; note: string; placed: Placed[] }) => {
+    const group = uid("grp");
+    const z = nextZ(scene);
+    const nodes = set.placed.map((p, i) => ({
+      ...makePlayer(tokenFor(p, offense), CANVAS_W / 2 + p.dx, scene.losY + p.dy),
+      groupId: group,
+      z: z + i,
+    }));
+    applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.name} set`);
     setSelection(nodes.map((n) => n.id));
-    if (!meta.formation) setMeta((m) => ({ ...m, formation: preset.name }));
-    setStatus(preset.note);
+    if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
+    setStatus(set.note);
   };
 
   const pickTool = (next: ToolId) => {
@@ -655,22 +661,7 @@ export function Builder() {
                 </button>
               ))}
             </div>
-            {lists === "formations" && (
-              <div className="dz-list" id="dz-list-tray">
-                {FORMATION_PRESETS.map((p) => (
-                  <Tooltip
-                    key={p.name}
-                    title={p.name}
-                    hint={`${p.note} Drops every token grouped, so you can move the whole set at once.`}
-                  >
-                    <button type="button" className="tool-wide" onClick={() => applyFormation(p)}>
-                      <Icon name="board" size={14} />
-                      <span>{p.name}</span>
-                    </button>
-                  </Tooltip>
-                ))}
-              </div>
-            )}
+            {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
             {lists === "layers" && (
               <div className="dz-list" id="dz-list-tray">
                 {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
