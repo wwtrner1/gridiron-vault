@@ -6,12 +6,12 @@ import { PlayCanvas } from "../components/PlayCanvas";
 import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
+import { TokenGlyph } from "../components/TokenGlyph";
 import { FIELD_VIEWS } from "../lib/field";
 import { LINE_TOOLS, MODES, SHAPE_TOOLS, type ModeId, type ToolId } from "../lib/tools";
 import {
   DEFENSE_TOKENS,
   FORMATION_PRESETS,
-  OFFENSE_TOKENS,
   buildFormation,
   emptyScene,
   makePlayer,
@@ -28,6 +28,7 @@ import { gateSave, gateTool } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { useCaptureGuard } from "../lib/guard";
 import { track } from "../lib/track";
+import { usePositionTokens } from "../lib/positions";
 import "../styles/designer.css";
 
 const blankMeta: PlayMeta = {
@@ -77,6 +78,7 @@ export function Builder() {
   const { account } = useAuth();
   const tier = useTier();
   const plays = useStore((s) => s.plays);
+  const offense = usePositionTokens();
 
   const existing = useMemo(() => plays.find((p) => p.id === id) ?? null, [plays, id]);
 
@@ -160,7 +162,7 @@ export function Builder() {
   };
 
   const applyFormation = (preset: (typeof FORMATION_PRESETS)[number]) => {
-    const nodes = buildFormation(preset, scene.losY);
+    const nodes = buildFormation(preset, scene.losY, offense);
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${preset.name} set`);
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: preset.name }));
@@ -340,7 +342,7 @@ export function Builder() {
     e.preventDefault();
     const code = e.dataTransfer.getData("text/grid1ronvault-token");
     if (!code) return;
-    const preset = [...OFFENSE_TOKENS, ...DEFENSE_TOKENS].find((t) => t.code === code);
+    const preset = [...offense, ...DEFENSE_TOKENS].find((t) => t.code === code);
     const svg = (e.currentTarget as HTMLElement).querySelector("svg");
     if (!preset || !svg) return;
     const r = svg.getBoundingClientRect();
@@ -614,7 +616,7 @@ export function Builder() {
             </div>
             {tray && (
               <div className="dz-tray" id="dz-token-tray">
-                {(tray === "offense" ? OFFENSE_TOKENS : DEFENSE_TOKENS).map((t) => (
+                {(tray === "offense" ? offense : DEFENSE_TOKENS).map((t) => (
                   <Tooltip
                     key={t.code}
                     title={t.title}
@@ -760,39 +762,3 @@ export function Builder() {
   );
 }
 
-function TokenGlyph({ preset }: { preset: TokenPreset }) {
-  const r = 11;
-  return (
-    <svg width="26" height="26" viewBox="-14 -14 28 28" aria-hidden="true">
-      {preset.shape === "circle" && <circle r={r} fill={preset.fill} stroke={preset.stroke} strokeWidth={2} />}
-      {preset.shape === "square" && (
-        <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={2} fill={preset.fill} stroke={preset.stroke} strokeWidth={2} />
-      )}
-      {preset.shape === "diamond" && (
-        <polygon points={`0,${-r} ${r},0 0,${r} ${-r},0`} fill={preset.fill} stroke={preset.stroke} strokeWidth={2} />
-      )}
-      {preset.shape === "triangle" && (
-        <polygon points={`0,${-r} ${r},${r * 0.8} ${-r},${r * 0.8}`} fill={preset.fill} stroke={preset.stroke} strokeWidth={2} />
-      )}
-      {preset.shape === "ball" && <ellipse rx={r} ry={r * 0.62} fill={preset.fill} stroke={preset.stroke} strokeWidth={2} />}
-      {preset.shape === "cross" && (
-        <g stroke={preset.stroke} strokeWidth={3} strokeLinecap="round">
-          <line x1={-8} y1={-8} x2={8} y2={8} />
-          <line x1={8} y1={-8} x2={-8} y2={8} />
-        </g>
-      )}
-      {preset.shape !== "cross" && preset.label && (
-        <text
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize={12}
-          fontWeight={700}
-          fill={preset.textColor}
-          fontFamily="'Saira Condensed', 'Arial Narrow', sans-serif"
-        >
-          {preset.label}
-        </text>
-      )}
-    </svg>
-  );
-}

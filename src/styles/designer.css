@@ -258,3 +258,23 @@
 }
 .cp-save:hover:not(:disabled) { border-color: var(--rail-text); }
 .cp-save:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- Player presets panel ---- */
+.pp { display: flex; flex-direction: column; gap: 12px; }
+.pp-lede { margin: 0; font-size: 12px; color: var(--muted-2); }
+.pp-key { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--ink-3); border-radius: 8px; background: var(--ink); }
+.pp-key-head { display: flex; align-items: center; justify-content: space-between; }
+.pp-key-head span,
+.pp-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--panel-head); }
+.pp-link { padding: 0; background: none; font-size: 11.5px; color: var(--cyan); }
+.pp-link:hover { text-decoration: underline; }
+.pp-key-tokens { display: flex; flex-wrap: wrap; gap: 8px; }
+.pp-key-token { display: inline-flex; padding: 2px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; }
+button.pp-key-token:hover { border-color: var(--ink-4); }
+.pp-key-token.is-on { border-color: var(--cyan); }
+.pp-legend { margin: 0; font-size: 11px; color: var(--muted-2); }
+.pp-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--ink-3); }
+.pp-edit-title { margin: 0; font-family: var(--display); font-size: 14px; font-weight: 700; text-transform: uppercase; }
+.pp-note { margin: 0; font-size: 12px; color: var(--muted-2); }
+.pp-reset { align-self: flex-start; padding: 0; background: none; font-size: 12px; color: var(--rail-text); text-decoration: underline; }
+.pp-reset:hover { color: var(--white); }
