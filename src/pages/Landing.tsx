@@ -6,21 +6,13 @@ import { PlayThumb } from "../components/PlayThumb";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
 import { DesignerTour } from "./home/DesignerTour";
+import { FeatureSection } from "./home/FeatureSection";
 import "../styles/home.css";
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
-const FEATURE_PLAYS = [30, 43, 53];
+const FEATURE_PLAYS = [43, 53];
 
 const FEATURES = [
-  {
-    icon: "table",
-    kicker: "The call sheet",
-    title: "A playground, not a form",
-    body: "Rename any column. Drag them into the order your eyes read. Sort a field three ways, paint a row amber because it is a third-down call, and let the sheet learn your shorthand so the second half fills itself in.",
-    points: ["Drag-and-drop columns and rows", "Paint cells in seven colours", "Autocomplete that learns your words"],
-    to: "/grid",
-    cta: "Build a call sheet",
-  },
   {
     icon: "print",
     kicker: "Export and print",
@@ -150,6 +142,21 @@ export function Landing() {
         </section>
 
         <DesignerTour />
+
+        <FeatureSection
+          id="call-sheet"
+          visual="callSheet"
+          ground="white"
+          eyebrow="The call sheet"
+          title="A call sheet that adapts to you"
+          body="Easy to pick up, built around the way you call a game. Filter down to the calls you need — third and short, red zone, left hash — in one click. Tap any call to see the diagram, add a note or flag it. Then drag calls up and down the sheet, or between situations, until the order matches how you want to call it on Saturday."
+          points={[
+            "Filter by down, distance, hash, field zone or play type",
+            "Drag calls to reorder them or move them between situations",
+            "Rename columns, color-code rows and let it learn your shorthand",
+          ]}
+          cta={{ to: "/grid", label: "Build a call sheet" }}
+        />
 
         <section className="section" aria-label="More tools">
           <div className="feature-zig">
