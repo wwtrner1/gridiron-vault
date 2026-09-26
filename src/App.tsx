@@ -14,6 +14,7 @@ import { NotFound } from "./pages/NotFound";
 import { Help } from "./pages/Help";
 import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
+import { Upload } from "./pages/Upload";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
@@ -29,6 +30,7 @@ const TITLES: Record<string, string> = {
   "/help": "Help & feedback — Grid1ronVault",
   "/wristbands": "Wristbands — Grid1ronVault",
   "/language": "Playbook language — Grid1ronVault",
+  "/upload": "Upload plays — Grid1ronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — Grid1ronVault`])),
 };
 
@@ -45,6 +47,7 @@ const NAMES: Record<string, string> = {
   "/help": "Help & feedback",
   "/wristbands": "Wristbands",
   "/language": "Playbook language",
+  "/upload": "Upload plays",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -88,6 +91,7 @@ export function App() {
         <Route path="/help" element={<Help />} />
         <Route path="/wristbands" element={<Wristbands />} />
         <Route path="/language" element={<PlaybookLanguage />} />
+        <Route path="/upload" element={<Upload />} />
         {Object.keys(COMING_SOON).map((p) => (
           <Route key={p} path={p} element={<ComingSoon path={p} />} />
         ))}

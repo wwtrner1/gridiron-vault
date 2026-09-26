@@ -9,11 +9,6 @@ type Screen = { title: string; icon: string; blurb: string };
  * the signed-in shell so the menu works end to end before the screen lands.
  */
 export const COMING_SOON: Record<string, Screen> = {
-  "/upload": {
-    title: "Upload plays",
-    icon: "upload",
-    blurb: "Drop in a whiteboard photo, a screenshot or a PowerPoint deck and get editable plays back.",
-  },
   "/tools": {
     title: "More tools",
     icon: "sparkle",
