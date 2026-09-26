@@ -59,32 +59,32 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             onChange={(e) => onMeta({ name: e.target.value })}
           />
         </label>
-        <div className="row">
-          <label className="field">
-            <span>Formation</span>
-            <select className="select" value={meta.formation} onChange={(e) => onMeta({ formation: e.target.value })}>
-              <option value="">Pick one</option>
-              {FORMATIONS.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Type</span>
-            <select
-              className="select"
-              value={meta.playType}
-              onChange={(e) => onMeta({ playType: e.target.value as PlayMeta["playType"] })}
-            >
-              {PLAY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t[0].toUpperCase() + t.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
+        <label className="field">
+          <span>Formation</span>
+          <select className="select" value={meta.formation} onChange={(e) => onMeta({ formation: e.target.value })}>
+            <option value="">Pick one</option>
+            {FORMATIONS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="field" role="group" aria-labelledby="play-type-label">
+          <span id="play-type-label">Type</span>
+          <div className="seg">
+            {PLAY_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={meta.playType === t ? "is-on" : ""}
+                aria-pressed={meta.playType === t}
+                onClick={() => onMeta({ playType: t })}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
         <label className="field">
           <span>Personnel</span>
@@ -204,7 +204,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
                   />
                 </label>
               </div>
-              <p className="mini-label" style={{ color: "var(--muted)" }}>Shape</p>
+              <p className="mini-label">Shape</p>
               <div className="chip-row">
                 {(["circle", "square", "triangle", "diamond", "cross", "ball"] as const).map((s) => (
                   <button key={s} type="button" className={`chip${one.shape === s ? " is-on" : ""}`} onClick={() => patch({ shape: s } as Partial<SceneNode>, "Shape")}>
@@ -212,7 +212,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
                   </button>
                 ))}
               </div>
-              <p className="mini-label" style={{ color: "var(--muted)" }}>Fill</p>
+              <p className="mini-label">Fill</p>
               <div className="light-swatches">
                 {PALETTE.map((c) => (
                   <button
@@ -254,7 +254,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             </p>
           )}
 
-          <p className="mini-label" style={{ color: "var(--muted)" }}>Stroke colour</p>
+          <p className="mini-label">Stroke colour</p>
           <div className="light-swatches">
             {PALETTE.map((c) => (
               <button
@@ -355,7 +355,7 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
         <input type="checkbox" checked={!!node.firstRead} onChange={(e) => onFirstRead(e.target.checked)} />
         First read (draws this route in cyan)
       </label>
-      <p className="mini-label" style={{ color: "var(--muted)" }}>Line weight</p>
+      <p className="mini-label">Line weight</p>
       <div className="chip-row">
         {STROKE_WEIGHTS.map((w) => (
           <button key={w} type="button" className={`chip${node.width === w ? " is-on" : ""}`} onClick={() => patch({ width: w } as Partial<SceneNode>, "Weight")}>
@@ -363,7 +363,7 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
           </button>
         ))}
       </div>
-      <p className="mini-label" style={{ color: "var(--muted)" }}>Dash</p>
+      <p className="mini-label">Dash</p>
       <div className="chip-row">
         {(["solid", "dashed", "dotted", "motion"] as const).map((s) => (
           <button key={s} type="button" className={`chip${node.style === s ? " is-on" : ""}`} onClick={() => patch({ style: s } as Partial<SceneNode>, "Dash")}>
@@ -371,7 +371,7 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
           </button>
         ))}
       </div>
-      <p className="mini-label" style={{ color: "var(--muted)" }}>Curve</p>
+      <p className="mini-label">Curve</p>
       <div className="chip-row">
         {(["straight", "spline", "bezier"] as const).map((c) => (
           <button key={c} type="button" className={`chip${node.curve === c ? " is-on" : ""}`} onClick={() => patch({ curve: c } as Partial<SceneNode>, "Curve")}>
@@ -379,7 +379,7 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
           </button>
         ))}
       </div>
-      <p className="mini-label" style={{ color: "var(--muted)" }}>End caps</p>
+      <p className="mini-label">End caps</p>
       <div className="row">
         <label className="field">
           <span>Start</span>
@@ -457,7 +457,7 @@ function ShapeFields({ node, patch }: { node: ShapeNode; patch: PatchFn }) {
           onChange={(e) => patch({ fillOpacity: Number(e.target.value) / 100 } as Partial<SceneNode>, "Fill")}
         />
       </label>
-      <p className="mini-label" style={{ color: "var(--muted)" }}>Fill colour</p>
+      <p className="mini-label">Fill colour</p>
       <div className="light-swatches">
         {PALETTE.map((c) => (
           <button key={c} type="button" className={`swatch${node.fill === c ? " is-on" : ""}`} style={{ background: c }} aria-label={`Fill ${c}`} aria-pressed={node.fill === c} onClick={() => patch({ fill: c } as Partial<SceneNode>, "Fill")} />
