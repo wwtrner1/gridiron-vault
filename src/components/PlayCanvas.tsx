@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground } from "../lib/field";
 import { MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { noteShowsOnHover } from "../lib/notes";
 import {
   boxesOverlap,
   dist,
@@ -615,7 +616,9 @@ export function PlayCanvas({
               e.stopPropagation();
               if (node.kind === "text") setEditing(node.id);
             }}
-          />
+          >
+            {node.kind === "player" && noteShowsOnHover(node) && <title>{`${node.label || node.name}: ${node.note}`}</title>}
+          </NodeLayer>
         ))}
 
         {/* Selection outline + per-node marks */}

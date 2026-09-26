@@ -37,6 +37,14 @@ export type PlayerNode = NodeCommon & {
   stroke: string;
   textColor: string;
   side: "offense" | "defense" | "ball";
+  /** Coaching note for this player (Player notes panel). */
+  note?: string;
+  /** Show the note on hover in the Designer. Default on. */
+  noteHover?: boolean;
+  /** Print the note under the diagram on letter and half-page exports. Default on. */
+  notePrint?: boolean;
+  /** Add the note to the wristband card. Default off. */
+  noteWristband?: boolean;
 };
 
 export type PathNode = NodeCommon & {
