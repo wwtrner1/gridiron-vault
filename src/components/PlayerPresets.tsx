@@ -180,7 +180,7 @@ function PresetEditor({
         <div className="pp-field">
           <span className="pp-sub">Fill color</span>
           <ColorPicker
-            label="Fill"
+            label="Preset fill"
             value={d.fill}
             onChange={(fill) => set({ fill, outline: d.outline === d.fill ? fill : d.outline })}
           />
@@ -189,8 +189,8 @@ function PresetEditor({
 
       <div className="pp-field">
         <span className="pp-sub">{d.shape === "cross" ? "Mark color" : "Outline color"}</span>
-        <SwatchRow label="Outline" colors={OUTLINE_ROW} value={d.outline} onPick={(outline) => set({ outline })} onMore={() => setMore(more === "outline" ? null : "outline")} />
-        {more === "outline" && <ColorPicker label="Outline" value={d.outline} onChange={(outline) => set({ outline })} />}
+        <SwatchRow label="Preset outline" colors={OUTLINE_ROW} value={d.outline} onPick={(outline) => set({ outline })} onMore={() => setMore(more === "outline" ? null : "outline")} />
+        {more === "outline" && <ColorPicker label="Preset outline" value={d.outline} onChange={(outline) => set({ outline })} />}
       </div>
 
       {d.shape !== "cross" && (
@@ -265,8 +265,8 @@ function PresetEditor({
 
       <div className="pp-field">
         <span className="pp-sub">Line color</span>
-        <SwatchRow label="Line" colors={LINE_ROW} value={d.lineColor} onPick={(lineColor) => set({ lineColor })} onMore={() => setMore(more === "line" ? null : "line")} />
-        {more === "line" && <ColorPicker label="Line" value={d.lineColor} onChange={(lineColor) => set({ lineColor })} />}
+        <SwatchRow label="Preset line" colors={LINE_ROW} value={d.lineColor} onPick={(lineColor) => set({ lineColor })} onMore={() => setMore(more === "line" ? null : "line")} />
+        {more === "line" && <ColorPicker label="Preset line" value={d.lineColor} onChange={(lineColor) => set({ lineColor })} />}
       </div>
 
       <div className="pp-field" role="group" aria-label="Assignment">
