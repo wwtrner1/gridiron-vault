@@ -1,32 +1,23 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PlayThumb } from "../components/PlayThumb";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
+import { useTier } from "../lib/tier";
 import { DesignerTour } from "./home/DesignerTour";
 import { FeatureSection } from "./home/FeatureSection";
 import "../styles/home.css";
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
-const FEATURE_PLAYS = [53];
 
-const FEATURES = [
-  {
-    icon: "board",
-    kicker: "The Vault",
-    title: "Every play your program has ever drawn",
-    body: "Search by name, formation, personnel or the labels you made up yourself. Check off twelve plays and export them as one packet. Share a book with your staff so the 8U coach installs the same Trips Flood you do.",
-    points: [
-      "Filter by formation, type and label",
-      "Multi-select then export as a packet",
-      "Copy any shared play into your own book",
-    ],
-    to: "/vault",
-    cta: "Look inside the Vault",
-  },
-];
+/** Plan card buttons, as labelled on the canvas. */
+const PLAN_CTA: Record<string, string> = {
+  free: "Start on Sideline",
+  solo: "Choose Head Coach",
+  crew: "Choose Staff",
+  program: "Choose Program",
+};
 
 const STEPS = [
   {
@@ -54,6 +45,7 @@ const STEPS = [
 export function Landing() {
   const scene = starterScene(HERO_PLAY);
   const { hash } = useLocation();
+  const tier = useTier();
 
   // The shared nav links to /#how from any page; scroll there once the section exists.
   useEffect(() => {
@@ -160,48 +152,49 @@ export function Landing() {
           cta={{ to: "/starters", label: "See the starter plays" }}
         />
 
-        <section className="section" aria-label="More tools">
-          <div className="feature-zig">
-            {FEATURES.map((f, i) => (
-              <article className={`feature-row${i % 2 ? " is-flip" : ""}`} key={f.title}>
-                <div className="feature-copy">
-                  <span className="feature-kicker">
-                    <Icon name={f.icon} size={15} /> {f.kicker}
-                  </span>
-                  <h3>{f.title}</h3>
-                  <p>{f.body}</p>
-                  <ul className="feature-list">
-                    {f.points.map((p) => (
-                      <li key={p}>
-                        <Icon name="check" size={14} /> {p}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link to={f.to} className="btn btn-dark btn-sm">
-                    {f.cta}
-                  </Link>
-                </div>
-                <div className="feature-art">
-                  <PlayThumb
-                    scene={starterScene(STARTERS[FEATURE_PLAYS[i]])}
-                    label={`Example play: ${STARTERS[FEATURE_PLAYS[i]].name}`}
-                  />
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+        <FeatureSection
+          id="vault"
+          visual="vault"
+          ground="white"
+          eyebrow="The Vault"
+          title="Every play your program has ever drawn"
+          body="Search by name, formation, personnel or the labels you made up yourself. Check off twelve plays and export them as one packet. Share a book with your staff so the 8U coach installs the same Trips Flood you do."
+          points={[
+            "Filter by formation, type and label",
+            "Multi-select then export as a packet",
+            "Copy any shared play into your Vault",
+          ]}
+          cta={{ to: "/vault", label: "Look inside the Vault" }}
+        />
 
-        <section className="section section-tight" id="how" aria-labelledby="how-h">
-          <div className="section-head">
-            <span className="pill">How it works</span>
+        <FeatureSection
+          id="film"
+          visual="film"
+          ground="paper"
+          wide
+          eyebrow="Game film"
+          title="Put the film next to the play"
+          body="Upload practice or game video and attach it to any play in the Vault. Mark the snap once and Run play animates every route in time with the clip, so your players see the drawing and the real rep side by side — the first read, the break, the throw. It turns film review into install."
+          points={[
+            "Upload a video file or paste a Hudl or YouTube link",
+            "Mark the snap once — the clip and the drawing stay in sync",
+            "Slow it to 0.5×, scrub, or step a tenth of a second at a time",
+            "One main clip per play, with extra reps listed underneath",
+            "Wristbands and binder pages still print the clean diagram",
+          ]}
+          cta={{ to: "/build", label: "See Run play" }}
+        />
+
+        <section className="home-how" id="how" aria-labelledby="how-h">
+          <div className="home-band-head">
+            <p className="home-eyebrow">How it works</p>
             <h2 id="how-h">Four steps, about five minutes</h2>
             <p>If you can run a slide deck, you already know how to run this.</p>
           </div>
-          <ol className="step-strip">
+          <ol className="home-steps">
             {STEPS.map((s) => (
-              <li className="step" key={s.n}>
-                <b>{s.n}</b>
+              <li key={s.n}>
+                <span>{s.n}</span>
                 <h3>{s.title}</h3>
                 <p>{s.body}</p>
               </li>
@@ -209,37 +202,45 @@ export function Landing() {
           </ol>
         </section>
 
-        <section className="section section-tight" aria-labelledby="plans-h">
-          <div className="section-head">
-            <span className="pill">Plans</span>
+        <section className="home-plans" aria-labelledby="plans-h">
+          <div className="home-band-head">
+            <p className="home-eyebrow">Plans</p>
             <h2 id="plans-h">Free while we are in beta</h2>
             <p>
               Draw, export and print with everything switched on. When beta ends, your plays stay yours — pick the plan that fits
               your staff.
             </p>
           </div>
-          <div className="plan-teaser">
+          <div className="home-plan-grid">
             {PUBLIC_TIERS.map((t) => (
-              <div className={`plan-mini${t.featured ? " is-featured" : ""}`} key={t.id}>
-                <span>{t.name}</span>
-                <b>{t.price}</b>
-                <small>{t.cadence}</small>
+              <div className={`home-plan${t.featured ? " is-featured" : ""}`} key={t.id}>
+                {t.featured && <span className="home-plan-flag">Most coaches pick this</span>}
+                <h3>{t.name}</h3>
                 <p>{t.blurb}</p>
+                <div className="home-plan-price">
+                  <b>{t.price}</b>
+                  <small>{t.cadence}</small>
+                </div>
+                <div className="home-plan-cta">
+                  <Link to="/pricing" className={`btn ${t.featured ? "btn-primary" : "btn-ghost"}`}>
+                    {tier.id === t.id ? "Your current plan" : PLAN_CTA[t.id]}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
-          <div className="plan-teaser-cta">
+          <div>
             <Link to="/pricing" className="btn btn-ghost">
               Compare all four plans
             </Link>
           </div>
         </section>
 
-        <section className="cta-band" aria-labelledby="cta-h">
-          <div>
-            <h2 id="cta-h">Your first play is about ninety seconds away.</h2>
-            <p>No card, no trial clock. Draw something, print it, bring it to practice tonight.</p>
-          </div>
+        <section className="home-cta" aria-labelledby="cta-h">
+          <h2 id="cta-h">
+            Your first play is about <span>ninety seconds away.</span>
+          </h2>
+          <p>No card, no trial clock. Draw something, print it, bring it to practice tonight.</p>
           <Link to="/build" className="btn btn-primary btn-lg">
             Open the designer
           </Link>
