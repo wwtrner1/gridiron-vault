@@ -5,6 +5,7 @@ import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PlayThumb } from "../components/PlayThumb";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
+import "../styles/home.css";
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
 const FEATURE_PLAYS = [9, 30, 43, 53];
@@ -100,68 +101,67 @@ export function Landing() {
       <MarketingNav />
 
       <main id="main">
-        <section className="hero">
-          <div className="hero-inner">
-            <div className="hero-copy">
-              <span className="pill pill-cyan">Free through beta · no card</span>
-              <h1>
-                Draw the play.
-                <br />
-                Print the wristband.
-                <br />
-                <em>Win the Saturday.</em>
-              </h1>
-              <p>
-                Grid1ronVault is the playbook studio for 5-on-5 flag football. Design plays with real drawing tools, keep them in
-                one searchable Vault, build your call sheet in a spreadsheet that learns your shorthand, and print anything from a
-                quarterback wristband to a full binder page.
-              </p>
-              <div className="hero-actions">
-                <Link to="/build" className="btn btn-primary btn-lg">
-                  <Icon name="cursor" size={17} /> Start drawing — it is free
-                </Link>
-                <Link to="/starters" className="btn btn-ghost btn-lg">
-                  <Icon name="board" size={17} /> Browse 56 starter plays
-                </Link>
-              </div>
-              <p className="hero-fine">Works on the laptop you install from and the tablet you carry to the sideline.</p>
+        <section className="home-hero" aria-labelledby="hero-h">
+          <div className="home-hero-copy">
+            <p className="home-eyebrow">Free through beta · no card · No payment · just create and draw</p>
+            <h1 id="hero-h">
+              Draw the play
+              <br />
+              <span className="hl-teal">print the wristband</span>
+              <br />
+              <span className="hl-cyan">Win the game</span>
+            </h1>
+            <p className="home-hero-lede">
+              Grid1ronVault is the playbook studio for anyone who loves the game of football. Design plays with real drawing
+              tools, keep them in one searchable Vault, build your call sheet in a spreadsheet that learns your shorthand, and
+              print anything from a quarterback wristband to a full binder page.
+            </p>
+            <div className="home-hero-actions">
+              <Link to="/build" className="btn btn-primary btn-lg">
+                Start drawing — it is free
+              </Link>
+              <Link to="/starters" className="btn btn-outline-dark btn-lg">
+                Browse 56 starter plays
+              </Link>
             </div>
-            <div className="hero-art">
-              <div className="hero-frame">
-                <div className="hero-frame-bar" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                  <b>Trips — Flood</b>
-                </div>
-                <PlayThumb scene={scene} label={`${HERO_PLAY.name} — ${HERO_PLAY.description}`} />
-              </div>
-              <div className="hero-tag">
-                <Icon name="sparkle" size={18} />
-                <div>
-                  <b>Three-level flood</b>
-                  <small>Flat, out, corner. First read is the flat.</small>
-                </div>
-              </div>
-            </div>
+            <p className="home-hero-fine">Works on the laptop you install from and the tablet you carry to the sideline.</p>
           </div>
+          <figure className="home-hero-frame">
+            <div className="home-frame-bar" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <b>Trips — Flood</b>
+            </div>
+            <PlayThumb scene={scene} label={`${HERO_PLAY.name} — ${HERO_PLAY.description}`} />
+            <figcaption className="home-frame-foot">
+              <div>
+                <b>Three-level flood</b>
+                <small>Flat, out, corner. First read is the flat.</small>
+              </div>
+              <span className="pill pill-pass">Pass</span>
+            </figcaption>
+          </figure>
         </section>
 
-        <div className="trust">
-          <span>Built for</span>
-          <b>Rec leagues</b>
-          <b>Travel teams</b>
-          <b>School programs</b>
-          <b>Youth coaches</b>
-          <b>Players learning the tree</b>
-        </div>
+        <section className="home-built" aria-label="Built for">
+          <p className="home-eyebrow">Built for</p>
+          <ul>
+            <li>Rec leagues</li>
+            <li>Travel teams</li>
+            <li>School programs</li>
+            <li>Youth coaches</li>
+            <li>Players learning the tree</li>
+          </ul>
+        </section>
 
-        <section className="section" id="designer" aria-labelledby="designer-h">
-          <div className="section-head">
-            <span className="pill">What you get</span>
-            <h2 id="designer-h">Four tools that talk to each other</h2>
-            <p>Draw a play once. It shows up in the Vault, drops into your call sheet, and prints at any size.</p>
-          </div>
+        <section className="home-head" aria-labelledby="tools-h">
+          <p className="home-eyebrow">What you get</p>
+          <h2 id="tools-h">Four tools that talk to each other</h2>
+          <p>Draw a play once. It shows up in the Vault, drops into your call sheet, and prints at any size.</p>
+        </section>
+
+        <section className="section" id="designer" aria-labelledby="tools-h">
           <div className="feature-zig">
             {FEATURES.map((f, i) => (
               <article className={`feature-row${i % 2 ? " is-flip" : ""}`} key={f.title}>
