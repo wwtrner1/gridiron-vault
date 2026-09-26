@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
+import { PhotoReview } from "../components/PhotoReview";
 import { store, useStore } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { gateSave } from "../lib/plan";
@@ -20,18 +21,20 @@ const SUGGEST: Record<string, string> = { R: "H", F: "H", B: "H", T: "H", RB: "H
 
 const SOURCES = [
   { icon: "board", title: "PowerPoint deck", body: "Upload a .pptx playbook. Every slide with a play becomes a draft you can import in one batch.", ready: true },
-  { icon: "upload", title: "Whiteboard photo", body: "Snap the board after practice. Marker circles, Xs and arrows are read as players and routes.", ready: false },
-  { icon: "print", title: "Scanned page or PDF", body: "Old binder pages and PDFs. Pick the pages you want, skip the cover and notes.", ready: false },
-  { icon: "sparkle", title: "Screenshot", body: "Plays from another app, a clinic slide or a text from your coordinator.", ready: false },
+  { icon: "upload", title: "Whiteboard photo", body: "Snap the board after practice. Marker circles, Xs and arrows are read as players and routes.", ready: true },
+  { icon: "print", title: "Scanned page or PDF", body: "Old binder pages. A photo or scan of the page reads now; PDF files are coming soon.", ready: false },
+  { icon: "sparkle", title: "Screenshot", body: "Plays from another app, a clinic slide or a text from your coordinator.", ready: true },
 ];
 
 /**
  * Upload plays, from the Grid1ron Design canvas (Upload · choose a source,
- * Upload · PowerPoint deck). PowerPoint decks import now; photos, PDFs and
- * screenshots need the Play reader (an AI service) and say so.
+ * Upload · PowerPoint deck, Upload · review a whiteboard photo). Decks are
+ * read in the browser; photos and screenshots go to the Play reader (Claude,
+ * through the API function). PDFs are still to come.
  */
 export function Upload() {
   const [deck, setDeck] = useState<Deck | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [waiting, setWaiting] = useState("");
   const [busy, setBusy] = useState(false);
@@ -57,10 +60,12 @@ export function Upload() {
       return;
     }
     if (ext === "ppt") return setError("That is an older .ppt file. Open it in PowerPoint, save it as .pptx, and upload that.");
-    if (["jpg", "jpeg", "png", "heic", "webp", "pdf"].includes(ext) || file.type.startsWith("image/")) {
-      return setWaiting(
-        `${file.name} needs the Play reader to turn a photo, screenshot or PDF into a play. It is coming soon — PowerPoint decks import now.`,
-      );
+    if (ext === "pdf" || file.type === "application/pdf") {
+      return setWaiting(`Reading PDFs is coming soon. For now, take a screenshot of the page with the play and upload that.`);
+    }
+    if (["jpg", "jpeg", "png", "heic", "webp"].includes(ext) || file.type.startsWith("image/")) {
+      if (file.size > 20 * 1024 * 1024) return setError(`${file.name} is over 20 MB. Use a smaller photo.`);
+      return setPhoto(file);
     }
     setError(`${file.name} isn’t a file Grid1ronVault can read. Use JPG, PNG, HEIC, PDF or PPTX.`);
   }
@@ -79,6 +84,7 @@ export function Upload() {
   }, []);
 
   if (deck) return <DeckReview deck={deck} onBack={() => setDeck(null)} />;
+  if (photo) return <PhotoReview file={photo} onBack={() => setPhoto(null)} />;
 
   return (
     <Shell
@@ -171,7 +177,7 @@ export function Upload() {
         </div>
 
         <p className="up-note">
-          Nothing is saved until you press Import. Your files stay on your own plays and are never shared with other coaches.
+          Nothing is saved until you press Import or Save. Your files stay on your own plays and are never shared with other coaches.
         </p>
       </div>
     </Shell>

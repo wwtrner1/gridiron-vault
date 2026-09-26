@@ -47,7 +47,7 @@ type Formation = {
   five: { backs: number; spots?: Spot[] };
 };
 
-const W = 420; // wide
+const W = 400; // wide (a corner from here still ends on the field)
 const S = 290; // slot
 const I = 200; // inside
 const TE_RIGHT: Spot[] = [[132, 4], [-132, 4], [176, 30]];
