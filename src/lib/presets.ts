@@ -71,11 +71,13 @@ export const FORMATION_PRESETS: { name: string; note: string; slots: Slot[] }[] 
   { name: "Cover 3 shell", note: "Defensive look: three deep, two underneath.", slots: [["R", 0, -70], ["CB", -280, -180], ["FS", 0, -210], ["CB", 280, -180], ["LB", -120, -110]] },
 ];
 
-export function buildFormation(preset: { slots: Slot[] }, losY: number): SceneNode[] {
+/** Drops a formation; pass `tokens` to use the coach's default position colors. */
+export function buildFormation(preset: { slots: Slot[] }, losY: number, tokens?: TokenPreset[]): SceneNode[] {
   const cx = CANVAS_W / 2;
   const group = uid("grp");
+  const find = (code: string) => tokens?.find((t) => t.code === code) ?? T(code);
   return preset.slots.map(([code, dx, dy], i) => ({
-    ...makePlayer(T(code), cx + dx, losY + dy),
+    ...makePlayer(find(code), cx + dx, losY + dy),
     groupId: group,
     z: 100 + i,
   }));

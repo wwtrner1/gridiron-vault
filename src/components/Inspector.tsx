@@ -3,6 +3,7 @@ import { Panel } from "./Panel";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
+import { PlayerPresets } from "./PlayerPresets";
 import { letterColor } from "../lib/colors";
 import { FIELD_VIEWS } from "../lib/field";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ } from "../lib/scene";
@@ -144,6 +145,10 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           <input type="checkbox" checked={meta.isPublic} onChange={(e) => onMeta({ isPublic: e.target.checked })} />
           Share this play in the public Vault
         </label>
+      </Panel>
+
+      <Panel title="Player presets" icon="user">
+        <PlayerPresets />
       </Panel>
 
       <Panel title="Field" icon="grid" count={FIELD_VIEWS.find((v) => v.id === scene.view)?.label}>
