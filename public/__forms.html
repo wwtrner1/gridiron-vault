@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Grid1ronVault forms</title>
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <!--
+      Netlify Forms reads this static copy at deploy time; the Help & feedback
+      page (src/pages/Help.tsx) posts its submissions here. Keep the field
+      names in step with that page.
+    -->
+    <form name="feedback" method="POST" data-netlify="true" netlify-honeypot="company" enctype="multipart/form-data" hidden>
+      <input name="company" />
+      <textarea name="improve"></textarea>
+      <select name="area"><option>Designer</option></select>
+      <input name="rating" />
+      <input name="email" type="email" />
+      <input name="page" />
+      <input name="screenshot" type="file" />
+    </form>
+  </body>
+</html>

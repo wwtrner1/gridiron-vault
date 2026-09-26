@@ -29,11 +29,6 @@ export const COMING_SOON: Record<string, Screen> = {
     icon: "sparkle",
     blurb: "The Play assistant, formation and defense libraries, the route tree and Saved play format — everything that speeds up drawing a play.",
   },
-  "/help": {
-    title: "Help & feedback",
-    icon: "help",
-    blurb: "Get help, report a problem, or tell us what to improve.",
-  },
 };
 
 export function ComingSoon({ path }: { path: keyof typeof COMING_SOON }) {
