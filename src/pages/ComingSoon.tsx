@@ -14,11 +14,6 @@ export const COMING_SOON: Record<string, Screen> = {
     icon: "upload",
     blurb: "Drop in a whiteboard photo, a screenshot or a PowerPoint deck and get editable plays back.",
   },
-  "/language": {
-    title: "Playbook language",
-    icon: "language",
-    blurb: "Save your own names for formations, routes and calls so every screen speaks your playbook.",
-  },
   "/tools": {
     title: "More tools",
     icon: "sparkle",
