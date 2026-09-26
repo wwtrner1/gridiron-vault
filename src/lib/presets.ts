@@ -1,5 +1,5 @@
-import { baseNode, CANVAS_W, uid } from "./types";
-import type { PlayerNode, Scene, SceneNode } from "./types";
+import { baseNode } from "./types";
+import type { PlayerNode, Scene } from "./types";
 
 export type TokenPreset = {
   code: string;
@@ -50,37 +50,6 @@ export function makePlayer(preset: TokenPreset, x: number, y: number): PlayerNod
     textColor: preset.textColor,
     side: preset.side,
   };
-}
-
-const T = (code: string) =>
-  [...OFFENSE_TOKENS, ...DEFENSE_TOKENS].find((t) => t.code === code)!;
-
-type Slot = [string, number, number];
-
-/** Formation presets, expressed as offsets from the centre of the line. */
-export const FORMATION_PRESETS: { name: string; note: string; slots: Slot[] }[] = [
-  { name: "Single Back", note: "Balanced 5-on-5 base set with one back behind the quarterback.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", -300, 4], ["Z", 300, 4], ["RB", -66, 74]] },
-  { name: "Spread", note: "Receivers split wide on both edges to stretch the flats.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", -330, 4], ["Y", -150, 10], ["Z", 330, 4], ["RB", 150, 10]] },
-  { name: "Trips", note: "Three receivers to one side — floods a third of the field fast.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", -320, 4], ["Y", 200, 8], ["Z", 300, 4], ["RB", 118, 12]] },
-  { name: "Trips Stack", note: "Trips with receivers stacked to free releases off the line.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", -320, 4], ["Y", 240, 4], ["Z", 240, 44], ["RB", 240, 84]] },
-  { name: "Twins", note: "Two receivers to the same side, one back in the slot.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", 200, 4], ["Z", 312, 4], ["RB", -200, 8]] },
-  { name: "Twins Stack", note: "Stacked twins — the inside man screens for the outside release.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", 250, 4], ["Z", 250, 46], ["RB", -200, 8]] },
-  { name: "Bunch", note: "Three receivers tight together to create natural rubs.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", 190, 6], ["Y", 244, 44], ["Z", 300, 6], ["RB", -180, 10]] },
-  { name: "I Formation", note: "Both backs stacked behind the quarterback for downhill runs.", slots: [["C", 0, 0], ["QB", 0, 58], ["X", -300, 4], ["Z", 300, 4], ["RB", 0, 122]] },
-  { name: "Empty", note: "No backs — every eligible receiver releases on the snap.", slots: [["C", 0, 0], ["QB", 0, 62], ["X", -330, 4], ["Y", -170, 8], ["Z", 330, 4], ["H", 170, 8]] },
-  { name: "Cover 3 shell", note: "Defensive look: three deep, two underneath.", slots: [["R", 0, -70], ["CB", -280, -180], ["FS", 0, -210], ["CB", 280, -180], ["LB", -120, -110]] },
-];
-
-/** Drops a formation; pass `tokens` to use the coach's default position colors. */
-export function buildFormation(preset: { slots: Slot[] }, losY: number, tokens?: TokenPreset[]): SceneNode[] {
-  const cx = CANVAS_W / 2;
-  const group = uid("grp");
-  const find = (code: string) => tokens?.find((t) => t.code === code) ?? T(code);
-  return preset.slots.map(([code, dx, dy], i) => ({
-    ...makePlayer(find(code), cx + dx, losY + dy),
-    groupId: group,
-    z: 100 + i,
-  }));
 }
 
 export function emptyScene(losY = 420): Scene {

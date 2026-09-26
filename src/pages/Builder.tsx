@@ -8,6 +8,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
+import { DefenseLibrary } from "../components/DefenseLibrary";
 import { FIELD_VIEWS } from "../lib/field";
 import { LINE_TOOLS, MODES, SHAPE_TOOLS, type ModeId, type ToolId } from "../lib/tools";
 import {
@@ -18,7 +19,7 @@ import {
 } from "../lib/presets";
 import { cloneNodes, describe, nextZ, reconcileConnections } from "../lib/scene";
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
-import type { PlayMeta, Scene, StoredPlay } from "../lib/types";
+import type { PlayMeta, PlayerNode, Scene, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -29,6 +30,7 @@ import { useCaptureGuard } from "../lib/guard";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { tokenFor, type Placed } from "../lib/formations";
+import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
 import "../styles/designer.css";
 
 const blankMeta: PlayMeta = {
@@ -96,7 +98,7 @@ export function Builder() {
   const [exporting, setExporting] = useState(false);
   const [sideOpen, setSideOpen] = useState(wideScreen);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
-  const [lists, setLists] = useState<"formations" | "layers" | null>(null);
+  const [lists, setLists] = useState<"formations" | "defense" | "layers" | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -173,6 +175,29 @@ export function Builder() {
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
     setStatus(set.note);
+  };
+
+  const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
+    // Line up on the ball: the center if there is one, else the middle of the field.
+    const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+    const center = players.find((p) => p.side === "offense" && p.label === "C");
+    const ball = { x: center?.x ?? CANVAS_W / 2, y: scene.losY };
+    const offense = players.filter((p) => p.side === "offense");
+    const hasLine = offense.some((p) => p.shape === "square" && !p.label);
+    const receivers = offense
+      .filter((p) => p.label && p.label !== "Q" && !(hasLine && p.label === "C"))
+      .map((p) => ({ dx: p.x - ball.x, dy: p.y - ball.y }));
+    const layout = layoutDefense(set.front, set.coverage, receivers);
+    const nodes = defenseNodes(layout, ball, set.show, nextZ(scene));
+    applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.front} ${set.coverage} set`);
+    setSelection(nodes.map((n) => n.id));
+    setStatus(
+      set.coverage === "Man" || set.coverage === "Cover 1"
+        ? receivers.length
+          ? `${describeDefense(set.front, set.coverage, set.show)}.`
+          : "No receivers on the play yet, so man defenders are placed without lines. Drop an offense first to draw them."
+        : `${describeDefense(set.front, set.coverage, set.show)}.`,
+    );
   };
 
   const pickTool = (next: ToolId) => {
@@ -645,9 +670,9 @@ export function Builder() {
           </section>
 
           <section className="dz-group" aria-labelledby="dz-sets">
-            <h2 id="dz-sets">Formations · Layers</h2>
-            <div className="dz-grid">
-              {(["formations", "layers"] as const).map((list) => (
+            <h2 id="dz-sets">Libraries · Layers</h2>
+            <div className="dz-grid dz-grid-3">
+              {(["formations", "defense", "layers"] as const).map((list) => (
                 <button
                   key={list}
                   type="button"
@@ -656,12 +681,13 @@ export function Builder() {
                   aria-expanded={lists === list}
                   aria-controls="dz-list-tray"
                 >
-                  {list === "formations" ? "Formations" : "Layers"}
+                  {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
                   {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
                 </button>
               ))}
             </div>
             {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
+            {lists === "defense" && <DefenseLibrary onDrop={applyDefense} />}
             {lists === "layers" && (
               <div className="dz-list" id="dz-list-tray">
                 {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
