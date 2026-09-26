@@ -134,19 +134,27 @@ export type StoredPlay = PlayMeta & {
 export const CANVAS_W = 1040;
 export const CANVAS_H = 660;
 
+/** Every formation name a play can carry: the Formation library's, then older names saved plays still use. */
 export const FORMATIONS = [
+  "Trips Right",
+  "Trips Left",
+  "Doubles",
+  "Bunch Right",
+  "Empty",
+  "I Formation",
+  "Pro Set",
   "Single Back",
+  "Pistol",
+  "Shotgun Spread",
+  "Goal Line",
   "Spread",
   "Bunch",
   "Trips",
   "Trips Stack",
   "Twins",
   "Twins Stack",
-  "I Formation",
   "Double Back",
   "Single Set",
-  "Empty",
-  "Goal Line",
   "Defense",
 ];
 
