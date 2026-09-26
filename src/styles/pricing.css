@@ -57,3 +57,13 @@
 @media (max-width: 900px) {
   .price-faq { flex-direction: column; gap: 24px; }
 }
+
+/* Season Pass, yearly and founding-coach offers, under the plan cards. */
+.price-offers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }
+.price-offer { display: flex; flex-direction: column; gap: 8px; padding: 22px 24px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--white); }
+.price-offer.is-highlight { border-color: var(--cyan); background: var(--cyan-soft); }
+.price-offer h3 { margin: 0; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.price-offer.is-highlight h3 { color: var(--cyan-ink); }
+.price-offer .home-plan-price b { font-size: 34px; }
+.price-offer p { margin: 0; font-size: 14px; }
+@media (max-width: 900px) { .price-offers { grid-template-columns: minmax(0, 1fr); } }

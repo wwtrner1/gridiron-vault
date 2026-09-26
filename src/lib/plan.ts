@@ -34,8 +34,10 @@ export type Tier = {
   share: boolean;
   /** Tools held back on the free tier. */
   lockedTools: string[];
-  /** Assistant runs per month. */
-  aiRuns: number;
+  /** Whiteboard photo reviews per month (the costlier AI job). */
+  photoReviews: number;
+  /** Play assistant calls per month. */
+  assistantCalls: number;
   perks: string[];
 };
 
@@ -56,8 +58,9 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: true,
     share: true,
     lockedTools: [],
-    aiRuns: 60,
-    perks: ["Every tool on", "Full export and print", "Founding-coach pricing for life"],
+    photoReviews: 30,
+    assistantCalls: 300,
+    perks: ["Every tool on", "Full export and print", "Founding-coach pricing: Head Coach at $9 a month for life"],
   },
   free: {
     id: "free",
@@ -75,7 +78,8 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: false,
     share: false,
     lockedTools: ["pen", "polygon", "zone", "motion", "connect"],
-    aiRuns: 3,
+    photoReviews: 3,
+    assistantCalls: 20,
     perks: [
       "8 plays in your Vault",
       "1 Season Grid",
@@ -100,7 +104,8 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: true,
     share: true,
     lockedTools: [],
-    aiRuns: 100,
+    photoReviews: 30,
+    assistantCalls: 300,
     perks: [
       "400 plays in your Vault",
       "Every drawing tool and mode",
@@ -113,7 +118,7 @@ export const TIERS: Record<TierId, Tier> = {
     id: "crew",
     name: "Staff",
     blurb: "You and your assistants in the same playbook.",
-    price: "$19",
+    price: "$29",
     cadence: "per month",
     seats: "Up to 3 coaches",
     playLimit: 1200,
@@ -125,7 +130,8 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: true,
     share: true,
     lockedTools: [],
-    aiRuns: 300,
+    photoReviews: 90,
+    assistantCalls: 900,
     perks: [
       "3 seats on one shared playbook",
       "Everything in Head Coach",
@@ -137,7 +143,7 @@ export const TIERS: Record<TierId, Tier> = {
     id: "program",
     name: "Program",
     blurb: "A league or a multi-team program on one system.",
-    price: "$49",
+    price: "$79",
     cadence: "per month",
     seats: "Up to 12 coaches",
     playLimit: 5000,
@@ -149,7 +155,8 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: true,
     share: true,
     lockedTools: [],
-    aiRuns: 1200,
+    photoReviews: 300,
+    assistantCalls: 2000,
     perks: [
       "12 seats and shared team Vaults",
       "League-wide play standards",
@@ -160,6 +167,13 @@ export const TIERS: Record<TierId, Tier> = {
 };
 
 export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
+
+/** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
+export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
+  { id: "season", name: "Season Pass", price: "$39", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
+  { id: "yearly", name: "Head Coach yearly", price: "$120", cadence: "per year", blurb: "Every Head Coach feature, two months free." },
+  { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
+];
 
 /** Sizes a free coach can print, so the product is genuinely usable first. */
 export const STARTER_SIZES = ["wristband", "letter-p"];
