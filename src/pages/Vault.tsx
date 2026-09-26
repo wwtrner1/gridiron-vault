@@ -13,6 +13,8 @@ import { useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { FORMATIONS, uid } from "../lib/types";
+import { recolorScene, staleCount } from "../lib/recolor";
+import "../styles/vault.css";
 import type { StoredPlay } from "../lib/types";
 
 type Sort = "recent" | "name" | "formation" | "popular";
@@ -67,7 +69,11 @@ export function Vault() {
 
   const source = tab === "mine" ? plays : remote;
 
-  const tags = useMemo(() => [...new Set(source.flatMap((p) => p.tags))].sort().slice(0, 18), [source]);
+  // "starter" shows as the Starter badge on the card, not as a label chip (canvas).
+  const tags = useMemo(
+    () => [...new Set(source.flatMap((p) => p.tags))].filter((t) => t !== "starter").sort().slice(0, 18),
+    [source],
+  );
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -125,6 +131,24 @@ export function Vault() {
     }
   }
 
+  // Plays saved before the new default position colors (Sep 25).
+  const stale = useMemo(() => plays.filter((p) => staleCount(p.scene) > 0), [plays]);
+
+  async function updateColors() {
+    const updated = stale.map((p) => ({ ...p, scene: recolorScene(p.scene), updatedAt: new Date().toISOString() }));
+    updated.forEach((p) => store.upsertPlay(p));
+    toast(`${updated.length} ${updated.length === 1 ? "play uses" : "plays use"} the new position colors.`);
+    if (account) {
+      for (const p of updated.filter((x) => x.remote)) {
+        try {
+          await api.updatePlay(p.id, { scene: p.scene });
+        } catch {
+          /* the local copy is already updated; it syncs on the next save */
+        }
+      }
+    }
+  }
+
   const clearFilters = () => (setQuery(""), setFormation(""), setType(""), setTag(""));
   const filtered = Boolean(query || formation || type || tag);
 
@@ -162,13 +186,30 @@ export function Vault() {
           </button>
         </div>
 
+        {tab === "mine" && stale.length > 0 && (
+          <div className="vault-note" role="status">
+            <div>
+              <b>
+                {stale.length} {stale.length === 1 ? "play still uses" : "plays still use"} the old player colors.
+              </b>
+              <p>
+                Update them to the new position colors: Q black · C cyan · X blue · Y red · Z green · H orange · S light purple.
+                Only players still in an old default color change; colors you picked yourself stay.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={updateColors}>
+              Update {stale.length} {stale.length === 1 ? "play" : "plays"}
+            </button>
+          </div>
+        )}
+
         <div className="filters">
           <div className="search-box">
             <Icon name="search" size={16} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search play names, formations, notes and labels"
+              placeholder="Search play names, formations, labels"
               aria-label="Search the Vault"
             />
           </div>
@@ -282,11 +323,15 @@ export function Vault() {
                     {tab === "public" && ` · ${p.ownerName}`}
                   </p>
                   <div className="play-meta">
-                    {p.tags.slice(0, 3).map((t) => (
-                      <span key={t} className="pill">
-                        {t}
-                      </span>
-                    ))}
+                    {p.tags.includes("starter") && <span className="pill pill-special">Starter</span>}
+                    {p.tags
+                      .filter((t) => t !== "starter")
+                      .slice(0, 3)
+                      .map((t) => (
+                        <span key={t} className="pill pill-label">
+                          {t}
+                        </span>
+                      ))}
                     {p.saveCount > 0 && <span className="pill pill-cyan">{p.saveCount} copies</span>}
                     {!p.remote && <span className="pill pill-amber">This browser</span>}
                   </div>

@@ -1,0 +1,59 @@
+/* ============================================================
+   The Vault, from the Grid1ron Design canvas (The Vault artboard).
+   Scoped under .page so it wins over the older global rules.
+   ============================================================ */
+
+.page .tab-row { max-width: 420px !important; padding: 4px; border-radius: var(--radius-md); }
+.page .tab-row button { font-size: 14px; }
+
+.page .filters { gap: 10px; margin-bottom: 14px; }
+.page .search-box input { font-size: 14px; }
+.page .search-box svg { color: var(--muted); }
+.page .filters .select { height: 38px; font-size: 14px; }
+
+/* Label chips: white, bordered, 26px */
+.page .filters + .chip-row .chip,
+.page .vault-labels .chip {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.page .filters + .chip-row .chip.is-on { border-color: var(--ink); background: var(--ink); color: var(--white); }
+
+/* Play cards */
+.page .play-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-5); }
+.page .play-card { padding: 14px; }
+.page .play-card .play-thumb {
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+.page .play-card .play-body { display: flex; flex-direction: column; gap: 4px; padding: 14px 0 0; }
+.page .play-card .play-body h3 { margin: 0; font-size: 20px; line-height: 1.1; }
+.page .play-card .play-body .hint { font-size: 13px; color: var(--muted); }
+.page .play-card .play-meta { gap: 6px; margin-top: 6px; }
+.page .play-card .play-acts { gap: 8px; margin-top: 10px; }
+.page .play-card .play-pick { top: 20px; left: 20px; }
+
+.page .pill-special { background: var(--special-bg); color: var(--ink-4); }
+.page .pill-label { background: var(--white); border: 1px solid var(--border); color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+/* Old-colors notice */
+.vault-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--cyan-soft);
+}
+.vault-note b { font-size: 14px; }
+.vault-note p { margin: 4px 0 0; max-width: 70ch; font-size: 13.5px; color: var(--muted); }
