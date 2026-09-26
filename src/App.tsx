@@ -12,6 +12,7 @@ import { Account } from "./pages/Account";
 import { SignIn } from "./pages/SignIn";
 import { NotFound } from "./pages/NotFound";
 import { Help } from "./pages/Help";
+import { Wristbands } from "./pages/Wristbands";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
@@ -25,6 +26,7 @@ const TITLES: Record<string, string> = {
   "/account": "Your account — Grid1ronVault",
   "/signin": "Sign in — Grid1ronVault",
   "/help": "Help & feedback — Grid1ronVault",
+  "/wristbands": "Wristbands — Grid1ronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — Grid1ronVault`])),
 };
 
@@ -39,6 +41,7 @@ const NAMES: Record<string, string> = {
   "/account": "Your account",
   "/signin": "Sign in",
   "/help": "Help & feedback",
+  "/wristbands": "Wristbands",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -80,6 +83,7 @@ export function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/help" element={<Help />} />
+        <Route path="/wristbands" element={<Wristbands />} />
         {Object.keys(COMING_SOON).map((p) => (
           <Route key={p} path={p} element={<ComingSoon path={p} />} />
         ))}

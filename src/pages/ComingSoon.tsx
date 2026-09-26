@@ -14,11 +14,6 @@ export const COMING_SOON: Record<string, Screen> = {
     icon: "upload",
     blurb: "Drop in a whiteboard photo, a screenshot or a PowerPoint deck and get editable plays back.",
   },
-  "/wristbands": {
-    title: "Wristbands",
-    icon: "wristband",
-    blurb: "Build and print quarterback wristband cards, six to ten plays each, from your Season Grid or a playbook.",
-  },
   "/language": {
     title: "Playbook language",
     icon: "language",
