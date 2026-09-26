@@ -8,6 +8,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
+import { RailGroup } from "../components/RailGroup";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { PlayAssistant } from "../components/PlayAssistant";
 import type { AssistantRead } from "../lib/assistant";
@@ -494,8 +495,7 @@ export function Builder() {
 
       <div className={`dz-body${sideOpen ? "" : " is-side-closed"}`}>
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} aria-label="Drawing tools">
-          <section className="dz-group" aria-labelledby="dz-modes">
-            <h2 id="dz-modes">Modes</h2>
+          <RailGroup id="modes" title="Modes">
             <div className="dz-grid">
               <Tooltip
                 title="Select"
@@ -544,10 +544,9 @@ export function Builder() {
                 <p className="dz-note">The dot you pick stays put while the rest scales away from it.</p>
               </>
             )}
-          </section>
+          </RailGroup>
 
-          <section className="dz-group" aria-labelledby="dz-lines">
-            <h2 id="dz-lines">Lines · Routes</h2>
+          <RailGroup id="lines" title="Lines · Routes">
             <div className="dz-grid">
               {RAIL_LINES.map((id) => {
                 const t = LINE_TOOLS.find((x) => x.id === id)!;
@@ -573,10 +572,9 @@ export function Builder() {
                 );
               })}
             </div>
-          </section>
+          </RailGroup>
 
-          <section className="dz-group" aria-labelledby="dz-ink">
-            <h2 id="dz-ink">Ink · Weight</h2>
+          <RailGroup id="ink" title="Ink · Weight" summary={<><i className="dz-ink" style={{ background: color }} aria-hidden="true" />{STROKE_WEIGHTS.indexOf(width) + 1 || width}px</>}>
             <div className="dz-grid">
               {RAIL_INKS.map((ink) => (
                 <button
@@ -609,10 +607,9 @@ export function Builder() {
                 </Tooltip>
               ))}
             </div>
-          </section>
+          </RailGroup>
 
-          <section className="dz-group" aria-labelledby="dz-shapes">
-            <h2 id="dz-shapes">Shapes · Zones</h2>
+          <RailGroup id="shapes" title="Shapes · Zones">
             <div className="dz-grid">
               {RAIL_SHAPES.map((id) => {
                 const t = SHAPE_TOOLS.find((x) => x.id === id)!;
@@ -638,10 +635,9 @@ export function Builder() {
                 );
               })}
             </div>
-          </section>
+          </RailGroup>
 
-          <section className="dz-group" aria-labelledby="dz-players">
-            <h2 id="dz-players">Offense · Defense</h2>
+          <RailGroup id="players" title="Offense · Defense">
             <div className="dz-grid">
               {(["offense", "defense"] as const).map((side) => (
                 <button
@@ -678,10 +674,9 @@ export function Builder() {
                 ))}
               </div>
             )}
-          </section>
+          </RailGroup>
 
-          <section className="dz-group" aria-labelledby="dz-sets">
-            <h2 id="dz-sets">Libraries · Layers</h2>
+          <RailGroup id="sets" title="Libraries · Layers">
             <div className="dz-grid dz-grid-3">
               {(["formations", "defense", "layers"] as const).map((list) => (
                 <button
@@ -723,7 +718,7 @@ export function Builder() {
                   ))}
               </div>
             )}
-          </section>
+          </RailGroup>
         </aside>
 
         <main className="builder-main" id="main">

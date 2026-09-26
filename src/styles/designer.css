@@ -376,3 +376,30 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .pa-btn { height: 30px; padding: 0 12px; border: 1px solid #26405f; border-radius: var(--radius-md); background: transparent; color: var(--white); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
 .pa-btn.is-primary { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
 .pa-btn:disabled { opacity: 0.45; }
+
+/* ---- Collapsible rail groups ---- */
+.builder .builder-rail { gap: 4px; }
+.dz-group { gap: 0; padding-bottom: 6px; border-bottom: 1px solid var(--ink-3); }
+.dz-group:last-child { border-bottom: 0; }
+.dz-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+}
+.dz-group-toggle > span:first-child { flex: 1; }
+.dz-group-toggle:hover { color: var(--white); }
+.dz-group-toggle svg { flex: none; transition: transform 0.15s ease; }
+.dz-group.is-open .dz-group-toggle svg { transform: rotate(180deg); }
+.dz-group-summary { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--muted-2); }
+.dz-group-body { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
+.dz-group-body[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .dz-group-toggle svg { transition: none; } }
