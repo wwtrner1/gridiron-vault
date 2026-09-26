@@ -87,7 +87,7 @@ export const TIERS: Record<TierId, Tier> = {
     id: "solo",
     name: "Head Coach",
     blurb: "One coach, one program, no limits worth thinking about.",
-    price: "$9",
+    price: "$12",
     cadence: "per month",
     seats: "1 coach",
     featured: true,
