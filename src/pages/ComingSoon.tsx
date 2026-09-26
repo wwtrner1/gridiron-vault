@@ -24,6 +24,11 @@ export const COMING_SOON: Record<string, Screen> = {
     icon: "language",
     blurb: "Save your own names for formations, routes and calls so every screen speaks your playbook.",
   },
+  "/tools": {
+    title: "More tools",
+    icon: "sparkle",
+    blurb: "The Play assistant, formation and defense libraries, the route tree and Saved play format — everything that speeds up drawing a play.",
+  },
   "/help": {
     title: "Help & feedback",
     icon: "help",
