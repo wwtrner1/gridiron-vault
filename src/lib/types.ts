@@ -45,6 +45,10 @@ export type PlayerNode = NodeCommon & {
   notePrint?: boolean;
   /** Add the note to the wristband card. Default off. */
   noteWristband?: boolean;
+  /** Outline style from a player preset. Default solid. */
+  outlineStyle?: "solid" | "dash" | "none";
+  /** Shade color drawn under the player (player presets). */
+  shade?: string;
 };
 
 export type PathNode = NodeCommon & {
@@ -65,6 +69,8 @@ export type PathNode = NodeCommon & {
   toId: string | null;
   /** The quarterback's first read. Drawn in FIRST_READ; at most one per play. */
   firstRead?: boolean;
+  /** The player this route or block belongs to, when a player preset drew it. */
+  assignOf?: string;
 };
 
 export type ShapeNode = NodeCommon & {

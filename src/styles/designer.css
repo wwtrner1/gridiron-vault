@@ -292,3 +292,40 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   font-size: 12px;
   font-weight: 700;
 }
+
+/* ---- Player presets: chips and editor ---- */
+.pp-head { display: flex; flex-direction: column; gap: 10px; }
+.pp-head .btn { align-self: flex-start; }
+.pp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px 0 5px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pp-chip:hover { border-color: var(--ink-4); }
+.pp-chip.is-on { border-color: var(--cyan); background: var(--ink-3); }
+.pp-editor { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--ink-3); border-radius: var(--radius-lg); background: var(--ink); }
+.pp-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pp-editor-head > span:first-child { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--panel-head); }
+.pp-mono { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; color: var(--muted-2); }
+.pp-preview { display: block; width: 100%; height: auto; border-radius: var(--radius-md); }
+.pp-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.pp-grid2 { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; }
+.pp-grid2:has(select) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pp-letter { text-align: center; font-family: var(--display); font-size: 16px; font-weight: 700; }
+.pp-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-swatch.is-none { background: repeating-linear-gradient(135deg, var(--ink) 0 4px, var(--ink-3) 4px 8px); }
+.cp-swatch.is-more { display: inline-grid; place-items: center; background: var(--ink); color: var(--white); font-size: 14px; line-height: 1; }
+.seg-sm button { height: 26px; font-family: var(--body); font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.pp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pp-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.builder-side select:disabled,
+.builder-side .switch input:disabled { opacity: 0.45; }

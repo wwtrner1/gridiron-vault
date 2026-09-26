@@ -148,7 +148,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       </Panel>
 
       <Panel title="Player presets" icon="user">
-        <PlayerPresets />
+        <PlayerPresets scene={scene} selection={selection} onScene={onScene} onSelection={onSelection} />
       </Panel>
 
       <Panel title="Player notes" icon="text">
