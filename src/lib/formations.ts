@@ -235,6 +235,13 @@ export function tokenFor(p: Placed, tokens: TokenPreset[]): TokenPreset {
   return tokens.find((t) => t.code === p.code)!;
 }
 
+/** Where this formation puts its tailback, for a back the call adds. */
+export function backSpot(name: string): { dx: number; dy: number } {
+  const f = LIBRARY.find((x) => x.name === name) ?? LIBRARY[0];
+  const [dx, dy] = f.backs[0] ?? [f.qb[0] + 56, f.qb[1]];
+  return { dx, dy };
+}
+
 export function describeFormation(game: GameType, personnelCode: string, name: string): string {
   const g = GAME_TYPES.find((x) => x.id === game)!.label;
   if (game !== "11") return `${g} ${name}`;

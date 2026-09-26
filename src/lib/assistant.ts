@@ -1,6 +1,6 @@
 import { BLOCKS, ROUTES } from "./routes";
-import { FORMATION_NAMES, GAME_TYPES, layoutFormation, tokenFor } from "./formations";
-import type { GameType } from "./formations";
+import { backSpot, FORMATION_NAMES, GAME_TYPES, layoutFormation, tokenFor } from "./formations";
+import type { GameType, Placed } from "./formations";
 import { makePlayer } from "./presets";
 import type { TokenPreset } from "./presets";
 import { baseNode, CANVAS_W } from "./types";
@@ -104,8 +104,37 @@ ${terms ? `\nThe coach's terms:\n${terms}` : ""}`;
 const INK = "#0B1524";
 
 /** Players, then routes, for a read — ready to drop on the field in one group. */
-export function readToNodes(read: AssistantRead, tokens: TokenPreset[], losY: number, z: number): SceneNode[] {
+/** Token codes behind the letters coaches call: H is the running back, S the second back / slot. */
+const CODE_FOR: Record<string, string> = { Q: "QB", C: "C", X: "X", Y: "Y", Z: "Z", H: "RB", S: "H" };
+
+/**
+ * The formation's players, with anyone the call names but the formation
+ * lacks (5v5 Trips has no running back, say) swapped in for a player the
+ * call left without a job. A called running back lines up in the backfield.
+ */
+export function placeForRead(read: AssistantRead, tokens: TokenPreset[]): Placed[] {
   const placed = layoutFormation(read.game, read.personnel ?? "11", read.formation);
+  const letter = (p: Placed) => tokenFor(p, tokens).label.toUpperCase();
+  const called = new Set(read.assignments.map((a) => a.player.toUpperCase()));
+  const have = new Set(placed.map(letter));
+  for (const want of called) {
+    if (have.has(want) || !CODE_FOR[want] || want === "Q" || want === "C") continue;
+    // Swap out the innermost skill player the call didn't mention.
+    const spare = placed
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => (p.role === "wr" || p.role === "te" || p.role === "rb") && !called.has(letter(p)))
+      .sort((a, b) => Math.abs(a.p.dx) - Math.abs(b.p.dx))[0];
+    if (!spare) continue;
+    const spot = want === "H" ? backSpot(read.formation) : { dx: spare.p.dx, dy: spare.p.dy };
+    placed[spare.i] = { ...spot, code: CODE_FOR[want], role: want === "H" ? "rb" : spare.p.role };
+    have.delete(letter(spare.p));
+    have.add(want);
+  }
+  return placed;
+}
+
+export function readToNodes(read: AssistantRead, tokens: TokenPreset[], losY: number, z: number): SceneNode[] {
+  const placed = placeForRead(read, tokens);
   const cx = CANVAS_W / 2;
   const players = placed.map((p, i) => ({ ...makePlayer(tokenFor(p, tokens), cx + p.dx, losY + p.dy), z: z + i }));
   const byLetter = new Map(players.filter((p) => p.label).map((p) => [p.label.toUpperCase(), p]));

@@ -122,6 +122,12 @@ export function PlayAssistant({
     setRead((r) => r && { ...r, assignments: r.assignments.map((a, j) => (j === i ? { ...a, ...patch } : a)) });
 
   const proposed = useMemo(() => (read ? readToNodes(read, tokens, scene.losY, nextZ) : []), [read, tokens, scene.losY, nextZ]);
+  // Anyone the call gave a job who still isn't on the field, so no route goes missing quietly.
+  const missing = useMemo(() => {
+    if (!read) return [];
+    const on = new Set(proposed.flatMap((n) => (n.kind === "player" && n.label ? [n.label.toUpperCase()] : [])));
+    return [...new Set(read.assignments.map((a) => a.player.toUpperCase()))].filter((l) => !on.has(l));
+  }, [read, proposed]);
   const match = useMemo(() => (read ? nearMatch(read, plays) : null), [read, plays]);
 
   return (
@@ -208,8 +214,13 @@ export function PlayAssistant({
               </label>
             ))}
           </div>
-          {read.unsure.length > 0 && (
+          {(read.unsure.length > 0 || missing.length > 0) && (
             <ul className="pa-unsure">
+              {missing.map((l) => (
+                <li key={`missing-${l}`}>
+                  {read.formation} has no {l} here, so {l}'s route isn't drawn. Pick another formation or add {l} after drawing.
+                </li>
+              ))}
               {read.unsure.map((q) => (
                 <li key={q}>{q}</li>
               ))}
