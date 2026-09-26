@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { Panel } from "./Panel";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
+import { ColorPicker } from "./ColorPicker";
+import { letterColor } from "../lib/colors";
 import { FIELD_VIEWS } from "../lib/field";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
-import { FORMATIONS, PALETTE, ROUTE_TREE, STROKE_WEIGHTS, uid } from "../lib/types";
+import { FORMATIONS, ROUTE_TREE, STROKE_WEIGHTS, uid } from "../lib/types";
 
 type Props = {
   scene: Scene;
@@ -212,19 +214,25 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
                   </button>
                 ))}
               </div>
-              <p className="mini-label">Fill</p>
-              <div className="light-swatches">
-                {PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`swatch${one.fill === c ? " is-on" : ""}`}
-                    style={{ background: c }}
-                    aria-label={`Fill ${c}`}
-                    onClick={() => patch({ fill: c, textColor: isDark(c) ? "#FFFFFF" : "#0B1524" } as Partial<SceneNode>, "Fill")}
-                  />
-                ))}
-              </div>
+              <p className="mini-label">Fill color</p>
+              <ColorPicker
+                label="Fill"
+                value={one.fill}
+                onChange={(c) =>
+                  patch(
+                    (n) =>
+                      (n.kind === "player"
+                        ? {
+                            fill: c,
+                            textColor: letterColor(c),
+                            // Outlines follow the fill (canvas default) unless the coach set their own.
+                            stroke: n.stroke.toLowerCase() === n.fill.toLowerCase() ? c : n.stroke,
+                          }
+                        : {}) as Partial<SceneNode>,
+                    "Fill",
+                  )
+                }
+              />
             </>
           )}
 
@@ -254,20 +262,12 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             </p>
           )}
 
-          <p className="mini-label">Stroke colour</p>
-          <div className="light-swatches">
-            {PALETTE.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`swatch${strokeOf(one) === c ? " is-on" : ""}`}
-                style={{ background: c }}
-                aria-label={`Stroke ${c}`}
-                aria-pressed={strokeOf(one) === c}
-                onClick={() => patch((n) => (n.kind === "text" ? { color: c } : { stroke: c }) as Partial<SceneNode>, "Colour")}
-              />
-            ))}
-          </div>
+          <p className="mini-label">{one?.kind === "player" ? "Outline color" : one?.kind === "text" ? "Text color" : "Line color"}</p>
+          <ColorPicker
+            label={one?.kind === "player" ? "Outline" : one?.kind === "text" ? "Text" : "Line"}
+            value={strokeOf(one ?? selected[0]) ?? ""}
+            onChange={(c) => patch((n) => (n.kind === "text" ? { color: c } : { stroke: c }) as Partial<SceneNode>, "Color")}
+          />
         </Panel>
       )}
 
@@ -457,12 +457,8 @@ function ShapeFields({ node, patch }: { node: ShapeNode; patch: PatchFn }) {
           onChange={(e) => patch({ fillOpacity: Number(e.target.value) / 100 } as Partial<SceneNode>, "Fill")}
         />
       </label>
-      <p className="mini-label">Fill colour</p>
-      <div className="light-swatches">
-        {PALETTE.map((c) => (
-          <button key={c} type="button" className={`swatch${node.fill === c ? " is-on" : ""}`} style={{ background: c }} aria-label={`Fill ${c}`} aria-pressed={node.fill === c} onClick={() => patch({ fill: c } as Partial<SceneNode>, "Fill")} />
-        ))}
-      </div>
+      <p className="mini-label">Fill color</p>
+      <ColorPicker label="Fill" value={node.fill} onChange={(c) => patch({ fill: c } as Partial<SceneNode>, "Fill")} />
     </>
   );
 }
@@ -495,10 +491,4 @@ function TextFields({ node, patch }: { node: TextNode; patch: PatchFn }) {
     </>
   );
 }
-
-const isDark = (hex: string) => {
-  const v = hex.replace("#", "");
-  if (v.length !== 6) return false;
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
-  return (r * 299 + g * 587 + b * 114) / 1000 < 140;
-};
+
