@@ -118,8 +118,12 @@ export function Account() {
               <dd>{tier.sizes === "all" ? "Every size" : "Wristband + letter"}</dd>
             </div>
             <div>
-              <dt>Assistant runs</dt>
-              <dd>{tier.aiRuns} per month</dd>
+              <dt>Whiteboard photo reviews</dt>
+              <dd>{tier.photoReviews} per month</dd>
+            </div>
+            <div>
+              <dt>Play assistant</dt>
+              <dd>{tier.assistantCalls} per month</dd>
             </div>
           </dl>
           <div className="field">

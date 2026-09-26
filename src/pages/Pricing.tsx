@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
-import { PUBLIC_TIERS, TIERS } from "../lib/plan";
+import { OFFERS, PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { tierStore, useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
@@ -49,9 +49,14 @@ const COMPARE: {
     read: (t) => (t.share ? "Yes" : "Not included"),
   },
   {
-    label: "Assistant runs",
-    hint: "Play-from-a-sentence, auto-tagging and rules checks.",
-    read: (t) => `${t.aiRuns}/month`,
+    label: "Whiteboard photo reviews",
+    hint: "Snap a whiteboard or a playbook page and get a draft play back.",
+    read: (t) => `${t.photoReviews.toLocaleString()}/month`,
+  },
+  {
+    label: "Play assistant",
+    hint: "Type or say a call and see it drawn, plus auto-tagging.",
+    read: (t) => `${t.assistantCalls.toLocaleString()}/month`,
   },
 ];
 
@@ -156,6 +161,18 @@ export function Pricing() {
                     {tier.id === t.id ? "Your current plan" : t.price === "$0" ? "Start on Sideline" : `Choose ${t.name}`}
                   </button>
                 </div>
+              </article>
+            ))}
+          </div>
+          <div className="price-offers">
+            {OFFERS.map((o) => (
+              <article className={`price-offer${o.highlight ? " is-highlight" : ""}`} key={o.id}>
+                <h3>{o.name}</h3>
+                <div className="home-plan-price">
+                  <b>{o.price}</b>
+                  <small>{o.cadence}</small>
+                </div>
+                <p>{o.blurb}</p>
               </article>
             ))}
           </div>
