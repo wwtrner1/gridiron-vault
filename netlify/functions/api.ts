@@ -68,7 +68,7 @@ export default async (req: Request) => {
     /* ------------------------------------------------------------- ai --- */
     if (resource === "ai") {
       if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
-      if (!me) return fail("Sign in to use the Play assistant. It is free with every plan.", 401);
+      if (!me) return fail("Sign in to use the Play assistant. It is included with every plan.", 401);
       if (id === "assistant") return await assistant(me, await req.json());
       return fail("That address is not part of the playbook API.", 404);
     }
