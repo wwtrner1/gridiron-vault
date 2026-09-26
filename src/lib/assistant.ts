@@ -142,12 +142,15 @@ export function readToNodes(read: AssistantRead, tokens: TokenPreset[], losY: nu
   read.assignments.forEach((a, i) => {
     const from = byLetter.get(a.player.toUpperCase());
     if (!from) return;
-    paths.push(assignmentPath(a, from, z + players.length + i));
+    paths.push(assignmentPath(a, from, losY, z + players.length + i));
   });
   return [...players, ...paths];
 }
 
-function assignmentPath(a: Assignment, from: Point, z: number): PathNode {
+/** Routes a back runs from where he stands; every other route from the backfield releases across the line first. */
+const BACKFIELD_ROUTES = ["swing", "screen", "bubble", "wheel", "dive", "sweep", "counter", "reverse", "end_around", "keep", "qb_sneak"];
+
+function assignmentPath(a: Assignment, from: Point, losY: number, z: number): PathNode {
   const cx = CANVAS_W / 2;
   const segs =
     a.kind === "motion"
@@ -159,6 +162,11 @@ function assignmentPath(a: Assignment, from: Point, z: number): PathNode {
   const points: Point[] = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;
+  if (a.kind === "route" && from.y - losY > 40 && !BACKFIELD_ROUTES.includes(a.action)) {
+    x = mirror ? -80 : 80;
+    y = losY - from.y - 12;
+    points.push({ x, y });
+  }
   for (const [dx, dy] of segs) {
     x += a.kind === "motion" ? dx : mirror ? -dx : dx;
     y += dy;

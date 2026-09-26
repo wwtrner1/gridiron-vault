@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { jsPDF } from "jspdf";
 import { FieldBackground } from "./field";
-import { MarkerDefs, NodeLayer, strokeColors } from "./render";
+import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
 import { playerNoteLines } from "./notes";
 import type { Scene, StoredPlay } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
@@ -39,7 +39,7 @@ export function sceneToSvg(
   scene: Scene,
   opts: { transparent?: boolean; watermark?: string | null } = {},
 ): string {
-  const ordered = [...scene.nodes].sort((a, b) => a.z - b.z);
+  const ordered = drawOrder(scene.nodes);
   const body = renderToStaticMarkup(
     <svg
       xmlns="http://www.w3.org/2000/svg"

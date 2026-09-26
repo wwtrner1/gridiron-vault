@@ -49,6 +49,15 @@ export function MarkerDefs({ colors }: { colors: string[] }) {
   );
 }
 
+/**
+ * Paint order for every diagram: lines, zones and text by z, then players on
+ * top, so a route starts at the edge of its token instead of across the letter.
+ */
+export function drawOrder<T extends { kind: string; z: number }>(nodes: T[]): T[] {
+  const layer = (n: T) => (n.kind === "player" ? 1 : 0);
+  return [...nodes].sort((a, b) => layer(a) - layer(b) || a.z - b.z);
+}
+
 const markerUrl = (cap: string, color: string) =>
   cap === "none" ? undefined : `url(#${cap}-${color.replace(/[^a-zA-Z0-9]/g, "")})`;
 

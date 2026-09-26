@@ -241,7 +241,11 @@ export function PlayAssistant({
               <button type="button" className="pa-btn" onClick={() => firstChip.current?.focus()} disabled={!read.assignments.length}>
                 Fix a chip
               </button>
-              <button type="button" className="pa-btn is-primary" onClick={() => onDraw(proposed, read)}>
+              <button type="button" className="pa-btn is-primary" onClick={() => {
+                  onDraw(proposed, read);
+                  setRead(null);
+                }}
+              >
                 Yes, draw it
               </button>
             </div>
