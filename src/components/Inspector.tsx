@@ -148,7 +148,54 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       </Panel>
 
       <Panel title="Player presets" icon="user">
-        <PlayerPresets />
+        <PlayerPresets scene={scene} selection={selection} onScene={onScene} onSelection={onSelection} />
+      </Panel>
+
+      <Panel title="Player notes" icon="text">
+        {one?.kind === "player" ? (
+          <div className="pn">
+            <p className="pn-who">
+              <span className="pn-token" style={{ background: one.fill, color: one.textColor }} aria-hidden="true">
+                {one.label}
+              </span>
+              {one.label || one.name} selected
+            </p>
+            <textarea
+              className="textarea"
+              rows={3}
+              aria-label={`Notes for ${one.label || one.name}`}
+              placeholder="Read the flat defender. If he sinks, sit down at 4 yards and face the QB."
+              value={one.note ?? ""}
+              onChange={(e) => patch({ note: e.target.value } as Partial<SceneNode>, "Player note")}
+            />
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.noteHover !== false}
+                onChange={(e) => patch({ noteHover: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Show on hover in the Designer
+            </label>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.notePrint !== false}
+                onChange={(e) => patch({ notePrint: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Print under the diagram
+            </label>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.noteWristband === true}
+                onChange={(e) => patch({ noteWristband: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Add to this player’s wristband card
+            </label>
+          </div>
+        ) : (
+          <p className="hint">Select one player on the field to write a note for them.</p>
+        )}
       </Panel>
 
       <Panel title="Field" icon="grid" count={FIELD_VIEWS.find((v) => v.id === scene.view)?.label}>

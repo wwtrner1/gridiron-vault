@@ -37,6 +37,18 @@ export type PlayerNode = NodeCommon & {
   stroke: string;
   textColor: string;
   side: "offense" | "defense" | "ball";
+  /** Coaching note for this player (Player notes panel). */
+  note?: string;
+  /** Show the note on hover in the Designer. Default on. */
+  noteHover?: boolean;
+  /** Print the note under the diagram on letter and half-page exports. Default on. */
+  notePrint?: boolean;
+  /** Add the note to the wristband card. Default off. */
+  noteWristband?: boolean;
+  /** Outline style from a player preset. Default solid. */
+  outlineStyle?: "solid" | "dash" | "none";
+  /** Shade color drawn under the player (player presets). */
+  shade?: string;
 };
 
 export type PathNode = NodeCommon & {
@@ -57,6 +69,8 @@ export type PathNode = NodeCommon & {
   toId: string | null;
   /** The quarterback's first read. Drawn in FIRST_READ; at most one per play. */
   firstRead?: boolean;
+  /** The player this route or block belongs to, when a player preset drew it. */
+  assignOf?: string;
 };
 
 export type ShapeNode = NodeCommon & {

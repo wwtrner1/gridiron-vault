@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { jsPDF } from "jspdf";
 import { FieldBackground } from "./field";
 import { MarkerDefs, NodeLayer, strokeColors } from "./render";
+import { playerNoteLines } from "./notes";
 import type { Scene, StoredPlay } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 import { EXPORT_SIZES, type ExportSizeId } from "./tools";
@@ -19,6 +20,8 @@ export type SheetOptions = {
   dpi: number;
   /** Diagonal stamp applied to free-tier output. */
   watermark?: string | null;
+  /** Wristband cards print only the player notes marked for the wristband. */
+  wristband?: boolean;
 };
 
 export const defaultSheetOptions: SheetOptions = {
@@ -149,7 +152,13 @@ export async function playsToPdf(
     const y = margin + row * cellH;
 
     const titleH = options.includeName ? Math.min(0.32, cellH * 0.12) : 0;
-    const notesH = options.includeNotes && play.description ? Math.min(1.35, cellH * 0.26) : 0;
+    // Coaching notes plus the player notes marked to print (Player notes panel).
+    const noteText = options.wristband
+      ? playerNoteLines(play.scene, "wristband").join("\n")
+      : options.includeNotes
+        ? [play.description?.trim(), ...playerNoteLines(play.scene, "print")].filter(Boolean).join("\n")
+        : "";
+    const notesH = noteText ? Math.min(1.35, cellH * (options.wristband ? 0.2 : 0.26)) : 0;
     const artH = cellH - titleH - notesH - 0.08;
     const artW = Math.min(cellW, (artH * CANVAS_W) / CANVAS_H);
     const artX = x + (cellW - artW) / 2;
@@ -182,7 +191,7 @@ export async function playsToPdf(
       doc.setFont("helvetica", "normal");
       doc.setFontSize(size.w < 5 ? 6.5 : 9.5);
       doc.setTextColor(60, 72, 64);
-      const lines = doc.splitTextToSize(play.description, cellW);
+      const lines = doc.splitTextToSize(noteText, cellW);
       doc.text(lines.slice(0, Math.floor(notesH / 0.16)), x, artY + (artW * CANVAS_H) / CANVAS_W + 0.22);
     }
 
@@ -216,6 +225,7 @@ export async function wristbandPdf(
       transparent: false,
       dpi: 300,
       watermark,
+      wristband: true,
     },
     title,
   );

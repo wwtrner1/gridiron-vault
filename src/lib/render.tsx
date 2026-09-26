@@ -54,9 +54,16 @@ const markerUrl = (cap: string, color: string) =>
 
 function PlayerGlyph({ node }: { node: PlayerNode }) {
   const r = node.size / 2;
-  const common = { fill: node.fill, stroke: node.stroke, strokeWidth: 2.4 };
+  const outline = node.outlineStyle ?? "solid";
+  const common = {
+    fill: node.fill,
+    stroke: outline === "none" ? "none" : node.stroke,
+    strokeWidth: 2.4,
+    strokeDasharray: outline === "dash" ? "5 4" : undefined,
+  };
   return (
     <>
+      {node.shade && node.shade !== "transparent" && <circle cx={0} cy={0} r={r * 1.6} fill={node.shade} stroke="none" />}
       {node.shape === "circle" && <circle cx={0} cy={0} r={r} {...common} />}
       {node.shape === "square" && <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...common} />}
       {node.shape === "diamond" && <polygon points={`0,${-r} ${r},0 0,${r} ${-r},0`} {...common} />}
