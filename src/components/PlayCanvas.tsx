@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground } from "../lib/field";
-import { MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { noteShowsOnHover } from "../lib/notes";
 import {
   boxesOverlap,
@@ -102,7 +102,7 @@ export function PlayCanvas({
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
-  const ordered = useMemo(() => [...scene.nodes].sort((a, b) => a.z - b.z), [scene.nodes]);
+  const ordered = useMemo(() => drawOrder(scene.nodes), [scene.nodes]);
   const selected = useMemo(() => scene.nodes.filter((n) => selection.includes(n.id)), [scene.nodes, selection]);
   const selBox = useMemo(() => selectionBox(scene, selection), [scene, selection]);
   const markerColors = useMemo(() => [...strokeColors(scene.nodes), color, SEL], [scene.nodes, color]);
