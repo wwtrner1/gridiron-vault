@@ -19,14 +19,25 @@ const DEFAULT_HEADERS = ["#", "Play Name", "Group", "Run", "Pass", "Down", "Dist
 
 const PAINTS = [
   { id: "", label: "No fill", hex: "" },
-  { id: "cyan", label: "Cyan", hex: "#DDF6FB" },
-  { id: "green", label: "Green", hex: "#E2F4EA" },
-  { id: "amber", label: "Amber", hex: "#FCF1DA" },
-  { id: "red", label: "Red", hex: "#FBE7E5" },
-  { id: "violet", label: "Violet", hex: "#EEECFA" },
-  { id: "slate", label: "Slate", hex: "#E7EDF2" },
+  { id: "cyan", label: "Cyan", hex: "#E3F8FD" },
+  { id: "green", label: "Green", hex: "#E4F4EC" },
+  { id: "amber", label: "Amber", hex: "#FDF2DD" },
+  { id: "red", label: "Red", hex: "#FDEEE9" },
+  { id: "violet", label: "Violet", hex: "#ECEBFA" },
+  { id: "slate", label: "Slate", hex: "#E9EEF5" },
   { id: "navy", label: "Navy", hex: "#0B1524" },
 ];
+
+/** The first paint shades; cells painted with them show the canvas shade (above). */
+const LEGACY_PAINT: Record<string, string> = {
+  "#DDF6FB": "#E3F8FD",
+  "#E2F4EA": "#E4F4EC",
+  "#FCF1DA": "#FDF2DD",
+  "#FBE7E5": "#FDEEE9",
+  "#EEECFA": "#ECEBFA",
+  "#E7EDF2": "#E9EEF5",
+};
+const paintHex = (hex?: string) => (hex ? LEGACY_PAINT[hex.toUpperCase()] ?? hex : hex);
 
 const newColumn = (label: string): SheetColumn => ({ id: uid("col"), label, width: label === "Play Name" ? 220 : 96, type: "text" });
 
@@ -444,7 +455,7 @@ export function SeasonGrid() {
                   </th>
                   {sheet.columns.map((col) => {
                     const value = row.cells[col.id] ?? "";
-                    const fill = row.colors[col.id];
+                    const fill = paintHex(row.colors[col.id]);
                     const isFocus = focus?.row === row.id && focus?.col === col.id;
                     return (
                       <td key={col.id} style={{ background: fill || undefined, position: "relative" }}>
