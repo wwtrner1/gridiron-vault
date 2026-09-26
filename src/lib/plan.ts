@@ -240,5 +240,19 @@ export function gateShare(tier: Tier): Gate {
   };
 }
 
+/** AI jobs each plan counts separately: photos cost several times what an assistant call does. */
+export type AiKind = "assistant" | "photo";
+
+export function gateAi(tier: Tier, kind: AiKind, usedThisMonth: number): Gate {
+  const limit = kind === "photo" ? tier.photoReviews : tier.assistantCalls;
+  if (usedThisMonth < limit) return { ok: true };
+  const what = kind === "photo" ? "whiteboard photo reviews" : "Play assistant calls";
+  return {
+    ok: false,
+    reason: `${tier.name} includes ${limit.toLocaleString()} ${what} a month, and you've used them. They reset on the 1st, or move up a plan for more.`,
+    cta: "See plans",
+  };
+}
+
 /** Export DPI actually used, after the plan cap. */
 export const cappedDpi = (tier: Tier, wanted: number) => Math.min(wanted, tier.maxDpi);

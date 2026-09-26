@@ -9,6 +9,8 @@ import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
 import { DefenseLibrary } from "../components/DefenseLibrary";
+import { PlayAssistant } from "../components/PlayAssistant";
+import type { AssistantRead } from "../lib/assistant";
 import { FIELD_VIEWS } from "../lib/field";
 import { LINE_TOOLS, MODES, SHAPE_TOOLS, type ModeId, type ToolId } from "../lib/tools";
 import {
@@ -19,7 +21,7 @@ import {
 } from "../lib/presets";
 import { cloneNodes, describe, nextZ, reconcileConnections } from "../lib/scene";
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
-import type { PlayMeta, PlayerNode, Scene, StoredPlay } from "../lib/types";
+import type { PlayMeta, PlayerNode, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -175,6 +177,15 @@ export function Builder() {
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
     setStatus(set.note);
+  };
+
+  const drawAssistant = (nodes: SceneNode[], read: AssistantRead) => {
+    const group = uid("grp");
+    const grouped = nodes.map((n) => ({ ...n, groupId: group }));
+    applyScene({ ...scene, nodes: [...scene.nodes, ...grouped] }, `Assistant: ${read.name}`);
+    setSelection(grouped.map((n) => n.id));
+    setMeta((m) => ({ ...m, name: m.name || read.name, formation: m.formation || read.formation }));
+    setStatus(`Drew ${read.name}. Drag, restyle or undo it like anything else.`);
   };
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
@@ -716,6 +727,7 @@ export function Builder() {
         </aside>
 
         <main className="builder-main" id="main">
+          <PlayAssistant scene={scene} tokens={offense} plays={plays} nextZ={nextZ(scene)} onDraw={drawAssistant} />
           <div
             className="builder-stage"
             onDrop={onDrop}

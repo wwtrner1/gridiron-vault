@@ -7,6 +7,7 @@ import {
   jsonb,
   uuid,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /** One row per Identity user who has saved anything. */
@@ -99,4 +100,21 @@ export const callSheets = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (t) => [index("call_sheets_owner_idx").on(t.ownerId)],
+);
+
+/**
+ * AI calls per coach per day, so one account can't run up the Claude bill.
+ * `kind` is "assistant" (Play assistant) or "photo" (whiteboard photo review).
+ */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    day: text().notNull(), // YYYY-MM-DD, UTC
+    kind: text().notNull(),
+    count: integer().notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("ai_usage_owner_day_kind_idx").on(t.ownerId, t.day, t.kind)],
 );

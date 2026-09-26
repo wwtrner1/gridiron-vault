@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
+  aiUsage,
   callSheets,
   playbookPlays,
   playbooks,
@@ -10,6 +11,17 @@ import {
   playSaves,
   profiles,
 } from "../../db/schema.js";
+import { AiError, callTool, MODELS } from "../ai/claude.js";
+import {
+  ASSISTANT_TOOL,
+  assistantSystem,
+  BLOCK_IDS,
+  MAX_CALL,
+  ROUTE_IDS,
+  type AssistantRead,
+  type AssistantRequest,
+} from "../../src/lib/assistant.js";
+import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -51,6 +63,14 @@ export default async (req: Request) => {
       if (!me) return json({ user: null });
       await ensureProfile(me);
       return json({ user: me });
+    }
+
+    /* ------------------------------------------------------------- ai --- */
+    if (resource === "ai") {
+      if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
+      if (!me) return fail("Sign in to use the Play assistant. It is free with every plan.", 401);
+      if (id === "assistant") return await assistant(me, await req.json());
+      return fail("That address is not part of the playbook API.", 404);
     }
 
     /* ---------------------------------------------------------- plays --- */
@@ -274,10 +294,77 @@ export default async (req: Request) => {
 
     return fail("That address is not part of the playbook API.", 404);
   } catch (error) {
+    if (error instanceof AiError) return fail(error.message, error.status);
     const detail = error instanceof Error ? error.message : "Unknown error";
     return json({ error: "The playbook service could not complete that request.", detail }, 500);
   }
 };
+
+/** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
+const DAILY_AI = { assistant: 60, photo: 15 } as const;
+
+/** Counts this call against today's limit; false when the coach is over it. */
+async function spend(me: Session, kind: keyof typeof DAILY_AI) {
+  const day = new Date().toISOString().slice(0, 10);
+  const [row] = await db
+    .insert(aiUsage)
+    .values({ ownerId: me.id, day, kind, count: 1 })
+    .onConflictDoUpdate({
+      target: [aiUsage.ownerId, aiUsage.day, aiUsage.kind],
+      set: { count: sql`${aiUsage.count} + 1`, updatedAt: new Date() },
+    })
+    .returning({ count: aiUsage.count });
+  return (row?.count ?? 0) <= DAILY_AI[kind];
+}
+
+async function assistant(me: Session, body: Partial<AssistantRequest>) {
+  const call = String(body.call ?? "").trim().slice(0, MAX_CALL);
+  if (!call) return fail("Type or say a play call first.");
+  const game = GAME_TYPES.some((g) => g.id === body.game) ? body.game! : "5v5";
+  const terms = (Array.isArray(body.terms) ? body.terms : [])
+    .slice(0, 80)
+    .map((t) => ({ term: String(t?.term ?? "").slice(0, 60), means: String(t?.means ?? "").slice(0, 200) }))
+    .filter((t) => t.term);
+
+  if (!(await spend(me, "assistant")))
+    return fail(`That's ${DAILY_AI.assistant} assistant calls today — the daily limit. It resets at midnight UTC.`, 429);
+
+  const raw = await callTool<AssistantRead>({
+    model: MODELS.assistant,
+    system: assistantSystem({ call, game, terms }),
+    content: [{ type: "text", text: call }],
+    tool: ASSISTANT_TOOL,
+    maxTokens: 900,
+  });
+
+  // Trust nothing the model returns without checking it against our own lists.
+  const actions = new Set([...ROUTE_IDS, ...BLOCK_IDS, "motion"]);
+  let read = false;
+  const assignments = (Array.isArray(raw.assignments) ? raw.assignments : [])
+    .filter((a) => a && typeof a.player === "string" && actions.has(a.action))
+    .slice(0, 11)
+    .map((a) => {
+      const first = Boolean(a.firstRead) && !read && a.kind === "route";
+      if (first) read = true;
+      return {
+        player: a.player.slice(0, 3).toUpperCase(),
+        kind: (["route", "block", "motion"].includes(a.kind) ? a.kind : "route") as AssistantRead["assignments"][number]["kind"],
+        action: a.action,
+        toward: a.toward === "in" || a.toward === "out" ? a.toward : undefined,
+        firstRead: first || undefined,
+        heard: String(a.heard ?? "").slice(0, 80),
+      };
+    });
+  const result: AssistantRead = {
+    formation: FORMATION_NAMES.includes(raw.formation) ? raw.formation : FORMATION_NAMES[0],
+    game: GAME_TYPES.some((g) => g.id === raw.game) ? raw.game : game,
+    personnel: typeof raw.personnel === "string" ? raw.personnel.slice(0, 2) : undefined,
+    name: String(raw.name ?? call).slice(0, 80),
+    assignments,
+    unsure: (Array.isArray(raw.unsure) ? raw.unsure : []).map((q) => String(q).slice(0, 200)).slice(0, 4),
+  };
+  return json({ read: result });
+}
 
 function sanitisePlay(body: Record<string, unknown>) {
   return {
