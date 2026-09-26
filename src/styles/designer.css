@@ -217,3 +217,44 @@
   .builder .builder-main { padding: 12px; }
   .dz-kicker { display: none; }
 }
+
+/* ---- Color picker (canvas preset editor) ---- */
+.cp { display: flex; flex-direction: column; gap: 8px; }
+.cp-group { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-2); }
+.cp-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-grid { display: grid; grid-template-columns: repeat(6, 22px); gap: 6px; }
+.cp-swatch { width: 22px; height: 22px; padding: 0; border: 1px solid var(--ink-4); border-radius: var(--radius-sm); }
+.cp-swatch.is-on { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.cp-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cp-custom input[type="color"] {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--ink-4);
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+}
+.cp-hex {
+  width: 84px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.cp-hex[aria-invalid="true"] { border-color: var(--red); }
+.cp-save {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--ink-4);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+}
+.cp-save:hover:not(:disabled) { border-color: var(--rail-text); }
+.cp-save:disabled { opacity: 0.45; cursor: not-allowed; }
