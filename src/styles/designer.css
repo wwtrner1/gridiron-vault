@@ -338,3 +338,8 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .builder-rail .fl .select { height: 34px; padding: 0 8px; border-color: var(--ink-3); background: var(--ink); color: var(--white); font-size: 13px; }
 .builder-rail .fl .select:disabled { opacity: 0.45; }
 .fl-preview { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--white); }
+.fl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fl-row-label { font-size: 13px; font-weight: 600; color: var(--white); }
+.fl .seg-onoff { flex: none; }
+.fl .seg-onoff button { height: 26px; padding: 0 12px; }
+.dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
