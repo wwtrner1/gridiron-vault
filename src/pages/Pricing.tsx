@@ -5,6 +5,8 @@ import { PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { tierStore, useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
+import "../styles/home.css";
+import "../styles/pricing.css";
 
 const COMPARE: {
   label: string;
@@ -40,16 +42,6 @@ const COMPARE: {
     label: "Print quality",
     hint: "Dots per inch on raster export.",
     read: (t) => `${t.maxDpi} DPI`,
-  },
-  {
-    label: "Watermark",
-    hint: "A Grid1ronVault stamp across free exports.",
-    read: (t) => (t.watermark ? "On exports" : "None"),
-  },
-  {
-    label: "Multi-play sheets",
-    hint: "Wristband cards and packet PDFs.",
-    read: (t) => (t.sheets ? "Yes" : "Not included"),
   },
   {
     label: "Share links",
@@ -107,67 +99,72 @@ export function Pricing() {
       <MarketingNav />
 
       <main id="main">
-        <section className="price-head">
-          <span className="pill pill-amber">Beta · billing is not live yet</span>
-          <h1>Pick the plan that matches your staff</h1>
-          <p>
+        <section className="price-hero" aria-labelledby="price-h">
+          <p className="home-eyebrow">Free through beta</p>
+          <h1 id="price-h">Pick the plan that matches your staff</h1>
+          <p className="price-hero-lede">
             Every plan draws plays with the same tools. What changes is how many you keep, how many coaches share them, and how
             clean it prints.
           </p>
-          {tier.id === "beta" && (
-            <div className="beta-note">
-              <Icon name="sparkle" size={16} />
-              <span>
-                You are on <b>Beta Coach</b> — everything below is already switched on for you. Pricing starts when beta ends, and
-                beta coaches keep founding rates.
-              </span>
-            </div>
-          )}
         </section>
 
-        <h2 className="sr-only">Plans</h2>
-        <p className="beta-note" role="note" style={{ marginBottom: 24 }}>
-          <span className="pill pill-amber">Beta</span>
-          <span>
-            Billing is not wired up yet. Picking a plan below only changes which features are switched on in this browser — nothing is charged.
-          </span>
-        </p>
-        <div className="plan-grid">
-          {PUBLIC_TIERS.map((t) => (
-            <article className={`plan${t.featured ? " is-featured" : ""}`} key={t.id}>
-              {t.featured && <span className="plan-flag">Most coaches pick this</span>}
-              <h3>{t.name}</h3>
-              <p className="plan-blurb">{t.blurb}</p>
-              <div className="plan-price">
-                <b>{t.price}</b>
-                <small>{t.cadence}</small>
-              </div>
-              <span className="plan-seats">
-                <Icon name="user" size={14} /> {t.seats}
-              </span>
-              <ul className="plan-perks">
-                {t.perks.map((p) => (
-                  <li key={p}>
-                    <Icon name="check" size={14} /> {p}
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                className={`btn ${t.featured ? "btn-primary" : "btn-ghost"} btn-block`}
-                onClick={() => choose(t.id)}
-                disabled={tier.id === t.id}
-              >
-                {tier.id === t.id ? "Your current plan" : t.price === "$0" ? "Start on Sideline" : `Choose ${t.name}`}
-              </button>
-            </article>
-          ))}
-        </div>
+        <section className="price-plans" aria-labelledby="plans-h">
+          <h2 id="plans-h" className="sr-only">
+            Plans
+          </h2>
+          <p className="price-note" role="note">
+            <Icon name="sparkle" size={16} />
+            <span>
+              {tier.id === "beta" ? (
+                <>
+                  You are on <b>Beta Coach</b> — everything is already switched on. Billing is not live yet: picking a plan below
+                  only changes which features are switched on in this browser, and nothing is charged. Beta coaches keep founding
+                  rates.
+                </>
+              ) : (
+                <>Billing is not live yet. Picking a plan below only changes which features are switched on in this browser — nothing is charged.</>
+              )}
+            </span>
+          </p>
+          <div className="home-plan-grid">
+            {PUBLIC_TIERS.map((t) => (
+              <article className={`home-plan${t.featured ? " is-featured" : ""}`} key={t.id}>
+                {t.featured && <span className="home-plan-flag">Most coaches pick this</span>}
+                <h3>{t.name}</h3>
+                <p>{t.blurb}</p>
+                <div className="home-plan-price">
+                  <b>{t.price}</b>
+                  <small>{t.cadence}</small>
+                </div>
+                <ul className="price-perks">
+                  {[t.seats, ...t.perks].map((p) => (
+                    <li key={p}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m5 12 5 5 9-10" />
+                      </svg>
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+                <div className="home-plan-cta">
+                  <button
+                    type="button"
+                    className={`btn ${t.featured ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => choose(t.id)}
+                    disabled={tier.id === t.id}
+                  >
+                    {tier.id === t.id ? "Your current plan" : t.price === "$0" ? "Start on Sideline" : `Choose ${t.name}`}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
 
-        <section className="section section-tight">
-          <div className="section-head">
-            <span className="pill">Side by side</span>
-            <h2>What is different</h2>
+        <section className="price-compare" aria-labelledby="compare-h">
+          <div className="home-band-head">
+            <p className="home-eyebrow">Side by side</p>
+            <h2 id="compare-h">What is different</h2>
             <p>Hover any row for the plain-English version.</p>
           </div>
           <div className="compare-wrap">
@@ -201,10 +198,10 @@ export function Pricing() {
           </div>
         </section>
 
-        <section className="section section-tight">
-          <div className="section-head">
-            <span className="pill">Questions</span>
-            <h2>Before you pay us anything</h2>
+        <section className="price-faq" aria-labelledby="faq-h">
+          <div className="home-band-head">
+            <p className="home-eyebrow">Questions</p>
+            <h2 id="faq-h">Before you pay us anything</h2>
           </div>
           <div className="faq">
             {FAQ.map((f) => (
@@ -216,11 +213,9 @@ export function Pricing() {
           </div>
         </section>
 
-        <section className="cta-band">
-          <div>
-            <h2>Try it before you decide.</h2>
-            <p>Draw one play, print one wristband. That is the whole evaluation.</p>
-          </div>
+        <section className="home-cta" aria-labelledby="price-cta-h">
+          <h2 id="price-cta-h">Try it before you decide.</h2>
+          <p>Draw one play, print one wristband. That is the whole evaluation.</p>
           <Link to="/build" className="btn btn-primary btn-lg">
             Open the designer
           </Link>
