@@ -52,9 +52,6 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
   useEffect(() => {
     let live = true;
     (async () => {
-      if (!account) return setStage({ kind: "error", text: "Sign in to have Grid1ronVault read your photo. It is included with every plan." });
-      const gate = gateAi(tier, "photo", aiUsage.used("photo"));
-      if (!gate.ok) return setStage({ kind: "error", text: gate.reason, plans: true });
       let prepared;
       try {
         prepared = await prepareImage(file);
@@ -65,7 +62,11 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
         });
       }
       if (!live) return;
+      // Show the photo first, even if it can't be read yet.
       setImg({ url: prepared.url, aspect: prepared.aspect });
+      if (!account) return setStage({ kind: "error", text: "Sign in to have Grid1ronVault read your photo. It is included with every plan." });
+      const gate = gateAi(tier, "photo", aiUsage.used("photo"));
+      if (!gate.ok) return setStage({ kind: "error", text: gate.reason, plans: true });
       try {
         const res = await api.photo({ image: prepared.data, game: currentGame(), terms: terms.map((t) => ({ term: t.term, means: t.means })) });
         aiUsage.add("photo");
