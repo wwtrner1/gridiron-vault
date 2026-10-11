@@ -144,7 +144,7 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
           <p className="eyebrow">
             Draft · not saved · <span className="mono">{file.name}</span>
           </p>
-          <h2>{read ? (read.isPlay ? "Is this the play on your board?" : "We couldn't find a play here") : "Reading your photo…"}</h2>
+          <h2>{read ? (read.isPlay ? "Is this the play on your board?" : "We couldn't find a play here") : stage.kind === "error" ? "Your photo is ready to read" : "Reading your photo…"}</h2>
         </div>
 
         {stage.kind === "error" && (
