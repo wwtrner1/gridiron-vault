@@ -1,5 +1,6 @@
 import type { Scene, StoredPlay } from "./types";
 import type { AssistantRead, AssistantRequest } from "./assistant";
+import type { PhotoRead, PhotoRequest } from "./photo";
 
 export type ApiPlay = {
   id: string;
@@ -34,6 +35,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   assistant: (body: AssistantRequest) =>
     request<{ read: AssistantRead }>("ai/assistant", { method: "POST", body: JSON.stringify(body) }),
+
+  photo: (body: PhotoRequest) =>
+    request<{ read: PhotoRead }>("ai/photo", { method: "POST", body: JSON.stringify(body) }),
 
   me: () => request<{ user: { id: string; email: string; name: string } | null }>("me"),
 

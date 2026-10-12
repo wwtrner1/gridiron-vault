@@ -116,7 +116,11 @@ export function authMessage(error: unknown): string {
   if (error instanceof MissingIdentityError)
     return "Accounts are not switched on for this site yet. Your work stays saved in this browser.";
   if (error instanceof AuthError) {
+    // Identity answers a failed sign-in with 400 and says why in the message.
+    if (error.status === 400 && /confirm/i.test(error.message))
+      return "Confirm your email first — open the link we sent you, then sign in.";
     switch (error.status) {
+      case 400:
       case 401:
         return "That email and password do not match. Try again or reset your password.";
       case 403:

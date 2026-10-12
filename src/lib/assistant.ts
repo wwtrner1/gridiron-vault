@@ -4,7 +4,7 @@ import type { GameType, Placed } from "./formations";
 import { makePlayer } from "./presets";
 import type { TokenPreset } from "./presets";
 import { baseNode, CANVAS_W } from "./types";
-import type { PathNode, Point, SceneNode, StoredPlay } from "./types";
+import type { PathNode, PlayerNode, Point, SceneNode, StoredPlay } from "./types";
 
 /**
  * Play assistant, from the Grid1ron Design canvas (Designer · assistant,
@@ -23,6 +23,8 @@ export type Assignment = {
   action: string;
   /** Break toward the sideline ("out") or the middle ("in"); default follows the route. */
   toward?: "in" | "out";
+  /** Which way the route breaks on the field, when a photo shows it; wins over `toward`. */
+  breaks?: "left" | "right";
   firstRead?: boolean;
   /** The words in the call that gave this read, shown on the chip. */
   heard: string;
@@ -105,7 +107,7 @@ const INK = "#0B1524";
 
 /** Players, then routes, for a read — ready to drop on the field in one group. */
 /** Token codes behind the letters coaches call: H is the running back, S the second back / slot. */
-const CODE_FOR: Record<string, string> = { Q: "QB", C: "C", X: "X", Y: "Y", Z: "Z", H: "RB", S: "H" };
+export const CODE_FOR: Record<string, string> = { Q: "QB", C: "C", X: "X", Y: "Y", Z: "Z", H: "RB", S: "H" };
 
 /**
  * The formation's players, with anyone the call names but the formation
@@ -137,14 +139,18 @@ export function readToNodes(read: AssistantRead, tokens: TokenPreset[], losY: nu
   const placed = placeForRead(read, tokens);
   const cx = CANVAS_W / 2;
   const players = placed.map((p, i) => ({ ...makePlayer(tokenFor(p, tokens), cx + p.dx, losY + p.dy), z: z + i }));
+  return [...players, ...routesFor(read.assignments, players, losY, z + players.length)];
+}
+
+/** One line per assignment, from the player with that letter; letters not on the field are skipped. */
+export function routesFor(assignments: Assignment[], players: PlayerNode[], losY: number, z: number): PathNode[] {
   const byLetter = new Map(players.filter((p) => p.label).map((p) => [p.label.toUpperCase(), p]));
   const paths: PathNode[] = [];
-  read.assignments.forEach((a, i) => {
+  assignments.forEach((a, i) => {
     const from = byLetter.get(a.player.toUpperCase());
-    if (!from) return;
-    paths.push(assignmentPath(a, from, losY, z + players.length + i));
+    if (from) paths.push(assignmentPath(a, from, losY, z + i));
   });
-  return [...players, ...paths];
+  return paths;
 }
 
 /** Routes a back runs from where he stands; every other route from the backfield releases across the line first. */
@@ -159,6 +165,11 @@ function assignmentPath(a: Assignment, from: Point, losY: number, z: number): Pa
   // Routes break toward the near sideline unless the call says "in".
   let mirror = from.x < cx;
   if (a.toward === "in") mirror = !mirror;
+  if (a.breaks) {
+    // Flip the shape so its last leg points the way the board shows.
+    const last = segs[segs.length - 1]?.[0] ?? 0;
+    if (last !== 0) mirror = (last > 0) === (a.breaks === "left");
+  }
   const points: Point[] = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;
@@ -170,7 +181,8 @@ function assignmentPath(a: Assignment, from: Point, losY: number, z: number): Pa
   for (const [dx, dy] of segs) {
     x += a.kind === "motion" ? dx : mirror ? -dx : dx;
     y += dy;
-    points.push({ x, y });
+    // Routes stop at the sideline rather than running off the field.
+    points.push({ x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, x)), y });
   }
   return {
     ...baseNode({ x: from.x, y: from.y, z, name: a.kind === "block" ? "Block" : a.kind === "motion" ? "Motion" : "Route" }),

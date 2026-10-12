@@ -22,6 +22,7 @@ import {
   type AssistantRequest,
 } from "../../src/lib/assistant.js";
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
+import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -70,6 +71,7 @@ export default async (req: Request) => {
       if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
       if (!me) return fail("Sign in to use the Play assistant. It is included with every plan.", 401);
       if (id === "assistant") return await assistant(me, await req.json());
+      if (id === "photo") return await photo(me, await req.json());
       return fail("That address is not part of the playbook API.", 404);
     }
 
@@ -337,11 +339,24 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
     maxTokens: 900,
   });
 
-  // Trust nothing the model returns without checking it against our own lists.
-  const actions = new Set([...ROUTE_IDS, ...BLOCK_IDS, "motion"]);
+  const result: AssistantRead = {
+    formation: FORMATION_NAMES.includes(raw.formation) ? raw.formation : FORMATION_NAMES[0],
+    game: GAME_TYPES.some((g) => g.id === raw.game) ? raw.game : game,
+    personnel: typeof raw.personnel === "string" ? raw.personnel.slice(0, 2) : undefined,
+    name: String(raw.name ?? call).slice(0, 80),
+    assignments: cleanAssignments(raw.assignments),
+    unsure: (Array.isArray(raw.unsure) ? raw.unsure : []).map((q) => String(q).slice(0, 200)).slice(0, 4),
+  };
+  return json({ read: result });
+}
+
+const ACTIONS = new Set([...ROUTE_IDS, ...BLOCK_IDS, "motion"]);
+
+/** Trust nothing the model returns without checking it against our own lists. */
+function cleanAssignments(list: unknown): AssistantRead["assignments"] {
   let read = false;
-  const assignments = (Array.isArray(raw.assignments) ? raw.assignments : [])
-    .filter((a) => a && typeof a.player === "string" && actions.has(a.action))
+  return (Array.isArray(list) ? (list as AssistantRead["assignments"]) : [])
+    .filter((a) => a && typeof a.player === "string" && ACTIONS.has(a.action))
     .slice(0, 11)
     .map((a) => {
       const first = Boolean(a.firstRead) && !read && a.kind === "route";
@@ -355,15 +370,70 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
         heard: String(a.heard ?? "").slice(0, 80),
       };
     });
-  const result: AssistantRead = {
-    formation: FORMATION_NAMES.includes(raw.formation) ? raw.formation : FORMATION_NAMES[0],
+}
+
+const unit = (n: unknown) => Math.min(1, Math.max(0, Number(n) || 0));
+
+async function photo(me: Session, body: Partial<PhotoRequest>) {
+  const image = String(body.image ?? "");
+  if (!image) return fail("Choose a photo of a play first.");
+  if (image.length > MAX_IMAGE_CHARS || !/^[A-Za-z0-9+/=]+$/.test(image))
+    return fail("That photo couldn't be read. Try a JPG or PNG under 10 MB.");
+  const game = GAME_TYPES.some((g) => g.id === body.game) ? body.game! : "5v5";
+  const terms = (Array.isArray(body.terms) ? body.terms : [])
+    .slice(0, 80)
+    .map((t) => ({ term: String(t?.term ?? "").slice(0, 60), means: String(t?.means ?? "").slice(0, 200) }))
+    .filter((t) => t.term);
+
+  if (!(await spend(me, "photo")))
+    return fail(`That's ${DAILY_AI.photo} photo reviews today — the daily limit. It resets at midnight UTC.`, 429);
+
+  const raw = await callTool<PhotoRead>({
+    model: MODELS.photo,
+    system: photoSystem({ game, terms }),
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+      { type: "text", text: "Rebuild the play in this photo." },
+    ],
+    tool: PHOTO_TOOL,
+    maxTokens: 2000,
+  });
+
+  const letter = (v: unknown) => String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+  const read: PhotoRead = {
+    isPlay: raw.isPlay !== false,
+    reason: raw.reason ? String(raw.reason).slice(0, 200) : undefined,
+    name: String(raw.name ?? "Whiteboard play").slice(0, 80),
+    formation: FORMATION_NAMES.includes(raw.formation) ? raw.formation : "Custom",
     game: GAME_TYPES.some((g) => g.id === raw.game) ? raw.game : game,
-    personnel: typeof raw.personnel === "string" ? raw.personnel.slice(0, 2) : undefined,
-    name: String(raw.name ?? call).slice(0, 80),
-    assignments,
-    unsure: (Array.isArray(raw.unsure) ? raw.unsure : []).map((q) => String(q).slice(0, 200)).slice(0, 4),
+    losY: unit(raw.losY),
+    offenseAt: raw.offenseAt === "top" ? "top" : "bottom",
+    players: (Array.isArray(raw.players) ? raw.players : []).slice(0, 24).map((p) => ({
+      board: letter(p?.board) || "?",
+      vault: letter(p?.vault) || letter(p?.board) || "?",
+      side: p?.side === "defense" ? "defense" : "offense",
+      x: unit(p?.x),
+      y: unit(p?.y),
+    })),
+    // Photo reads also keep which way each line breaks and the line as drawn.
+    assignments: cleanAssignments(raw.assignments).map((a, i) => {
+      const src = (Array.isArray(raw.assignments) ? raw.assignments : []).find(
+        (r, j) => j >= i && r && String(r.player ?? "").slice(0, 3).toUpperCase() === a.player,
+      );
+      const path = (Array.isArray(src?.path) ? src.path : []).slice(0, 8).map((p) => ({ x: unit(p?.x), y: unit(p?.y) }));
+      return {
+        ...a,
+        breaks: src?.breaks === "left" || src?.breaks === "right" ? src.breaks : undefined,
+        path: path.length >= 2 ? path : undefined,
+      };
+    }),
+    questions: (Array.isArray(raw.questions) ? raw.questions : []).slice(0, 3).map((q) => ({
+      player: letter(q?.player),
+      question: String(q?.question ?? "").slice(0, 200),
+      options: (Array.isArray(q?.options) ? q.options : []).filter((o) => ACTIONS.has(o)).slice(0, 3),
+    })).filter((q) => q.question && q.options.length > 1),
   };
-  return json({ read: result });
+  return json({ read });
 }
 
 function sanitisePlay(body: Record<string, unknown>) {
