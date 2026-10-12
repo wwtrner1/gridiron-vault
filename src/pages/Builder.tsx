@@ -462,13 +462,25 @@ export function Builder() {
   };
 
   // The player last clicked: clicking one player of a dropped formation selects the whole
-  // group, but a route tile should go to the player the coach pointed at.
-  const lastPicked = useRef<string | null>(null);
+  // group, but a route tile should go to the player the coach pointed at. The pick is tied
+  // to the selection that click made, so Select all or a drag box afterwards still means
+  // everyone they chose.
+  const lastPicked = useRef<{ id: string; selection: string[]; settling: boolean } | null>(null);
+  useEffect(() => {
+    // The click's own selection update lands here; anything later leaves the pick behind.
+    if (lastPicked.current?.settling) lastPicked.current.selection = selection;
+  }, [selection]);
+  const pickNode = (id: string) => {
+    const pick = { id, selection, settling: true };
+    lastPicked.current = pick;
+    setTimeout(() => (pick.settling = false), 0);
+  };
   const tileTargets = (ids: string[]) => {
-    const picked = lastPicked.current;
+    const pick = lastPicked.current;
+    if (!pick || pick.selection !== ids || !ids.includes(pick.id)) return ids;
     const chosen = scene.nodes.filter((n) => ids.includes(n.id));
     const oneGroup = chosen.length > 1 && chosen.every((n) => n.groupId && n.groupId === chosen[0].groupId);
-    return oneGroup && picked && ids.includes(picked) ? [picked] : ids;
+    return oneGroup ? [pick.id] : ids;
   };
 
   const giveTile = (tile: Tile, playerIds: string[]) => {
@@ -941,7 +953,7 @@ export function Builder() {
               onToolDone={() => setTool("select")}
               onStatus={setStatus}
               aids={aids}
-              onPickNode={(id) => (lastPicked.current = id)}
+              onPickNode={pickNode}
               onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
             />
           </div>
