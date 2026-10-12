@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { admin, getUser } from "@netlify/identity";
 import { and, desc, eq, gt, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
@@ -76,6 +76,10 @@ export default async (req: Request) => {
 
   try {
     if (resource === "me") {
+      if (req.method === "DELETE") {
+        if (!me) return fail("Sign in first.", 401);
+        return await deleteAccount(me, deviceId, await req.json().catch(() => ({})));
+      }
       if (!me) return json({ user: null });
       await ensureProfile(me);
       return json({ user: me, security: await securityOf(me, deviceId) });
@@ -470,6 +474,34 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
 /* --------------------------------------------------- one login, one coach */
 
 type Security = { required: boolean; verified: boolean; trusted: boolean; phone: string | null; devices: number };
+
+/**
+ * Deletes the coach's account and everything stored with it: plays (and their
+ * playbook links and saves), playbooks, call sheets, devices, AI usage counts,
+ * the profile and phone number, then the sign-in itself. Images and video are
+ * never stored on the server, so there is nothing else to remove.
+ */
+async function deleteAccount(me: Session, deviceId: string, body: Record<string, unknown>) {
+  const typed = String(body.confirm ?? "").trim().toLowerCase();
+  if (!typed || typed !== me.email.toLowerCase()) return fail("Type your account email exactly to confirm.");
+  // A stolen password alone can't delete an account protected by a phone.
+  const sec = await securityOf(me, deviceId);
+  if (sec.verified && !sec.trusted) return json({ error: "Confirm this device with the code we text you first.", code: "device_unverified" }, 403);
+
+  await db.delete(plays).where(eq(plays.ownerId, me.id));
+  await db.delete(playSaves).where(eq(playSaves.userId, me.id));
+  await db.delete(playbooks).where(eq(playbooks.ownerId, me.id));
+  await db.delete(callSheets).where(eq(callSheets.ownerId, me.id));
+  await db.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
+  await db.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
+  await db.delete(profiles).where(eq(profiles.id, me.id));
+  try {
+    await admin.deleteUser(me.id);
+  } catch {
+    return fail("Your plays and details are deleted, but the sign-in could not be closed. Try Delete again in a minute.", 502);
+  }
+  return json({ ok: true });
+}
 
 async function securityOf(me: Session, deviceId: string): Promise<Security> {
   if (!phoneRequired()) return { required: false, verified: true, trusted: true, phone: null, devices: 0 };

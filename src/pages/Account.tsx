@@ -13,6 +13,7 @@ import { store, useStore } from "../lib/store";
 import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
 import { useToast } from "../lib/toast";
+import { api } from "../lib/api";
 
 const EVENT_LABELS: Record<string, string> = {
   play_created: "Plays saved",
@@ -29,6 +30,25 @@ export function Account() {
   const books = useStore((s) => s.playbooks);
   const sheets = useStore((s) => s.sheets);
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const deleteAccount = async () => {
+    setBusy(true);
+    setDeleteError("");
+    try {
+      await api.deleteAccount(typed);
+      store.reset();
+      await signOut().catch(() => {});
+      toast("Your account and everything in it are deleted.");
+      navigate("/");
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "The account could not be deleted. Try again.");
+      setBusy(false);
+    }
+  };
 
   const events = useMemo(() => readEvents(), [plays.length, sheets.length]);
 
@@ -80,9 +100,14 @@ export function Account() {
               <p className="hint">
                 Your plays sync to this account. Sign in on a tablet and the same Vault shows up.
               </p>
-              <button type="button" className="btn btn-quiet btn-sm" onClick={() => signOut()}>
-                Sign out
-              </button>
+              <div className="acct-tools">
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => signOut()}>
+                  Sign out
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => (setTyped(""), setDeleteError(""), setDeleting(true))}>
+                  <Icon name="trash" size={14} /> Delete my account
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -267,6 +292,50 @@ export function Account() {
           </div>
         </section>
       </div>
+
+      {deleting && account && (
+        <Modal
+          title="Delete your account?"
+          onClose={() => !busy && setDeleting(false)}
+          footer={
+            <>
+              <button type="button" className="btn btn-quiet" onClick={() => setDeleting(false)} disabled={busy}>
+                Keep my account
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={deleteAccount}
+                disabled={busy || typed.trim().toLowerCase() !== account.email.toLowerCase()}
+              >
+                {busy ? "Deleting…" : "Delete everything"}
+              </button>
+            </>
+          }
+        >
+          <p>
+            This permanently deletes your sign-in, your phone number and devices, and every play, playbook and
+            Season Grid saved to your account — on every device. It cannot be undone.
+          </p>
+          <p className="hint">Want a copy first? Close this and use Download a backup under Your data.</p>
+          <label className="field">
+            <span>Type {account.email} to confirm</span>
+            <input
+              type="email"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={busy}
+            />
+          </label>
+          {deleteError && (
+            <p className="error-line" role="alert">
+              {deleteError}
+            </p>
+          )}
+        </Modal>
+      )}
 
       {confirmWipe && (
         <Modal
