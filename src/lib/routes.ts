@@ -4,22 +4,26 @@
  */
 export type Seg = [number, number];
 
-/** Route shapes as relative segments. Negative y is downfield. */
+/**
+ * Route shapes as relative segments. Negative y is downfield; positive x is
+ * toward the near sideline (out) and negative x toward the middle (in), for
+ * a receiver on the right. Left-side players get the shape mirrored.
+ */
 export const ROUTES: Record<string, Seg[]> = {
   go: [[0, -250]],
   seam: [[0, -60], [22, -190]],
   fade: [[0, -50], [68, -186]],
   corner: [[0, -120], [104, -114]],
   post: [[0, -132], [-112, -118]],
-  cross: [[0, -68], [252, -116]],
+  cross: [[0, -68], [-252, -116]],
   dig: [[0, -116], [-164, -4]],
   in: [[0, -92], [-148, -4]],
   out: [[0, -96], [128, -4]],
   hitch: [[0, -84], [14, 26]],
   comeback: [[0, -164], [46, 52]],
-  slant: [[0, -38], [122, -84]],
+  slant: [[0, -38], [-122, -84]],
   flat: [[6, -28], [140, -12]],
-  drag: [[0, -34], [206, -6]],
+  drag: [[0, -34], [-206, -6]],
   wheel: [[0, 16], [82, 34], [104, -188]],
   swing: [[0, 28], [122, 46]],
   screen: [[0, 22], [-92, 36]],
@@ -40,7 +44,7 @@ export const ROUTES: Record<string, Seg[]> = {
 };
 
 /** Extra route shapes the Designer's presets offer. */
-ROUTES.bubble = [[-26, 16], [-104, 22]];
+ROUTES.bubble = [[26, 16], [104, 22]];
 
 /** Block shapes, ending in a T-bar (chip & release ends in an arrow). */
 export const BLOCKS: Record<string, Seg[]> = {
