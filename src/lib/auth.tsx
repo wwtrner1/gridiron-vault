@@ -121,6 +121,7 @@ export function authMessage(error: unknown): string {
       return "Confirm your email first — open the link we sent you, then sign in.";
     switch (error.status) {
       case 400:
+      case 401:
         return "That email and password do not match. Try again or reset your password.";
       case 403:
         return "New signups are closed right now. Ask the site owner for an invite.";
