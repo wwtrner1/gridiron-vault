@@ -338,7 +338,8 @@ export default async (req: Request) => {
 };
 
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
-const DAILY_AI = { assistant: 60, photo: 15, sms: SMS_PER_DAY } as const;
+// "texts" counts codes Twilio actually sent. (It replaced "sms", which also counted refused sends.)
+const DAILY_AI = { assistant: 60, photo: 15, texts: SMS_PER_DAY } as const;
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
@@ -352,6 +353,15 @@ async function spend(me: Session, kind: keyof typeof DAILY_AI) {
     })
     .returning({ count: aiUsage.count });
   return (row?.count ?? 0) <= DAILY_AI[kind];
+}
+
+/** Gives back a call that never happened (e.g. Twilio refused to send). */
+async function refund(me: Session, kind: keyof typeof DAILY_AI) {
+  const day = new Date().toISOString().slice(0, 10);
+  await db
+    .update(aiUsage)
+    .set({ count: sql`greatest(${aiUsage.count} - 1, 0)` })
+    .where(and(eq(aiUsage.ownerId, me.id), eq(aiUsage.day, day), eq(aiUsage.kind, kind)));
 }
 
 async function assistant(me: Session, body: Partial<AssistantRequest>) {
@@ -538,8 +548,18 @@ async function phoneRoute(me: Session, deviceId: string, action: string | undefi
   const label = String(body.label ?? "");
   const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt }).from(profiles).where(eq(profiles.id, me.id));
   const sec = await securityOf(me, deviceId);
-  const limit = async () => {
-    if (!(await spend(me, "sms"))) throw new PhoneError(`That's ${SMS_PER_DAY} codes today — the daily limit. Try again tomorrow.`, 429);
+  // Only codes that actually go out count toward the daily limit.
+  const text = async (to: string) => {
+    if (!(await spend(me, "texts"))) {
+      await refund(me, "texts");
+      throw new PhoneError(`That's ${SMS_PER_DAY} codes today — the daily limit. Try again tomorrow.`, 429);
+    }
+    try {
+      await sendCode(to);
+    } catch (e) {
+      await refund(me, "texts");
+      throw e;
+    }
   };
 
   // Add or change the account's number (changing it needs a device that's already confirmed).
@@ -550,8 +570,7 @@ async function phoneRoute(me: Session, deviceId: string, action: string | undefi
     const [taken] = await db.select({ id: profiles.id }).from(profiles).where(and(eq(profiles.phone, phone), ne(profiles.id, me.id)));
     if (taken) throw new PhoneError("That number is already on another GridIronVault account. Each coach needs their own number.", 409);
     if (action === "start") {
-      await limit();
-      await sendCode(phone);
+      await text(phone);
       return json({ sentTo: maskPhone(phone) });
     }
     if (!(await checkCode(phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
@@ -564,8 +583,7 @@ async function phoneRoute(me: Session, deviceId: string, action: string | undefi
   if (action === "device-start" || action === "device-check") {
     if (!profile?.phone || !profile.at) throw new PhoneError("Add your mobile number first.", 403);
     if (action === "device-start") {
-      await limit();
-      await sendCode(profile.phone);
+      await text(profile.phone);
       return json({ sentTo: maskPhone(profile.phone) });
     }
     if (!(await checkCode(profile.phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
