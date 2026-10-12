@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   aiUsage,
@@ -10,7 +10,20 @@ import {
   plays,
   playSaves,
   profiles,
+  trustedDevices,
 } from "../../db/schema.js";
+import {
+  checkCode,
+  DEVICE_DAYS,
+  DEVICE_LIMIT,
+  hashDevice,
+  maskPhone,
+  normalizePhone,
+  PhoneError,
+  phoneRequired,
+  sendCode,
+  SMS_PER_DAY,
+} from "../security/phone.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import {
   ASSISTANT_TOOL,
@@ -58,12 +71,29 @@ export default async (req: Request) => {
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
   const [resource, id, action] = parts;
   const me = await session();
+  // The browser's own random device id, for "one login, one coach" (see netlify/security/phone.ts).
+  const deviceId = (req.headers.get("x-device") ?? "").slice(0, 100);
 
   try {
     if (resource === "me") {
       if (!me) return json({ user: null });
       await ensureProfile(me);
-      return json({ user: me });
+      return json({ user: me, security: await securityOf(me, deviceId) });
+    }
+
+    /* ---------------------------------------------------------- phone --- */
+    if (resource === "phone") {
+      if (!me) return fail("Sign in first.", 401);
+      if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
+      await ensureProfile(me);
+      return await phoneRoute(me, deviceId, id, await req.json().catch(() => ({})));
+    }
+
+    // Every other signed-in request: a verified phone, from a device confirmed with a code.
+    if (me && phoneRequired()) {
+      const sec = await securityOf(me, deviceId);
+      if (!sec.verified) return json({ error: "Add your mobile number to keep using your account.", code: "phone_required" }, 403);
+      if (!sec.trusted) return json({ error: "Confirm this device with the code we text you.", code: "device_unverified" }, 403);
     }
 
     /* ------------------------------------------------------------- ai --- */
@@ -297,13 +327,14 @@ export default async (req: Request) => {
     return fail("That address is not part of the playbook API.", 404);
   } catch (error) {
     if (error instanceof AiError) return fail(error.message, error.status);
+    if (error instanceof PhoneError) return fail(error.message, error.status);
     const detail = error instanceof Error ? error.message : "Unknown error";
     return json({ error: "The playbook service could not complete that request.", detail }, 500);
   }
 };
 
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
-const DAILY_AI = { assistant: 60, photo: 15 } as const;
+const DAILY_AI = { assistant: 60, photo: 15, sms: SMS_PER_DAY } as const;
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
@@ -434,6 +465,90 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
     })).filter((q) => q.question && q.options.length > 1),
   };
   return json({ read });
+}
+
+/* --------------------------------------------------- one login, one coach */
+
+type Security = { required: boolean; verified: boolean; trusted: boolean; phone: string | null; devices: number };
+
+async function securityOf(me: Session, deviceId: string): Promise<Security> {
+  if (!phoneRequired()) return { required: false, verified: true, trusted: true, phone: null, devices: 0 };
+  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt }).from(profiles).where(eq(profiles.id, me.id));
+  const verified = Boolean(profile?.phone && profile.at);
+  const since = new Date(Date.now() - DEVICE_DAYS * 86400_000);
+  let trusted = false;
+  if (verified && deviceId) {
+    const [row] = await db
+      .update(trustedDevices)
+      .set({ lastSeen: new Date() })
+      .where(and(eq(trustedDevices.ownerId, me.id), eq(trustedDevices.deviceHash, hashDevice(deviceId)), gt(trustedDevices.lastSeen, since)))
+      .returning({ id: trustedDevices.id });
+    trusted = Boolean(row);
+  }
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
+  return { required: true, verified, trusted, phone: profile?.phone ? maskPhone(profile.phone) : null, devices: n };
+}
+
+/** Remembers this device; past the limit, the device used longest ago is signed out. */
+async function trustDevice(me: Session, deviceId: string, label: string) {
+  if (!deviceId) throw new PhoneError("This browser didn't send a device id. Reload the page and try again.");
+  await db
+    .insert(trustedDevices)
+    .values({ ownerId: me.id, deviceHash: hashDevice(deviceId), label: label.slice(0, 80) })
+    .onConflictDoUpdate({ target: [trustedDevices.ownerId, trustedDevices.deviceHash], set: { lastSeen: new Date(), label: label.slice(0, 80) } });
+  const rows = await db.select({ id: trustedDevices.id }).from(trustedDevices).where(eq(trustedDevices.ownerId, me.id)).orderBy(desc(trustedDevices.lastSeen));
+  const extra = rows.slice(DEVICE_LIMIT).map((r) => r.id);
+  if (extra.length) await db.delete(trustedDevices).where(inArray(trustedDevices.id, extra));
+}
+
+async function phoneRoute(me: Session, deviceId: string, action: string | undefined, body: Record<string, unknown>) {
+  if (!phoneRequired()) return json({ security: await securityOf(me, deviceId) });
+  const label = String(body.label ?? "");
+  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt }).from(profiles).where(eq(profiles.id, me.id));
+  const sec = await securityOf(me, deviceId);
+  const limit = async () => {
+    if (!(await spend(me, "sms"))) throw new PhoneError(`That's ${SMS_PER_DAY} codes today — the daily limit. Try again tomorrow.`, 429);
+  };
+
+  // Add or change the account's number (changing it needs a device that's already confirmed).
+  if (action === "start" || action === "check") {
+    if (sec.verified && !sec.trusted) throw new PhoneError("Confirm this device first, then change your number.", 403);
+    const phone = normalizePhone(String(body.phone ?? ""));
+    if (!phone) throw new PhoneError("Enter a mobile number, like 555-123-4567. Outside the US and Canada, start with + and the country code.");
+    const [taken] = await db.select({ id: profiles.id }).from(profiles).where(and(eq(profiles.phone, phone), ne(profiles.id, me.id)));
+    if (taken) throw new PhoneError("That number is already on another GridIronVault account. Each coach needs their own number.", 409);
+    if (action === "start") {
+      await limit();
+      await sendCode(phone);
+      return json({ sentTo: maskPhone(phone) });
+    }
+    if (!(await checkCode(phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
+    await db.update(profiles).set({ phone, phoneVerifiedAt: new Date() }).where(eq(profiles.id, me.id));
+    await trustDevice(me, deviceId, label);
+    return json({ security: await securityOf(me, deviceId) });
+  }
+
+  // Confirm a new device with a code to the number on file.
+  if (action === "device-start" || action === "device-check") {
+    if (!profile?.phone || !profile.at) throw new PhoneError("Add your mobile number first.", 403);
+    if (action === "device-start") {
+      await limit();
+      await sendCode(profile.phone);
+      return json({ sentTo: maskPhone(profile.phone) });
+    }
+    if (!(await checkCode(profile.phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
+    await trustDevice(me, deviceId, label);
+    return json({ security: await securityOf(me, deviceId) });
+  }
+
+  // Sign out every other device.
+  if (action === "forget-others") {
+    if (!sec.trusted) throw new PhoneError("Confirm this device first.", 403);
+    await db.delete(trustedDevices).where(and(eq(trustedDevices.ownerId, me.id), ne(trustedDevices.deviceHash, hashDevice(deviceId))));
+    return json({ security: await securityOf(me, deviceId) });
+  }
+
+  return fail("That address is not part of the playbook API.", 404);
 }
 
 function sanitisePlay(body: Record<string, unknown>) {

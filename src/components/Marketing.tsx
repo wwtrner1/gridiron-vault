@@ -10,7 +10,7 @@ export function MarketingNav() {
       <Link to="/" className="mkt-brand">
         <Mark size={30} />
         <span>
-          Grid1ron<b>Vault</b>
+          GridIron<b>Vault</b>
         </span>
       </Link>
       <nav aria-label="Main">
@@ -69,7 +69,7 @@ export function MarketingFooter() {
         <div className="mkt-foot-brand">
           <Mark size={26} />
           <span>
-            Grid1ron<b>Vault</b>
+            GridIron<b>Vault</b>
           </span>
           <small>Playbook studio for 5-on-5 flag football.</small>
         </div>
@@ -86,7 +86,7 @@ export function MarketingFooter() {
           ))}
         </div>
         <p className="mkt-legal">
-          Grid1ronVault is an independent tool. It is not affiliated with, endorsed by, or sponsored by any league or governing
+          GridIronVault is an independent tool. It is not affiliated with, endorsed by, or sponsored by any league or governing
           body. Diagrams and terminology are provided for coaching and teaching use.
         </p>
       </div>

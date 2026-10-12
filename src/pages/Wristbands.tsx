@@ -88,7 +88,7 @@ export function Wristbands() {
     setPrinting(true);
     try {
       const doc = await wristbandSheets(entries, perCard, shows, copies, sourceName, {
-        watermark: tier.watermark ? "GRID1RONVAULT" : null,
+        watermark: tier.watermark ? "GRIDIRONVAULT" : null,
         dpi: cappedDpi(tier, 200),
       });
       doc.save(`${slug(`wristbands-${sourceName}`)}.pdf`);

@@ -1,4 +1,4 @@
-# Grid1ronVault — accessibility audit
+# GridIronVault — accessibility audit
 
 Standard applied: WCAG 2.1 level AA. Every fix below is in the working tree —
 this is a record of what changed, not a list of recommendations.

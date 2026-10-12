@@ -84,7 +84,7 @@ export function Help() {
             Tell us what to <span>build next.</span>
           </h1>
           <p>
-            Grid1ronVault is built with coaches, not just for them. Tell us what slowed you down, what’s missing, or what you’d
+            GridIronVault is built with coaches, not just for them. Tell us what slowed you down, what’s missing, or what you’d
             change — two sentences is plenty.
           </p>
         </section>
@@ -94,7 +94,7 @@ export function Help() {
             {state === "sent" ? (
               <div className="help-sent" role="status">
                 <h2>Thanks, coach.</h2>
-                <p>Your note is in. Every one is read by the people building Grid1ronVault{email.trim() ? ", and you’ll get a reply" : ""}.</p>
+                <p>Your note is in. Every one is read by the people building GridIronVault{email.trim() ? ", and you’ll get a reply" : ""}.</p>
                 <button
                   type="button"
                   className="btn btn-ghost"
@@ -119,7 +119,7 @@ export function Help() {
                   />
                 </label>
                 <label className="help-field">
-                  <span>Which part of Grid1ronVault?</span>
+                  <span>Which part of GridIronVault?</span>
                   <select className="select" value={area} onChange={(e) => setArea(e.target.value)}>
                     {AREAS.map((a) => (
                       <option key={a}>{a}</option>
@@ -206,7 +206,7 @@ export function Help() {
               <p className="home-eyebrow">What happens next</p>
               <ol className="help-steps">
                 <li>
-                  <span>01</span>Every note is read by the people building Grid1ronVault.
+                  <span>01</span>Every note is read by the people building GridIronVault.
                 </li>
                 <li>
                   <span>02</span>If you left an email, you get a reply.

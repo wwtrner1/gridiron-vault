@@ -16,7 +16,7 @@ import "../styles/upload.css";
 
 const MAX_BYTES = 50 * 1024 * 1024;
 const KNOWN = new Set(["Q", "C", "X", "Y", "Z", "H", "S"]);
-/** Common deck letters for backs, pre-mapped to Grid1ronVault's H (running back). */
+/** Common deck letters for backs, pre-mapped to GridIronVault's H (running back). */
 const SUGGEST: Record<string, string> = { R: "H", F: "H", B: "H", T: "H", RB: "H", HB: "H", FB: "S", QB: "Q", W: "S", A: "S" };
 
 const SOURCES = [
@@ -67,7 +67,7 @@ export function Upload() {
       if (file.size > 20 * 1024 * 1024) return setError(`${file.name} is over 20 MB. Use a smaller photo.`);
       return setPhoto(file);
     }
-    setError(`${file.name} isn’t a file Grid1ronVault can read. Use JPG, PNG, HEIC, PDF or PPTX.`);
+    setError(`${file.name} isn’t a file GridIronVault can read. Use JPG, PNG, HEIC, PDF or PPTX.`);
   }
 
   // Paste anywhere on the page (Ctrl+V).
@@ -118,7 +118,7 @@ export function Upload() {
           <Icon name="upload" size={34} />
           <b>Drop a play here</b>
           <p>
-            A whiteboard photo, a screenshot, a scanned playbook page or a PowerPoint deck. Grid1ronVault redraws each play on the
+            A whiteboard photo, a screenshot, a scanned playbook page or a PowerPoint deck. GridIronVault redraws each play on the
             field so you can check it before it goes in the Vault.
           </p>
           <div className="up-drop-acts">

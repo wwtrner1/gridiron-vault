@@ -263,7 +263,7 @@ export function readDeck(name: string, bytes: Uint8Array): Deck {
 export type ImportOptions = {
   /** "vault": default position colors; "slide": keep the deck's own colors. */
   format: "vault" | "slide";
-  /** Deck letter → Grid1ronVault letter, e.g. { F: "H" }. */
+  /** Deck letter → GridIronVault letter, e.g. { F: "H" }. */
   letterMap: Record<string, string>;
   /** The coach's offense tokens (default position colors). */
   offense: TokenPreset[];

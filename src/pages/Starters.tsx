@@ -78,7 +78,7 @@ export function Starters() {
       toast(gate.reason);
       return null;
     }
-    const play = toPlay(spec, "Grid1ronVault starters");
+    const play = toPlay(spec, "GridIronVault starters");
     store.upsertPlay(play);
     return play;
   };
@@ -98,7 +98,7 @@ export function Starters() {
         toast(gate.reason);
         break;
       }
-      store.upsertPlay(toPlay(spec, "Grid1ronVault starters"));
+      store.upsertPlay(toPlay(spec, "GridIronVault starters"));
       added += 1;
     }
     if (added) {
@@ -112,7 +112,7 @@ export function Starters() {
       picked
         .map((n) => STARTERS.find((s) => s.n === n))
         .filter((s): s is StarterSpec => Boolean(s) && !locked(s!))
-        .map((s) => toPlay(s, "Grid1ronVault starters")),
+        .map((s) => toPlay(s, "GridIronVault starters")),
     [picked, tier.id],
   );
 
@@ -134,7 +134,7 @@ export function Starters() {
         <div>
           <h2>Starter plays</h2>
           <p>
-            Fifty-six plays redrawn for Grid1ronVault — the route tree, ten formations with three plays each,
+            Fifty-six plays redrawn for GridIronVault — the route tree, ten formations with three plays each,
             nine run concepts and five coverage shells. Copy any of them into your Vault and change
             whatever you want. They are yours after that.
           </p>

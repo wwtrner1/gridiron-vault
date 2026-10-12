@@ -1,8 +1,8 @@
 /**
- * The 56 starter plays, redrawn as Grid1ronVault scene data.
+ * The 56 starter plays, redrawn as GridIronVault scene data.
  *
  * The originals were flat card images. These are real scenes: every token and
- * every line is editable, the ink weights match the Grid1ronVault brand, and the
+ * every line is editable, the ink weights match the GridIronVault brand, and the
  * same diagram drives the editor, the Vault thumbnail and the printed card.
  */
 import { baseNode, uid, CANVAS_W, DEFAULT_STROKE } from "./types";

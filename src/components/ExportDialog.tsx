@@ -37,7 +37,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const sheetGate = gateSheets(tier);
   const sizeGate = gateSize(tier, options.size);
   const many = plays.length > 1;
-  const watermark = tier.watermark ? "GRID1RONVAULT" : null;
+  const watermark = tier.watermark ? "GRIDIRONVAULT" : null;
   const size = useMemo(() => EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES[4], [options.size]);
 
   const set = (patch: Partial<SheetOptions>) => setOptions((o) => ({ ...o, ...patch }));
@@ -50,7 +50,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
     setBusy(true);
     setProblem(null);
     try {
-      const stem = slug(plays.length === 1 ? plays[0].name || "play" : "grid1ronvault-playbook");
+      const stem = slug(plays.length === 1 ? plays[0].name || "play" : "gridironvault-playbook");
       if (kind === "pdf") {
         const doc = await playsToPdf(plays, { ...options, dpi: cappedDpi(tier, options.dpi), watermark }, title);
         doc.save(`${stem}.pdf`);
@@ -227,7 +227,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         <div className="lock-note">
           <Icon name="lock" size={15} />
           <span>
-            Free exports carry a Grid1ronVault stamp. Any plan removes it and unlocks clean 300-DPI print.{" "}
+            Free exports carry a GridIronVault stamp. Any plan removes it and unlocks clean 300-DPI print.{" "}
             <button type="button" className="btn btn-quiet btn-sm" onClick={onUpgrade}>
               See plans
             </button>

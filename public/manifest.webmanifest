@@ -1,0 +1,23 @@
+{
+  "name": "GridIronVault — Flag Football Playbook Studio",
+  "short_name": "GridIronVault",
+  "description": "Draw plays, build your Vault, and print wristbands. Built for the flag football sideline.",
+  "id": "/",
+  "start_url": "/vault",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1524",
+  "theme_color": "#0B1524",
+  "categories": ["sports", "productivity"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Draft a play", "url": "/build", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Season Grid", "url": "/grid", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Wristbands", "url": "/wristbands", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

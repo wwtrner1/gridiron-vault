@@ -62,6 +62,14 @@ export function Landing() {
       <main id="main">
         <section className="home-hero" aria-labelledby="hero-h">
           <div className="home-hero-copy">
+            <img
+              className="home-hero-badge"
+              src="/brand/shield.webp"
+              width={220}
+              height={220}
+              alt="GridIronVault — Your playbook. Anywhere."
+              fetchPriority="high"
+            />
             <p className="home-eyebrow">Free through beta · no card · No payment · just create and draw</p>
             <h1 id="hero-h">
               Draw the play
@@ -71,7 +79,7 @@ export function Landing() {
               <span className="hl-cyan">Win the game</span>
             </h1>
             <p className="home-hero-lede">
-              Grid1ronVault is the playbook studio for anyone who loves the game of football. Design plays with real drawing
+              GridIronVault is the playbook studio for anyone who loves the game of football. Design plays with real drawing
               tools, keep them in one searchable Vault, build your call sheet in a spreadsheet that learns your shorthand, and
               print anything from a quarterback wristband to a full binder page.
             </p>
