@@ -10,6 +10,8 @@ import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
 import { RailGroup } from "../components/RailGroup";
 import { RouteLibrary } from "../components/RouteLibrary";
+import { FormatPanel } from "../components/FormatPanel";
+import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, playerAt, type Tile } from "../lib/routeLibrary";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { PlayAssistant } from "../components/PlayAssistant";
@@ -427,6 +429,18 @@ export function Builder() {
   const activeMode = MODES.find((m) => m.id === mode);
   const exportables = [{ ...meta, scene }];
 
+  // Saved play format (canvas): save this play's look, or give this play the saved look.
+  const playFormat = usePlayFormat();
+  const saveFormat = () => {
+    formatStore.saveFrom({ id: existing?.id ?? "draft", name: meta.name.trim() || "This play", scene });
+    setStatus(`Saved the format of ${meta.name.trim() || "this play"}. Use it from the Vault or Wristbands too.`);
+  };
+  const useFormat = () => {
+    if (!playFormat.format || !playFormat.parts.length) return;
+    applyScene(applyFormat(scene, playFormat.format, playFormat.parts), "Apply format");
+    setStatus(`Gave this play the ${playFormat.format.sourceName} format. Undo puts it back.`);
+  };
+
   const giveTile = (tile: Tile, playerIds: string[]) => {
     const result = applyTile(scene, tile, playerIds, color, width, nextZ(scene));
     if ("error" in result) {
@@ -650,6 +664,19 @@ export function Builder() {
 
           <RailGroup id="routes" title="Route library">
             <RouteLibrary onPick={(tile) => giveTile(tile, selection)} />
+          </RailGroup>
+
+          <RailGroup id="format" title="Saved play format">
+            <FormatPanel dark>
+              <div className="pf-acts">
+                <button type="button" className="dz-btn" onClick={saveFormat}>
+                  Save this play's format
+                </button>
+                <button type="button" className="dz-btn is-on" onClick={useFormat} disabled={!playFormat.format || !playFormat.parts.length}>
+                  Apply to this play
+                </button>
+              </div>
+            </FormatPanel>
           </RailGroup>
 
           <RailGroup id="ink" title="Ink · Weight" summary={<><i className="dz-ink" style={{ background: color }} aria-hidden="true" />{STROKE_WEIGHTS.indexOf(width) + 1 || width}px</>}>

@@ -14,6 +14,9 @@ import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { FORMATIONS, uid } from "../lib/types";
 import { recolorScene, staleCount } from "../lib/recolor";
+import { applyFormat, usePlayFormat } from "../lib/playFormat";
+import { FormatPanel } from "../components/FormatPanel";
+import type { Scene } from "../lib/types";
 import "../styles/vault.css";
 import type { StoredPlay } from "../lib/types";
 
@@ -131,6 +134,38 @@ export function Vault() {
     }
   }
 
+  // Saved play format: "Format on · click a play", from the canvas.
+  const { format, parts } = usePlayFormat();
+  const [painting, setPainting] = useState(false);
+  const [lastPainted, setLastPainted] = useState<{ id: string; name: string; scene: Scene } | null>(null);
+
+  async function savePlayScene(p: StoredPlay, scene: Scene) {
+    const next = { ...p, scene, updatedAt: new Date().toISOString() };
+    store.upsertPlay(next);
+    if (account && p.remote) {
+      try {
+        await api.updatePlay(p.id, { scene });
+      } catch {
+        /* the local copy is already updated; it syncs on the next save */
+      }
+    }
+  }
+
+  function paint(p: StoredPlay) {
+    if (!format || !parts.length) return;
+    setLastPainted({ id: p.id, name: p.name, scene: p.scene });
+    void savePlayScene(p, applyFormat(p.scene, format, parts));
+    toast(`${p.name || "That play"} now uses the ${format.sourceName} format.`);
+  }
+
+  function undoPaint() {
+    const p = lastPainted && plays.find((x) => x.id === lastPainted.id);
+    if (!p || !lastPainted) return;
+    void savePlayScene(p, lastPainted.scene);
+    setLastPainted(null);
+    toast(`${lastPainted.name || "That play"} is back the way it was.`);
+  }
+
   // Plays saved before the new default position colors (Sep 25).
   const stale = useMemo(() => plays.filter((p) => staleCount(p.scene) > 0), [plays]);
 
@@ -200,6 +235,23 @@ export function Vault() {
             <button type="button" className="btn btn-primary btn-sm" onClick={updateColors}>
               Update {stale.length} {stale.length === 1 ? "play" : "plays"}
             </button>
+          </div>
+        )}
+
+        {tab === "mine" && format && (
+          <div className={`vault-format${painting ? " is-on" : ""}`}>
+            <div className="vault-format-head">
+              <b>Saved play format</b>
+              <button type="button" className={`btn btn-sm ${painting ? "btn-primary" : "btn-ghost"}`} aria-pressed={painting} onClick={() => setPainting((v) => !v)}>
+                {painting ? "Format on · click a play" : "Format plays"}
+              </button>
+              {lastPainted && (
+                <button type="button" className="btn btn-quiet btn-sm" onClick={undoPaint}>
+                  Undo {lastPainted.name || "last"}
+                </button>
+              )}
+            </div>
+            {painting && <FormatPanel />}
           </div>
         )}
 
@@ -313,9 +365,15 @@ export function Vault() {
                 >
                   <Icon name="check" size={14} />
                 </button>
-                <div className="play-thumb">
-                  <PlayThumb scene={p.scene} label={p.name} />
-                </div>
+                {painting && tab === "mine" ? (
+                  <button type="button" className="play-thumb is-paint" onClick={() => paint(p)} aria-label={`Give ${p.name || "this play"} the saved format`}>
+                    <PlayThumb scene={p.scene} label={p.name} />
+                  </button>
+                ) : (
+                  <div className="play-thumb">
+                    <PlayThumb scene={p.scene} label={p.name} />
+                  </div>
+                )}
                 <div className="play-body">
                   <h3>{p.name || "Untitled play"}</h3>
                   <p className="hint" style={{ margin: 0 }}>

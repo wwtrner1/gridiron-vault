@@ -62,3 +62,4 @@
 @media (max-width: 900px) {
   .wb-body { grid-template-columns: minmax(0, 1fr); }
 }
+.wb-note { margin: 0; font-size: 13px; color: var(--muted); }

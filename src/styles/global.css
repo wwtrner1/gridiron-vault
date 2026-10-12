@@ -1392,3 +1392,14 @@ table.compare tbody tr:last-child td { border-bottom: 0; }
     width: 100%;
   }
 }
+
+/* Saved play format panel (Designer rail, Vault, Wristbands). */
+.pf { display: flex; flex-direction: column; gap: 8px; }
+.pf-from { margin: 0; font-size: 13px; color: var(--muted); }
+.pf-from b { color: var(--ink); }
+.pf-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-acts { display: grid; gap: 6px; }
+.pf-dark .pf-from { color: var(--muted-2); }
+.pf-dark .pf-from b { color: var(--white); }
+.pf-dark .chip { border-color: var(--ink-3); background: var(--ink-3); color: var(--pill-dark-fg); }
+.pf-dark .chip.is-on { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
