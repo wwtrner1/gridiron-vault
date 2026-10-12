@@ -12,7 +12,7 @@ import {
   usePlayerPresets,
   type PlayerPreset,
 } from "../lib/playerPresets";
-import { PRESET_BLOCKS, PRESET_ROUTES } from "../lib/routes";
+import { BLOCKS, PRESET_BLOCKS, PRESET_ROUTES, ROUTES } from "../lib/routes";
 import { makePlayer, OFFENSE_TOKENS } from "../lib/presets";
 import { CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
@@ -378,19 +378,34 @@ function PresetPreview({ p }: { p: PlayerPreset }) {
   const line = presetLineColor(p);
   const w = [0, 1.6, 2.2, 2.9][p.lineWeight];
   const dash = p.lineStyle === "dashed" ? "6 4" : p.lineStyle === "dotted" ? "1.5 3.5" : undefined;
-  const d = p.lineStyle === "motion" ? "M60 70 q8 -8 16 0 t16 0 t16 0 t16 0 t16 0 L150 30" : p.assignment === "block" ? "M60 70 L60 42" : "M60 70 L60 44 L150 30";
+  // The real route or block shape, for a receiver on the right (outs to the right, ins to the left).
+  const segs = (p.assignment === "block" ? BLOCKS[p.block] : ROUTES[p.route]) ?? ROUTES.go;
+  const pts = [{ x: 0, y: 0 }];
+  for (const [dx, dy] of segs) pts.push({ x: pts[pts.length - 1].x + dx, y: pts[pts.length - 1].y + dy });
+  const k = Math.min(0.3, 60 / Math.max(1, ...pts.map((q) => Math.abs(q.y))), 90 / Math.max(1, ...pts.map((q) => Math.abs(q.x))));
+  const P = pts.map((q) => ({ x: 110 + q.x * k, y: 70 + q.y * k }));
+  const d =
+    p.lineStyle === "motion"
+      ? "M110 70 q8 -8 16 0 t16 0 t16 0 t16 0 L190 30"
+      : P.map((q, i) => `${i ? "L" : "M"}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(" ");
+  const tip = p.lineStyle === "motion" ? { x: 190, y: 30 } : P[P.length - 1];
+  const prev = p.lineStyle === "motion" ? { x: 174, y: 40 } : P[P.length - 2];
+  const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+  const head = (a: number) => `${(tip.x + Math.cos(a) * 9).toFixed(1)},${(tip.y + Math.sin(a) * 9).toFixed(1)}`;
+  const arrow = `${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${head(ang + Math.PI - 0.45)} ${head(ang + Math.PI + 0.45)}`;
+  const tee = [head(ang + Math.PI / 2), head(ang - Math.PI / 2)].map((s) => s.split(",").map(Number));
   const t = asToken(p);
   return (
     <svg className="pp-preview" viewBox="0 0 220 96" role="img" aria-label={`Preview of ${p.name}`}>
       <rect width="220" height="96" fill="#ffffff" />
       <line x1="0" y1="78" x2="220" y2="78" stroke="#0b1524" strokeWidth="1" strokeDasharray="5 4" />
       <path d={d} fill="none" stroke={line} strokeWidth={w} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" />
-      {p.lineEnd === "arrow" && p.assignment === "route" && <polygon points="150,30 140,28 143,37" fill={line} />}
+      {p.lineEnd === "arrow" && p.assignment === "route" && <polygon points={arrow} fill={line} />}
       {(p.lineEnd === "tee" || p.assignment === "block") && p.lineEnd !== "none" && (
-        <line x1={p.assignment === "block" ? 50 : 144} y1={p.assignment === "block" ? 42 : 24} x2={p.assignment === "block" ? 70 : 156} y2={p.assignment === "block" ? 42 : 36} stroke={line} strokeWidth={w + 0.6} strokeLinecap="round" />
+        <line x1={tee[0][0]} y1={tee[0][1]} x2={tee[1][0]} y2={tee[1][1]} stroke={line} strokeWidth={w + 0.6} strokeLinecap="round" />
       )}
-      {p.shade !== "transparent" && p.shape !== "cross" && <circle cx="60" cy="70" r="15" fill={p.shade} />}
-      <g transform="translate(60 70)">
+      {p.shade !== "transparent" && p.shape !== "cross" && <circle cx="110" cy="70" r="15" fill={p.shade} />}
+      <g transform="translate(110 70)">
         {p.shape === "circle" && <circle r="9.5" fill={t.fill} stroke={p.outlineStyle === "none" ? "none" : t.stroke} strokeWidth="1.6" strokeDasharray={p.outlineStyle === "dash" ? "3 2" : undefined} />}
         {p.shape === "square" && <rect x="-9.5" y="-9.5" width="19" height="19" rx="2" fill={t.fill} stroke={p.outlineStyle === "none" ? "none" : t.stroke} strokeWidth="1.6" strokeDasharray={p.outlineStyle === "dash" ? "3 2" : undefined} />}
         {p.shape === "triangle" && <polygon points="0,-10 9.5,8 -9.5,8" fill={t.fill} stroke={p.outlineStyle === "none" ? "none" : t.stroke} strokeWidth="1.6" />}

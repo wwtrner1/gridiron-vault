@@ -161,7 +161,8 @@ function path(
   for (const [dx, dy] of segs) {
     cx += dx;
     cy += dy;
-    points.push({ x: cx, y: cy });
+    // Routes stop at the sideline rather than running off the field.
+    points.push({ x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, cx)), y: cy });
   }
   return {
     ...baseNode({ x: from.x, y: from.y, z, name: "Route" }),
@@ -237,16 +238,25 @@ function routeTree(range: "0-5" | "6-9"): SceneNode[] {
   nodes.push({ ...makePlayer(preset("Z"), origin.x, origin.y), z: 300 });
   const tree: [string, keyof typeof ROUTES][] =
     range === "0-5"
-      ? [["0 · Hitch", "hitch"], ["1 · Flat", "flat"], ["2 · Slant", "slant"], ["3 · Comeback", "comeback"], ["4 · Curl", "stop"], ["5 · Out", "out"]]
+      ? [["0 · Hitch", "hitch"], ["1 · Flat", "flat"], ["2 · Slant", "slant"], ["3 · Comeback", "comeback"], ["4 · Curl", "curl"], ["5 · Out", "out"]]
       : [["6 · Dig", "dig"], ["7 · Corner", "corner"], ["8 · Post", "post"], ["9 · Go", "go"], ["Wheel", "wheel"], ["Cross", "cross"]];
 
   const shades = [INK, "#2E7DBE", "#2E9E6B", "#7A6BD2", "#F2A63B", "#D24B3E"];
+  const placed: { x: number; y: number; half: number }[] = [];
   tree.forEach(([label, route], i) => {
     const line = path(origin, ROUTES[route], shades[i % shades.length], 100 + i, { endCap: "arrow" });
     nodes.push(line);
     const tip = line.points[line.points.length - 1];
+    // Label beyond the arrowhead, on the side the route breaks, so it never sits on its own line.
+    const side = tip.x < -8 ? -1 : 1;
+    const half = (label.length * 17 * 0.56) / 2 + 12;
+    const x = origin.x + tip.x + side * half;
+    // Short routes end close together: move a label up until it clears the ones already placed.
+    let y = origin.y + tip.y;
+    while (placed.some((b) => Math.abs(b.x - x) < b.half + half && Math.abs(b.y - y) < 28)) y -= 30;
+    placed.push({ x, y, half });
     nodes.push({
-      ...baseNode({ x: origin.x + tip.x + 46, y: origin.y + tip.y, z: 400 + i, name: label }),
+      ...baseNode({ x, y, z: 400 + i, name: label }),
       kind: "text",
       text: label,
       fontSize: 17,

@@ -1,6 +1,7 @@
 export type ToolId =
   | "select"
   | "line"
+  | "arc"
   | "dashed"
   | "block"
   | "motion"
@@ -82,6 +83,7 @@ export const LINE_TOOLS: ToolDef[] = [
   { id: "dashed", icon: "dashed", label: "Dashed", title: "Dashed line with arrow", hint: "Same drawing action as the route arrow. Use it for the ball flight, motion assignments or man coverage.", key: "2" },
   { id: "block", icon: "block", label: "Block (T-line)", title: "Blocking line", hint: "Ends in a crossbar instead of an arrowhead — the standard mark for a block or a stalk.", key: "3" },
   { id: "motion", icon: "motion", label: "Motion", title: "Wavy motion line", hint: "Draws a sine wave along your clicks. Use it for pre-snap motion and jet sweeps.", key: "4" },
+  { id: "arc", icon: "pen", label: "3-point arc", title: "3-point arc", hint: "Click where the route starts, a point it curves through, then where it ends. Good for wheels, swings and fades.", key: "A" },
   { id: "free", icon: "pencil", label: "Freehand", title: "Free-style line", hint: "Press and drag to draw exactly what your hand traces. The stroke is smoothed when you release.", key: "5" },
   { id: "connect", icon: "connect", label: "Auto-connect", title: "Auto-connect line", hint: "Click one player then another and the line snaps cleanly between the two tokens and follows them when they move.", key: "6" },
   { id: "pen", icon: "pen", label: "Bezier pen", title: "Bezier node pen", hint: "Click to place nodes, then drag the round handles afterwards to curve each segment exactly.", key: "7" },

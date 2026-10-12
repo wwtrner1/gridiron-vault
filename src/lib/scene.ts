@@ -56,6 +56,7 @@ export function reconcileConnections(scene: Scene): Scene {
 
 const LINE_DEFAULTS: Record<string, Partial<PathNode>> = {
   line: { style: "solid", endCap: "arrow" },
+  arc: { style: "solid", endCap: "arrow", curve: "spline" },
   dashed: { style: "dashed", endCap: "arrow" },
   block: { style: "solid", endCap: "tee" },
   motion: { style: "motion", endCap: "arrow" },
@@ -119,6 +120,7 @@ export function makeText(origin: Point, text: string, color: string, z: number):
 
 const LABELS: Record<string, string> = {
   line: "Route",
+  arc: "Route",
   dashed: "Pass / coverage",
   block: "Block",
   motion: "Motion",

@@ -89,7 +89,7 @@ export function assistantSystem(req: AssistantRequest): string {
 
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
 
-Route tree: 1 flat, 2 slant, 3 comeback, 4 curl (use "hitch"), 5 out, 6 dig, 7 corner, 8 post, 9 go. Other routes: ${ROUTE_IDS.join(", ")}. Blocks: ${BLOCK_IDS.join(", ")}.
+Route tree: 1 flat, 2 slant, 3 comeback, 4 curl, 5 out, 6 dig, 7 corner, 8 post, 9 go. Other routes: ${ROUTE_IDS.join(", ")}. Blocks: ${BLOCK_IDS.join(", ")}.
 
 Rules:
 - Use only the formations, routes and blocks allowed by the tool.

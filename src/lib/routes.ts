@@ -31,6 +31,7 @@ export const ROUTES: Record<string, Seg[]> = {
   option: [[0, -88], [56, -34]],
   pivot: [[0, -46], [46, 24], [-64, -22]],
   stop: [[0, -110], [0, 24]],
+  curl: [[0, -110], [-22, 26]],
   block: [[0, -44]],
   dive: [[0, -62], [-8, -120]],
   sweep: [[0, 18], [168, 6], [26, -196]],
@@ -59,7 +60,10 @@ export const BLOCKS: Record<string, Seg[]> = {
 export const PRESET_ROUTES: { id: string; label: string }[] = [
   { id: "flat", label: "1 · Flat" },
   { id: "slant", label: "2 · Slant" },
+  { id: "comeback", label: "3 · Comeback" },
+  { id: "curl", label: "4 · Curl" },
   { id: "out", label: "5 · Out" },
+  { id: "dig", label: "6 · Dig" },
   { id: "corner", label: "7 · Corner" },
   { id: "post", label: "8 · Post" },
   { id: "go", label: "9 · Go" },
