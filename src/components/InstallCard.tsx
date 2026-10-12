@@ -1,11 +1,11 @@
 import { promptInstall, useInstall } from "../lib/install";
 
-/** Account page: put Grid1ronVault on the home screen like an app. */
+/** Account page: put GridIronVault on the home screen like an app. */
 export function InstallCard() {
   const install = useInstall();
   return (
     <section className="card">
-      <h3>Grid1ronVault on your phone</h3>
+      <h3>GridIronVault on your phone</h3>
       {install === "installed" ? (
         <p>You're using the installed app.</p>
       ) : install === "prompt" ? (
@@ -17,7 +17,7 @@ export function InstallCard() {
         </>
       ) : install === "ios" ? (
         <p>
-          In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Grid1ronVault opens full screen from your home screen, like an app.
+          In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. GridIronVault opens full screen from your home screen, like an app.
         </p>
       ) : (
         <p>

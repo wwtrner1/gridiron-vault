@@ -46,7 +46,7 @@ const base: Omit<PlayerPreset, "id" | "name" | "label" | "fill" | "outline"> = {
   side: "offense",
 };
 
-/** The canvas's four examples. H is the running back (Grid1ronVault naming). */
+/** The canvas's four examples. H is the running back (GridIronVault naming). */
 export const SEED_PRESETS: PlayerPreset[] = [
   { ...base, id: "seed-h-flat", name: "Back H · flat", label: "H", fill: "#f28c28", outline: "#f28c28", route: "flat", firstRead: true },
   {

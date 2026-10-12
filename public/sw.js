@@ -1,12 +1,12 @@
 /*
- * Grid1ronVault service worker: makes the installed app open quickly and
+ * GridIronVault service worker: makes the installed app open quickly and
  * still open with a weak signal at the field.
  * - Pages: network first; with no signal, the last copy of the app shell.
  * - /assets/*: cache first (file names change with every release).
  * - /api, sign-in and forms: never cached — they always go to the server.
  * Bump VERSION to clear old caches.
  */
-const VERSION = "g1v-1";
+const VERSION = "g1v-2";
 const SHELL = "/index.html";
 
 self.addEventListener("install", (event) => {

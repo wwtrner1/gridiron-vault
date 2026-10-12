@@ -516,7 +516,7 @@ async function phoneRoute(me: Session, deviceId: string, action: string | undefi
     const phone = normalizePhone(String(body.phone ?? ""));
     if (!phone) throw new PhoneError("Enter a mobile number, like 555-123-4567. Outside the US and Canada, start with + and the country code.");
     const [taken] = await db.select({ id: profiles.id }).from(profiles).where(and(eq(profiles.phone, phone), ne(profiles.id, me.id)));
-    if (taken) throw new PhoneError("That number is already on another Grid1ronVault account. Each coach needs their own number.", 409);
+    if (taken) throw new PhoneError("That number is already on another GridIronVault account. Each coach needs their own number.", 409);
     if (action === "start") {
       await limit();
       await sendCode(phone);

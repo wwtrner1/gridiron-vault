@@ -64,7 +64,7 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
       if (!live) return;
       // Show the photo first, even if it can't be read yet.
       setImg({ url: prepared.url, aspect: prepared.aspect });
-      if (!account) return setStage({ kind: "error", text: "Sign in to have Grid1ronVault read your photo. It is included with every plan." });
+      if (!account) return setStage({ kind: "error", text: "Sign in to have GridIronVault read your photo. It is included with every plan." });
       const gate = gateAi(tier, "photo", aiUsage.used("photo"));
       if (!gate.ok) return setStage({ kind: "error", text: gate.reason, plans: true });
       try {
@@ -234,7 +234,7 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
                 <input type="radio" name="pr-format" checked={!useVault} onChange={() => setFormat("photo")} />
                 <span>
                   <b>Keep the photo's layout</b>
-                  <small>Spacing as drawn, in Grid1ronVault colors.</small>
+                  <small>Spacing as drawn, in GridIronVault colors.</small>
                 </span>
               </label>
               {match && (

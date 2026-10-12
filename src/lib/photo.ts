@@ -17,7 +17,7 @@ import type { PathNode, PlayerNode, Point, SceneNode } from "./types";
 export type BoardPlayer = {
   /** Letter as written on the board, e.g. "R". */
   board: string;
-  /** The Grid1ronVault letter for that player, e.g. "H". */
+  /** The GridIronVault letter for that player, e.g. "H". */
   vault: string;
   side: "offense" | "defense";
   /** Position in the photo, 0–1 from the left and from the top. */
@@ -81,7 +81,7 @@ export const PHOTO_TOOL = {
           type: "object",
           properties: {
             board: { type: "string", description: "Letter or mark as written (X for an unlabelled defender)." },
-            vault: { type: "string", description: "Grid1ronVault letter: Q, C, X, Y, Z, H (running back), S (slot / second back); defenders keep the board letter." },
+            vault: { type: "string", description: "GridIronVault letter: Q, C, X, Y, Z, H (running back), S (slot / second back); defenders keep the board letter." },
             side: { type: "string", enum: ["offense", "defense"] },
             x: { type: "number", description: "Center of the mark, fraction of image width." },
             y: { type: "number", description: "Center of the mark, fraction of image height." },
@@ -94,7 +94,7 @@ export const PHOTO_TOOL = {
         items: {
           type: "object",
           properties: {
-            player: { type: "string", description: "Grid1ronVault letter." },
+            player: { type: "string", description: "GridIronVault letter." },
             kind: { type: "string", enum: ["route", "block", "motion"] },
             action: { type: "string", enum: ACTIONS },
             breaks: { type: "string", enum: ["left", "right"], description: "Which way the last part of the line heads in the image; leave out for a straight vertical line." },
@@ -131,9 +131,9 @@ export function photoSystem(req: Pick<PhotoRequest, "game" | "terms">): string {
     .slice(0, 80)
     .map((t) => `- ${t.term}: ${t.means}`)
     .join("\n");
-  return `You read photos of football plays — whiteboards, chalkboards, notebook and binder pages — for Grid1ronVault, a playbook app, and record them with the tool.
+  return `You read photos of football plays — whiteboards, chalkboards, notebook and binder pages — for GridIronVault, a playbook app, and record them with the tool.
 
-Players: circles or letters are offense, Xs or Vs are usually defense. Record every player with the center of its mark as a fraction of the image. Map the coach's letters to Grid1ronVault's: Q quarterback, C center, X split end, Z flanker, Y tight end or slot, H running back, S slot or second back. R, T, F, B or HB for a running back become H.
+Players: circles or letters are offense, Xs or Vs are usually defense. Record every player with the center of its mark as a fraction of the image. Map the coach's letters to GridIronVault's: Q quarterback, C center, X split end, Z flanker, Y tight end or slot, H running back, S slot or second back. R, T, F, B or HB for a running back become H.
 
 Routes: for each line from an offensive player, record the line itself (path, from the player to the arrow tip), which way its last part heads in the image (breaks), and the closest shape from the tool's list. Name the shape by where the line goes relative to that player: toward the nearer sideline is out-breaking (out, corner, flat, fade, comeback); toward the middle is in-breaking (in, dig, post, slant, drag); a line that runs upfield and then turns back toward the line of scrimmage is a curl (turns back inside), a hitch (short) or a comeback (turns back outside). The route tree: 1 flat, 2 slant, 3 comeback, 4 curl, 5 out, 6 dig, 7 corner, 8 post, 9 go. A line ending in a T is a block. A squiggle before the snap is motion.
 

@@ -1,4 +1,4 @@
-# Grid1ronVault — UX copy audit
+# GridIronVault — UX copy audit
 
 Scope: button labels and CTAs, error and validation text, onboarding and empty
 states, form labels, placeholders and helper text. Code comments, variable

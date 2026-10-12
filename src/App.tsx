@@ -20,20 +20,20 @@ import { notePage } from "./lib/lastPage";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
-  "/": "Grid1ronVault — Flag Football Playbook Studio",
-  "/build": "Designer — Grid1ronVault",
-  "/vault": "The Vault — Grid1ronVault",
-  "/playbooks": "Playbooks — Grid1ronVault",
-  "/grid": "Season Grid — Grid1ronVault",
-  "/starters": "Starter plays — Grid1ronVault",
-  "/pricing": "Plans — Grid1ronVault",
-  "/account": "Your account — Grid1ronVault",
-  "/signin": "Sign in — Grid1ronVault",
-  "/help": "Help & feedback — Grid1ronVault",
-  "/wristbands": "Wristbands — Grid1ronVault",
-  "/language": "Playbook language — Grid1ronVault",
-  "/upload": "Upload plays — Grid1ronVault",
-  ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — Grid1ronVault`])),
+  "/": "GridIronVault — Flag Football Playbook Studio",
+  "/build": "Designer — GridIronVault",
+  "/vault": "The Vault — GridIronVault",
+  "/playbooks": "Playbooks — GridIronVault",
+  "/grid": "Season Grid — GridIronVault",
+  "/starters": "Starter plays — GridIronVault",
+  "/pricing": "Plans — GridIronVault",
+  "/account": "Your account — GridIronVault",
+  "/signin": "Sign in — GridIronVault",
+  "/help": "Help & feedback — GridIronVault",
+  "/wristbands": "Wristbands — GridIronVault",
+  "/language": "Playbook language — GridIronVault",
+  "/upload": "Upload plays — GridIronVault",
+  ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
 const NAMES: Record<string, string> = {
@@ -64,7 +64,7 @@ function RouteChrome() {
   useEffect(() => {
     notePage(pathname);
     const key = pathname.startsWith("/build") ? "/build" : pathname;
-    document.title = TITLES[key] ?? "Grid1ronVault";
+    document.title = TITLES[key] ?? "GridIronVault";
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
   }, [pathname]);

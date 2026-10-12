@@ -9,7 +9,7 @@ type Props = {
 };
 
 /**
- * The Designer color picker from the Grid1ron Design canvas: Grid1ronVault
+ * The Designer color picker from the Grid1ron Design canvas: GridIronVault
  * colors, team colors (the canvas's twelve plus any the coach saved), recent
  * colors, any color by picker or hex, and "Save as team color".
  */
@@ -45,7 +45,7 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
   return (
     <div className="cp">
-      <span className="cp-group">Grid1ronVault</span>
+      <span className="cp-group">GridIronVault</span>
       <div className="cp-row">{BRAND_COLORS.map((c) => swatch(c.hex, c.name, `b-${c.hex}`))}</div>
 
       <span className="cp-group">Team colors</span>

@@ -1,5 +1,5 @@
 /* ============================================================
-   Grid1ronVault brand system — navy field, cyan chalk.
+   GridIronVault brand system — navy field, cyan chalk.
    ============================================================ */
 /* Tokens (colors, type, spacing, radii, shadows) live in tokens.css. */
 
@@ -1413,3 +1413,9 @@ table.compare tbody tr:last-child td { border-bottom: 0; }
 .pg-code { font-family: var(--mono); font-size: 22px; letter-spacing: 0.3em; }
 .pg-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .pg-note { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* Brand: the app icon (Mark), the stacked logo on Sign in. The artwork has its own dark
+   background, so edges are clipped or faded into the page. */
+.brand-mark { display: block; flex: none; border-radius: 22%; }
+.auth-logo { position: relative; display: block; width: min(260px, 70%); margin-bottom: 18px; }
+.auth-logo img { display: block; width: 100%; height: auto; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }

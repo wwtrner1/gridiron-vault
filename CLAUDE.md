@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Grid1ronVault — a flag football playbook studio. Coaches draw plays on an SVG canvas, organise them into playbooks, plan games in a spreadsheet-style Season Grid, and export PNG/PDF/wristband cards. Vite + React 19 SPA, a single Netlify Function as the API, Netlify Database (Postgres) via Drizzle, Netlify Identity for auth. Deployed on Netlify. (Formerly "NextPlay"/"Snapline" — those names still appear in localStorage keys; don't rename the keys or existing users lose their data.)
+GridIronVault (capital I — the brand changed from "Grid1ronVault" in October 2026; lowercase ids such as `grid1ronvault.*` localStorage keys, drag types and the `gridi1ronvault` site and repo names keep the old spelling so nothing breaks) — a flag football playbook studio. Logos live in `public/brand/` (icon, horizontal and stacked lockups, shield); app icons and favicons are PNGs rendered from the icon. Coaches draw plays on an SVG canvas, organise them into playbooks, plan games in a spreadsheet-style Season Grid, and export PNG/PDF/wristband cards. Vite + React 19 SPA, a single Netlify Function as the API, Netlify Database (Postgres) via Drizzle, Netlify Identity for auth. Deployed on Netlify. (Formerly "NextPlay"/"Snapline" — those names still appear in localStorage keys; don't rename the keys or existing users lose their data.)
 
 ## Commands
 
@@ -62,7 +62,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 
 ## Conventions
 
-- **Styling:** plain CSS. Design tokens live only in `src/styles/tokens.css`; `global.css` consumes them. **The Grid1ron Design canvas (https://claude.ai/artifact/6gfQeotou5QDBHLrA4P8vn) is the source of truth** for every screen, color, font and size; the Grid1ronVault design system artifact is a reference only, and the canvas wins where they differ. Change a value in tokens, not in component styles. Fonts: Saira Condensed, Barlow, IBM Plex Mono (Google Fonts, loaded in `index.html`).
+- **Styling:** plain CSS. Design tokens live only in `src/styles/tokens.css`; `global.css` consumes them. **The Grid1ron Design canvas (https://claude.ai/artifact/6gfQeotou5QDBHLrA4P8vn) is the source of truth** for every screen, color, font and size; the GridIronVault design system artifact is a reference only, and the canvas wins where they differ. Change a value in tokens, not in component styles. Fonts: Saira Condensed, Barlow, IBM Plex Mono (Google Fonts, loaded in `index.html`).
 - **Colors in scene data** are hex constants in `types.ts` (`PALETTE`, `FIRST_READ`, `STROKE_WEIGHTS`) and `presets.ts` (position colors: Q black · C cyan · X blue · Y red · Z green · H orange · S light purple), since they are serialised into saved plays and exports.
 - **Copy:** user-facing text speaks to "coach", is specific and action-oriented, and never leaks raw library/server errors. `docs/copy-audit.md` records the standard and past fixes.
 - **Accessibility:** WCAG 2.1 AA. Reuse `Modal` (focus trap, Escape, `aria-labelledby`), `Tooltip` (`aria-describedby`) and `Panel` (`aria-expanded`) rather than building new ones. `docs/accessibility.md` is the record of what was fixed and why.

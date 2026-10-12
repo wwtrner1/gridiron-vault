@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { Mark } from "../components/Shell";
 import { PlayThumb } from "../components/PlayThumb";
 import { authMessage, useAuth } from "../lib/auth";
 import { STARTERS, starterScene } from "../lib/starters";
@@ -60,11 +59,8 @@ export function SignIn() {
   return (
     <div className="auth-wrap">
       <aside className="auth-art">
-        <Link to="/" className="mkt-brand">
-          <Mark size={32} />
-          <span>
-            Grid1ron<b>Vault</b>
-          </span>
+        <Link to="/" className="auth-logo">
+          <img src="/brand/lockup-stacked.webp" width={260} height={260} alt="GridIronVault — Playbook studio" />
         </Link>
         <p className="auth-art-lead">Your playbook, on every device you coach from.</p>
         <p>

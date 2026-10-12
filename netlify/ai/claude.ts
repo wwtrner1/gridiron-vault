@@ -1,5 +1,5 @@
 /**
- * The one place Grid1ronVault talks to the Claude API. The key lives only in
+ * The one place GridIronVault talks to the Claude API. The key lives only in
  * the ANTHROPIC_API_KEY environment variable (secret, set in Netlify) and
  * never reaches the browser.
  */

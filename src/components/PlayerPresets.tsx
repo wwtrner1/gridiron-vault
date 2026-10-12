@@ -491,7 +491,7 @@ function PositionKey() {
           />
           <p className="pp-note">New players you drop in the Designer use these colors. Plays you already drew keep theirs.</p>
           <button type="button" className="pp-reset" onClick={() => positionStore.reset()}>
-            Reset to the Grid1ronVault defaults
+            Reset to the GridIronVault defaults
           </button>
         </div>
       )}

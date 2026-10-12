@@ -3,7 +3,7 @@ import { CANVAS_H, CANVAS_W } from "./types";
 
 type Props = { view: FieldView; losY: number };
 
-/* Grid1ronVault field: paper-white turf, cool navy chalk. Prints clean at any size. */
+/* GridIronVault field: paper-white turf, cool navy chalk. Prints clean at any size. */
 const TURF = "#FFFFFF";
 const BAND = "#F5F8FA"; // --paper
 const CHALK = "#CBDAE4";

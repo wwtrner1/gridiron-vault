@@ -519,7 +519,7 @@ export function Builder() {
         </button>
         <Link to="/" className="dz-brand">
           <Mark size={30} />
-          <b>Grid1ronVault</b>
+          <b>GridIronVault</b>
         </Link>
         <span className="dz-kicker">Play designer</span>
         <span className="dz-name">{meta.name.trim() || "Untitled play"}</span>
@@ -925,7 +925,7 @@ export function Builder() {
               grid={grid}
               anchor={anchor}
               zoom={zoom}
-              watermark={tier.watermark ? "GRID1RONVAULT" : null}
+              watermark={tier.watermark ? "GRIDIRONVAULT" : null}
               onScene={applyScene}
               onSelection={setSelection}
               onToolDone={() => setTool("select")}

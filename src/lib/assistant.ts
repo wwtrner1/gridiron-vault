@@ -85,7 +85,7 @@ export function assistantSystem(req: AssistantRequest): string {
     .slice(0, 80)
     .map((t) => `- ${t.term}: ${t.means}`)
     .join("\n");
-  return `You turn a football coach's play call into a diagram plan for Grid1ronVault, a playbook app.
+  return `You turn a football coach's play call into a diagram plan for GridIronVault, a playbook app.
 
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
 

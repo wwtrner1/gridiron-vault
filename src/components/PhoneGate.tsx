@@ -96,7 +96,7 @@ export function PhoneGate() {
         <h2 id="pg-h">{needsPhone ? "Add your mobile number" : "Confirm this device"}</h2>
         <p id="pg-p">
           {needsPhone
-            ? "Each Grid1ronVault account belongs to one coach. We'll text a code to your phone, and again when you sign in on a new device."
+            ? "Each GridIronVault account belongs to one coach. We'll text a code to your phone, and again when you sign in on a new device."
             : `You're signing in on a new device. We'll text a code to ${sec?.phone ?? "your phone"}.`}
         </p>
 
