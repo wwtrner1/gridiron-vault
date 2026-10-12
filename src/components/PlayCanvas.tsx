@@ -64,6 +64,8 @@ type Props = {
   onToolDone: () => void;
   onStatus?: (text: string) => void;
   aids?: DrawAids;
+  /** The node actually clicked, even when its whole group gets selected. */
+  onPickNode?: (id: string) => void;
   /** Picks a tool from the right-click menu. */
   onPickTool?: (tool: ToolId) => void;
 };
@@ -109,6 +111,7 @@ export function PlayCanvas({
   onStatus,
   aids = NO_AIDS,
   onPickTool,
+  onPickNode,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -280,6 +283,7 @@ export function PlayCanvas({
 
     if (tool !== "select") return;
 
+    onPickNode?.(node.id);
     const ids = resolveSelection(sceneRef.current, node.id, mode === "clickThrough");
 
     if (mode === "duplicate") {

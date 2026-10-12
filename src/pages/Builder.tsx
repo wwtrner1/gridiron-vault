@@ -461,6 +461,16 @@ export function Builder() {
     setStatus(`Gave this play the ${playFormat.format.sourceName} format. Undo puts it back.`);
   };
 
+  // The player last clicked: clicking one player of a dropped formation selects the whole
+  // group, but a route tile should go to the player the coach pointed at.
+  const lastPicked = useRef<string | null>(null);
+  const tileTargets = (ids: string[]) => {
+    const picked = lastPicked.current;
+    const chosen = scene.nodes.filter((n) => ids.includes(n.id));
+    const oneGroup = chosen.length > 1 && chosen.every((n) => n.groupId && n.groupId === chosen[0].groupId);
+    return oneGroup && picked && ids.includes(picked) ? [picked] : ids;
+  };
+
   const giveTile = (tile: Tile, playerIds: string[]) => {
     const result = applyTile(scene, tile, playerIds, color, width, nextZ(scene));
     if ("error" in result) {
@@ -701,7 +711,7 @@ export function Builder() {
           </RailGroup>
 
           <RailGroup id="routes" title="Route library">
-            <RouteLibrary onPick={(tile) => giveTile(tile, selection)} />
+            <RouteLibrary onPick={(tile) => giveTile(tile, tileTargets(selection))} />
           </RailGroup>
 
           <RailGroup id="format" title="Saved play format">
@@ -931,6 +941,7 @@ export function Builder() {
               onToolDone={() => setTool("select")}
               onStatus={setStatus}
               aids={aids}
+              onPickNode={(id) => (lastPicked.current = id)}
               onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
             />
           </div>

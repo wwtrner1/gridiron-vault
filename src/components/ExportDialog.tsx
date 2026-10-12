@@ -13,7 +13,7 @@ import {
   WRISTBAND_COUNTS,
   type SheetOptions,
 } from "../lib/export";
-import { cappedDpi, gateSheets, gateSize, type Tier } from "../lib/plan";
+import { cappedDpi, gateSheets, gateSize, gateVector, type Tier } from "../lib/plan";
 import type { StoredPlay } from "../lib/types";
 
 type Exportable = Pick<StoredPlay, "name" | "formation" | "playType" | "description" | "scene">;
@@ -36,6 +36,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
 
   const sheetGate = gateSheets(tier);
   const sizeGate = gateSize(tier, options.size);
+  const vectorGate = gateVector(tier);
   const many = plays.length > 1;
   const watermark = tier.watermark ? "GRIDIRONVAULT" : null;
   const size = useMemo(() => EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES[4], [options.size]);
@@ -100,11 +101,15 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
             className={`chip${kind === k ? " is-on" : ""}`}
             onClick={() => setKind(k)}
             aria-pressed={kind === k}
+            disabled={k === "svg" && !vectorGate.ok}
+            style={k === "svg" && !vectorGate.ok ? { opacity: 0.55 } : undefined}
           >
             {k === "pdf" ? "Print-ready PDF" : k === "png" ? "PNG image" : "SVG vector"}
+            {k === "svg" && !vectorGate.ok && <span className="pill pill-amber">Locked</span>}
           </button>
         ))}
       </div>
+      {!vectorGate.ok && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>{vectorGate.reason}</p>}
 
       <p className="eyebrow" id="ex-size">Size</p>
       <div className="size-list" role="radiogroup" aria-labelledby="ex-size">

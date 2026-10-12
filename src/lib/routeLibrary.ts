@@ -103,7 +103,9 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
   const { players, qb, receivers } = cast(scene);
   const chosen = players.filter((p) => playerIds.includes(p.id));
   if (!chosen.length) return { error: `Pick a player first, or drag ${tile.label} onto one.` };
-  const fits = chosen.filter((p) => (tile.side === "defense" ? p.side === "defense" : p.side === "offense"));
+  const runners = (p: PlayerNode) =>
+    chosen.length === 1 || !(tile.kind === "route" || tile.kind === "block" || tile.kind === "motion") || (p.label.toUpperCase() !== "Q" && !!p.label);
+  const fits = chosen.filter((p) => (tile.side === "defense" ? p.side === "defense" : p.side === "offense") && runners(p));
   if (!fits.length)
     return { error: tile.side === "defense" ? `${tile.label} is for defenders. Pick a defender.` : `${tile.label} is for the offense. Pick an offensive player.` };
 
@@ -156,8 +158,20 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
   return {
     scene: { ...scene, nodes: [...kept, ...added] },
     ids: added.map((n) => n.id),
-    message: `${tile.label} for ${who}.${fits.length < chosen.length ? ` Skipped ${chosen.length - fits.length} on the other side of the ball.` : ""}`,
+    message: `${tile.label} for ${who}.${skippedNote(chosen, fits, tile)}`,
   };
+}
+
+/** Why some chosen players didn't get the job, in plain words. */
+function skippedNote(chosen: PlayerNode[], fits: PlayerNode[], tile: Tile): string {
+  const left = chosen.filter((p) => !fits.includes(p));
+  if (!left.length) return "";
+  const otherSide = left.filter((p) => (tile.side === "defense" ? p.side !== "defense" : p.side !== "offense")).length;
+  const notes: string[] = [];
+  if (otherSide) notes.push(`${otherSide} on the other side of the ball`);
+  if (left.some((p) => p.label.toUpperCase() === "Q")) notes.push("the quarterback");
+  if (left.some((p) => p.side === "offense" && !p.label)) notes.push("the linemen");
+  return notes.length ? ` Skipped ${notes.join(", ")}.` : "";
 }
 
 /** The player under a drop point, within a token's reach. */
