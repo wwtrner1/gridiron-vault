@@ -23,6 +23,8 @@ export type Assignment = {
   action: string;
   /** Break toward the sideline ("out") or the middle ("in"); default follows the route. */
   toward?: "in" | "out";
+  /** Which way the route breaks on the field, when a photo shows it; wins over `toward`. */
+  breaks?: "left" | "right";
   firstRead?: boolean;
   /** The words in the call that gave this read, shown on the chip. */
   heard: string;
@@ -163,6 +165,11 @@ function assignmentPath(a: Assignment, from: Point, losY: number, z: number): Pa
   // Routes break toward the near sideline unless the call says "in".
   let mirror = from.x < cx;
   if (a.toward === "in") mirror = !mirror;
+  if (a.breaks) {
+    // Flip the shape so its last leg points the way the board shows.
+    const last = segs[segs.length - 1]?.[0] ?? 0;
+    if (last !== 0) mirror = (last > 0) === (a.breaks === "left");
+  }
   const points: Point[] = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;

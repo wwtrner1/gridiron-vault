@@ -415,7 +415,18 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
       x: unit(p?.x),
       y: unit(p?.y),
     })),
-    assignments: cleanAssignments(raw.assignments),
+    // Photo reads also keep which way each line breaks and the line as drawn.
+    assignments: cleanAssignments(raw.assignments).map((a, i) => {
+      const src = (Array.isArray(raw.assignments) ? raw.assignments : []).find(
+        (r, j) => j >= i && r && String(r.player ?? "").slice(0, 3).toUpperCase() === a.player,
+      );
+      const path = (Array.isArray(src?.path) ? src.path : []).slice(0, 8).map((p) => ({ x: unit(p?.x), y: unit(p?.y) }));
+      return {
+        ...a,
+        breaks: src?.breaks === "left" || src?.breaks === "right" ? src.breaks : undefined,
+        path: path.length >= 2 ? path : undefined,
+      };
+    }),
     questions: (Array.isArray(raw.questions) ? raw.questions : []).slice(0, 3).map((q) => ({
       player: letter(q?.player),
       question: String(q?.question ?? "").slice(0, 200),
