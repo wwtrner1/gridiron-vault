@@ -1,0 +1,14 @@
+/* Privacy Policy and Terms of Use: the Help page hero over a readable column. */
+.legal-body {
+  max-width: 760px;
+  padding: 48px clamp(18px, 3.2vw, 46px) 72px;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.65;
+}
+.legal-body h2 { margin: 36px 0 10px; font-size: 22px; }
+.legal-body h2:first-child { margin-top: 0; }
+.legal-body p { margin: 0 0 12px; }
+.legal-body ul { margin: 0 0 12px; padding-left: 22px; }
+.legal-body li { margin: 6px 0; }
+.legal-body a { color: var(--muted); text-decoration: underline; }

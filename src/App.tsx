@@ -14,6 +14,7 @@ import { Account } from "./pages/Account";
 import { SignIn } from "./pages/SignIn";
 import { NotFound } from "./pages/NotFound";
 import { Help } from "./pages/Help";
+import { Privacy, Terms } from "./pages/Legal";
 import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
@@ -31,6 +32,8 @@ const TITLES: Record<string, string> = {
   "/account": "Your account — GridIronVault",
   "/signin": "Sign in — GridIronVault",
   "/help": "Help & feedback — GridIronVault",
+  "/privacy": "Privacy Policy — GridIronVault",
+  "/terms": "Terms of Use — GridIronVault",
   "/wristbands": "Wristbands — GridIronVault",
   "/language": "Playbook language — GridIronVault",
   "/upload": "Upload plays — GridIronVault",
@@ -48,6 +51,8 @@ const NAMES: Record<string, string> = {
   "/account": "Your account",
   "/signin": "Sign in",
   "/help": "Help & feedback",
+  "/privacy": "Privacy Policy",
+  "/terms": "Terms of Use",
   "/wristbands": "Wristbands",
   "/language": "Playbook language",
   "/upload": "Upload plays",
@@ -95,6 +100,8 @@ export function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/help" element={<Help />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/wristbands" element={<Wristbands />} />
         <Route path="/language" element={<PlaybookLanguage />} />
         <Route path="/upload" element={<Upload />} />
