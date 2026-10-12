@@ -19,7 +19,7 @@ import { notePage } from "./lib/lastPage";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
-  "/": "Grid1ronVault — Flag football playbook studio",
+  "/": "Grid1ronVault — Flag Football Playbook Studio",
   "/build": "Designer — Grid1ronVault",
   "/vault": "The Vault — Grid1ronVault",
   "/playbooks": "Playbooks — Grid1ronVault",

@@ -106,6 +106,23 @@ export function Builder() {
   const [grid, setGrid] = useState(0);
   const [anchor, setAnchor] = useState({ ax: 0.5, ay: 0.5 });
   const [zoom, setZoom] = useState(0.86);
+  // The field fits the stage (phone, iPad, laptop) until the coach picks a zoom himself.
+  const [autoFit, setAutoFit] = useState(true);
+  const stageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || !autoFit) return;
+    const fit = () => {
+      const pad = 36;
+      // Width only: the stage grows with the field, so its height would chase the zoom.
+      const z = (el.clientWidth - pad) / CANVAS_W;
+      setZoom(Math.max(0.25, Math.min(1.4, Math.floor(z * 100) / 100)));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [autoFit]);
   const [status, setStatus] = useState("Drop a formation, then draw the routes. Hover any tool to see how it works.");
   const [exporting, setExporting] = useState(false);
   const [sideOpen, setSideOpen] = useState(wideScreen);
@@ -543,14 +560,20 @@ export function Builder() {
           <label className="dz-zoom">
             <input
               type="range"
-              min={40}
+              min={25}
               max={140}
               value={Math.round(zoom * 100)}
-              onChange={(e) => setZoom(Number(e.target.value) / 100)}
+              onChange={(e) => {
+                setAutoFit(false);
+                setZoom(Number(e.target.value) / 100);
+              }}
               aria-label="Zoom"
             />
             <span>{Math.round(zoom * 100)}%</span>
           </label>
+          <button type="button" className={`dz-top-btn${autoFit ? " is-on" : ""}`} aria-pressed={autoFit} onClick={() => setAutoFit(true)}>
+            Fit
+          </button>
           <button
             type="button"
             className={`dz-top-btn${sideOpen ? " is-on" : ""}`}
@@ -885,6 +908,7 @@ export function Builder() {
           )}
 
           <div
+            ref={stageRef}
             className="builder-stage"
             onDrop={onDrop}
             onDragOver={(e) => e.preventDefault()}
