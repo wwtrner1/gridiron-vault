@@ -254,5 +254,18 @@ export function gateAi(tier: Tier, kind: AiKind, usedThisMonth: number): Gate {
   };
 }
 
+/**
+ * SVG export: a vector file's watermark is just text anyone can delete, so
+ * plans that watermark their exports don't get SVG (found in Phase 5 testing).
+ */
+export function gateVector(tier: Tier): Gate {
+  if (!tier.watermark) return { ok: true };
+  return {
+    ok: false,
+    reason: "SVG files come with Head Coach — a vector file can't keep a watermark. PDF and PNG stay open on every plan.",
+    cta: "Unlock SVG",
+  };
+}
+
 /** Export DPI actually used, after the plan cap. */
 export const cappedDpi = (tier: Tier, wanted: number) => Math.min(wanted, tier.maxDpi);

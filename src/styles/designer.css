@@ -210,6 +210,9 @@
 }
 @media (max-width: 900px) {
   .dz-name, .dz-brand b { display: none; }
+  /* The rail is a drawer here (global.css), so the field gets the full width. */
+  .dz-body,
+  .dz-body.is-side-closed { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
   .dz-name, .dz-zoom, .dz-brand b { display: none; }
