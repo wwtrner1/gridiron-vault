@@ -16,8 +16,29 @@ export const profiles = pgTable("profiles", {
   email: text().notNull(),
   displayName: text("display_name").notNull().default(""),
   team: text().notNull().default(""),
+  /** Verified mobile number (E.164). One account per phone, one phone per account. */
+  phone: text().unique(),
+  phoneVerifiedAt: timestamp("phone_verified_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+/**
+ * Devices a coach has confirmed with a code to his phone. A sign-in from
+ * any other device needs a code; at most three are kept per account.
+ */
+export const trustedDevices = pgTable(
+  "trusted_devices",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    /** SHA-256 of the random device id the browser keeps; the id itself is never stored. */
+    deviceHash: text("device_hash").notNull(),
+    label: text().notNull().default(""),
+    lastSeen: timestamp("last_seen").defaultNow(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("trusted_devices_owner_device_idx").on(t.ownerId, t.deviceHash)],
+);
 
 /** A single diagrammed play. `scene` holds the editor document. */
 export const plays = pgTable(
