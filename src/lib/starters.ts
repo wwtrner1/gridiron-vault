@@ -232,7 +232,8 @@ function zoneBlob(centre: Point, color: string, z: number, label?: string): Path
 /** Numbered route tree — the teaching diagram, not a play. */
 function routeTree(range: "0-5" | "6-9"): SceneNode[] {
   const nodes: SceneNode[] = [];
-  const origin = { x: CX - 210, y: LOS };
+  // Receiver on the right, as the canvas route tree draws it: outs break to the sideline, ins to the middle.
+  const origin = { x: CX + 210, y: LOS };
   nodes.push({ ...makePlayer(preset("Z"), origin.x, origin.y), z: 300 });
   const tree: [string, keyof typeof ROUTES][] =
     range === "0-5"
@@ -323,7 +324,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "X", route: "slant" }, { on: "Y", route: "slant" }, { on: "Z", route: "slant" }, { on: "RB", route: "slant" },
   ]),
   P(10, "Spread — Mesh", "Spread", "pass", "Two drags crossing at four yards. Somebody comes free every single time.", ["spread", "mesh"], [
-    { on: "Y", route: "drag" }, { on: "RB", route: "drag", flip: true }, { on: "X", route: "go" }, { on: "Z", route: "corner" },
+    { on: "Y", route: "drag" }, { on: "RB", route: "drag" }, { on: "X", route: "go" }, { on: "Z", route: "corner" },
   ]),
 
   P(11, "Bunch — Base", "Bunch", "pass", "Three tight to the right. The stack alone beats man coverage before anyone moves.", ["bunch", "install"], [
@@ -369,7 +370,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "X", route: "slant" }, { on: "Z", route: "go" }, { on: "RB", route: "flat", flip: true },
   ]),
   P(24, "Twins — Slant Flat", "Twins", "pass", "Slant and flat off the same side. If the linebacker jumps the slant, hit the flat.", ["twins", "quick"], [
-    { on: "X", route: "slant", read: true }, { on: "Z", route: "flat" }, { on: "RB", route: "drag", flip: true },
+    { on: "X", route: "slant", read: true }, { on: "Z", route: "flat" }, { on: "RB", route: "drag" },
   ]),
   P(25, "Twins — Post Wheel", "Twins", "pass", "Inside man to the post, back on the wheel underneath him. Two deep answers.", ["twins", "wheel"], [
     { on: "X", route: "post" }, { on: "Z", route: "wheel" }, { on: "RB", route: "hitch", flip: true },
@@ -379,7 +380,7 @@ export const STARTERS: StarterSpec[] = [
   ]),
 
   P(27, "Twins Stack — Base", "Twins Stack", "pass", "Stack the twins so the outside man never gets touched off the line.", ["stack", "install"], [
-    { on: "X", route: "out" }, { on: "Z", route: "go" }, { on: "RB", route: "slant", flip: true },
+    { on: "X", route: "out" }, { on: "Z", route: "go" }, { on: "RB", route: "slant" },
   ]),
   P(28, "Twins Stack — Pick", "Twins Stack", "pass", "Front man sits, back man releases across his face. Legal rub, open man.", ["stack", "rub"], [
     { on: "Z", route: "hitch" }, { on: "X", route: "drag" }, { on: "RB", route: "flat", flip: true },
@@ -388,7 +389,7 @@ export const STARTERS: StarterSpec[] = [
     { on: "X", route: "go" }, { on: "Z", route: "fade" }, { on: "RB", route: "screen", flip: true },
   ]),
   P(30, "Twins Stack — Scissors", "Twins Stack", "pass", "Corner and post crossing at fifteen. Hardest thing in the book to cover deep.", ["stack", "deep"], [
-    { on: "X", route: "corner" }, { on: "Z", route: "post" }, { on: "RB", route: "drag", flip: true },
+    { on: "X", route: "corner" }, { on: "Z", route: "post" }, { on: "RB", route: "drag" },
   ]),
 
   P(31, "I Formation — Base", "I Formation", "run", "Both backs behind the quarterback. Downhill, no thinking.", ["i-form", "install"], [

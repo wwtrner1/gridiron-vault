@@ -156,7 +156,7 @@ export function routesFor(assignments: Assignment[], players: PlayerNode[], losY
 /** Routes a back runs from where he stands; every other route from the backfield releases across the line first. */
 const BACKFIELD_ROUTES = ["swing", "screen", "bubble", "wheel", "dive", "sweep", "counter", "reverse", "end_around", "keep", "qb_sneak"];
 
-function assignmentPath(a: Assignment, from: Point, losY: number, z: number): PathNode {
+export function assignmentPath(a: Assignment, from: Point, losY: number, z: number): PathNode {
   const cx = CANVAS_W / 2;
   const segs =
     a.kind === "motion"

@@ -9,6 +9,8 @@ import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
 import { RailGroup } from "../components/RailGroup";
+import { RouteLibrary } from "../components/RouteLibrary";
+import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, playerAt, type Tile } from "../lib/routeLibrary";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { PlayAssistant } from "../components/PlayAssistant";
 import type { AssistantRead } from "../lib/assistant";
@@ -381,8 +383,36 @@ export function Builder() {
   const activeMode = MODES.find((m) => m.id === mode);
   const exportables = [{ ...meta, scene }];
 
+  const giveTile = (tile: Tile, playerIds: string[]) => {
+    const result = applyTile(scene, tile, playerIds, color, width, nextZ(scene));
+    if ("error" in result) {
+      toast(result.error, true);
+      return;
+    }
+    applyScene(result.scene, tile.label);
+    setStatus(result.message);
+  };
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    const tileId = e.dataTransfer.getData("text/grid1ronvault-route");
+    if (tileId) {
+      const tile = [...OUR_TREE, ...FIVE_SET, ...MORE_TILES].find((t) => t.id === tileId);
+      const svg = (e.currentTarget as HTMLElement).querySelector("svg");
+      if (!tile || !svg) return;
+      const r = svg.getBoundingClientRect();
+      const target = playerAt(scene, {
+        x: ((e.clientX - r.left) / r.width) * CANVAS_W,
+        y: ((e.clientY - r.top) / r.height) * CANVAS_H,
+      });
+      if (!target) {
+        toast(`Drop ${tile.label} right on a player.`, true);
+        return;
+      }
+      setSelection([target.id]);
+      giveTile(tile, [target.id]);
+      return;
+    }
     const code = e.dataTransfer.getData("text/grid1ronvault-token");
     if (!code) return;
     const preset = [...offense, ...DEFENSE_TOKENS].find((t) => t.code === code);
@@ -572,6 +602,10 @@ export function Builder() {
                 );
               })}
             </div>
+          </RailGroup>
+
+          <RailGroup id="routes" title="Route library">
+            <RouteLibrary onPick={(tile) => giveTile(tile, selection)} />
           </RailGroup>
 
           <RailGroup id="ink" title="Ink · Weight" summary={<><i className="dz-ink" style={{ background: color }} aria-hidden="true" />{STROKE_WEIGHTS.indexOf(width) + 1 || width}px</>}>

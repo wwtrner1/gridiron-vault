@@ -403,3 +403,24 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-group-body { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
 .dz-group-body[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .dz-group-toggle svg { transition: none; } }
+
+/* ---- Route library (canvas: Designer · assistant, tools…) ---- */
+.rl { display: flex; flex-direction: column; gap: 8px; }
+.rl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rl-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: #122036;
+  color: var(--white);
+  cursor: grab;
+  text-align: left;
+}
+.rl-tile:hover { border-color: var(--cyan); }
+.rl-tile:active { cursor: grabbing; }
+.rl-tile svg { display: block; width: 100%; height: 30px; border-radius: 3px; background: var(--white); color: var(--ink); }
+.rl-tile span { display: flex; gap: 4px; font-size: 11px; color: #b6cadb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rl-tile b { font-family: var(--mono); font-weight: 500; color: var(--cyan); }

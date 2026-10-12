@@ -1,0 +1,175 @@
+import { assignmentPath } from "./assistant";
+import type { Assignment } from "./assistant";
+import { ZONE_FILL, ZONE_STROKE } from "./defense";
+import { makeShape } from "./scene";
+import { baseNode, CANVAS_W } from "./types";
+import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
+
+/**
+ * Route library, from the Grid1ron Design canvas (Designer · assistant,
+ * tools…): drag a tile onto a player, or pick players and click a tile.
+ * Icons are drawn in a 56×44 box with the receiver at (10, 40), as on the
+ * canvas, breaking to the right.
+ */
+export type Tile = {
+  id: string;
+  label: string;
+  num?: number;
+  kind: "route" | "block" | "motion" | "handoff" | "pitch" | "zone" | "man" | "rush";
+  /** Route or block id from routes.ts. */
+  action?: string;
+  icon: string;
+  /** Who the tile is for. */
+  side: "offense" | "defense";
+};
+
+const R = (id: string, label: string, icon: string, num?: number): Tile => ({ id, label, num, kind: "route", action: id, icon, side: "offense" });
+
+/** The route tree, numbered as the canvas numbers it. */
+export const OUR_TREE: Tile[] = [
+  R("flat", "Flat", "M10 40 L14 34 L50 32", 1),
+  R("slant", "Slant", "M10 40 L10 32 L34 12", 2),
+  R("comeback", "Comeback", "M10 40 L10 10 L22 18", 3),
+  { ...R("hitch", "Curl", "M10 40 L10 10 L4 16", 4) },
+  R("out", "Out", "M10 40 L10 18 L50 18", 5),
+  R("dig", "Dig", "M10 40 L10 16 L50 16", 6),
+  R("corner", "Corner", "M10 40 L10 20 L40 4", 7),
+  R("post", "Post", "M10 40 L10 20 L28 4", 8),
+  R("go", "Go", "M10 40 L10 4", 9),
+];
+
+/** The quick-game routes flag teams lean on. */
+export const FIVE_SET: Tile[] = [
+  R("bubble", "Bubble", "M10 40 L6 42 Q20 46 48 40"),
+  R("hitch", "Hitch", "M10 40 L10 18 L14 24"),
+  R("slant", "Slant", "M10 40 L10 32 L34 12"),
+  R("out", "Out", "M10 40 L10 22 L48 22"),
+  R("drag", "Drag", "M10 40 L10 34 L50 30"),
+  R("corner", "Corner", "M10 40 L10 20 L40 4"),
+  R("post", "Post", "M10 40 L10 20 L28 4"),
+  R("go", "Go", "M10 40 L10 4"),
+  R("wheel", "Wheel", "M10 40 Q30 44 40 26 L44 4"),
+];
+
+export const MORE_TILES: Tile[] = [
+  { id: "handoff", label: "Handoff", kind: "handoff", icon: "M28 40 L28 24 M20 24 L36 24", side: "offense" },
+  { id: "pitch", label: "Pitch", kind: "pitch", icon: "M14 36 Q30 20 46 34", side: "offense" },
+  { id: "motion", label: "Motion", kind: "motion", icon: "M8 34 q4 -6 8 0 t8 0 t8 0 L46 34", side: "offense" },
+  { id: "zone", label: "Zone", kind: "zone", icon: "M28 40 L28 18 M12 14 a16 7 0 1 0 32 0 a16 7 0 1 0 -32 0", side: "defense" },
+  { id: "man", label: "Man", kind: "man", icon: "M12 10 L44 36", side: "defense" },
+  { id: "rush", label: "Rush", kind: "rush", icon: "M28 6 L28 38 M20 38 L36 38", side: "defense" },
+  { id: "block", label: "Block", kind: "block", action: "base", icon: "M28 40 L28 16 M20 16 L36 16", side: "offense" },
+];
+
+const ARROW = "#0B1524";
+
+/** Who's on the field: offense skill players, the quarterback, defenders. */
+function cast(scene: Scene) {
+  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+  const qb = players.find((p) => p.side === "offense" && p.label.toUpperCase() === "Q");
+  const receivers = players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !(p.shape === "square" && !p.label));
+  return { players, qb, receivers };
+}
+
+function line(from: Point, to: Point, opts: Partial<PathNode>, z: number): PathNode {
+  return {
+    ...baseNode({ x: from.x, y: from.y, z, name: "Line" }),
+    kind: "path",
+    points: [{ x: 0, y: 0 }, { x: to.x - from.x, y: to.y - from.y }],
+    handles: {},
+    style: "solid",
+    curve: "straight",
+    startCap: "none",
+    endCap: "arrow",
+    stroke: ARROW,
+    width: 3,
+    closed: false,
+    fill: "none",
+    fillOpacity: 0,
+    fromId: null,
+    toId: null,
+    ...opts,
+  };
+}
+
+export type ApplyResult = { scene: Scene; ids: string[]; message: string } | { error: string };
+
+/**
+ * Gives each chosen player the tile's job. A player's earlier job from the
+ * library or a preset is replaced, so clicking another tile swaps the route.
+ */
+export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: string, width: number, z: number): ApplyResult {
+  const { players, qb, receivers } = cast(scene);
+  const chosen = players.filter((p) => playerIds.includes(p.id));
+  if (!chosen.length) return { error: `Pick a player first, or drag ${tile.label} onto one.` };
+  const fits = chosen.filter((p) => (tile.side === "defense" ? p.side === "defense" : p.side === "offense"));
+  if (!fits.length)
+    return { error: tile.side === "defense" ? `${tile.label} is for defenders. Pick a defender.` : `${tile.label} is for the offense. Pick an offensive player.` };
+
+  const added: SceneNode[] = [];
+  let zi = z;
+  for (const p of fits) {
+    const from = { x: p.x, y: p.y };
+    const own = { stroke: ink, width, assignOf: p.id };
+    switch (tile.kind) {
+      case "route":
+      case "block":
+      case "motion": {
+        const a: Assignment = { player: p.label, kind: tile.kind, action: tile.action ?? tile.kind, heard: "" };
+        added.push({ ...assignmentPath(a, from, scene.losY, zi++), ...own, name: `${p.label || "Player"} ${tile.label}` });
+        break;
+      }
+      case "handoff":
+      case "pitch": {
+        if (!qb) return { error: `Add a quarterback (Q) first — the ${tile.label.toLowerCase()} starts from him.` };
+        if (qb.id === p.id) return { error: `Pick the player taking the ${tile.label.toLowerCase()}, not the quarterback.` };
+        const end = { x: p.x - (p.x - qb.x) * 0.15, y: p.y - (p.y - qb.y) * 0.15 };
+        added.push(
+          line(qb, end, { ...own, name: `${tile.label} to ${p.label || "player"}`, style: tile.kind === "pitch" ? "dashed" : "solid", endCap: tile.kind === "pitch" ? "arrow" : "none" }, zi++),
+        );
+        break;
+      }
+      case "rush": {
+        const a: Assignment = { player: p.label, kind: "route", action: "rush", heard: "" };
+        added.push({ ...assignmentPath(a, from, scene.losY, zi++), ...own, name: `${p.label || "Defender"} rush` });
+        break;
+      }
+      case "man": {
+        const target = [...receivers].sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+        if (!target) return { error: "There's no receiver on the play to cover. Drop an offense first." };
+        added.push(line(from, target, { ...own, stroke: ZONE_STROKE, style: "dashed", name: `${p.label || "Defender"} man on ${target.label}` }, zi++));
+        break;
+      }
+      case "zone": {
+        // A shaded drop area deeper than the defender, toward the middle of his side.
+        const c = { x: Math.min(CANVAS_W - 120, Math.max(120, p.x + (CANVAS_W / 2 - p.x) * 0.15)), y: Math.max(60, p.y - 110) };
+        added.push({ ...makeShape("ellipse", c, 220, 78, ZONE_STROKE, zi++), name: `${p.label || "Defender"} zone`, fill: ZONE_FILL, fillOpacity: 0.85, width: 1.6, dash: "dashed" });
+        added.push(line(from, c, { ...own, stroke: ZONE_STROKE, style: "dashed", endCap: "dot", name: `${p.label || "Defender"} drop` }, zi++));
+        break;
+      }
+    }
+  }
+  const replaced = new Set(fits.map((p) => p.id));
+  const kept = scene.nodes.filter((n) => !(n.kind === "path" && n.assignOf && replaced.has(n.assignOf)));
+  const who = fits.map((p) => p.label || "player").join(", ");
+  return {
+    scene: { ...scene, nodes: [...kept, ...added] },
+    ids: added.map((n) => n.id),
+    message: `${tile.label} for ${who}.${fits.length < chosen.length ? ` Skipped ${chosen.length - fits.length} on the other side of the ball.` : ""}`,
+  };
+}
+
+/** The player under a drop point, within a token's reach. */
+export function playerAt(scene: Scene, at: Point): PlayerNode | null {
+  let best: PlayerNode | null = null;
+  let bestD = 34;
+  for (const n of scene.nodes)
+    if (n.kind === "player" && !n.hidden) {
+      const d = Math.hypot(n.x - at.x, n.y - at.y);
+      if (d < bestD) {
+        bestD = d;
+        best = n;
+      }
+    }
+  return best;
+}
