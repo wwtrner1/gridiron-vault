@@ -34,7 +34,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", "X-Device": deviceId() },
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: { error?: string; code?: string } & Record<string, unknown> = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    /* a platform page (e.g. the rate limiter's 429), not our JSON */
+  }
+  if (res.status === 429 && !data.error) data.error = "That's a lot of requests at once. Wait a minute, then try again.";
   if (!res.ok) {
     if (data.code === "phone_required" || data.code === "device_unverified") window.dispatchEvent(new Event(SECURITY_EVENT));
     throw new Error(data.error ?? "The playbook service is unavailable right now.");

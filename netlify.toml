@@ -13,6 +13,53 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Rate-limit rules 2–5 of 5 (Netlify Pro allows 5; rule 1 is on the API function
+# in netlify/functions/api.ts). Each counts per visitor IP and answers 429 when
+# exceeded. They must sit above the SPA fallback so they match first.
+# Sign-in: 10 password tries a minute.
+[[redirects]]
+  from = "/.netlify/identity/token"
+  to = "/.netlify/identity/token"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+    window_limit = 10
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
+
+# New accounts: 5 a minute.
+[[redirects]]
+  from = "/.netlify/identity/signup"
+  to = "/.netlify/identity/signup"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+    window_limit = 5
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
+
+# Password reset emails: 5 a minute.
+[[redirects]]
+  from = "/.netlify/identity/recover"
+  to = "/.netlify/identity/recover"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+    window_limit = 5
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
+
+# Feedback form: 5 sends a minute.
+[[redirects]]
+  from = "/__forms.html"
+  to = "/__forms.html"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+    window_limit = 5
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
+
 # The app is a single-page React router. Every unmatched path has to reach
 # index.html so /build/:id and /vault resolve on a hard refresh.
 [[redirects]]
