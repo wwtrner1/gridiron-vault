@@ -1,4 +1,5 @@
 import type { Scene, StoredPlay } from "./types";
+import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
 import type { PhotoRead, PhotoRequest } from "./photo";
 
@@ -20,15 +21,24 @@ export type ApiPlay = {
   updatedAt: string;
 };
 
+/** "One login, one coach": what the server knows about this account's phone and this device. */
+export type Security = { required: boolean; verified: boolean; trusted: boolean; phone: string | null; devices: number };
+
+/** Fired when the server asks for the phone or a device code, so the gate can open. */
+export const SECURITY_EVENT = "grid1ronvault:security";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: { "Content-Type": "application/json", "X-Device": deviceId() },
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new Error(data.error ?? "The playbook service is unavailable right now.");
+  if (!res.ok) {
+    if (data.code === "phone_required" || data.code === "device_unverified") window.dispatchEvent(new Event(SECURITY_EVENT));
+    throw new Error(data.error ?? "The playbook service is unavailable right now.");
+  }
   return data as T;
 }
 
@@ -39,7 +49,11 @@ export const api = {
   photo: (body: PhotoRequest) =>
     request<{ read: PhotoRead }>("ai/photo", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; security?: Security }>("me"),
+
+  /** start / check (add or change the number), device-start / device-check, forget-others. */
+  phone: (action: "start" | "check" | "device-start" | "device-check" | "forget-others", body: Record<string, string> = {}) =>
+    request<{ sentTo?: string; security?: Security }>(`phone/${action}`, { method: "POST", body: JSON.stringify(body) }),
 
   listPlays: (params: Record<string, string>) =>
     request<{ plays: ApiPlay[] }>(`plays?${new URLSearchParams(params)}`),

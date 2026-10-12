@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
+import { PhoneGate } from "./components/PhoneGate";
 import { Landing } from "./pages/Landing";
 import { Pricing } from "./pages/Pricing";
 import { Builder } from "./pages/Builder";
@@ -78,6 +79,7 @@ export function App() {
   return (
     <ToastProvider>
       <RouteChrome />
+      <PhoneGate />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/build" element={<Builder />} />

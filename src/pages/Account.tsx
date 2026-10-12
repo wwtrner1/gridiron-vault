@@ -4,6 +4,7 @@ import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { Tooltip } from "../components/Tooltip";
+import { DevicesCard } from "../components/DevicesCard";
 import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS, TIERS, type TierId } from "../lib/plan";
 import { tierStore, useTier } from "../lib/tier";
@@ -97,6 +98,8 @@ export function Account() {
             </>
           )}
         </section>
+
+        {account && <DevicesCard />}
 
         <section className="card">
           <div className="card-head">
