@@ -108,6 +108,8 @@ export type Scene = {
   /** Fixed rotation centre dropped by the Pivot Point tool. */
   pivot: Point | null;
   nodes: SceneNode[];
+  /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */
+  film?: { link?: string; snapAt?: number };
 };
 
 export type PlayMeta = {
