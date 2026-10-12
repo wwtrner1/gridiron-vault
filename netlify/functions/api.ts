@@ -568,7 +568,7 @@ function sanitisePlay(body: Record<string, unknown>) {
 
 export const config: Config = {
   path: "/api/*",
-  // Rate-limit rule 1 of 5 (Pro allows 5; the other four are in netlify.toml).
+  // Rate-limit rule 1 (Pro allows 5; rule 2, the feedback form, is in netlify.toml).
   // Per visitor IP: generous for a coach working fast, a wall for a script. The
   // daily AI and SMS caps above still apply per account.
   rateLimit: { windowLimit: 180, windowSize: 60, aggregateBy: ["ip", "domain"] },
