@@ -122,6 +122,7 @@ export function PlayCanvas({
   const [ghost, setGhost] = useState<Point | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [freehand, setFreehand] = useState<Point[]>([]);
+  const [hovered, setHovered] = useState<string | null>(null);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -322,8 +323,13 @@ export function PlayCanvas({
       onSelection(nextIds);
       if (has) return;
     } else {
-      nextIds = selection.includes(node.id) ? selection : ids;
+      // A second press on a player whose formation is already selected picks just
+      // that player, so a coach can drag one receiver without moving the set.
+      const groupSelected =
+        node.kind === "player" && ids.length > 1 && selection.length === ids.length && ids.every((id) => selection.includes(id));
+      nextIds = groupSelected ? [node.id] : selection.includes(node.id) ? selection : ids;
       onSelection(nextIds);
+      if (groupSelected) say(`Moving ${node.label || node.name || "this player"} by itself. To move the whole formation, click the field first, then drag any player.`);
     }
     beginMove(nextIds, p);
   };
@@ -728,6 +734,37 @@ export function PlayCanvas({
             {node.kind === "player" && noteShowsOnHover(node) && <title>{`${node.label || node.name}: ${node.note}`}</title>}
           </NodeLayer>
         ))}
+
+        {/* Players: a grab area bigger than the token (about 18px on screen, but never far past the token so neighbours stay separate)
+            and a ring on hover, so a coach can see what they are about to move. */}
+        {tool === "select" &&
+          ordered.map((node) => {
+            if (node.kind !== "player" || node.hidden) return null;
+            const b = worldBox(node);
+            const cx = b.x + b.w / 2;
+            const cy = b.y + b.h / 2;
+            const half = Math.max(b.w, b.h) / 2;
+            const isHover = hovered === node.id && !dragRef.current;
+            return (
+              <g key={`grab-${node.id}`}>
+                {isHover && (
+                  <circle cx={cx} cy={cy} r={half + 5} fill={SEL} fillOpacity={0.12} stroke={SEL} strokeWidth={2} pointerEvents="none" />
+                )}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={Math.min(Math.max(half + 6, 18 / zoom), half + 12)}
+                  fill="transparent"
+                  style={{ cursor: node.locked ? "not-allowed" : "move" }}
+                  onPointerEnter={() => setHovered(node.id)}
+                  onPointerLeave={() => setHovered((h) => (h === node.id ? null : h))}
+                  onPointerDown={(e) => onNodeDown(e, node)}
+                >
+                  <title>{noteShowsOnHover(node) ? `${node.label || node.name}: ${node.note}` : `Drag to move ${node.label || node.name || "this player"}`}</title>
+                </circle>
+              </g>
+            );
+          })}
 
         {/* Selection outline + per-node marks */}
         {tool === "select" &&

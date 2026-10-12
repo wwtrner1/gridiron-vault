@@ -71,7 +71,7 @@ export function MarketingFooter() {
           <span>
             GridIron<b>Vault</b>
           </span>
-          <small>Playbook studio for 5-on-5 flag football.</small>
+          <small>Playbook studio is designed for football coaches and players.</small>
         </div>
         <div className="mkt-foot-cols">
           {FOOTER_COLUMNS.map((col) => (
