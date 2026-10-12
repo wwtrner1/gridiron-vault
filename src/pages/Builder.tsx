@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
-import { PlayCanvas } from "../components/PlayCanvas";
+import { PlayCanvas, type DrawAids } from "../components/PlayCanvas";
 import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
@@ -52,10 +52,14 @@ const ANCHOR_ROW: Record<number, string> = { 0: "top", 0.5: "middle", 1: "bottom
 const ANCHOR_COL: Record<number, string> = { 0: "left", 0.5: "centre", 1: "right" };
 
 /* Tool rail, grouped and labelled as on the Grid1ron Design canvas. */
-const RAIL_LINES: ToolId[] = ["line", "dashed", "block", "motion", "pen", "free", "connect", "pivot"];
+/** Tools that draw lines; the drawing bar shows while one is out. */
+const DRAW_TOOLS: ToolId[] = ["line", "arc", "dashed", "block", "motion", "free", "pen"];
+
+const RAIL_LINES: ToolId[] = ["line", "arc", "dashed", "block", "motion", "pen", "free", "connect", "pivot"];
 const RAIL_SHAPES: ToolId[] = ["zone", "polygon", "text", "rect", "ellipse"];
 const RAIL_LABEL: Partial<Record<ToolId, string>> = {
   line: "Solid",
+  arc: "3-pt arc",
   dashed: "Dashed",
   block: "Block",
   motion: "Motion",
@@ -249,6 +253,29 @@ export function Builder() {
     setSelection([]);
   };
 
+  /* ----------------------------------------------------------- drawing bar */
+
+  // Snap, Ortho and Polar from the canvas drawing bar, remembered per browser.
+  const [aids, setAids] = useState<DrawAids>(() => {
+    try {
+      return { snap: true, ortho: false, polar: false, ...JSON.parse(localStorage.getItem("grid1ronvault.drawAids.v1") ?? "{}") };
+    } catch {
+      return { snap: true, ortho: false, polar: false };
+    }
+  });
+  const toggleAid = (key: keyof DrawAids) =>
+    setAids((a) => {
+      // Ortho and Polar both shape the angle, so only one is on at a time.
+      const next = { ...a, [key]: !a[key], ...(key === "ortho" && !a.ortho ? { polar: false } : {}), ...(key === "polar" && !a.polar ? { ortho: false } : {}) };
+      try {
+        localStorage.setItem("grid1ronvault.drawAids.v1", JSON.stringify(next));
+      } catch {
+        /* storage blocked — the choice still holds this session */
+      }
+      return next;
+    });
+  const drawingTool = DRAW_TOOLS.includes(tool);
+
   /* -------------------------------------------------------------- shortcuts */
 
   useEffect(() => {
@@ -300,6 +327,23 @@ export function Builder() {
         return;
       }
 
+      // The drawing bar's letters, while a line tool is out (S is Scale otherwise).
+      if (drawingTool) {
+        const k = e.key.toLowerCase();
+        if (k === "s" || k === "o" || k === "p") {
+          toggleAid(k === "s" ? "snap" : k === "o" ? "ortho" : "polar");
+          return;
+        }
+      }
+      if (e.key === "l" || e.key === "L") {
+        pickTool("line");
+        return;
+      }
+      if (e.key === "f" || e.key === "F") {
+        pickTool("free");
+        return;
+      }
+
       const modeHit = MODES.find((m) => m.key.toLowerCase() === e.key.toLowerCase());
       if (modeHit) {
         pickMode(modeHit.id);
@@ -311,7 +355,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -757,6 +801,47 @@ export function Builder() {
 
         <main className="builder-main" id="main">
           <PlayAssistant scene={scene} tokens={offense} plays={plays} nextZ={nextZ(scene)} onDraw={drawAssistant} />
+          {drawingTool && (
+            <div className="dz-drawbar" role="toolbar" aria-label="Drawing tools">
+              {(
+                [
+                  ["select", "Select", "V"],
+                  ["line", "Line", "L"],
+                  ["arc", "3-point arc", "A"],
+                ] as const
+              ).map(([id, label, key]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={tool === id ? "is-on" : ""}
+                  aria-pressed={tool === id}
+                  onClick={() => (id === "select" ? (setTool("select"), setMode(null)) : pickTool(id))}
+                >
+                  {label} <kbd>{key}</kbd>
+                </button>
+              ))}
+              <span className="dz-drawbar-sep" aria-hidden="true" />
+              {(
+                [
+                  ["snap", "Snap", "S"],
+                  ["ortho", "Ortho", "O"],
+                  ["polar", "Polar", "P"],
+                ] as const
+              ).map(([id, label, key]) => (
+                <button key={id} type="button" className={aids[id] ? "is-on" : ""} aria-pressed={aids[id]} onClick={() => toggleAid(id)}>
+                  {label} <kbd>{key}</kbd>
+                </button>
+              ))}
+              <span className="dz-drawbar-sep" aria-hidden="true" />
+              <button type="button" className={tool === "free" ? "is-on" : ""} aria-pressed={tool === "free"} onClick={() => pickTool("free")}>
+                Freehand <kbd>F</kbd>
+              </button>
+              <button type="button" className="dz-drawbar-exit" onClick={() => (setTool("select"), setMode(null))}>
+                Exit drawing · <kbd>Esc</kbd>
+              </button>
+            </div>
+          )}
+
           <div
             className="builder-stage"
             onDrop={onDrop}
@@ -779,6 +864,8 @@ export function Builder() {
               onSelection={setSelection}
               onToolDone={() => setTool("select")}
               onStatus={setStatus}
+              aids={aids}
+              onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
             />
           </div>
 

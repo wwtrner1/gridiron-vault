@@ -27,7 +27,23 @@ import type { PathNode, Point, Scene, SceneNode } from "../lib/types";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { ModeId, ToolId } from "../lib/tools";
 
-const POLY_TOOLS: ToolId[] = ["line", "dashed", "block", "motion", "polygon", "zone", "pen"];
+const POLY_TOOLS: ToolId[] = ["line", "arc", "dashed", "block", "motion", "polygon", "zone", "pen"];
+
+/** Drawing aids from the canvas's drawing bar. */
+export type DrawAids = { snap: boolean; ortho: boolean; polar: boolean };
+const NO_AIDS: DrawAids = { snap: false, ortho: false, polar: false };
+
+/** Tools offered on a right-click of the empty field. */
+const MENU_TOOLS: { id: ToolId; label: string }[] = [
+  { id: "select", label: "Select" },
+  { id: "line", label: "Route arrow" },
+  { id: "arc", label: "3-point arc" },
+  { id: "dashed", label: "Dashed" },
+  { id: "block", label: "Block" },
+  { id: "motion", label: "Motion" },
+  { id: "free", label: "Freehand" },
+  { id: "text", label: "Text" },
+];
 const SEL = "#16C8E8";
 
 type Anchor = { ax: number; ay: number };
@@ -47,6 +63,9 @@ type Props = {
   onSelection: (ids: string[]) => void;
   onToolDone: () => void;
   onStatus?: (text: string) => void;
+  aids?: DrawAids;
+  /** Picks a tool from the right-click menu. */
+  onPickTool?: (tool: ToolId) => void;
 };
 
 type Drag =
@@ -88,6 +107,8 @@ export function PlayCanvas({
   onSelection,
   onToolDone,
   onStatus,
+  aids = NO_AIDS,
+  onPickTool,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -123,6 +144,38 @@ export function PlayCanvas({
 
   const snapped = useCallback((p: Point): Point => ({ x: snap(p.x, grid), y: snap(p.y, grid) }), [grid]);
 
+  // The player a line starts on, so the line stays glued to him.
+  const startPlayer = useRef<string | null>(null);
+  const [menu, setMenu] = useState<Point | null>(null);
+
+  /**
+   * Where a drawing click lands: on a player's center with Snap on, else on
+   * the grid; then square to the last point (Ortho, or Shift) or to the
+   * nearest 45° (Polar).
+   */
+  const aim = useCallback(
+    (raw: Point, from: Point | null, shift = false): { p: Point; player: string | null } => {
+      if (aids.snap) {
+        let best: SceneNode | null = null;
+        let bestD = 26;
+        for (const n of sceneRef.current.nodes)
+          if (n.kind === "player" && !n.hidden) {
+            const d = dist(raw, n);
+            if (d < bestD) {
+              bestD = d;
+              best = n;
+            }
+          }
+        if (best) return { p: { x: best.x, y: best.y }, player: best.id };
+      }
+      let p = snapped(raw);
+      if (from && (aids.ortho || shift)) p = axisLock(from, p);
+      else if (from && aids.polar) p = polarLock(from, p);
+      return { p, player: null };
+    },
+    [aids.snap, aids.ortho, aids.polar, snapped],
+  );
+
   /* ---------------------------------------------------------------- drawing */
 
   const commitPoly = useCallback(
@@ -133,7 +186,8 @@ export function PlayCanvas({
       }
       const origin = pts[0];
       const local = pts.map((p) => ({ x: p.x - origin.x, y: p.y - origin.y }));
-      const node = makePath(tool, origin, local, color, width, nextZ(sceneRef.current));
+      const node = { ...makePath(tool, origin, local, color, width, nextZ(sceneRef.current)), fromId: startPlayer.current };
+      startPlayer.current = null;
       onScene({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, node] }, `Draw ${node.name}`);
       onSelection([node.id]);
       setDraft([]);
@@ -152,6 +206,11 @@ export function PlayCanvas({
   const beginMove = (ids: string[], start: Point) => {
     const origin = new Map<string, Point>();
     for (const n of sceneRef.current.nodes) if (ids.includes(n.id)) origin.set(n.id, { x: n.x, y: n.y });
+    // Lines that start on a moving player go with him (one-ended lines; auto-connect lines re-fit themselves).
+    const moving = new Set(ids);
+    for (const n of sceneRef.current.nodes)
+      if (n.kind === "path" && !n.toId && !origin.has(n.id) && ((n.fromId && moving.has(n.fromId)) || (n.assignOf && moving.has(n.assignOf))))
+        origin.set(n.id, { x: n.x, y: n.y });
     dragRef.current = { kind: "move", start, ids, origin };
   };
 
@@ -181,7 +240,14 @@ export function PlayCanvas({
   /* ------------------------------------------------------------- node input */
 
   const onNodeDown = (e: React.PointerEvent, node: SceneNode) => {
-    if (node.locked || editing) return;
+    if (editing) return;
+    // While drawing, a click on a player (or anything) adds a point there.
+    if (POLY_TOOLS.includes(tool)) {
+      e.stopPropagation();
+      addPoint(e);
+      return;
+    }
+    if (node.locked) return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = point(e);
@@ -261,6 +327,9 @@ export function PlayCanvas({
   /* -------------------------------------------------------- surface  input */
 
   const onSurfaceDown = (e: React.PointerEvent) => {
+    // Right-click is handled by the context menu (finish the line, or the tool menu).
+    if (e.button === 2) return;
+    setMenu(null);
     if (editing) {
       setEditing(null);
       return;
@@ -303,18 +372,32 @@ export function PlayCanvas({
       return;
     }
 
-    if (POLY_TOOLS.includes(tool)) {
-      // Close a polygon by clicking back on the first point.
-      if (draft.length > 2 && dist(p, draft[0]) < 14) {
-        commitPoly([...draft, draft[0]]);
-        return;
-      }
-      setDraft((d) => [...d, p]);
-      setGhost(p);
-      if (draft.length === 0)
-        say("Click each turn in the line. Double-click or press Enter to finish, Escape to scrap it.");
+    if (POLY_TOOLS.includes(tool)) addPoint(e);
+  };
+
+  /** One click of a line tool: snap it, then add it to the line being drawn. */
+  const addPoint = (e: React.PointerEvent) => {
+    if (e.button === 2) return;
+    const last = draft.length ? draft[draft.length - 1] : null;
+    const { p, player } = aim(point(e), last, e.shiftKey);
+    // Close a polygon by clicking back on the first point.
+    if (draft.length > 2 && dist(p, draft[0]) < 14) {
+      commitPoly([...draft, draft[0]]);
       return;
     }
+    if (!draft.length) startPlayer.current = player;
+    if (tool === "arc" && draft.length === 2) {
+      commitPoly([draft[0], draft[1], p]);
+      return;
+    }
+    setDraft((d) => [...d, p]);
+    setGhost(p);
+    if (draft.length === 0)
+      say(
+        tool === "arc"
+          ? "Now click a point the curve passes through, then where it ends."
+          : "Click each turn in the line. Double-click, press Enter or right-click to finish; Escape scraps it.",
+      );
   };
 
   /* ------------------------------------------------------------ move  / up */
@@ -325,7 +408,7 @@ export function PlayCanvas({
       const raw = point(e);
 
       if (!d) {
-        if (draft.length) setGhost(e.shiftKey ? axisLock(draft[draft.length - 1], snapped(raw)) : snapped(raw));
+        if (draft.length) setGhost(aim(raw, draft[draft.length - 1], e.shiftKey).p);
         return;
       }
 
@@ -515,6 +598,7 @@ export function PlayCanvas({
       window.removeEventListener("pointercancel", onUp);
     };
   }, [
+    aim,
     box,
     color,
     commitPoly,
@@ -540,7 +624,8 @@ export function PlayCanvas({
       const el = e.target as HTMLElement;
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
       if (e.key === "Escape") {
-        if (draft.length) {
+        if (menu) setMenu(null);
+        else if (draft.length) {
           setDraft([]);
           setGhost(null);
           say("Line scrapped.");
@@ -552,7 +637,25 @@ export function PlayCanvas({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [connectFrom, draft.length, editing, finishDraft, onToolDone, say]);
+  }, [connectFrom, draft.length, editing, finishDraft, menu, onToolDone, say]);
+
+  /** Right-click: finish the line being drawn, or open the tool menu on the empty field. */
+  const onContext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (draft.length) {
+      if (tool === "arc" && draft.length < 3) {
+        setDraft([]);
+        setGhost(null);
+        say("A 3-point arc needs three clicks. Start again from where the route begins.");
+        return;
+      }
+      finishDraft();
+      return;
+    }
+    if (!onPickTool) return;
+    const r = (e.currentTarget as Element).getBoundingClientRect();
+    setMenu({ x: e.clientX - r.left, y: e.clientY - r.top });
+  };
 
   /* ----------------------------------------------------------------- render */
 
@@ -581,6 +684,7 @@ export function PlayCanvas({
         height={CANVAS_H * zoom}
         style={{ cursor }}
         onDoubleClick={() => (draft.length ? finishDraft() : undefined)}
+        onContextMenu={onContext}
       >
         <MarkerDefs colors={markerColors} />
         <FieldBackground view={scene.view} losY={scene.losY} />
@@ -711,6 +815,8 @@ export function PlayCanvas({
         {soloPath && tool === "select" && (
           <g>
             {soloPath.points.map((pt, i) => {
+              // A start glued to a player has no handle, so clicking the player still moves him.
+              if (i === 0 && (soloPath.fromId || soloPath.assignOf)) return null;
               const w = toWorld(soloPath, pt);
               return (
                 <rect
@@ -817,6 +923,16 @@ export function PlayCanvas({
           />
         )}
 
+        {/* Which guide is shaping the line, beside the cursor (canvas: "45° POLAR") */}
+        {drawing && ghost && draft.length > 0 && (aids.ortho || aids.polar) && (
+          <g pointerEvents="none" transform={`translate(${Math.min(ghost.x + 14, CANVAS_W - 96)} ${Math.max(ghost.y - 30, 6)})`}>
+            <rect width={aids.ortho ? 58 : 82} height={20} rx={3} fill="#0B1524" />
+            <text x={8} y={14} fontFamily="'IBM Plex Mono', monospace" fontSize={11} fill={SEL}>
+              {aids.ortho ? "ORTHO" : "45° POLAR"}
+            </text>
+          </g>
+        )}
+
         {connectFrom && (() => {
           const n = scene.nodes.find((x) => x.id === connectFrom);
           return n ? <circle cx={n.x} cy={n.y} r={26} fill="none" stroke={SEL} strokeWidth={2.4} strokeDasharray="4 4" pointerEvents="none" /> : null;
@@ -884,6 +1000,27 @@ export function PlayCanvas({
         })()}
       </svg>
 
+      {menu && onPickTool && (
+        <div className="stage-menu" role="menu" aria-label="Tools" style={{ left: menu.x, top: menu.y }}>
+          {MENU_TOOLS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={tool === t.id}
+              className={tool === t.id ? "is-on" : ""}
+              autoFocus={tool === t.id}
+              onClick={() => {
+                setMenu(null);
+                onPickTool(t.id);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {watermark && <div className="stage-watermark">{watermark}</div>}
     </div>
   );
@@ -908,6 +1045,14 @@ const clampScale = (v: number) => {
 const axisLock = (from: Point, to: Point): Point =>
   Math.abs(to.x - from.x) > Math.abs(to.y - from.y) ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
 
+/** Keeps the length but turns the segment to the nearest 45°. */
+const polarLock = (from: Point, to: Point): Point => {
+  const len = Math.hypot(to.x - from.x, to.y - from.y);
+  const step = Math.PI / 4;
+  const a = Math.round(Math.atan2(to.y - from.y, to.x - from.x) / step) * step;
+  return { x: from.x + Math.cos(a) * len, y: from.y + Math.sin(a) * len };
+};
+
 function linePreview(pts: Point[], tool: ToolId): string {
   const closed = tool === "polygon" || tool === "zone";
   const stub: PathNode = {
@@ -926,7 +1071,7 @@ function linePreview(pts: Point[], tool: ToolId): string {
     points: pts,
     handles: {},
     style: "solid",
-    curve: tool === "zone" || tool === "free" ? "spline" : "straight",
+    curve: tool === "zone" || tool === "free" || tool === "arc" ? "spline" : "straight",
     startCap: "none",
     endCap: "none",
     stroke: "#000",

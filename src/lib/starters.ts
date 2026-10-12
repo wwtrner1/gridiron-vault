@@ -161,7 +161,8 @@ function path(
   for (const [dx, dy] of segs) {
     cx += dx;
     cy += dy;
-    points.push({ x: cx, y: cy });
+    // Routes stop at the sideline rather than running off the field.
+    points.push({ x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, cx)), y: cy });
   }
   return {
     ...baseNode({ x: from.x, y: from.y, z, name: "Route" }),
