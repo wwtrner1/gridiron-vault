@@ -56,7 +56,7 @@ const FOOTER_COLUMNS: { id: string; title: string; links: [to: string, label: st
   {
     id: "foot-support",
     title: "Support",
-    links: [["/help", "Contact us"], ["/help", "Tell us what to improve →"]],
+    links: [["/help", "Contact us"], ["/help", "Tell us what to improve →"], ["/privacy", "Privacy Policy"], ["/terms", "Terms of Use"]],
   },
 ];
 

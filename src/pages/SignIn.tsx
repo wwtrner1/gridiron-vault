@@ -210,6 +210,12 @@ export function SignIn() {
                       ? "Create my account"
                       : "Send the reset link"}
               </button>
+              {tab === "up" && (
+                <small className="hint">
+                  Accounts are for coaches 18 and older. Creating one means you agree to the <Link to="/terms">Terms of Use</Link>{" "}
+                  and <Link to="/privacy">Privacy Policy</Link>.
+                </small>
+              )}
             </form>
 
             {tab === "in" && (
