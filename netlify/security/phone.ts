@@ -11,10 +11,12 @@ export const DEVICE_LIMIT = 3;
 export const DEVICE_DAYS = 30;
 export const SMS_PER_DAY = 8;
 
+// Trimmed: a space or line break pasted along with a key makes Twilio answer
+// "invalid username" (seen on Deploy Preview #53).
 const env = () => ({
-  sid: process.env.TWILIO_ACCOUNT_SID,
-  token: process.env.TWILIO_AUTH_TOKEN,
-  service: process.env.TWILIO_VERIFY_SID,
+  sid: process.env.TWILIO_ACCOUNT_SID?.trim(),
+  token: process.env.TWILIO_AUTH_TOKEN?.trim(),
+  service: process.env.TWILIO_VERIFY_SID?.trim(),
 });
 
 export const phoneRequired = () => {
