@@ -9,6 +9,7 @@ import {
   oauthLogin,
   requestPasswordRecovery,
   signup as identitySignup,
+  updateUser,
 } from "@netlify/identity";
 
 export type Account = { id: string; email: string; name: string };
@@ -22,6 +23,9 @@ type AuthValue = {
   signOut: () => Promise<void>;
   startOAuth: (provider: "google" | "github") => void;
   sendReset: (email: string) => Promise<void>;
+  /** True after a coach opens a password-reset link: signed in, new password not chosen yet. */
+  recovering: boolean;
+  setNewPassword: (password: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -45,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [available, setAvailable] = useState(true);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -52,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const callback = await handleAuthCallback();
         if (callback?.user && alive) setAccount(toAccount(callback.user));
+        if (callback?.type === "recovery" && alive) setRecovering(true);
         const user = await getUser();
         if (alive && user) setAccount(toAccount(user));
       } catch (error) {
@@ -98,8 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sendReset: async (email: string) => {
         await requestPasswordRecovery(email);
       },
+      recovering,
+      setNewPassword: async (password: string) => {
+        await updateUser({ password });
+        setRecovering(false);
+      },
     }),
-    [account, status, available, signIn, signUp, signOut],
+    [account, status, available, signIn, signUp, signOut, recovering],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
