@@ -10,6 +10,8 @@ import { cappedDpi, gateSheets } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { slug } from "../lib/export";
+import { applyFormat, usePlayFormat } from "../lib/playFormat";
+import { FormatPanel } from "../components/FormatPanel";
 import { BAND_LAYOUT, wristbandSheets, type BandCopies, type BandEntry, type CellShows } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
 import "../styles/wristbands.css";
@@ -62,13 +64,19 @@ export function Wristbands() {
   const [copies, setCopies] = useState<BandCopies>({ qb: 2, center: 1, coach: 1 });
   const [printing, setPrinting] = useState(false);
 
+  // "Apply game-day format" (canvas): print every play in the saved play format; the plays themselves don't change.
+  const { format, parts } = usePlayFormat();
+  const [gameDay, setGameDay] = useState(false);
+
   const source = sources.find((s) => s.id === sourceId);
-  const entries: BandEntry[] = source
+  const raw: BandEntry[] = source
     ? source.entries
     : picked
         .map((id) => plays.find((p) => p.id === id))
         .filter((p): p is StoredPlay => !!p)
         .map((p, i) => ({ number: String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
+  const entries: BandEntry[] =
+    gameDay && format && parts.length ? raw.map((e) => (e.scene ? { ...e, scene: applyFormat(e.scene, format, parts) } : e)) : raw;
   const sourceName = source ? source.label.replace(/^[^·]+·\s*/, "") : "Hand-picked";
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
   const cardA = entries.slice(0, perCard);
@@ -202,6 +210,18 @@ export function Wristbands() {
                   </button>
                 </div>
               ))}
+            </div>
+
+            <div className="wb-field">
+              <label className="switch">
+                <input type="checkbox" checked={gameDay && !!format} disabled={!format} onChange={(e) => setGameDay(e.target.checked)} />
+                Apply game-day format
+              </label>
+              {format ? (
+                gameDay && <FormatPanel />
+              ) : (
+                <p className="wb-note">Save a play's format in the Designer (Saved play format) to print every card in the same look.</p>
+              )}
             </div>
           </div>
 

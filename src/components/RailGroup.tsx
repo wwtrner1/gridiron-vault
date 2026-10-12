@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Icon } from "./Icon";
 
 /** The Designer's left-rail groups and whether each starts open. */
-export const RAIL_DEFAULTS = { modes: false, lines: true, routes: true, ink: false, shapes: false, players: true, sets: false };
+export const RAIL_DEFAULTS = { modes: false, lines: true, routes: true, format: false, ink: false, shapes: false, players: true, sets: false };
 export type RailId = keyof typeof RAIL_DEFAULTS;
 
 const KEY = "grid1ronvault.rail.v1";

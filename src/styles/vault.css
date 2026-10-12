@@ -57,3 +57,11 @@
 }
 .vault-note b { font-size: 14px; }
 .vault-note p { margin: 4px 0 0; max-width: 70ch; font-size: 13.5px; color: var(--muted); }
+
+/* Saved play format: "Format on · click a play" (canvas). */
+.vault-format { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--white); }
+.vault-format.is-on { border-color: var(--cyan); background: var(--cyan-soft); }
+.vault-format-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.vault-format-head b { margin-right: auto; font-size: 14px; }
+.play-thumb.is-paint { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: copy; }
+.play-thumb.is-paint:hover, .play-thumb.is-paint:focus-visible { outline: 3px solid var(--cyan); outline-offset: -3px; }
