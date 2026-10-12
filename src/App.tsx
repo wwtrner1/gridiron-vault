@@ -15,6 +15,7 @@ import { Help } from "./pages/Help";
 import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
+import { notePage } from "./lib/lastPage";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
@@ -60,6 +61,7 @@ function RouteChrome() {
   const { pathname } = useLocation();
   const [spoken, setSpoken] = useState("");
   useEffect(() => {
+    notePage(pathname);
     const key = pathname.startsWith("/build") ? "/build" : pathname;
     document.title = TITLES[key] ?? "Grid1ronVault";
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { RESPONSE_TIME, SUPPORT_EMAIL } from "../lib/site";
 import "../styles/home.css";
+import { previousPage } from "../lib/lastPage";
 import "../styles/help.css";
 
 const AREAS = [
@@ -16,8 +17,10 @@ const AREAS = [
 
 const MAX_SHOT = 8 * 1024 * 1024;
 
-/** The page the coach came from, if it was part of this site. */
+/** The page the coach came from: the last in-app page, else a same-site referrer. */
 function cameFrom() {
+  const inApp = previousPage();
+  if (inApp && inApp !== "/help") return inApp;
   try {
     const ref = new URL(document.referrer);
     return ref.origin === location.origin ? ref.pathname : "";
