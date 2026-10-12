@@ -34,7 +34,7 @@ function TileButton({ tile, onPick }: { tile: Tile; onPick: (t: Tile) => void })
     >
       <svg viewBox="0 0 56 44" aria-hidden="true">
         <path d={tile.icon} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        {tile.kind === "route" && <circle cx="10" cy="40" r="3" fill="currentColor" />}
+        {tile.kind === "route" && <circle cx="28" cy="40" r="3" fill="currentColor" />}
       </svg>
       <span>
         {tile.num && <b>{tile.num}</b>}

@@ -8,8 +8,9 @@ import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
 /**
  * Route library, from the Grid1ron Design canvas (Designer · assistant,
  * tools…): drag a tile onto a player, or pick players and click a tile.
- * Icons are drawn in a 56×44 box with the receiver at (10, 40), as on the
- * canvas, breaking to the right.
+ * Icons are drawn in a 56×44 box for a receiver on the right of the
+ * formation: he stands at (28, 40), outside-breaking routes go right toward
+ * the sideline and inside-breaking routes go left toward the middle.
  */
 export type Tile = {
   id: string;
@@ -27,28 +28,28 @@ const R = (id: string, label: string, icon: string, num?: number): Tile => ({ id
 
 /** The route tree, numbered as the canvas numbers it. */
 export const OUR_TREE: Tile[] = [
-  R("flat", "Flat", "M10 40 L14 34 L50 32", 1),
-  R("slant", "Slant", "M10 40 L10 32 L34 12", 2),
-  R("comeback", "Comeback", "M10 40 L10 10 L22 18", 3),
-  { ...R("hitch", "Curl", "M10 40 L10 10 L4 16", 4) },
-  R("out", "Out", "M10 40 L10 18 L50 18", 5),
-  R("dig", "Dig", "M10 40 L10 16 L50 16", 6),
-  R("corner", "Corner", "M10 40 L10 20 L40 4", 7),
-  R("post", "Post", "M10 40 L10 20 L28 4", 8),
-  R("go", "Go", "M10 40 L10 4", 9),
+  R("flat", "Flat", "M28 40 L30 34 L52 30", 1),
+  R("slant", "Slant", "M28 40 L28 32 L8 12", 2),
+  R("comeback", "Comeback", "M28 40 L28 10 L40 18", 3),
+  R("curl", "Curl", "M28 40 L28 10 L20 18", 4),
+  R("out", "Out", "M28 40 L28 18 L52 18", 5),
+  R("dig", "Dig", "M28 40 L28 16 L4 16", 6),
+  R("corner", "Corner", "M28 40 L28 20 L50 4", 7),
+  R("post", "Post", "M28 40 L28 20 L8 4", 8),
+  R("go", "Go", "M28 40 L28 4", 9),
 ];
 
 /** The quick-game routes flag teams lean on. */
 export const FIVE_SET: Tile[] = [
-  R("bubble", "Bubble", "M10 40 L6 42 Q20 46 48 40"),
-  R("hitch", "Hitch", "M10 40 L10 18 L14 24"),
-  R("slant", "Slant", "M10 40 L10 32 L34 12"),
-  R("out", "Out", "M10 40 L10 22 L48 22"),
-  R("drag", "Drag", "M10 40 L10 34 L50 30"),
-  R("corner", "Corner", "M10 40 L10 20 L40 4"),
-  R("post", "Post", "M10 40 L10 20 L28 4"),
-  R("go", "Go", "M10 40 L10 4"),
-  R("wheel", "Wheel", "M10 40 Q30 44 40 26 L44 4"),
+  R("bubble", "Bubble", "M28 40 L32 42 Q42 44 52 40"),
+  R("hitch", "Hitch", "M28 40 L28 18 L32 24"),
+  R("slant", "Slant", "M28 40 L28 32 L8 12"),
+  R("out", "Out", "M28 40 L28 22 L52 22"),
+  R("drag", "Drag", "M28 40 L28 34 L4 30"),
+  R("corner", "Corner", "M28 40 L28 20 L50 4"),
+  R("post", "Post", "M28 40 L28 20 L8 4"),
+  R("go", "Go", "M28 40 L28 4"),
+  R("wheel", "Wheel", "M28 40 Q44 44 48 26 L50 4"),
 ];
 
 export const MORE_TILES: Tile[] = [
