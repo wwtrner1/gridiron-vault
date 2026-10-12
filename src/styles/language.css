@@ -30,7 +30,8 @@
 
 .lang .filters { margin: 0; }
 .lang-filter { margin: 0; min-width: 320px; }
-.lang-table-wrap { overflow-x: auto; padding: 0; }
+/* position: relative keeps the hidden "Actions" header label inside the scroll box on phones. */
+.lang-table-wrap { overflow-x: auto; padding: 0; position: relative; }
 .lang-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .lang-table th,
 .lang-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-2); text-align: left; vertical-align: middle; }

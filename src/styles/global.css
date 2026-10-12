@@ -474,6 +474,13 @@ footer.mkt a:hover { color: var(--cyan); }
   .page { padding: 16px 14px 48px; }
   .topbar { padding: 0 14px; }
 }
+/* Phones: top bars wrap instead of pushing their buttons off screen (Phase 5). */
+@media (max-width: 480px) {
+  .mkt-nav { gap: 12px; }
+  /* The shield alone carries the brand; the name stays for screen readers. */
+  .mkt-brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .topbar { flex-wrap: wrap; height: auto; min-height: 60px; padding-block: 10px; row-gap: 8px; }
+}
 .only-narrow { display: none; }
 @media (max-width: 900px) { .only-narrow { display: inline-flex; } }
 @media (max-width: 1180px) { .only-mid { display: inline-flex; } }

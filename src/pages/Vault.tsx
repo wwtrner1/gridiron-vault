@@ -10,6 +10,7 @@ import { store, useStore } from "../lib/store";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
+import { gateSave } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { FORMATIONS, uid } from "../lib/types";
@@ -99,6 +100,13 @@ export function Vault() {
   const toggle = (id: string) => setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
 
   async function copyToMine(play: StoredPlay) {
+    // A copy is a new play, so it counts toward the plan's Vault size like any save.
+    const gate = gateSave(tier, plays.length);
+    if (!gate.ok) {
+      toast(gate.reason, true);
+      navigate("/pricing");
+      return;
+    }
     const local: StoredPlay = {
       ...play,
       id: uid("play"),
