@@ -70,6 +70,9 @@ export const api = {
   updatePlay: (id: string, body: Partial<ApiPlay>) =>
     request<{ play: ApiPlay }>(`plays/${id}`, { method: "PUT", body: JSON.stringify(body) }),
 
+  /** Deletes the account and everything stored with it. `confirm` is the account email, typed. */
+  deleteAccount: (confirm: string) => request<{ ok: true }>("me", { method: "DELETE", body: JSON.stringify({ confirm }) }),
+
   deletePlay: (id: string) => request<{ ok: true }>(`plays/${id}`, { method: "DELETE" }),
 
   copyPlay: (id: string) => request<{ play: ApiPlay }>(`plays/${id}/copy`, { method: "POST" }),
