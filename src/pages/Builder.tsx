@@ -11,6 +11,7 @@ import { FormationLibrary } from "../components/FormationLibrary";
 import { RailGroup } from "../components/RailGroup";
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
+import { RunPlay } from "../components/RunPlay";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, playerAt, type Tile } from "../lib/routeLibrary";
 import { DefenseLibrary } from "../components/DefenseLibrary";
@@ -429,6 +430,8 @@ export function Builder() {
   const activeMode = MODES.find((m) => m.id === mode);
   const exportables = [{ ...meta, scene }];
 
+  const [running, setRunning] = useState(false);
+
   // Saved play format (canvas): save this play's look, or give this play the saved look.
   const playFormat = usePlayFormat();
   const saveFormat = () => {
@@ -557,6 +560,9 @@ export function Builder() {
           >
             Details
           </button>
+          <button type="button" className="dz-top-btn" onClick={() => setRunning(true)}>
+            Run play
+          </button>
           <button type="button" className="dz-top-btn" onClick={() => setExporting(true)}>
             Export
           </button>
@@ -580,6 +586,15 @@ export function Builder() {
           </Link>
         </div>
       </header>
+
+      {running && (
+        <RunPlay
+          scene={scene}
+          name={meta.name}
+          onFilm={(film) => applyScene({ ...scene, film }, "Film")}
+          onClose={() => setRunning(false)}
+        />
+      )}
 
       <div className={`dz-body${sideOpen ? "" : " is-side-closed"}`}>
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} aria-label="Drawing tools">
