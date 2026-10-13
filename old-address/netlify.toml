@@ -1,0 +1,21 @@
+# The old address, gridi1ronvault.netlify.app: a separate Netlify project built
+# from this folder (base directory "old-address"). It only forwards visitors to
+# gridiron-vault.netlify.app, carrying any plays saved in their browser.
+[build]
+  publish = "."
+  command = ""
+  # Rebuild only when this folder changes, not on every push to the app.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    Cache-Control = "no-store"
