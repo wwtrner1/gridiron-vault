@@ -32,6 +32,10 @@ export const railStore = {
     }
     listeners.forEach((l) => l());
   },
+  /** Opens a group (a coach tip or the Players button sending the coach to it). */
+  open(id: RailId) {
+    if (!state[id]) railStore.toggle(id);
+  },
 };
 
 /**

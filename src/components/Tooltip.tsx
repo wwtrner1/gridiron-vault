@@ -36,13 +36,28 @@ export function Tooltip({ title, hint, shortcut, side = "right", children }: Pro
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // On a touch screen a tap would leave the hint stuck open over the tools, so
+  // fingers get it from a long press instead, and it clears itself.
+  const press = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(press.current), []);
+
   return (
     <span
       ref={ref}
       className="tip-anchor"
-      onPointerEnter={show}
-      onPointerLeave={() => setOpen(false)}
-      onFocusCapture={show}
+      onPointerEnter={(e) => e.pointerType === "mouse" && show()}
+      onPointerLeave={(e) => e.pointerType === "mouse" && setOpen(false)}
+      onPointerDown={(e) => {
+        if (e.pointerType === "mouse") return;
+        window.clearTimeout(press.current);
+        press.current = window.setTimeout(() => {
+          show();
+          press.current = window.setTimeout(() => setOpen(false), 2600);
+        }, 480);
+      }}
+      onPointerUp={(e) => e.pointerType !== "mouse" && !open && window.clearTimeout(press.current)}
+      onPointerCancel={() => window.clearTimeout(press.current)}
+      onFocusCapture={(e) => (e.target as Element).matches?.(":focus-visible") && show()}
       onBlurCapture={() => setOpen(false)}
     >
       {cloneElement(children, { "aria-describedby": open ? id : undefined })}
