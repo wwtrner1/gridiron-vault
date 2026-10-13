@@ -64,7 +64,7 @@ const SLIDES: Slide[] = [
   },
   {
     title: "Draw a route",
-    touch: "Tap Route, then tap the player, each turn, and where it ends. Double-tap the last point, hold it, or tap Finish line.",
+    touch: "Tap Route, then press on the player and drag the route out with your finger; it straightens into clean legs when you lift. Or tap the player, each turn and the end, then double-tap the last point or tap Finish line.",
     mouse: "Pick a line tool (press L for a straight route), click the player, each turn and the end, then double-click or press Enter.",
     art: (
       <Field>
@@ -79,7 +79,7 @@ const SLIDES: Slide[] = [
   },
   {
     title: "Move it, change it",
-    touch: "Drag a player to move him; his route comes with him. Press and hold a player for Duplicate, Delete, Lock and more, or use the bar that appears when something is selected.",
+    touch: "Tap a player to select him. If he's part of a formation, the whole group is framed and labelled; tap him again to pick just him. His routes light up, so you can see what moves with him. Press and hold for Duplicate, Delete, Lock and more.",
     mouse: "Drag to move; the route follows. Right-click a player for Duplicate, Delete, Lock and more. Delete removes, Ctrl+D duplicates, Ctrl+Z undoes.",
     art: (
       <Field>
@@ -100,7 +100,7 @@ const SLIDES: Slide[] = [
   },
   {
     title: "Zoom in to edit",
-    touch: "Pinch to zoom, drag with two fingers to move around, or double-tap a spot to jump straight to it. − Fit + sit by your thumb. No need to turn the phone sideways, but you can.",
+    touch: "Pinch anywhere on the field to zoom the play (the page itself stays put). Drag the empty field with one finger to move around, or double-tap a spot to jump straight to it. − Fit + sit by your thumb. No need to turn the phone sideways, but you can.",
     mouse: "Ctrl + scroll, or pinch on a trackpad, zooms around the pointer. Fit puts the whole field back.",
     art: (
       <Field>

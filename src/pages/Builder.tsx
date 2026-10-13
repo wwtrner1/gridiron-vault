@@ -204,6 +204,96 @@ export function Builder() {
     if (!f || !r) return;
     nudge(r.left + f.fx * r.width - f.clientX, r.top + f.fy * r.height - f.clientY);
   }, [zoom, nudge]);
+  /*
+   * Two fingers anywhere on the field area zoom and move the play, never the page.
+   * The second finger takes back whatever the first had started on the canvas.
+   */
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; mid: { x: number; y: number } } | null>(null);
+  const onStageDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    // The first finger of a fresh touch clears anything a lost "up" left behind.
+    if (e.isPrimary) {
+      fingers.current.clear();
+      pinch.current = null;
+    }
+    fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.current.size < 2) return;
+    e.stopPropagation();
+    e.preventDefault();
+    canvasControl.current?.cancel();
+    const [a, b] = [...fingers.current.values()];
+    pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  };
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" || !fingers.current.has(e.pointerId)) return;
+      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const was = pinch.current;
+      if (!was || fingers.current.size < 2) return;
+      const [a, b] = [...fingers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      nudge(was.mid.x - mid.x, was.mid.y - mid.y);
+      if (Math.abs(dist / was.dist - 1) > 0.002) zoomTo(zoomRef.current * (dist / was.dist), { clientX: mid.x, clientY: mid.y });
+      pinch.current = { dist, mid };
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      fingers.current.delete(e.pointerId);
+      // The view holds still until every finger is up, so the last one can't start a drag.
+      if (fingers.current.size === 0) pinch.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [nudge, zoomTo]);
+
+  /*
+   * While the designer is open the browser's own page zoom stays out of the way,
+   * so a pinch never zooms the toolbars instead of the play (the play has its own
+   * zoom, and − Fit + buttons). The page zoom comes back when the coach leaves.
+   */
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const before = meta?.content;
+    // Resets a page that was already zoomed in, and stops iOS zooming into text boxes.
+    if (meta) meta.content = "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover";
+    const stopPageZoom = (e: Event) => e.preventDefault();
+    const stopTwoFinger = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    // Mac Safari's trackpad pinch arrives as gesture events: zoom the play with it.
+    let last = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      last = 1;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      if (fingers.current.size) return; // fingers on a touch screen are handled above
+      const g = e as Event & { scale: number; clientX: number; clientY: number };
+      zoomBy(g.scale / last, { clientX: g.clientX, clientY: g.clientY });
+      last = g.scale;
+    };
+    document.addEventListener("gesturestart", onGestureStart, { passive: false });
+    document.addEventListener("gesturechange", onGestureChange, { passive: false });
+    document.addEventListener("gestureend", stopPageZoom, { passive: false });
+    document.addEventListener("touchmove", stopTwoFinger, { passive: false });
+    return () => {
+      if (meta && before) meta.content = before;
+      document.removeEventListener("gesturestart", onGestureStart);
+      document.removeEventListener("gesturechange", onGestureChange);
+      document.removeEventListener("gestureend", stopPageZoom);
+      document.removeEventListener("touchmove", stopTwoFinger);
+    };
+  }, [zoomBy]);
+
   /** Double-tap: in close on that spot, or back out to the whole field. */
   const doubleTapZoom = useCallback(
     (at: { clientX: number; clientY: number }) => {
@@ -462,6 +552,15 @@ export function Builder() {
   ];
   const fieldActions: MenuAction[] = [
     { id: "all", label: "Select all", run: selectAll },
+    {
+      id: "box",
+      label: "Select with a box",
+      run: () => {
+        setTool("select");
+        setMode("multiSelect");
+        setStatus("Drag a box around what you want to select. Tap Select when you're done.");
+      },
+    },
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
   ];
 
@@ -493,7 +592,7 @@ export function Builder() {
       coachTips.emptyBox({
         id: "oneFingerPan",
         title: "Moving around the field?",
-        text: "One finger draws a selection box. Use two fingers to move around, pinch to zoom in or out, or double-tap a spot to zoom straight to it.",
+        text: "In Multi-select, one finger draws a selection box. To move around instead, tap Select: then one finger on empty field moves the view, and a pinch zooms.",
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1348,6 +1447,7 @@ export function Builder() {
           <div
             ref={stageRef}
             className="builder-stage"
+            onPointerDownCapture={onStageDownCapture}
             onDrop={onDrop}
             onDragOver={(e) => e.preventDefault()}
             role="group"

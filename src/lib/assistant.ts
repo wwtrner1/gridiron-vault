@@ -182,8 +182,17 @@ export function assignmentPath(a: Assignment, from: Point, losY: number, z: numb
     x += a.kind === "motion" ? dx : mirror ? -dx : dx;
     y += dy;
     // Routes stop at the sideline rather than running off the field.
-    points.push({ x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, x)), y });
+    const p = { x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, x)), y };
+    // A leg the sideline squeezed to nothing would hide the route's end, so it's dropped.
+    const prev = points[points.length - 1];
+    if (Math.hypot(p.x - prev.x, p.y - prev.y) >= 8) points.push(p);
   }
+  // Every route ends on a leg long enough to show its arrow or block mark; one cut short
+  // at the sideline finishes upfield along it instead.
+  if (points.length < 2) points.push({ x: 0, y: a.kind === "block" ? -44 : -60 });
+  const end = points[points.length - 1];
+  const before = points[points.length - 2];
+  if (Math.hypot(end.x - before.x, end.y - before.y) < 26) points[points.length - 1] = { x: end.x, y: before.y - 30 };
   return {
     ...baseNode({ x: from.x, y: from.y, z, name: a.kind === "block" ? "Block" : a.kind === "motion" ? "Motion" : "Route" }),
     kind: "path",
@@ -218,6 +227,31 @@ export function nearMatch(read: AssistantRead, plays: StoredPlay[]): StoredPlay 
     if (score >= 3 && (!best || score > best.score)) best = { play: p, score };
   }
   return best?.play ?? null;
+}
+
+/** The letters a chip can switch a player to, with what each means in GridIronVault. */
+export const PLAYER_LETTERS: { letter: string; means: string }[] = [
+  { letter: "X", means: "split end" },
+  { letter: "Y", means: "tight end / slot" },
+  { letter: "Z", means: "flanker" },
+  { letter: "H", means: "running back" },
+  { letter: "S", means: "slot / 2nd back" },
+  { letter: "Q", means: "quarterback" },
+  { letter: "C", means: "center" },
+];
+
+/**
+ * The coach's own letters win: when the words a chip came from start with a
+ * player letter ("H flat"), that is the player, whatever the read guessed.
+ */
+export function trustSaidLetters(read: AssistantRead): AssistantRead {
+  return {
+    ...read,
+    assignments: read.assignments.map((a) => {
+      const said = a.heard?.trim().match(/^([QCXYZHS])(?=\b|[^a-z])/i)?.[1]?.toUpperCase();
+      return said && said !== a.player.toUpperCase() ? { ...a, player: said } : a;
+    }),
+  };
 }
 
 export const ACTION_LABEL = (a: Assignment) =>

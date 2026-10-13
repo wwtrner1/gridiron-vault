@@ -148,6 +148,31 @@ export function simplify(points: Point[], tolerance = 2.2): Point[] {
   return out;
 }
 
+/**
+ * Turns a hand-drawn path into its corners (Ramer–Douglas–Peucker): any point
+ * closer than `epsilon` to the straight line between its neighbours is wobble
+ * and goes; the real cuts of a route stay.
+ */
+export function straighten(points: Point[], epsilon: number): Point[] {
+  if (points.length < 3) return points;
+  const a = points[0];
+  const b = points[points.length - 1];
+  const len = dist(a, b) || 1;
+  let far = 0;
+  let at = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i];
+    // Distance from p to the line a–b.
+    const d = Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / len;
+    if (d > far) {
+      far = d;
+      at = i;
+    }
+  }
+  if (far <= epsilon) return [a, b];
+  return [...straighten(points.slice(0, at + 1), epsilon).slice(0, -1), ...straighten(points.slice(at), epsilon)];
+}
+
 /** Wavy "motion" line, drawn as a sine wave that follows the segment. */
 export function motionPath(pts: Point[], amp = 5, step = 11): string {
   if (pts.length < 2) return "";

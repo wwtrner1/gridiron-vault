@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { ACTION_LABEL, BLOCK_IDS, nearMatch, readToNodes, ROUTE_IDS } from "../lib/assistant";
+import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import type { GameType } from "../lib/formations";
 import { aiUsage } from "../lib/aiUsage";
@@ -127,7 +127,7 @@ export function PlayAssistant({
         terms: terms.map((t) => ({ term: t.term, means: t.means })),
       });
       aiUsage.add("assistant");
-      setRead(res.read);
+      setRead(trustSaidLetters(res.read));
       setState("idle");
     } catch (e) {
       setState("error");
@@ -367,8 +367,22 @@ export function PlayAssistant({
             <span className="pa-chip">Formation · {read.formation}</span>
             {read.assignments.length === 0 && <span className="pa-chip">No routes named — the set only</span>}
             {read.assignments.map((a, i) => (
-              <label key={i} className={`pa-chip${a.firstRead ? " is-read" : ""}`} title={a.heard ? `From “${a.heard}”` : undefined}>
-                {a.player} ·
+              <span key={i} className={`pa-chip${a.firstRead ? " is-read" : ""}`} title={a.heard ? `From “${a.heard}”` : undefined}>
+                {/* Either half of a chip can be changed: who runs it, and what he runs. */}
+                <select
+                  className="pa-chip-player"
+                  value={a.player.toUpperCase()}
+                  aria-label={`Player for ${ACTION_LABEL(a)}`}
+                  onChange={(e) => fix(i, { player: e.target.value })}
+                >
+                  {!PLAYER_LETTERS.some((l) => l.letter === a.player.toUpperCase()) && <option value={a.player.toUpperCase()}>{a.player.toUpperCase()}</option>}
+                  {PLAYER_LETTERS.map((l) => (
+                    <option key={l.letter} value={l.letter}>
+                      {l.letter} · {l.means}
+                    </option>
+                  ))}
+                </select>
+                ·
                 <select
                   ref={i === 0 ? firstChip : undefined}
                   value={a.kind === "motion" ? "motion" : a.action}
@@ -395,8 +409,30 @@ export function PlayAssistant({
                   <option value="motion">motion</option>
                 </select>
                 <span className="sr-only">{ACTION_LABEL(a)}</span>
-              </label>
+                <button
+                  type="button"
+                  className="pa-chip-x"
+                  onClick={() => setRead((r) => r && { ...r, assignments: r.assignments.filter((_, j) => j !== i) })}
+                  aria-label={`Remove ${a.player} ${ACTION_LABEL(a)}`}
+                >
+                  <Icon name="close" size={11} />
+                </button>
+              </span>
             ))}
+            <button
+              type="button"
+              className="pa-chip pa-chip-add"
+              onClick={() =>
+                setRead((r) => {
+                  if (!r) return r;
+                  const used = new Set(r.assignments.map((x) => x.player.toUpperCase()));
+                  const free = PLAYER_LETTERS.find((l) => !used.has(l.letter))?.letter ?? "X";
+                  return { ...r, assignments: [...r.assignments, { player: free, kind: "route", action: "go", heard: "" }] };
+                })
+              }
+            >
+              + Add a player
+            </button>
           </div>
           {(read.unsure.length > 0 || missing.length > 0) && (
             <ul className="pa-unsure">

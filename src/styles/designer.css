@@ -903,3 +903,17 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 
 /* Dialogs opened from the designer sit inside its dark workspace; keep their text dark on the white card. */
 .builder.dz .modal { color: var(--ink); }
+
+/* The whole field area belongs to the designer's own gestures: one finger edits or moves the view, two zoom the play. */
+.builder .builder-stage { touch-action: none; -webkit-user-select: none; user-select: none; }
+
+/* Assistant chips: change the player or the route, remove one, add one. */
+.pa-chip-player { font-weight: 700; color: var(--white); }
+.pa-chip-x { display: grid; place-items: center; width: 22px; height: 22px; margin-left: 2px; border-radius: 50%; background: transparent; color: var(--muted-2); }
+.pa-chip-x:hover { color: var(--white); background: var(--ink-4); }
+.pa-chip-add { border: 1px dashed var(--ink-4); background: transparent; color: var(--cyan); font-weight: 600; }
+@media (pointer: coarse) {
+  .pa-chip { height: 40px; }
+  .pa-chip select { height: 34px; }
+  .pa-chip-x { width: 32px; height: 32px; }
+}
