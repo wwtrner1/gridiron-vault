@@ -42,7 +42,7 @@ import { useToast } from "../lib/toast";
 import { useCaptureGuard } from "../lib/guard";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
-import { tokenFor, type Placed } from "../lib/formations";
+import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
 import "../styles/designer.css";
 
@@ -438,9 +438,9 @@ export function Builder() {
     const center = players.find((p) => p.side === "offense" && p.label === "C");
     const ball = { x: center?.x ?? CANVAS_W / 2, y: scene.losY };
     const offense = players.filter((p) => p.side === "offense");
-    const hasLine = offense.some((p) => p.shape === "square" && !p.label);
+    const hasLine = offense.some(isLineman);
     const receivers = offense
-      .filter((p) => p.label && p.label !== "Q" && !(hasLine && p.label === "C"))
+      .filter((p) => p.label && p.label !== "Q" && !isLineman(p) && !(hasLine && p.label === "C"))
       .map((p) => ({ dx: p.x - ball.x, dy: p.y - ball.y }));
     const layout = layoutDefense(set.front, set.coverage, receivers);
     const nodes = defenseNodes(layout, ball, set.show, nextZ(scene));

@@ -50,7 +50,7 @@ type Formation = {
 const W = 400; // wide (a corner from here still ends on the field)
 const S = 290; // slot
 const I = 200; // inside
-const TE_RIGHT: Spot[] = [[132, 4], [-132, 4], [176, 30]];
+const TE_RIGHT: Spot[] = [[150, 4], [-150, 4], [196, 40]];
 const UNDER: Spot = [0, 40];
 const GUN: Spot = [0, 72];
 
@@ -133,7 +133,7 @@ const BASE: Formation[] = [
     qb: UNDER,
     backs: [[0, 130], [0, 90], [-56, 100]],
     spots: [[-230, 4, ["X"]], [230, 26, ["Z"]], [-190, 30], [190, 30]],
-    te: [[132, 4], [-132, 4], [176, 30], [-176, 30]],
+    te: [[150, 4], [-150, 4], [196, 40], [-196, 40]],
     five: { backs: 1, spots: [[-200, 4, ["X"]], [200, 4, ["Z"]]] },
   },
 ];
@@ -164,7 +164,21 @@ export const FORMATION_NAMES = LIBRARY.map((f) => f.name);
 /** One player in a built formation. */
 export type Placed = { dx: number; dy: number; code: string; label?: string; role: "line" | "qb" | "rb" | "te" | "wr" };
 
-const NEUTRAL = { rb: ["F", "B"], te: ["T", "U", "V"], wr: ["W", "A", "B"] };
+// T belongs to the tackles, so a spare tight end is U, V or E.
+const NEUTRAL = { rb: ["F", "B"], te: ["U", "V", "E"], wr: ["W", "A", "B"] };
+
+/** 11-man line: 50 apart, so 36-wide tokens keep a clear gap. */
+const LINE_SPOTS: [number, string][] = [
+  [-100, "T"],
+  [-50, "G"],
+  [50, "G"],
+  [100, "T"],
+];
+const LINE_NAMES: Record<number, string> = { [-100]: "Left tackle", [-50]: "Left guard", 50: "Right guard", 100: "Right tackle" };
+
+/** A lineman on the field: today's labelled T/G circles, or the unlabelled squares older plays saved. */
+export const isLineman = (p: { shape: string; label: string; name: string }) =>
+  (p.shape === "square" && !p.label) || /\b(tackle|guard|lineman)\b/i.test(p.name);
 
 /**
  * Lays out a formation as offsets from the ball. `code` is a position token
@@ -179,7 +193,9 @@ export function layoutFormation(game: GameType, personnelCode: string, name: str
   const receiverSpots = game === "5v5" && f.five.spots ? f.five.spots : f.spots;
 
   const out: Placed[] = [{ dx: 0, dy: 0, code: "C", role: "line" }];
-  if (game === "11") for (const dx of [-88, -44, 44, 88]) out.push({ dx, dy: 0, code: "OL", role: "line" });
+  // Left to right: tackle, guard, center, guard, tackle, with a gap between each so they read as five men.
+  if (game === "11")
+    for (const [dx, label] of LINE_SPOTS) out.push({ dx, dy: 0, code: "OL", label, role: "line" });
   out.push({ dx: f.qb[0], dy: f.qb[1], code: "QB", role: "qb" });
 
   const used = new Set<string>();
@@ -219,7 +235,17 @@ export function layoutFormation(game: GameType, personnelCode: string, name: str
 /** Token for each placed player: the coach's position colors, or the canvas's plain line and extra tokens. */
 export function tokenFor(p: Placed, tokens: TokenPreset[]): TokenPreset {
   if (p.code === "OL")
-    return { code: "OL", label: "", title: "Lineman", hint: "", shape: "square", fill: "#FFFFFF", stroke: "#0B1524", textColor: "#0B1524", side: "offense" };
+    return {
+      code: "OL",
+      label: p.label ?? "",
+      title: LINE_NAMES[p.dx] ?? "Lineman",
+      hint: "",
+      shape: "circle",
+      fill: "#FFFFFF",
+      stroke: "#0B1524",
+      textColor: "#0B1524",
+      side: "offense",
+    };
   if (p.code === "EXTRA")
     return {
       code: "EXTRA",
