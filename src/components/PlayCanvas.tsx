@@ -9,6 +9,7 @@ import {
   pathData,
   simplify,
   snap,
+  straighten,
   toLocal,
   toWorld,
   worldBox,
@@ -28,6 +29,8 @@ import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { ModeId, ToolId } from "../lib/tools";
 
 const POLY_TOOLS: ToolId[] = ["line", "arc", "dashed", "block", "motion", "polygon", "zone", "pen"];
+/** Line tools that can also be drawn by pressing and dragging out the whole route. */
+const STROKE_TOOLS: ToolId[] = ["line", "dashed", "block", "motion", "pen"];
 
 /** Drawing aids from the canvas's drawing bar. */
 export type DrawAids = { snap: boolean; ortho: boolean; polar: boolean };
@@ -88,7 +91,7 @@ type Props = {
 
 export type MenuAction = { id: string; label: string; run: () => void; danger?: boolean };
 export type CanvasSignal = { kind: "emptyTap" | "emptyBox" | "lockedPress"; touch: boolean };
-export type CanvasControl = { finish: () => void; undoPoint: () => void; scrap: () => void };
+export type CanvasControl = { finish: () => void; undoPoint: () => void; scrap: () => void; cancel: () => void };
 
 /** True on phones and tablets, where a finger needs bigger grab areas than a mouse. */
 function useCoarsePointer() {
@@ -108,6 +111,7 @@ const TAP_SLOP = 10;
 type Drag =
   | { kind: "move"; start: Point; ids: string[]; origin: Map<string, Point> }
   | { kind: "marquee"; start: Point; additive: boolean; touch: boolean; hadSelection: boolean }
+  | { kind: "pan"; start: { x: number; y: number }; last: { x: number; y: number }; moved: boolean; hadSelection: boolean }
   | {
       kind: "rotate";
       center: Point;
@@ -170,8 +174,8 @@ export function PlayCanvas({
    * second finger turns the touch into a pinch/pan of the view and takes back
    * whatever the first finger had started, so zooming never nudges a player.
    */
-  const touches = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; mid: { x: number; y: number } } | null>(null);
+  /** A line-tool press that may turn into a drawn-by-hand route if the finger moves. */
+  const stroke = useRef<{ start: Point; client: { x: number; y: number }; drawing: boolean } | null>(null);
   /** The pointer driving the current drag; other pointers are ignored until it lifts. */
   const activePointer = useRef<number | null>(null);
   /** The scene and selection as they were when the current press began. */
@@ -314,6 +318,10 @@ export function PlayCanvas({
         startPlayer.current = null;
         say("Line scrapped.");
       },
+      cancel: () => {
+        cancelGesture();
+        setMenu(null);
+      },
     };
 
   /* ------------------------------------------------------------ drag starts */
@@ -365,6 +373,7 @@ export function PlayCanvas({
    */
   const cancelGesture = () => {
     dragRef.current = null;
+    stroke.current = null;
     activePointer.current = null;
     clearLongPress();
     setMarquee(null);
@@ -541,6 +550,12 @@ export function PlayCanvas({
       // Holding a finger on the empty field opens the tool menu, the touch right-click.
       const at = { x: e.clientX, y: e.clientY };
       beginPress(e, onPickTool ? () => (cancelGesture(), openMenu(at.x, at.y, false)) : undefined);
+      // A finger dragged across empty field moves the view; the selection box is for
+      // Multi-select mode (or "Select with a box" in the press-and-hold menu).
+      if (e.pointerType !== "mouse" && mode !== "multiSelect") {
+        dragRef.current = { kind: "pan", start: at, last: at, moved: false, hadSelection: selection.length > 0 };
+        return;
+      }
       dragRef.current = {
         kind: "marquee",
         start: raw,
@@ -612,7 +627,11 @@ export function PlayCanvas({
       commitPoly([...draft, draft[0]]);
       return;
     }
-    if (!draft.length) startPlayer.current = player;
+    if (!draft.length) {
+      startPlayer.current = player;
+      // If the finger (or mouse) keeps moving from here, the route is drawn by hand instead of tap by tap.
+      if (STROKE_TOOLS.includes(tool)) stroke.current = { start: p, client: { x: e.clientX, y: e.clientY }, drawing: false };
+    }
     if (tool === "arc" && draft.length === 2) {
       commitPoly([draft[0], draft[1], p]);
       return;
@@ -635,27 +654,36 @@ export function PlayCanvas({
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType === "touch" && touches.current.has(e.pointerId)) {
-        touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pinch.current) {
-          if (touches.current.size >= 2) {
-            const [a, b] = [...touches.current.values()];
-            const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-            const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-            const was = pinch.current;
-            onPan?.(mid.x - was.mid.x, mid.y - was.mid.y);
-            if (Math.abs(dist / was.dist - 1) > 0.002) onZoom?.(dist / was.dist, { clientX: mid.x, clientY: mid.y });
-            pinch.current = { dist, mid };
-          }
-          return;
-        }
-      }
       const lp = longPress.current;
       if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > TAP_SLOP) clearLongPress();
       // Only the finger (or mouse) that started the drag drives it.
       if (activePointer.current !== null && e.pointerId !== activePointer.current) return;
       const d = dragRef.current;
       const raw = point(e);
+
+      // One finger on the empty field moves the view, the way a map does.
+      if (d?.kind === "pan") {
+        const dx = e.clientX - d.last.x;
+        const dy = e.clientY - d.last.y;
+        if (!d.moved && Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) > TAP_SLOP) d.moved = true;
+        if (d.moved) onPan?.(dx, dy);
+        d.last = { x: e.clientX, y: e.clientY };
+        return;
+      }
+
+      // Pressing on a player with a line tool and dragging draws the route by hand.
+      const st = stroke.current;
+      if (!d && st && activePointer.current === e.pointerId) {
+        if (!st.drawing && Math.hypot(e.clientX - st.client.x, e.clientY - st.client.y) > 14) {
+          st.drawing = true;
+          clearLongPress();
+          setFreehand([st.start]);
+        }
+        if (st.drawing) {
+          setFreehand((pts) => [...pts, raw]);
+          return;
+        }
+      }
 
       if (!d) {
         if (draft.length) setGhost(aim(raw, draft[draft.length - 1], e.shiftKey).p);
@@ -783,21 +811,36 @@ export function PlayCanvas({
     };
 
     const onUp = (e: PointerEvent) => {
-      if (e.pointerType === "touch") {
-        touches.current.delete(e.pointerId);
-        if (pinch.current) {
-          // The view stays put until every finger is up, so the last one can't start a drag.
-          if (touches.current.size === 0) pinch.current = null;
-          return;
-        }
-      }
       clearLongPress();
       if (activePointer.current !== null && e.pointerId !== activePointer.current) return;
       activePointer.current = null;
       const d = dragRef.current;
       dragRef.current = null;
 
+      // A drawn-by-hand route: straighten the finger's path into clean legs and finish it.
+      const st = stroke.current;
+      stroke.current = null;
+      if (st?.drawing) {
+        // Wobble under about 7 screen pixels is a shaky finger, not a cut in the route.
+        const pts = straighten([st.start, ...freehand.slice(1)], Math.max(8, 7 / zoom));
+        setFreehand([]);
+        if (pts.length > 1 && dist(pts[0], pts[pts.length - 1]) > 12) commitPoly(pts);
+        else {
+          setDraft([]);
+          setGhost(null);
+        }
+        return;
+      }
+
       if (!d) return;
+
+      if (d.kind === "pan") {
+        if (d.moved) return;
+        // A tap, not a drag: clears the selection like a click on the empty field.
+        onSelection([]);
+        if (!d.hadSelection) onSignal?.({ kind: "emptyTap", touch: true });
+        return;
+      }
 
       if (d.kind === "marquee") {
         const m = marquee;
@@ -843,7 +886,9 @@ export function PlayCanvas({
       }
 
       if (d.kind === "move" || d.kind === "rotate" || d.kind === "scale") {
-        onScene(sceneRef.current, d.kind === "move" ? "Move" : d.kind === "rotate" ? "Rotate" : "Scale");
+        // A tap that only selected something is not a step to undo.
+        const changed = !pressStart.current || sceneRef.current !== pressStart.current.scene;
+        if (changed) onScene(sceneRef.current, d.kind === "move" ? "Move" : d.kind === "rotate" ? "Rotate" : "Scale");
         return;
       }
 
@@ -881,27 +926,15 @@ export function PlayCanvas({
     selection,
     snapped,
     width,
+    zoom,
   ]);
 
   /* ------------------------------------------- pinch, trackpad and Ctrl+scroll */
 
-  /** Every finger lands here first; a second one turns the touch into a pinch. */
+  /* Two-finger pinch and pan are handled by the designer page for the whole field area
+     (see Builder), which takes back this canvas's press through controlRef.cancel. */
   const onFrameDownCapture = (e: React.PointerEvent) => {
     lastPointerType.current = e.pointerType;
-    if (e.pointerType !== "touch") return;
-    // The first finger of a fresh touch clears anything a lost "up" left behind.
-    if (e.isPrimary) {
-      touches.current.clear();
-      pinch.current = null;
-    }
-    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (touches.current.size < 2) return;
-    e.stopPropagation();
-    e.preventDefault();
-    cancelGesture();
-    setMenu(null);
-    const [a, b] = [...touches.current.values()];
-    pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
   };
 
   const zoomRef = useRef(onZoom);
@@ -915,27 +948,8 @@ export function PlayCanvas({
       e.preventDefault();
       zoomRef.current?.(Math.exp(-e.deltaY * 0.01), { clientX: e.clientX, clientY: e.clientY });
     };
-    // Safari sends its own gesture events; keep them from zooming the whole page.
-    let last = 1;
-    const onGestureStart = (e: Event) => {
-      e.preventDefault();
-      last = 1;
-    };
-    const onGestureChange = (e: Event) => {
-      e.preventDefault();
-      if (touches.current.size) return; // fingers on a touch screen are handled as pointers
-      const g = e as Event & { scale: number; clientX: number; clientY: number };
-      zoomRef.current?.(g.scale / last, { clientX: g.clientX, clientY: g.clientY });
-      last = g.scale;
-    };
     el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("gesturestart", onGestureStart);
-    el.addEventListener("gesturechange", onGestureChange);
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("gesturestart", onGestureStart);
-      el.removeEventListener("gesturechange", onGestureChange);
-    };
+    return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
   useEffect(() => () => clearLongPress(), []);
@@ -1008,6 +1022,31 @@ export function PlayCanvas({
   const previewPts = ghost && draft.length ? [...draft, ghost] : draft;
   const showHandles = tool === "select" && selection.length > 0 && !dragRef.current;
   const soloPath = selected.length === 1 && selected[0].kind === "path" ? (selected[0] as PathNode) : null;
+  // What the selection belongs to, drawn so a coach can see what will move together:
+  // the whole group framed and labelled, or one player picked out of a group, and the
+  // routes glued to any selected player.
+  const groupInfo = (() => {
+    if (tool !== "select" || !selected.length) return null;
+    const gid = selected[0].groupId;
+    if (!gid || !selected.every((n) => n.groupId === gid)) return null;
+    const members = scene.nodes.filter((n) => n.groupId === gid && !n.hidden);
+    const box = selectionBox(scene, members.map((n) => n.id));
+    if (!box) return null;
+    const whole = members.length === selected.length;
+    if (!whole && selected.length !== 1) return null;
+    const players = members.filter((n) => n.kind === "player").length;
+    return { box, whole, label: whole ? `GROUP · ${players || members.length} ${players ? "PLAYERS" : "ITEMS"}` : "ONE PICKED FROM A GROUP" };
+  })();
+  const selectedPlayerIds = new Set(selected.filter((n) => n.kind === "player").map((n) => n.id));
+  const linkedPaths =
+    tool === "select" && selectedPlayerIds.size
+      ? scene.nodes.filter(
+          (n): n is PathNode =>
+            n.kind === "path" && !n.hidden && !selection.includes(n.id) && ((!!n.fromId && selectedPlayerIds.has(n.fromId)) || (!!n.assignOf && selectedPlayerIds.has(n.assignOf))),
+        )
+      : [];
+  const tagSize = Math.max(11, Math.min(30, 12 / zoom));
+
   // Invisible finger-sized reach around the small handles, kept small enough
   // on a tight selection that it never covers the players inside it.
   const fingerReach = coarse && selBox ? Math.max(0, Math.min(22 / zoom, 30, 9 + Math.min(selBox.w, selBox.h) / 4)) : 0;
@@ -1121,6 +1160,35 @@ export function PlayCanvas({
               />
             );
           })}
+
+        {/* Routes that move with the selected player(s) */}
+        {linkedPaths.map((p) => (
+          <NodeLayer key={`link-${p.id}`} node={{ ...p, stroke: SEL, width: p.width + 7, firstRead: false }} opacity={0.32} pointerEvents="none" />
+        ))}
+
+        {/* The group the selection belongs to */}
+        {groupInfo && (
+          <g pointerEvents="none">
+            <rect
+              x={groupInfo.box.x - 16}
+              y={groupInfo.box.y - 16}
+              width={groupInfo.box.w + 32}
+              height={groupInfo.box.h + 32}
+              rx={10}
+              fill={groupInfo.whole ? SEL : "none"}
+              fillOpacity={0.05}
+              stroke={groupInfo.whole ? SEL : "#7d8fa3"}
+              strokeWidth={groupInfo.whole ? 2 : 1.4}
+              strokeDasharray={groupInfo.whole ? "10 6" : "4 5"}
+            />
+            <g transform={`translate(${groupInfo.box.x - 16} ${Math.max(0, groupInfo.box.y - 16 - tagSize * 1.7)})`}>
+              <rect width={groupInfo.label.length * tagSize * 0.62 + tagSize} height={tagSize * 1.6} rx={tagSize * 0.3} fill={groupInfo.whole ? SEL : "#7d8fa3"} />
+              <text x={tagSize * 0.5} y={tagSize * 1.12} fontSize={tagSize} fontWeight={700} fill="#0B1524" fontFamily="'IBM Plex Mono', monospace">
+                {groupInfo.label}
+              </text>
+            </g>
+          </g>
+        )}
 
         {/* Transform box with scale + rotate handles */}
         {showHandles && selBox && (
