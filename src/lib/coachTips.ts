@@ -15,7 +15,9 @@ export type TipId =
   | "finishLine"
   | "undoLoop"
   | "arcPoints"
-  | "pinch";
+  | "pinch"
+  /** First time a tool is picked: what it does. */
+  | `tool-${string}`;
 
 export type Tip = {
   id: TipId;

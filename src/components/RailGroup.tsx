@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import { useToolPrefs } from "../lib/toolPrefs";
 
 /** The Designer's left-rail groups and whether each starts open. */
 export const RAIL_DEFAULTS = { modes: false, lines: true, routes: true, format: false, ink: false, shapes: false, players: true, sets: false };
@@ -44,6 +45,9 @@ export const railStore = {
  */
 export function RailGroup({ id, title, summary, children }: { id: RailId; title: string; summary?: ReactNode; children: ReactNode }) {
   const open = useSyncExternalStore(railStore.subscribe, railStore.get, railStore.get)[id];
+  // Groups the coach hid in the Tools guide stay out of the rail until switched back on there.
+  const hidden = useToolPrefs().hiddenGroups.includes(id);
+  if (hidden) return null;
   return (
     <section className={`dz-group${open ? " is-open" : ""}`}>
       <h2>
