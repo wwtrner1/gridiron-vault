@@ -111,3 +111,11 @@ export function useStore<T>(selector: (s: State) => T): T {
     () => selector(empty),
   );
 }
+
+/** The saved play a typed name means, if exactly one matches (case and spacing ignored). */
+export function playNamed(plays: StoredPlay[], name: string): StoredPlay | undefined {
+  const key = name.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!key) return undefined;
+  const hits = plays.filter((p) => p.name.trim().toLowerCase().replace(/\s+/g, " ") === key);
+  return hits.length === 1 ? hits[0] : undefined;
+}
