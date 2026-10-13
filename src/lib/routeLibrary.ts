@@ -1,6 +1,7 @@
 import { assignmentPath } from "./assistant";
 import type { Assignment } from "./assistant";
 import { ZONE_FILL, ZONE_STROKE } from "./defense";
+import { isLineman } from "./formations";
 import { makeShape } from "./scene";
 import { baseNode, CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
@@ -68,7 +69,7 @@ const ARROW = "#0B1524";
 function cast(scene: Scene) {
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
   const qb = players.find((p) => p.side === "offense" && p.label.toUpperCase() === "Q");
-  const receivers = players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !(p.shape === "square" && !p.label));
+  const receivers = players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !isLineman(p));
   return { players, qb, receivers };
 }
 
