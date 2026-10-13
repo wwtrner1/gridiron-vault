@@ -47,6 +47,8 @@ export function PlayerPresets({ scene, selection, onScene, onSelection }: Props)
   const selectedPlayers = scene.nodes.filter((n) => n.kind === "player" && selection.includes(n.id));
 
   const startNew = () => setEditing(blankPreset());
+  // Coaches who saved presets before the full starter set existed get a one-tap way to add it.
+  const missing = presetStore.missingSeeds();
   const isSaved = editing ? presets.some((p) => p.id === editing.id) : false;
 
   return (
@@ -75,6 +77,12 @@ export function PlayerPresets({ scene, selection, onScene, onSelection }: Props)
           </div>
         ))}
       </div>
+      {missing.length > 0 && (
+        <button type="button" className="pp-link pp-seeds" onClick={() => presetStore.addMissingSeeds()}>
+          + Add the starter presets ({missing.map((p) => p.label).join(" ")})
+        </button>
+      )}
+      <p className="pp-legend">These are starting points, not a limit: + New preset builds any position, offense or defense.</p>
 
       {editing && (
         <PresetEditor

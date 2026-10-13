@@ -46,8 +46,16 @@ const base: Omit<PlayerPreset, "id" | "name" | "label" | "fill" | "outline"> = {
   side: "offense",
 };
 
-/** The canvas's four examples. H is the running back (GridIronVault naming). */
+/**
+ * Starter presets: one for every offensive position (in the default position
+ * colors), the 11-man linemen, and a rusher. They are examples, not a limit —
+ * "+ New preset" makes any player. H is the running back (GridIronVault naming).
+ */
 export const SEED_PRESETS: PlayerPreset[] = [
+  { ...base, id: "seed-qb-drop", name: "QB Q · drop", label: "Q", fill: "#111111", outline: "#111111", route: "drop", lineEnd: "none", lineStyle: "dashed" },
+  { ...base, id: "seed-x-go", name: "X · go", label: "X", fill: "#1e4fd8", outline: "#1e4fd8", route: "go" },
+  { ...base, id: "seed-z-post", name: "Z · post", label: "Z", fill: "#1d7a50", outline: "#1d7a50", route: "post" },
+  { ...base, id: "seed-s-out", name: "Slot S · out", label: "S", fill: "#c9b8f5", outline: "#c9b8f5", route: "out" },
   { ...base, id: "seed-h-flat", name: "Back H · flat", label: "H", fill: "#f28c28", outline: "#f28c28", route: "flat", firstRead: true },
   {
     ...base,
@@ -62,6 +70,28 @@ export const SEED_PRESETS: PlayerPreset[] = [
     lineEnd: "tee",
   },
   { ...base, id: "seed-te-y-seam", name: "TE Y · seam", label: "Y", fill: "#d24b3e", outline: "#d24b3e", route: "seam" },
+  {
+    ...base,
+    id: "seed-tackle-base",
+    name: "Tackle T · base",
+    label: "T",
+    fill: "#ffffff",
+    outline: "#0b1524",
+    assignment: "block",
+    block: "base",
+    lineEnd: "tee",
+  },
+  {
+    ...base,
+    id: "seed-guard-pull",
+    name: "Guard G · pull",
+    label: "G",
+    fill: "#ffffff",
+    outline: "#0b1524",
+    assignment: "block",
+    block: "pull",
+    lineEnd: "tee",
+  },
   {
     ...base,
     id: "seed-nose-rush",
@@ -124,6 +154,11 @@ export const presetStore = {
   },
   remove(id: string) {
     commit(presets.filter((p) => p.id !== id));
+  },
+  /** Starters this coach doesn't have (new ones, or ones they deleted). */
+  missingSeeds: () => SEED_PRESETS.filter((s) => !presets.some((p) => p.id === s.id)),
+  addMissingSeeds() {
+    commit([...presets, ...presetStore.missingSeeds()]);
   },
 };
 
