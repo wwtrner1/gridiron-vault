@@ -45,6 +45,73 @@ const toAccount = (user: {
     "Coach",
 });
 
+/*
+ * Staying signed in. Identity keeps the session in two places: cookies the
+ * browser forgets when it closes (they have no expiry date), and a saved copy
+ * in this browser that includes the long-lived refresh token. iPhone Safari
+ * and home-screen apps close all the time, and once the cookies were gone
+ * Identity threw the saved copy away too, so coaches had to sign in again.
+ * Before Identity looks, we rebuild the cookies from the saved copy (with a
+ * fresh token if the old one has run out) and give them a 30-day life.
+ */
+const SAVED = "gotrue.user";
+const COOKIE_DAYS = 30;
+
+function writeAuthCookies(access: string, refresh?: string) {
+  const tail = `; path=/; max-age=${COOKIE_DAYS * 86400}; secure; samesite=lax`;
+  document.cookie = `nf_jwt=${encodeURIComponent(access)}${tail}`;
+  if (refresh) document.cookie = `nf_refresh=${encodeURIComponent(refresh)}${tail}`;
+}
+
+const jwtExpiry = (jwt: string): number => {
+  try {
+    return JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp * 1000;
+  } catch {
+    return 0;
+  }
+};
+
+type Saved = { token?: { access_token?: string; refresh_token?: string; expires_at?: number; expires_in?: number } };
+
+async function restoreSession() {
+  let saved: Saved | null;
+  try {
+    saved = JSON.parse(localStorage.getItem(SAVED) ?? "null");
+  } catch {
+    return;
+  }
+  const token = saved?.token;
+  if (!saved || !token?.refresh_token) return;
+  const expiresAt = token.expires_at ?? (token.access_token ? jwtExpiry(token.access_token) : 0);
+  if (token.access_token && expiresAt - Date.now() > 2 * 60_000) {
+    // Still current: put the cookies back (or keep them) with a life past closing the app.
+    writeAuthCookies(token.access_token, token.refresh_token);
+    return;
+  }
+  // The token ran out while the app was closed: trade the refresh token for a new one.
+  try {
+    const res = await fetch("/.netlify/identity/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: token.refresh_token }).toString(),
+    });
+    if (!res.ok) return; // signed out elsewhere, or the refresh token expired: a normal sign-in follows
+    const data = (await res.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+    const refresh = data.refresh_token ?? token.refresh_token;
+    saved.token = {
+      ...token,
+      access_token: data.access_token,
+      refresh_token: refresh,
+      expires_in: data.expires_in,
+      expires_at: jwtExpiry(data.access_token) || Date.now() + (data.expires_in ?? 3600) * 1000,
+    };
+    localStorage.setItem(SAVED, JSON.stringify(saved));
+    writeAuthCookies(data.access_token, refresh);
+  } catch {
+    /* offline: Identity decides, and the coach's local plays still open */
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
@@ -58,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const callback = await handleAuthCallback();
         if (callback?.user && alive) setAccount(toAccount(callback.user));
         if (callback?.type === "recovery" && alive) setRecovering(true);
+        if (!callback) await restoreSession();
         const user = await getUser();
         if (alive && user) setAccount(toAccount(user));
       } catch (error) {
@@ -66,13 +134,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (alive) setStatus("ready");
       }
     })();
+    // Back from the background (a phone app switch can pause the token timer): refresh if it ran out.
+    const onVisible = () => document.visibilityState === "visible" && void restoreSession();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const user = await identityLogin(email, password);
+    await restoreSession(); // gives the new session's cookies a life past closing the browser
     setAccount(toAccount(user));
   }, []);
 

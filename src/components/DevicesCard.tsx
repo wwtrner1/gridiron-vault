@@ -38,7 +38,7 @@ export function DevicesCard() {
     <section className="card">
       <h3>Phone and devices</h3>
       <p>
-        Codes go to <b>{sec.phone}</b>. {sec.devices} of 3 devices confirmed.
+        Codes go to <b>{sec.phone}</b>. {sec.devices} of 5 devices confirmed.
       </p>
       <p className="hint">One account, one coach: a new device needs a code to your phone, and a fourth signs out the one used longest ago.</p>
       <button type="button" className="btn btn-ghost btn-sm" onClick={forget} disabled={busy || sec.devices < 2}>

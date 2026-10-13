@@ -7,8 +7,21 @@ import { createHash } from "node:crypto";
  * environment variables; until all three are set, the check is off and
  * the app behaves as before.
  */
-export const DEVICE_LIMIT = 3;
+// Five, not three: a coach's phone, tablet, laptop, the phone's home-screen app
+// (which iOS keeps separate from Safari) and a spare, without bumping each other off.
+export const DEVICE_LIMIT = 5;
 export const DEVICE_DAYS = 30;
+
+/**
+ * Deploy Previews are behind the Netlify team login and each one is a new web
+ * address (so every preview looked like a new device and cost a text). The
+ * check stays on for the live site. Each deploy runs its own copy of the
+ * function, so this is set once per deploy, not per coach.
+ */
+let previewDeploy = false;
+export const noteHost = (host: string) => {
+  previewDeploy = /^deploy-preview-\d+--/.test(host);
+};
 export const SMS_PER_DAY = 8;
 
 // Trimmed: a space or line break pasted along with a key makes Twilio answer
@@ -21,7 +34,7 @@ const env = () => ({
 
 export const phoneRequired = () => {
   const e = env();
-  return Boolean(e.sid && e.token && e.service);
+  return !previewDeploy && Boolean(e.sid && e.token && e.service);
 };
 
 export class PhoneError extends Error {
