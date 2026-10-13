@@ -4,6 +4,9 @@ import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
 import { CoachTip } from "../components/CoachTip";
+import { ToolsGuide, type GuideTool } from "../components/ToolsGuide";
+import { DesignerTour, tourSeen } from "../components/DesignerTour";
+import { useToolPrefs } from "../lib/toolPrefs";
 import { coachTips, useTipsEnabled } from "../lib/coachTips";
 import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
@@ -372,12 +375,27 @@ export function Builder() {
     setTool(next);
     setMode(null);
     picked();
+    introduce(next);
   };
 
   const pickMode = (next: ModeId) => {
     setTool("select");
     setMode((m) => (m === next ? null : next));
     picked();
+    if (mode !== next) introduce(next);
+  };
+
+  /** The first time a coach picks a tool, a card says what it does and how to use it. */
+  const introduce = (id: ToolId | ModeId) => {
+    const t = [...LINE_TOOLS, ...SHAPE_TOOLS, ...MODES].find((x) => x.id === id);
+    if (!t) return;
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    coachTips.show({
+      id: `tool-${id}`,
+      max: 1,
+      title: RAIL_LABEL[t.id as ToolId] ?? t.label,
+      text: touch ? t.hint.replace(/\bright-click\b/gi, "press and hold").replace(/\bclick/gi, (w) => (w[0] === "C" ? "Tap" : "tap")) : t.hint,
+    });
   };
 
   const pickSelect = () => {
@@ -495,21 +513,28 @@ export function Builder() {
     return () => window.clearTimeout(t);
   }, [draftPoints]);
 
-  // First visit on a touch screen: the three gestures worth knowing.
+  // First visit: the walkthrough opens by itself once; More and the Tools guide bring it back.
+  const [tourOpen, setTourOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   useEffect(() => {
-    if (!window.matchMedia("(pointer: coarse)").matches) return;
-    const t = window.setTimeout(
-      () =>
-        coachTips.show({
-          id: "pinch",
-          max: 1,
-          title: "Editing with your fingers",
-          text: "Pinch to zoom and drag with two fingers to move around. Double-tap a spot to zoom to it. Press and hold a player for Duplicate, Delete and more.",
-        }),
-      1200,
-    );
+    if (tourSeen()) return;
+    const t = window.setTimeout(() => setTourOpen(true), 700);
     return () => window.clearTimeout(t);
   }, []);
+  const prefs = useToolPrefs();
+  const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
+  const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;
+  const guideTools: Record<string, GuideTool[]> = {
+    modes: MODES.map((m) => ({ id: m.id, label: m.label, hint: m.hint })),
+    lines: RAIL_LINES.map((id) => {
+      const t = LINE_TOOLS.find((x) => x.id === id)!;
+      return { id, label: RAIL_LABEL[id] ?? t.label, hint: t.hint };
+    }),
+    shapes: RAIL_SHAPES.map((id) => {
+      const t = SHAPE_TOOLS.find((x) => x.id === id)!;
+      return { id, label: RAIL_LABEL[id] ?? t.label, hint: t.hint };
+    }),
+  };
 
   /* ----------------------------------------------------------- drawing bar */
 
@@ -808,18 +833,20 @@ export function Builder() {
               {grid ? "Grid on" : "Grid off"}
             </button>
           </Tooltip>
-          <select
-            className="dz-top-select dz-wide"
-            value={scene.view}
-            onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
-            aria-label="Field"
-          >
-            {FIELD_VIEWS.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
+          <Tooltip title="Field" hint="How much field the play is drawn on: full, half, red zone and more. Exports and wristbands use the same view." side="bottom">
+            <select
+              className="dz-top-select dz-wide"
+              value={scene.view}
+              onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
+              aria-label="Field"
+            >
+              {FIELD_VIEWS.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </Tooltip>
           <label className="dz-zoom">
             <input
               type="range"
@@ -834,39 +861,53 @@ export function Builder() {
           <div className="dz-zoom-btns dz-short-only" role="group" aria-label="Zoom">
             <ZoomButtons zoom={zoom} autoFit={autoFit} onZoom={zoomBy} onFit={() => setAutoFit(true)} />
           </div>
-          <button type="button" className={`dz-top-btn dz-fit${autoFit ? " is-on" : ""}`} aria-pressed={autoFit} onClick={() => setAutoFit(true)}>
-            Fit
-          </button>
-          <button
-            type="button"
-            className={`dz-top-btn dz-wide${sideOpen ? " is-on" : ""}`}
-            onClick={() => setSideOpen((v) => !v)}
-            aria-expanded={sideOpen}
-            aria-controls="play-details"
-          >
-            Details
-          </button>
-          <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)}>
-            Run play
-          </button>
-          <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)}>
-            Export
-          </button>
-          {dirty || saving ? (
-            <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save play"}
+          <Tooltip title="Fit" hint="Sizes the field to fill the screen again after zooming. Ctrl + scroll or a trackpad pinch zooms." side="bottom">
+            <button type="button" className={`dz-top-btn dz-fit${autoFit ? " is-on" : ""}`} aria-pressed={autoFit} onClick={() => setAutoFit(true)}>
+              Fit
             </button>
+          </Tooltip>
+          <Tooltip title="Play details" hint="Name, formation, tags and notes for the play, plus the settings of whatever you have selected." side="bottom">
+            <button
+              type="button"
+              className={`dz-top-btn dz-wide${sideOpen ? " is-on" : ""}`}
+              onClick={() => setSideOpen((v) => !v)}
+              aria-expanded={sideOpen}
+              aria-controls="play-details"
+            >
+              Details
+            </button>
+          </Tooltip>
+          <Tooltip title="Run play" hint="Animates every route from the snap, and can sit beside game film to check timing." side="bottom">
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)}>
+              Run play
+            </button>
+          </Tooltip>
+          <Tooltip title="Export" hint="Download the play as a picture or PDF, or print it as a wristband card." side="bottom">
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)}>
+              Export
+            </button>
+          </Tooltip>
+          {dirty || saving ? (
+            <Tooltip title="Save play" hint="Keeps it in your Vault. Signed in, it also goes to your account so it's on every device." side="bottom">
+              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save play"}
+              </button>
+            </Tooltip>
           ) : (
             <span className="dz-saved" role="status">
               <Icon name="check" size={14} /> Saved
             </span>
           )}
-          <Link to="/upload" className="btn btn-outline-dark btn-sm dz-x">
-            <Icon name="upload" size={14} /> Upload
-          </Link>
-          <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
-            More tools
-          </Link>
+          <Tooltip title="Upload" hint="Turn a photo of a whiteboard or a hand-drawn play into an editable diagram." side="bottom">
+            <Link to="/upload" className="btn btn-outline-dark btn-sm dz-x">
+              <Icon name="upload" size={14} /> Upload
+            </Link>
+          </Tooltip>
+          <Tooltip title="More tools" hint="Coming soon: the assistant, libraries and route tree on one page. Everything on it is already in the tool panel here." side="bottom">
+            <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
+              More tools
+            </Link>
+          </Tooltip>
           <Link to="/vault" className="dz-back">
             Back to the Vault
           </Link>
@@ -914,6 +955,12 @@ export function Builder() {
                   <button type="button" role="menuitem" onClick={selectAll}>
                     Select all
                   </button>
+                  <button type="button" role="menuitem" onClick={() => setGuideOpen(true)}>
+                    Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setTourOpen(true)}>
+                    How the designer works
+                  </button>
                   <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)}>
                     Coach tips: {tipsOn ? "on" : "off"}
                   </button>
@@ -947,6 +994,9 @@ export function Builder() {
           <div className="dz-sheet-head">
             <span className="dz-sheet-grip" aria-hidden="true" />
             <h2>Tools</h2>
+            <button type="button" className="dz-sheet-help" onClick={() => setTourOpen(true)} aria-label="How the designer works">
+              ?
+            </button>
             <label className="dz-keep">
               <input type="checkbox" checked={keepOpen} onChange={toggleKeepOpen} />
               Keep open
@@ -971,7 +1021,7 @@ export function Builder() {
                   Select
                 </button>
               </Tooltip>
-              {MODES.map((m) => (
+              {MODES.filter((m) => shown(m.id)).map((m) => (
                 <Tooltip key={m.id} title={m.title} hint={m.hint} shortcut={m.key}>
                   <button
                     type="button"
@@ -1008,7 +1058,7 @@ export function Builder() {
 
           <RailGroup id="lines" title="Lines · Routes">
             <div className="dz-grid">
-              {RAIL_LINES.map((id) => {
+              {RAIL_LINES.filter(shown).map((id) => {
                 const t = LINE_TOOLS.find((x) => x.id === id)!;
                 const locked = !gateTool(tier, t.id).ok;
                 return (
@@ -1054,17 +1104,18 @@ export function Builder() {
           <RailGroup id="ink" title="Ink · Weight" summary={<><i className="dz-ink" style={{ background: color }} aria-hidden="true" />{STROKE_WEIGHTS.indexOf(width) + 1 || width}px</>}>
             <div className="dz-grid">
               {RAIL_INKS.map((ink) => (
-                <button
-                  key={ink.color}
-                  type="button"
-                  className={`dz-btn${color === ink.color ? " is-on" : ""}`}
-                  onClick={() => setColor(ink.color)}
-                  aria-pressed={color === ink.color}
-                  aria-label={`Draw in ${ink.name}`}
-                >
-                  <i className="dz-ink" style={{ background: ink.color }} aria-hidden="true" />
-                  {ink.name}
-                </button>
+                <Tooltip key={ink.color} title={`${ink.name} ink`} hint="The color of the next line you draw. To recolor a line already drawn, select it and use Details.">
+                  <button
+                    type="button"
+                    className={`dz-btn${color === ink.color ? " is-on" : ""}`}
+                    onClick={() => setColor(ink.color)}
+                    aria-pressed={color === ink.color}
+                    aria-label={`Draw in ${ink.name}`}
+                  >
+                    <i className="dz-ink" style={{ background: ink.color }} aria-hidden="true" />
+                    {ink.name}
+                  </button>
+                </Tooltip>
               ))}
               {STROKE_WEIGHTS.slice(0, 3).map((w, i) => (
                 <Tooltip
@@ -1088,7 +1139,7 @@ export function Builder() {
 
           <RailGroup id="shapes" title="Shapes · Zones">
             <div className="dz-grid">
-              {RAIL_SHAPES.map((id) => {
+              {RAIL_SHAPES.filter(shown).map((id) => {
                 const t = SHAPE_TOOLS.find((x) => x.id === id)!;
                 const locked = !gateTool(tier, t.id).ok;
                 return (
@@ -1117,16 +1168,21 @@ export function Builder() {
           <RailGroup id="players" title="Offense · Defense">
             <div className="dz-grid">
               {(["offense", "defense"] as const).map((side) => (
-                <button
+                <Tooltip
                   key={side}
-                  type="button"
-                  className={`dz-btn${tray === side ? " is-on" : ""}`}
-                  onClick={() => setTray((t) => (t === side ? null : side))}
-                  aria-expanded={tray === side}
-                  aria-controls="dz-token-tray"
+                  title={side === "offense" ? "Offense players" : "Defense players"}
+                  hint={`Shows the ${side} tokens below. Tap or click one to drop it on the field, or drag it to a spot.`}
                 >
-                  {side === "offense" ? "Offense" : "Defense"}
-                </button>
+                  <button
+                    type="button"
+                    className={`dz-btn${tray === side ? " is-on" : ""}`}
+                    onClick={() => setTray((t) => (t === side ? null : side))}
+                    aria-expanded={tray === side}
+                    aria-controls="dz-token-tray"
+                  >
+                    {side === "offense" ? "Offense" : "Defense"}
+                  </button>
+                </Tooltip>
               ))}
             </div>
             {tray && (
@@ -1135,7 +1191,7 @@ export function Builder() {
                   <Tooltip
                     key={t.code}
                     title={t.title}
-                    hint={`${t.hint} Click to drop it on the field, or drag it where you want it.`}
+                    hint={`${t.hint} Tap or click to drop it on the field, or drag it where you want it.`}
                   >
                     <button
                       type="button"
@@ -1156,17 +1212,28 @@ export function Builder() {
           <RailGroup id="sets" title="Libraries · Layers">
             <div className="dz-grid dz-grid-3">
               {(["formations", "defense", "layers"] as const).map((list) => (
-                <button
+                <Tooltip
                   key={list}
-                  type="button"
-                  className={`dz-btn${lists === list ? " is-on" : ""}`}
-                  onClick={() => setLists((l) => (l === list ? null : list))}
-                  aria-expanded={lists === list}
-                  aria-controls="dz-list-tray"
+                  title={list === "formations" ? "Formation library" : list === "defense" ? "Defense library" : "Layers"}
+                  hint={
+                    list === "formations"
+                      ? "Pick 5v5, 7v7 or 11-man and a formation, and the whole offense drops in at once."
+                      : list === "defense"
+                        ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
+                        : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
+                  }
                 >
-                  {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
-                  {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
-                </button>
+                  <button
+                    type="button"
+                    className={`dz-btn${lists === list ? " is-on" : ""}`}
+                    onClick={() => setLists((l) => (l === list ? null : list))}
+                    aria-expanded={lists === list}
+                    aria-controls="dz-list-tray"
+                  >
+                    {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
+                    {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
+                  </button>
+                </Tooltip>
               ))}
             </div>
             {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
@@ -1196,6 +1263,15 @@ export function Builder() {
               </div>
             )}
           </RailGroup>
+          <div className="dz-rail-foot">
+            <span>{hiddenCount ? `${hiddenCount} hidden.` : "Too many tools?"}</span>
+            <button type="button" onClick={() => setGuideOpen(true)}>
+              {hiddenCount ? "Show or hide tools" : "Hide the ones you don't use"}
+            </button>
+            <button type="button" onClick={() => setTourOpen(true)}>
+              How it works
+            </button>
+          </div>
         </aside>
 
         <main className="builder-main" id="main" ref={mainRef}>
@@ -1385,6 +1461,14 @@ export function Builder() {
       )}
 
       <CoachTip />
+      {guideOpen && (
+        <ToolsGuide
+          tools={guideTools}
+          onClose={() => setGuideOpen(false)}
+          onTour={() => (setGuideOpen(false), setTourOpen(true))}
+        />
+      )}
+      {tourOpen && <DesignerTour onClose={() => setTourOpen(false)} />}
     </div>
   );
 }
