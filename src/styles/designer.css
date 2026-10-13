@@ -473,3 +473,329 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rp-error { margin: 0; font-size: 13px; color: #ffb4a8; }
 .rp-open { font-weight: 600; color: var(--cyan); }
 @media (max-width: 900px) { .rp-body { flex-direction: column; } }
+
+/* ============================================================
+   iPhone and iPad (Phase 7): pinch and pan, the tools sheet,
+   the thumb dock, the selection bar and coach tips.
+   ============================================================ */
+
+/* iOS counts the address bar in 100vh, which pushed the bottom of the designer off screen. */
+.builder.dz { height: 100vh; height: 100dvh; }
+
+/* The field sits in the middle when it fits and scrolls to every edge when zoomed in
+   (centring an oversized field used to cut off its left side). */
+.builder .builder-stage { place-items: start; }
+.builder .stage-frame {
+  margin: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+/* Menus open where the finger or cursor is, above everything, never clipped by a small field. */
+.stage-menu { position: fixed; z-index: 300; max-height: calc(100dvh - 16px); overflow-y: auto; }
+.stage-menu-scrim { position: fixed; inset: 0; z-index: 299; }
+.stage-menu button.is-danger { color: #ffb4a8; }
+.stage-menu button:not(.is-extra) + .is-extra { margin-top: 4px; border-top: 1px solid var(--ink-3); border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
+
+/* Undo and Redo: words on wide screens, icons on phones. */
+.dz-btn-icon { display: none; }
+.dz-btn-icon svg { display: block; }
+
+/* ---- More menu (iPad and phone top bar) ---- */
+.dz-more { position: relative; display: none; flex: none; }
+.dz-more-menu {
+  position: fixed;
+  z-index: 300;
+  top: calc(60px + env(safe-area-inset-top));
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-height: calc(100dvh - 80px);
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  box-shadow: var(--shadow-l);
+}
+.dz-more-menu > button,
+.dz-more-menu > a {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--white);
+  font-size: 14px;
+  text-align: left;
+}
+.dz-more-menu > button:hover,
+.dz-more-menu > a:hover,
+.dz-more-menu > button:focus-visible,
+.dz-more-menu > a:focus-visible { background: var(--ink-3); }
+.dz-more-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 0 12px; font-size: 14px; color: var(--white); }
+.dz-more-menu .is-wide-dup { display: none; }
+
+/* ---- Zoom buttons (− Fit +) ---- */
+.dz-zoom-btns { display: none; flex: none; align-items: center; gap: 2px; }
+.dz-zoom-btns button,
+.dz-dock-zoom button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--white);
+  font-size: 18px;
+  line-height: 1;
+}
+.dz-zoom-btns button span,
+.dz-dock-zoom button span { font-family: var(--mono); font-size: 11px; }
+.dz-zoom-btns button.is-on,
+.dz-dock-zoom button.is-on { border-color: var(--cyan); color: var(--cyan); }
+.dz-zoom-btns button:disabled,
+.dz-dock-zoom button:disabled { opacity: 0.4; }
+
+/* ---- Drawing bar: the line being drawn ---- */
+.dz-drawbar-line { display: inline-flex; align-items: center; gap: 4px; padding-right: 6px; margin-right: 2px; border-right: 1px solid var(--ink-3); }
+.dz-drawbar-line button:disabled { opacity: 0.45; }
+.builder .dz-drawbar { position: sticky; top: 0; z-index: 6; }
+
+/* ---- Selection bar: Duplicate, Delete and the rest for screens without a keyboard ---- */
+.dz-selbar { display: none; }
+
+/* ---- Tools sheet header and the Details close bar (only where they are drawers) ---- */
+.dz-sheet-head,
+.dz-side-head,
+.dz-sheet-only { display: none; }
+.dz-sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -16px 6px;
+  padding: 18px 16px 10px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-2);
+}
+.dz-sheet-head h2,
+.dz-side-head h2 { flex: 1; margin: 0; font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--white); }
+.dz-sheet-grip { position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; border-radius: 2px; background: var(--ink-4); transform: translateX(-50%); }
+.dz-keep { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--rail-text); }
+.dz-keep input { width: 18px; height: 18px; accent-color: var(--cyan); }
+.dz-side-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-2);
+}
+
+/* ---- Dock (phones) ---- */
+.dz-dock { display: none; }
+
+/* ---- Coach tips ---- */
+.coach-tip {
+  position: fixed;
+  z-index: 280;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  width: min(440px, calc(100vw - 24px));
+  padding: 14px 16px;
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--white);
+  box-shadow: var(--shadow-l);
+  transform: translateX(-50%);
+  animation: coach-tip-in 0.2s ease;
+}
+@keyframes coach-tip-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+.coach-tip-title { margin: 0 0 4px; font-family: var(--display); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan); }
+.coach-tip-text { margin: 0; font-size: 14px; line-height: 1.45; }
+.coach-tip-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.coach-tip-btn { height: 36px; padding: 0 14px; border: 1px solid #26405f; border-radius: var(--radius-md); background: transparent; color: var(--white); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.coach-tip-btn.is-primary { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
+.coach-tip-off { margin-left: auto; padding: 0; background: none; color: var(--muted-2); font-size: 12.5px; text-decoration: underline; }
+
+/* ---- iPad landscape and narrower: More menu, selection bar, Details close bar ---- */
+@media (max-width: 1180px), (pointer: coarse) {
+  .dz-selbar {
+    position: fixed;
+    z-index: 105;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: calc(100vw - 16px);
+    padding: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--cyan);
+    border-radius: var(--radius-lg);
+    background: var(--ink-2);
+    box-shadow: var(--shadow-l);
+    transform: translateX(-50%);
+    scrollbar-width: none;
+  }
+  .dz-selbar button { flex: none; height: 40px; padding: 0 12px; border: 1px solid var(--ink-3); border-radius: var(--radius-sm); background: var(--ink); color: var(--white); font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .dz-selbar button.is-danger { border-color: rgba(210, 75, 62, 0.6); color: #ffb4a8; }
+  .dz-selbar-count { flex: none; padding: 0 6px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; white-space: nowrap; color: var(--cyan); }
+  .dz-selbar .dz-selbar-done { border-color: var(--cyan); }
+}
+@media (max-width: 1180px) {
+  .dz-top .dz-x { display: none; }
+  .dz-more { display: inline-flex; }
+  .dz-zoom, .dz-fit { display: none; }
+  .dz-zoom-btns { display: inline-flex; }
+  .dz-side-head { display: flex; }
+  .builder .builder-side { padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (max-width: 760px) {
+  .dz-wide { display: none; }
+  .dz-more-menu .is-wide-dup { display: flex; }
+  .dz-btn-icon { display: block; }
+  .dz-btn-word { display: none; }
+  .dz-top { gap: 6px; padding: 0 8px; }
+  .dz-top-actions { gap: 4px; }
+  .dz-top .dz-top-btn { padding: 0 10px; }
+}
+@media (max-width: 480px) {
+  .builder .builder-side { width: 100%; }
+  .pa-title { display: none; }
+  .dz-status .mono { display: none; }
+}
+
+/* ---- Phones and small tablets: the tools become a sheet from the bottom ---- */
+@media (max-width: 900px), (max-height: 500px) and (pointer: coarse) {
+  .dz-body,
+  .dz-body.is-side-closed { grid-template-columns: minmax(0, 1fr); }
+  .builder .builder-rail {
+    position: fixed;
+    z-index: 130;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: min(62dvh, 560px);
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ink-4);
+    border-right: 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
+  }
+  .builder .builder-rail.is-open { transform: none; visibility: visible; transition-delay: 0s; }
+  .dz-sheet-head { display: flex; }
+  .dz-zoom-btns { display: none; }
+  /* The white stage hugs the field instead of filling the column. */
+  .builder .builder-stage { flex: none; min-height: 0; padding: 8px; }
+  .builder .builder-main { padding: 10px 10px calc(84px + env(safe-area-inset-bottom)); gap: 10px; }
+  .dz-drawbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .dz-drawbar button { flex: none; }
+  .dz-dock {
+    position: fixed;
+    z-index: 110;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ink-3);
+    background: var(--ink-2);
+  }
+  .dz-dock > button {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 50px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--rail-text);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .dz-dock > button.is-on { background: var(--cyan); color: var(--on-cyan); }
+  .dz-dock-zoom { display: flex; flex: none; align-items: center; gap: 3px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--ink-3); }
+  .dz-dock-zoom button { min-width: 40px; height: 44px; }
+  .dz-selbar { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .coach-tip { bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+
+/* Phone turned sideways: no room for a dock, so the tools slide in from the left
+   and the zoom buttons sit in the top bar. */
+@media (max-height: 500px) and (pointer: coarse) {
+  .dz-dock { display: none; }
+  .dz-sheet-only, .dz-zoom-btns { display: inline-flex; }
+  .builder .builder-rail {
+    top: 0;
+    right: auto;
+    width: min(340px, 48vw);
+    max-height: none;
+    padding-left: calc(16px + env(safe-area-inset-left));
+    border-top: 0;
+    border-right: 1px solid var(--ink-4);
+    border-radius: 0 16px 16px 0;
+    transform: translateX(-105%);
+  }
+  .dz-sheet-grip { display: none; }
+  .dz-top { height: 48px; padding-left: calc(8px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }
+  .builder .builder-main { padding: 8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left)); gap: 8px; }
+  .dz-status { display: none; }
+  .pa { padding: 6px 10px; }
+  .pa-title { display: none; }
+  .dz-selbar, .coach-tip { bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+/* ---- Fingers: 44px targets, and 16px text so iOS doesn't zoom the page into a box ---- */
+@media (pointer: coarse) {
+  .dz-btn { height: 44px; font-size: 13px; }
+  .dz-top-btn, .dz-top-select { height: 40px; }
+  .dz-group-toggle { min-height: 44px; }
+  .dz-drawbar button { height: 40px; }
+  .dz-drawbar kbd, .dz-kbd-only { display: none; }
+  .stage-menu button { height: 44px; font-size: 15px; }
+  .builder input:not([type="range"]):not([type="checkbox"]),
+  .builder select,
+  .builder textarea { font-size: 16px; }
+  .pa-input { height: 44px; }
+  .pa-mic { width: 44px; height: 44px; }
+  .builder .token-btn { min-height: 48px; }
+  .rl-tile svg { height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .builder .builder-rail { transition: none; }
+  .coach-tip { animation: none; }
+}
+
+/* Selection bar on a phone: everything on show, wrapping to a second row before anything hides off the edge. */
+@media (max-width: 480px) {
+  .dz-selbar { flex-wrap: wrap; justify-content: center; width: calc(100vw - 16px); overflow-x: visible; }
+  .dz-selbar-count { display: none; }
+  .dz-selbar button { padding: 0 11px; }
+}
+
+/* Quick taps on + or Undo never trigger Safari's double-tap page zoom (pinch-zoom of the page still works). */
+.builder.dz { touch-action: manipulation; }

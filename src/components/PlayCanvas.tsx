@@ -68,11 +68,46 @@ type Props = {
   onPickNode?: (id: string) => void;
   /** Picks a tool from the right-click menu. */
   onPickTool?: (tool: ToolId) => void;
+  /** What a long press or right-click on a player or line offers (Duplicate, Delete…). */
+  nodeActions?: MenuAction[];
+  /** Extra items for the empty-field menu (Select all…). */
+  fieldActions?: MenuAction[];
+  /** Two-finger pinch, Ctrl+scroll or a trackpad pinch: zoom by `factor` around a screen point. */
+  onZoom?: (factor: number, focal: { clientX: number; clientY: number }) => void;
+  /** Two-finger drag: move the view by this many screen pixels. */
+  onPan?: (dx: number, dy: number) => void;
+  /** Double-tap on the empty field. */
+  onDoubleTap?: (focal: { clientX: number; clientY: number }) => void;
+  /** Input that did nothing, for coach tips. */
+  onSignal?: (signal: CanvasSignal) => void;
+  /** How many points the line being drawn has, so touch screens can show Finish. */
+  onDraftChange?: (points: number) => void;
+  /** Lets the toolbar finish, step back or scrap the line being drawn. */
+  controlRef?: React.MutableRefObject<CanvasControl | null>;
 };
+
+export type MenuAction = { id: string; label: string; run: () => void; danger?: boolean };
+export type CanvasSignal = { kind: "emptyTap" | "emptyBox" | "lockedPress"; touch: boolean };
+export type CanvasControl = { finish: () => void; undoPoint: () => void; scrap: () => void };
+
+/** True on phones and tablets, where a finger needs bigger grab areas than a mouse. */
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const on = () => setCoarse(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return coarse;
+}
+
+const LONG_PRESS_MS = 500;
+const TAP_SLOP = 10;
 
 type Drag =
   | { kind: "move"; start: Point; ids: string[]; origin: Map<string, Point> }
-  | { kind: "marquee"; start: Point; additive: boolean }
+  | { kind: "marquee"; start: Point; additive: boolean; touch: boolean; hadSelection: boolean }
   | {
       kind: "rotate";
       center: Point;
@@ -112,11 +147,39 @@ export function PlayCanvas({
   aids = NO_AIDS,
   onPickTool,
   onPickNode,
+  nodeActions,
+  fieldActions,
+  onZoom,
+  onPan,
+  onDoubleTap,
+  onSignal,
+  onDraftChange,
+  controlRef,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const coarse = useCoarsePointer();
+
+  /*
+   * Fingers. One finger draws, moves and selects exactly like a mouse. A
+   * second finger turns the touch into a pinch/pan of the view and takes back
+   * whatever the first finger had started, so zooming never nudges a player.
+   */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; mid: { x: number; y: number } } | null>(null);
+  /** The pointer driving the current drag; other pointers are ignored until it lifts. */
+  const activePointer = useRef<number | null>(null);
+  /** The scene and selection as they were when the current press began. */
+  const pressStart = useRef<{ scene: Scene; selection: string[]; at: number } | null>(null);
+  /** The line points as they were before the last tap, so a pinch can take that tap back. */
+  const draftBefore = useRef<{ pts: Point[]; at: number } | null>(null);
+  const longPress = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const lastTap = useRef<{ at: number; x: number; y: number } | null>(null);
 
   const [draft, setDraft] = useState<Point[]>([]);
   const [ghost, setGhost] = useState<Point | null>(null);
@@ -150,7 +213,21 @@ export function PlayCanvas({
 
   // The player a line starts on, so the line stays glued to him.
   const startPlayer = useRef<string | null>(null);
-  const [menu, setMenu] = useState<Point | null>(null);
+  /** The tool menu (empty field) or the element menu (a player or line), placed in frame pixels. */
+  const [menu, setMenu] = useState<(Point & { node: boolean }) | null>(null);
+  const lastPointerType = useRef("mouse");
+
+  /**
+   * Opens a menu where the press or click happened. It is fixed to the screen,
+   * not the field, so a small field on a phone never clips it.
+   */
+  const openMenu = useCallback((clientX: number, clientY: number, node: boolean) => {
+    setMenu({
+      x: Math.max(8, Math.min(clientX, window.innerWidth - 188)),
+      y: Math.max(8, Math.min(clientY, window.innerHeight - 300)),
+      node,
+    });
+  }, []);
 
   /**
    * Where a drawing click lands: on a player's center with Snap on, else on
@@ -196,7 +273,11 @@ export function PlayCanvas({
       onSelection([node.id]);
       setDraft([]);
       setGhost(null);
-      say(`${node.name} drawn. Press Escape to drop the tool, or keep clicking to draw another.`);
+      say(
+        lastPointerType.current === "mouse"
+          ? `${node.name} drawn. Press Escape to drop the tool, or keep clicking to draw another.`
+          : `${node.name} drawn. Keep tapping to draw another, or tap Select when you're done.`,
+      );
     },
     [tool, color, width, onScene, onSelection, say],
   );
@@ -204,6 +285,36 @@ export function PlayCanvas({
   const finishDraft = useCallback(() => {
     if (draft.length) commitPoly(draft);
   }, [draft, commitPoly]);
+
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  /** Finish button, long press or double-tap: end the line where it is. */
+  const finishLine = () => {
+    const pts = draftRef.current;
+    if (tool === "arc" && pts.length < 3) {
+      setDraft([]);
+      setGhost(null);
+      say("A 3-point arc needs three taps: where it starts, a point it passes through, and where it ends. Start again from the first one.");
+      return;
+    }
+    commitPoly(pts);
+  };
+
+  useEffect(() => onDraftChange?.(draft.length), [draft.length, onDraftChange]);
+  if (controlRef)
+    controlRef.current = {
+      finish: finishLine,
+      undoPoint: () => {
+        setDraft((d) => d.slice(0, -1));
+        setGhost(null);
+      },
+      scrap: () => {
+        setDraft([]);
+        setGhost(null);
+        startPlayer.current = null;
+        say("Line scrapped.");
+      },
+    };
 
   /* ------------------------------------------------------------ drag starts */
 
@@ -241,20 +352,86 @@ export function PlayCanvas({
     dragRef.current = { kind: "scale", anchor: anchorPt, start, ids, lockX, lockY, origin };
   };
 
+  const clearLongPress = () => {
+    if (!longPress.current) return;
+    window.clearTimeout(longPress.current.timer);
+    longPress.current = null;
+  };
+
+  /**
+   * Takes back whatever the current press started (a move, a box, a line
+   * point), as if the finger had never touched down. Used when a second finger
+   * turns the touch into a pinch, and before a long-press menu opens.
+   */
+  const cancelGesture = () => {
+    dragRef.current = null;
+    activePointer.current = null;
+    clearLongPress();
+    setMarquee(null);
+    setFreehand([]);
+    setBox(null);
+    const start = pressStart.current;
+    pressStart.current = null;
+    if (start && Date.now() - start.at < 1500) {
+      if (sceneRef.current !== start.scene) onScene(start.scene);
+      const sel = selectionRef.current;
+      if (sel.length !== start.selection.length || sel.some((id, i) => id !== start.selection[i])) onSelection(start.selection);
+    }
+    const before = draftBefore.current;
+    draftBefore.current = null;
+    if (before && Date.now() - before.at < 1500) {
+      setDraft(before.pts);
+      setGhost(null);
+      if (!before.pts.length) startPlayer.current = null;
+    }
+  };
+
+  /** A press is starting: note how things were, and watch for a long press from a finger or pen. */
+  const beginPress = (e: React.PointerEvent, onLong?: () => void) => {
+    lastPointerType.current = e.pointerType;
+    activePointer.current = e.pointerId;
+    pressStart.current = { scene: sceneRef.current, selection: selectionRef.current, at: Date.now() };
+    draftBefore.current = null;
+    clearLongPress();
+    if (e.pointerType === "mouse" || !onLong) return;
+    longPress.current = {
+      x: e.clientX,
+      y: e.clientY,
+      timer: window.setTimeout(() => {
+        longPress.current = null;
+        onLong();
+      }, LONG_PRESS_MS),
+    };
+  };
+
+  /** Two quick taps in the same spot from a finger. */
+  const isDoubleTap = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") return false;
+    const now = Date.now();
+    const prev = lastTap.current;
+    const hit = !!prev && now - prev.at < 320 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 30;
+    lastTap.current = hit ? null : { at: now, x: e.clientX, y: e.clientY };
+    return hit;
+  };
+
   /* ------------------------------------------------------------- node input */
 
   const onNodeDown = (e: React.PointerEvent, node: SceneNode) => {
-    if (editing) return;
+    if (editing || e.button === 2) return;
     // While drawing, a click on a player (or anything) adds a point there.
     if (POLY_TOOLS.includes(tool)) {
       e.stopPropagation();
       addPoint(e);
       return;
     }
-    if (node.locked) return;
+    if (node.locked) {
+      if (tool === "select") onSignal?.({ kind: "lockedPress", touch: e.pointerType !== "mouse" });
+      return;
+    }
     e.stopPropagation();
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = point(e);
+    if (tool !== "select") lastPointerType.current = e.pointerType;
 
     if (tool === "connect") {
       if (node.kind !== "player") {
@@ -283,6 +460,14 @@ export function PlayCanvas({
     }
 
     if (tool !== "select") return;
+
+    // Holding a finger on a player or line opens its menu (Duplicate, Delete…), the touch right-click.
+    const at = { x: e.clientX, y: e.clientY };
+    beginPress(e, () => {
+      cancelGesture();
+      onSelection(resolveSelection(sceneRef.current, node.id, false));
+      if (nodeActions?.length) openMenu(at.x, at.y, true);
+    });
 
     onPickNode?.(node.id);
     const ids = resolveSelection(sceneRef.current, node.id, mode === "clickThrough");
@@ -349,10 +534,25 @@ export function PlayCanvas({
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
 
     if (tool === "select") {
-      dragRef.current = { kind: "marquee", start: raw, additive: mode === "multiSelect" || e.shiftKey };
+      if (isDoubleTap(e)) {
+        onDoubleTap?.({ clientX: e.clientX, clientY: e.clientY });
+        return;
+      }
+      // Holding a finger on the empty field opens the tool menu, the touch right-click.
+      const at = { x: e.clientX, y: e.clientY };
+      beginPress(e, onPickTool ? () => (cancelGesture(), openMenu(at.x, at.y, false)) : undefined);
+      dragRef.current = {
+        kind: "marquee",
+        start: raw,
+        additive: mode === "multiSelect" || e.shiftKey,
+        touch: e.pointerType !== "mouse",
+        hadSelection: selection.length > 0,
+      };
       setMarquee({ x: raw.x, y: raw.y, w: 0, h: 0 });
       return;
     }
+
+    if (!POLY_TOOLS.includes(tool)) beginPress(e);
 
     if (tool === "pivot") {
       onScene({ ...sceneRef.current, pivot: p }, "Pivot point");
@@ -388,6 +588,23 @@ export function PlayCanvas({
   /** One click of a line tool: snap it, then add it to the line being drawn. */
   const addPoint = (e: React.PointerEvent) => {
     if (e.button === 2) return;
+    // A finger double-tap ends the line, since iPhones and iPads don't send a double-click.
+    if (isDoubleTap(e) && draft.length >= 2 && tool !== "arc") {
+      commitPoly(draft);
+      return;
+    }
+    // Holding the finger down ends the line on that point; held before the first point, it opens the tool menu.
+    const at = { x: e.clientX, y: e.clientY };
+    const before = draft;
+    beginPress(e, () => {
+      activePointer.current = null;
+      if (before.length) finishLine();
+      else if (onPickTool) {
+        cancelGesture();
+        openMenu(at.x, at.y, false);
+      }
+    });
+    draftBefore.current = { pts: before, at: Date.now() };
     const last = draft.length ? draft[draft.length - 1] : null;
     const { p, player } = aim(point(e), last, e.shiftKey);
     // Close a polygon by clicking back on the first point.
@@ -404,9 +621,13 @@ export function PlayCanvas({
     setGhost(p);
     if (draft.length === 0)
       say(
-        tool === "arc"
-          ? "Now click a point the curve passes through, then where it ends."
-          : "Click each turn in the line. Double-click, press Enter or right-click to finish; Escape scraps it.",
+        e.pointerType === "mouse"
+          ? tool === "arc"
+            ? "Now click a point the curve passes through, then where it ends."
+            : "Click each turn in the line. Double-click, press Enter or right-click to finish; Escape scraps it."
+          : tool === "arc"
+            ? "Now tap a point the curve passes through, then where it ends."
+            : "Tap each turn in the route. Double-tap the last point, hold it, or tap Finish line to end it.",
       );
   };
 
@@ -414,6 +635,25 @@ export function PlayCanvas({
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch" && touches.current.has(e.pointerId)) {
+        touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch.current) {
+          if (touches.current.size >= 2) {
+            const [a, b] = [...touches.current.values()];
+            const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+            const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            const was = pinch.current;
+            onPan?.(mid.x - was.mid.x, mid.y - was.mid.y);
+            if (Math.abs(dist / was.dist - 1) > 0.002) onZoom?.(dist / was.dist, { clientX: mid.x, clientY: mid.y });
+            pinch.current = { dist, mid };
+          }
+          return;
+        }
+      }
+      const lp = longPress.current;
+      if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > TAP_SLOP) clearLongPress();
+      // Only the finger (or mouse) that started the drag drives it.
+      if (activePointer.current !== null && e.pointerId !== activePointer.current) return;
       const d = dragRef.current;
       const raw = point(e);
 
@@ -542,7 +782,18 @@ export function PlayCanvas({
       }
     };
 
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType === "touch") {
+        touches.current.delete(e.pointerId);
+        if (pinch.current) {
+          // The view stays put until every finger is up, so the last one can't start a drag.
+          if (touches.current.size === 0) pinch.current = null;
+          return;
+        }
+      }
+      clearLongPress();
+      if (activePointer.current !== null && e.pointerId !== activePointer.current) return;
+      activePointer.current = null;
       const d = dragRef.current;
       dragRef.current = null;
 
@@ -553,6 +804,7 @@ export function PlayCanvas({
         setMarquee(null);
         if (!m || m.w < 4 || m.h < 4) {
           if (!d.additive) onSelection([]);
+          if (!d.hadSelection) onSignal?.({ kind: "emptyTap", touch: d.touch });
           return;
         }
         const hits = sceneRef.current.nodes
@@ -561,6 +813,7 @@ export function PlayCanvas({
         const unique = [...new Set(d.additive ? [...selection, ...hits] : hits)];
         onSelection(unique);
         say(`${unique.length} element${unique.length === 1 ? "" : "s"} selected.`);
+        if (!hits.length && d.touch) onSignal?.({ kind: "emptyBox", touch: true });
         return;
       }
 
@@ -620,12 +873,72 @@ export function PlayCanvas({
     onScene,
     onSelection,
     onToolDone,
+    onPan,
+    onZoom,
+    onSignal,
     point,
     say,
     selection,
     snapped,
     width,
   ]);
+
+  /* ------------------------------------------- pinch, trackpad and Ctrl+scroll */
+
+  /** Every finger lands here first; a second one turns the touch into a pinch. */
+  const onFrameDownCapture = (e: React.PointerEvent) => {
+    lastPointerType.current = e.pointerType;
+    if (e.pointerType !== "touch") return;
+    // The first finger of a fresh touch clears anything a lost "up" left behind.
+    if (e.isPrimary) {
+      touches.current.clear();
+      pinch.current = null;
+    }
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.current.size < 2) return;
+    e.stopPropagation();
+    e.preventDefault();
+    cancelGesture();
+    setMenu(null);
+    const [a, b] = [...touches.current.values()];
+    pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  };
+
+  const zoomRef = useRef(onZoom);
+  zoomRef.current = onZoom;
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    // A laptop trackpad pinch arrives as Ctrl+scroll in Chrome and Edge.
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomRef.current?.(Math.exp(-e.deltaY * 0.01), { clientX: e.clientX, clientY: e.clientY });
+    };
+    // Safari sends its own gesture events; keep them from zooming the whole page.
+    let last = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      last = 1;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      if (touches.current.size) return; // fingers on a touch screen are handled as pointers
+      const g = e as Event & { scale: number; clientX: number; clientY: number };
+      zoomRef.current?.(g.scale / last, { clientX: g.clientX, clientY: g.clientY });
+      last = g.scale;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", onGestureStart);
+    el.addEventListener("gesturechange", onGestureChange);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGestureStart);
+      el.removeEventListener("gesturechange", onGestureChange);
+    };
+  }, []);
+
+  useEffect(() => () => clearLongPress(), []);
 
   /* --------------------------------------------------------------- keyboard */
 
@@ -652,6 +965,8 @@ export function PlayCanvas({
   /** Right-click: finish the line being drawn, or open the tool menu on the empty field. */
   const onContext = (e: React.MouseEvent) => {
     e.preventDefault();
+    // A finger's long press opens its own menu (Android sends this event as well).
+    if (lastPointerType.current !== "mouse") return;
     if (draft.length) {
       if (tool === "arc" && draft.length < 3) {
         setDraft([]);
@@ -663,8 +978,17 @@ export function PlayCanvas({
       return;
     }
     if (!onPickTool) return;
-    const r = (e.currentTarget as Element).getBoundingClientRect();
-    setMenu({ x: e.clientX - r.left, y: e.clientY - r.top });
+    openMenu(e.clientX, e.clientY, false);
+  };
+
+  /** Right-click on a player or line: its menu (Duplicate, Delete…) instead of the tool menu. */
+  const onNodeContext = (e: React.MouseEvent, node: SceneNode) => {
+    if (tool !== "select" || draft.length || node.locked || !nodeActions?.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (lastPointerType.current !== "mouse") return;
+    if (!selection.includes(node.id)) onSelection(resolveSelection(sceneRef.current, node.id, mode === "clickThrough"));
+    openMenu(e.clientX, e.clientY, true);
   };
 
   /* ----------------------------------------------------------------- render */
@@ -684,9 +1008,18 @@ export function PlayCanvas({
   const previewPts = ghost && draft.length ? [...draft, ghost] : draft;
   const showHandles = tool === "select" && selection.length > 0 && !dragRef.current;
   const soloPath = selected.length === 1 && selected[0].kind === "path" ? (selected[0] as PathNode) : null;
+  // Invisible finger-sized reach around the small handles, kept small enough
+  // on a tight selection that it never covers the players inside it.
+  const fingerReach = coarse && selBox ? Math.max(0, Math.min(22 / zoom, 30, 9 + Math.min(selBox.w, selBox.h) / 4)) : 0;
+  const pointReach = coarse ? Math.min(20 / zoom, 22) : 0;
 
   return (
-    <div className="stage-frame" style={{ width: CANVAS_W * zoom, height: CANVAS_H * zoom }}>
+    <div
+      ref={frameRef}
+      className="stage-frame"
+      style={{ width: CANVAS_W * zoom, height: CANVAS_H * zoom }}
+      onPointerDownCapture={onFrameDownCapture}
+    >
       <svg
         ref={svgRef}
         viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
@@ -726,6 +1059,7 @@ export function PlayCanvas({
             node={node}
             style={{ cursor: node.locked ? "not-allowed" : "move" }}
             onPointerDown={(e) => onNodeDown(e, node)}
+            onContextMenu={(e) => onNodeContext(e, node)}
             onDoubleClick={(e) => {
               e.stopPropagation();
               if (node.kind === "text") setEditing(node.id);
@@ -753,12 +1087,14 @@ export function PlayCanvas({
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={Math.min(Math.max(half + 6, 18 / zoom), half + 12)}
+                  // A fingertip covers about 44px, so touch screens get a wider reach than a mouse.
+                  r={coarse ? Math.min(Math.max(half + 8, 22 / zoom), half + 20) : Math.min(Math.max(half + 6, 18 / zoom), half + 12)}
                   fill="transparent"
                   style={{ cursor: node.locked ? "not-allowed" : "move" }}
-                  onPointerEnter={() => setHovered(node.id)}
+                  onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(node.id)}
                   onPointerLeave={() => setHovered((h) => (h === node.id ? null : h))}
                   onPointerDown={(e) => onNodeDown(e, node)}
+                  onContextMenu={(e) => onNodeContext(e, node)}
                 >
                   <title>{noteShowsOnHover(node) ? `${node.label || node.name}: ${node.note}` : `Drag to move ${node.label || node.name || "this player"}`}</title>
                 </circle>
@@ -802,29 +1138,25 @@ export function PlayCanvas({
             {HANDLES.map((h) => {
               const hx = selBox.x - 9 + (selBox.w + 18) * h.ax;
               const hy = selBox.y - 9 + (selBox.h + 18) * h.ay;
+              const grab = (e: React.PointerEvent) => {
+                e.stopPropagation();
+                beginPress(e);
+                beginScale(
+                  selection,
+                  point(e),
+                  { x: selBox.x + selBox.w * (1 - h.ax), y: selBox.y + selBox.h * (1 - h.ay) },
+                  h.ax === 0.5,
+                  h.ay === 0.5,
+                );
+              };
               return (
-                <rect
-                  key={h.id}
-                  x={hx - 5}
-                  y={hy - 5}
-                  width={10}
-                  height={10}
-                  rx={2}
-                  fill="#fff"
-                  stroke={SEL}
-                  strokeWidth={1.8}
-                  style={{ cursor: h.cursor }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    beginScale(
-                      selection,
-                      point(e),
-                      { x: selBox.x + selBox.w * (1 - h.ax), y: selBox.y + selBox.h * (1 - h.ay) },
-                      h.ax === 0.5,
-                      h.ay === 0.5,
-                    );
-                  }}
-                />
+                <g key={h.id} style={{ cursor: h.cursor }}>
+                  <rect x={hx - 5} y={hy - 5} width={10} height={10} rx={2} fill="#fff" stroke={SEL} strokeWidth={1.8} onPointerDown={grab} />
+                  {/* Side handles are skipped for fingers on small selections, where they would crowd the corners. */}
+                  {fingerReach > 0 && (h.ax !== 0.5 && h.ay !== 0.5 ? true : Math.min(selBox.w, selBox.h) > fingerReach * 3) && (
+                    <circle cx={hx} cy={hy} r={fingerReach} fill="transparent" onPointerDown={grab} />
+                  )}
+                </g>
               );
             })}
             <line
@@ -839,16 +1171,16 @@ export function PlayCanvas({
             <circle
               cx={selBox.x + selBox.w / 2}
               cy={selBox.y - 34}
-              r={7}
-              fill="#fff"
-              stroke={SEL}
-              strokeWidth={1.8}
+              r={Math.max(7, pointReach)}
+              fill="transparent"
               style={{ cursor: "grab" }}
               onPointerDown={(e) => {
                 e.stopPropagation();
+                beginPress(e);
                 beginRotate(selection, point(e));
               }}
             />
+            <circle cx={selBox.x + selBox.w / 2} cy={selBox.y - 34} r={7} fill="#fff" stroke={SEL} strokeWidth={1.8} pointerEvents="none" />
           </g>
         )}
 
@@ -859,22 +1191,16 @@ export function PlayCanvas({
               // A start glued to a player has no handle, so clicking the player still moves him.
               if (i === 0 && (soloPath.fromId || soloPath.assignOf)) return null;
               const w = toWorld(soloPath, pt);
+              const grab = (e: React.PointerEvent) => {
+                e.stopPropagation();
+                beginPress(e);
+                dragRef.current = { kind: "vertex", id: soloPath.id, index: i };
+              };
               return (
-                <rect
-                  key={`v${i}`}
-                  x={w.x - 4}
-                  y={w.y - 4}
-                  width={8}
-                  height={8}
-                  fill={SEL}
-                  stroke="#fff"
-                  strokeWidth={1.4}
-                  style={{ cursor: "move" }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    dragRef.current = { kind: "vertex", id: soloPath.id, index: i };
-                  }}
-                />
+                <g key={`v${i}`} style={{ cursor: "move" }}>
+                  {pointReach > 0 && <circle cx={w.x} cy={w.y} r={pointReach} fill="transparent" onPointerDown={grab} />}
+                  <rect x={w.x - 4} y={w.y - 4} width={8} height={8} fill={SEL} stroke="#fff" strokeWidth={1.4} onPointerDown={grab} />
+                </g>
               );
             })}
             {soloPath.curve === "bezier" &&
@@ -889,16 +1215,16 @@ export function PlayCanvas({
                     <circle
                       cx={tip.x}
                       cy={tip.y}
-                      r={5.5}
-                      fill="#fff"
-                      stroke={SEL}
-                      strokeWidth={1.8}
+                      r={Math.max(5.5, pointReach)}
+                      fill="transparent"
                       style={{ cursor: "grab" }}
                       onPointerDown={(e) => {
                         e.stopPropagation();
+                        beginPress(e);
                         dragRef.current = { kind: "handle", id: soloPath.id, index: i };
                       }}
                     />
+                    <circle cx={tip.x} cy={tip.y} r={5.5} fill="#fff" stroke={SEL} strokeWidth={1.8} pointerEvents="none" />
                   </g>
                 );
               })}
@@ -1041,25 +1367,63 @@ export function PlayCanvas({
         })()}
       </svg>
 
-      {menu && onPickTool && (
-        <div className="stage-menu" role="menu" aria-label="Tools" style={{ left: menu.x, top: menu.y }}>
-          {MENU_TOOLS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="menuitemradio"
-              aria-checked={tool === t.id}
-              className={tool === t.id ? "is-on" : ""}
-              autoFocus={tool === t.id}
-              onClick={() => {
-                setMenu(null);
-                onPickTool(t.id);
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {menu && (
+        <>
+          {/* A tap anywhere else closes the menu without doing anything. */}
+          <div className="stage-menu-scrim" onPointerDown={() => setMenu(null)} aria-hidden="true" />
+          {menu.node && nodeActions?.length ? (
+            <div className="stage-menu" role="menu" aria-label="Selected element" style={{ left: menu.x, top: menu.y }}>
+              {nodeActions.map((a, i) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="menuitem"
+                  className={a.danger ? "is-danger" : ""}
+                  autoFocus={i === 0}
+                  onClick={() => {
+                    setMenu(null);
+                    a.run();
+                  }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          ) : onPickTool ? (
+            <div className="stage-menu" role="menu" aria-label="Tools" style={{ left: menu.x, top: menu.y }}>
+              {MENU_TOOLS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={tool === t.id}
+                  className={tool === t.id ? "is-on" : ""}
+                  autoFocus={tool === t.id}
+                  onClick={() => {
+                    setMenu(null);
+                    onPickTool(t.id);
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+              {fieldActions?.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="menuitem"
+                  className="is-extra"
+                  onClick={() => {
+                    setMenu(null);
+                    a.run();
+                  }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
       )}
 
       {watermark && <div className="stage-watermark">{watermark}</div>}

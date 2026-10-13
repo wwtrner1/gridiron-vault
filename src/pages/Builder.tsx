@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
-import { PlayCanvas, type DrawAids } from "../components/PlayCanvas";
+import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
+import { CoachTip } from "../components/CoachTip";
+import { coachTips, useTipsEnabled } from "../lib/coachTips";
 import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
-import { RailGroup } from "../components/RailGroup";
+import { RailGroup, railStore } from "../components/RailGroup";
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
@@ -84,6 +86,30 @@ const RAIL_INKS = [
 
 /** The details panel starts open on screens wide enough to show it beside the field. */
 const wideScreen = () => typeof window !== "undefined" && window.matchMedia("(min-width: 1181px)").matches;
+/** Phones and small tablets, where the tools live in a sheet that slides up from the bottom. */
+const sheetScreen = () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 3;
+
+/** Whether the tools sheet stays up after a pick, remembered per browser. */
+const KEEP_OPEN_KEY = "grid1ronvault.toolsKeepOpen.v1";
+const readKeepOpen = () => {
+  try {
+    return localStorage.getItem(KEEP_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/** What undoing the same step three times usually means, and the fix. */
+const UNDO_TIPS: Record<string, string> = {
+  Move: "To move one player out of a formation, tap him once to pick the set, then press him again to pick only him. To move the whole set, tap the empty field first.",
+  "Add shape": "Shapes draw from corner to corner as you drag. Drag farther for a bigger one, or pick Select to stop adding them.",
+  Rotate: "Rotate spins around the middle of the selection, or around your pivot point if you dropped one. Pick Pivot in Tools to choose the spot.",
+  Scale: "Scale grows away from the anchor dot. Pick a different anchor in Tools → Modes, or drag a corner handle instead.",
+  Duplicate: "Duplicate mode copies whatever you press. Tap Select to go back to moving things.",
+};
 
 export function Builder() {
   const { id } = useParams();
@@ -109,26 +135,104 @@ export function Builder() {
   // The field fits the stage (phone, iPad, laptop) until the coach picks a zoom himself.
   const [autoFit, setAutoFit] = useState(true);
   const stageRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const fitZoom = useRef(0.86);
   useEffect(() => {
     const el = stageRef.current;
-    if (!el || !autoFit) return;
+    if (!el) return;
     const fit = () => {
-      const pad = 36;
+      const cs = getComputedStyle(el);
+      const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) || 36;
       // Width only: the stage grows with the field, so its height would chase the zoom.
       const z = (el.clientWidth - pad) / CANVAS_W;
-      setZoom(Math.max(0.25, Math.min(1.4, Math.floor(z * 100) / 100)));
+      fitZoom.current = Math.max(ZOOM_MIN, Math.min(1.4, Math.floor(z * 100) / 100));
+      if (autoFit) setZoom(fitZoom.current);
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, [autoFit]);
+
+  /*
+   * Zoom around a point (two fingers, Ctrl+scroll, a double-tap, the + and −
+   * buttons): the spot under the fingers stays under the fingers. The view
+   * scrolls in the stage sideways and in the column up and down.
+   */
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const focal = useRef<{ fx: number; fy: number; clientX: number; clientY: number } | null>(null);
+  const nudge = useCallback((dx: number, dy: number) => {
+    const stage = stageRef.current;
+    const main = mainRef.current;
+    if (!stage) return;
+    const beforeX = stage.scrollLeft;
+    const beforeY = stage.scrollTop;
+    stage.scrollLeft += dx;
+    stage.scrollTop += dy;
+    const leftX = dx - (stage.scrollLeft - beforeX);
+    const leftY = dy - (stage.scrollTop - beforeY);
+    if (main) {
+      main.scrollLeft += leftX;
+      main.scrollTop += leftY;
+    }
+  }, []);
+  const zoomTo = useCallback((next: number, at?: { clientX: number; clientY: number }) => {
+    const svg = stageRef.current?.querySelector(".stage-frame svg");
+    const r = svg?.getBoundingClientRect();
+    const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
+    if (Math.abs(z - zoomRef.current) < 0.001) return;
+    if (r && r.width) {
+      const s = stageRef.current!.getBoundingClientRect();
+      const p = at ?? { clientX: s.left + s.width / 2, clientY: s.top + Math.min(s.height, window.innerHeight - s.top) / 2 };
+      focal.current = { fx: (p.clientX - r.left) / r.width, fy: (p.clientY - r.top) / r.height, clientX: p.clientX, clientY: p.clientY };
+    }
+    zoomRef.current = z;
+    setAutoFit(false);
+    setZoom(z);
+    coachTips.acted();
+  }, []);
+  const zoomBy = useCallback((factor: number, at?: { clientX: number; clientY: number }) => zoomTo(zoomRef.current * factor, at), [zoomTo]);
+  const panBy = useCallback((dx: number, dy: number) => nudge(-dx, -dy), [nudge]);
+  useLayoutEffect(() => {
+    const f = focal.current;
+    focal.current = null;
+    const r = stageRef.current?.querySelector(".stage-frame svg")?.getBoundingClientRect();
+    if (!f || !r) return;
+    nudge(r.left + f.fx * r.width - f.clientX, r.top + f.fy * r.height - f.clientY);
+  }, [zoom, nudge]);
+  /** Double-tap: in close on that spot, or back out to the whole field. */
+  const doubleTapZoom = useCallback(
+    (at: { clientX: number; clientY: number }) => {
+      if (zoomRef.current > fitZoom.current * 1.3) setAutoFit(true);
+      else zoomTo(Math.max(fitZoom.current * 2.2, 1), at);
+    },
+    [zoomTo],
+  );
   const [status, setStatus] = useState("Drop a formation, then draw the routes. Hover any tool to see how it works.");
   const [exporting, setExporting] = useState(false);
   const [sideOpen, setSideOpen] = useState(wideScreen);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
   const [lists, setLists] = useState<"formations" | "defense" | "layers" | null>(null);
   const [railOpen, setRailOpen] = useState(false);
+  const [keepOpen, setKeepOpen] = useState(readKeepOpen);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [draftPoints, setDraftPoints] = useState(0);
+  const canvasControl = useRef<CanvasControl | null>(null);
+  const tipsOn = useTipsEnabled();
+  /** After a pick on a phone the tools sheet steps aside so the field is free, unless the coach pinned it. */
+  const picked = () => {
+    if (sheetScreen() && !keepOpen) setRailOpen(false);
+  };
+  const toggleKeepOpen = () =>
+    setKeepOpen((k) => {
+      try {
+        localStorage.setItem(KEEP_OPEN_KEY, k ? "0" : "1");
+      } catch {
+        /* storage blocked — the choice still holds this session */
+      }
+      return !k;
+    });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -147,17 +251,26 @@ export function Builder() {
     setSelection([]);
     past.current = [];
     future.current = [];
+    pastLabels.current = [];
+    futureLabels.current = [];
     setDirty(false);
   }, [id, existing]);
 
   const sceneRefValue = useRef(scene);
   sceneRefValue.current = scene;
 
+  // What each undo step was called, so coach tips can spot the same step undone again and again.
+  const pastLabels = useRef<string[]>([]);
+  const futureLabels = useRef<string[]>([]);
+
   const applyScene = useCallback((next: Scene, label?: string) => {
     if (label) {
       past.current = [...past.current.slice(-59), sceneRefValue.current];
+      pastLabels.current = [...pastLabels.current.slice(-59), label];
       future.current = [];
+      futureLabels.current = [];
       setStatus(label);
+      coachTips.acted();
     }
     sceneRefValue.current = next;
     setScene(next);
@@ -167,10 +280,16 @@ export function Builder() {
   const undo = useCallback(() => {
     const prev = past.current.pop();
     if (!prev) return;
+    const label = pastLabels.current.pop();
+    futureLabels.current = [label ?? "", ...futureLabels.current.slice(0, 59)];
     future.current = [sceneRefValue.current, ...future.current.slice(0, 59)];
     sceneRefValue.current = prev;
     setScene(prev);
-    setStatus("Undone.");
+    setStatus(label ? `Undid ${label.toLowerCase()}.` : "Undone.");
+    coachTips.undid(label, (l) => {
+      const key = Object.keys(UNDO_TIPS).find((k) => l === k || l.startsWith(`${k} `));
+      return key ? { id: "undoLoop", title: `${key} not landing right?`, text: UNDO_TIPS[key] } : null;
+    });
   }, []);
 
   const redo = useCallback(() => {
@@ -178,6 +297,9 @@ export function Builder() {
     if (!next) return;
     future.current = rest;
     past.current = [...past.current, sceneRefValue.current];
+    const [label = "", ...restLabels] = futureLabels.current;
+    futureLabels.current = restLabels;
+    pastLabels.current = [...pastLabels.current, label];
     sceneRefValue.current = next;
     setScene(next);
     setStatus("Redone.");
@@ -190,6 +312,7 @@ export function Builder() {
     const node = { ...makePlayer(preset, spot.x, spot.y), z: nextZ(scene) };
     applyScene({ ...scene, nodes: [...scene.nodes, node] }, `${preset.title} added`);
     setSelection([node.id]);
+    picked();
   };
 
   const applyFormation = (set: { name: string; note: string; placed: Placed[] }) => {
@@ -204,6 +327,7 @@ export function Builder() {
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
     setStatus(set.note);
+    picked();
   };
 
   const drawAssistant = (nodes: SceneNode[], read: AssistantRead) => {
@@ -236,6 +360,7 @@ export function Builder() {
           : "No receivers on the play yet, so man defenders are placed without lines. Drop an offense first to draw them."
         : `${describeDefense(set.front, set.coverage, set.show)}.`,
     );
+    picked();
   };
 
   const pickTool = (next: ToolId) => {
@@ -246,11 +371,19 @@ export function Builder() {
     }
     setTool(next);
     setMode(null);
+    picked();
   };
 
   const pickMode = (next: ModeId) => {
     setTool("select");
     setMode((m) => (m === next ? null : next));
+    picked();
+  };
+
+  const pickSelect = () => {
+    setTool("select");
+    setMode(null);
+    picked();
   };
 
   const duplicateSelection = () => {
@@ -272,6 +405,111 @@ export function Builder() {
     applyScene({ ...scene, nodes: scene.nodes.filter((n) => !selection.includes(n.id)) }, "Deleted");
     setSelection([]);
   };
+
+  const ungroupSelection = () => {
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, groupId: null } : n)) }, "Ungroup");
+  };
+
+  const lockSelection = () => {
+    if (!selection.length) return;
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, locked: true } : n)) }, "Lock");
+    setSelection([]);
+    setStatus("Locked in place. To unlock, open Libraries · Layers, pick it, then Details → Arrange → Lock.");
+  };
+
+  const selectAll = () => setSelection(scene.nodes.filter((n) => !n.locked && !n.hidden).map((n) => n.id));
+
+  // What a long press or right-click on the field offers, and what the touch selection bar shows.
+  const selectedNodes = scene.nodes.filter((n) => selection.includes(n.id));
+  const groupActions: (MenuAction & { short: string })[] = [
+    ...(selection.length > 1 && !selectedNodes.every((n) => n.groupId && n.groupId === selectedNodes[0].groupId)
+      ? [{ id: "group", label: "Group", short: "Group", run: groupSelection }]
+      : []),
+    ...(selectedNodes.some((n) => n.groupId) ? [{ id: "ungroup", label: "Ungroup", short: "Ungroup", run: ungroupSelection }] : []),
+  ];
+  const nodeActions: MenuAction[] = [
+    { id: "duplicate", label: "Duplicate", run: duplicateSelection },
+    ...groupActions,
+    { id: "lock", label: "Lock in place", run: lockSelection },
+    { id: "details", label: "Edit details", run: () => setSideOpen(true) },
+    { id: "delete", label: "Delete", run: deleteSelection, danger: true },
+  ];
+  // The bar under a thumb leads with the moves made most and keeps every label short.
+  const barActions: (MenuAction & { short: string })[] = [
+    { id: "duplicate", label: "Duplicate", short: "Duplicate", run: duplicateSelection },
+    { id: "delete", label: "Delete", short: "Delete", run: deleteSelection, danger: true },
+    { id: "details", label: "Edit details", short: "Details", run: () => setSideOpen(true) },
+    ...groupActions,
+    { id: "lock", label: "Lock in place", short: "Lock", run: lockSelection },
+  ];
+  const fieldActions: MenuAction[] = [
+    { id: "all", label: "Select all", run: selectAll },
+    { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
+  ];
+
+  /* ----------------------------------------------------------- coach tips */
+
+  const openLayers = () => {
+    railStore.open("sets");
+    setLists("layers");
+    setRailOpen(true);
+  };
+  const onSignal = useCallback((s: CanvasSignal) => {
+    if (s.kind === "emptyTap")
+      coachTips.emptyTap({
+        id: "emptyTaps",
+        title: "Nothing to pick there",
+        text: s.touch
+          ? "Tapping empty field only clears the selection. To draw a route, tap Route in the bar below. To add players, open Tools → Offense · Defense. Press and hold the field for the tool menu."
+          : "Clicking empty field only clears the selection. Pick a line tool on the left (or press L) to draw, or drag players in from Offense · Defense. Right-click the field for the tool menu.",
+        action: sheetScreen() ? { label: "Open Tools", run: () => setRailOpen(true) } : undefined,
+      });
+    if (s.kind === "lockedPress")
+      coachTips.lockedPress({
+        id: "locked",
+        title: "That one is locked",
+        text: "Locked elements can't be moved or picked on the field, so nothing gets bumped by accident. To unlock it, pick it in Layers, then open Details → Arrange → Lock.",
+        action: { label: "Show Layers", run: openLayers },
+      });
+    if (s.kind === "emptyBox")
+      coachTips.emptyBox({
+        id: "oneFingerPan",
+        title: "Moving around the field?",
+        text: "One finger draws a selection box. Use two fingers to move around, pinch to zoom in or out, or double-tap a spot to zoom straight to it.",
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fingers can't double-click, so a route left hanging gets a reminder of how to finish it.
+  useEffect(() => {
+    if (draftPoints < 2 || !window.matchMedia("(pointer: coarse)").matches) return;
+    const t = window.setTimeout(
+      () =>
+        coachTips.show({
+          id: "finishLine",
+          title: "Done with that route?",
+          text: "Tap Finish line above the field, double-tap the last point, or press and hold it. Undo point takes back the last tap.",
+        }),
+      7000,
+    );
+    return () => window.clearTimeout(t);
+  }, [draftPoints]);
+
+  // First visit on a touch screen: the three gestures worth knowing.
+  useEffect(() => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    const t = window.setTimeout(
+      () =>
+        coachTips.show({
+          id: "pinch",
+          max: 1,
+          title: "Editing with your fingers",
+          text: "Pinch to zoom and drag with two fingers to move around. Double-tap a spot to zoom to it. Press and hold a player for Duplicate, Delete and more.",
+        }),
+      1200,
+    );
+    return () => window.clearTimeout(t);
+  }, []);
 
   /* ----------------------------------------------------------- drawing bar */
 
@@ -491,6 +729,7 @@ export function Builder() {
     }
     applyScene(result.scene, tile.label);
     setStatus(result.message);
+    picked();
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -532,12 +771,12 @@ export function Builder() {
       <header className="dz-top" role="toolbar" aria-label="Play actions">
         <button
           type="button"
-          className="dz-top-btn only-narrow"
+          className={`dz-top-btn dz-sheet-only${railOpen ? " is-on" : ""}`}
           onClick={() => setRailOpen((v) => !v)}
-          aria-label="Drawing tools"
           aria-expanded={railOpen}
+          aria-controls="dz-tools"
         >
-          <Icon name="multiselect" size={15} />
+          <Icon name="multiselect" size={15} /> Tools
         </button>
         <Link to="/" className="dz-brand">
           <Mark size={30} />
@@ -548,19 +787,21 @@ export function Builder() {
 
         <div className="dz-top-actions">
           <Tooltip title="Undo" hint="Steps back through everything you have drawn this session." shortcut="⌘Z" side="bottom">
-            <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length}>
-              Undo
+            <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo">
+              <span className="dz-btn-icon"><Icon name="undo" size={15} /></span>
+              <span className="dz-btn-word">Undo</span>
             </button>
           </Tooltip>
           <Tooltip title="Redo" hint="Puts back the last thing you undid." shortcut="⇧⌘Z" side="bottom">
-            <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length}>
-              Redo
+            <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length} aria-label="Redo">
+              <span className="dz-btn-icon"><Icon name="redo" size={15} /></span>
+              <span className="dz-btn-word">Redo</span>
             </button>
           </Tooltip>
           <Tooltip title="Snap to grid" hint="Locks every drop point to a grid so tokens and routes line up exactly." side="bottom">
             <button
               type="button"
-              className={`dz-top-btn${grid ? " is-on" : ""}`}
+              className={`dz-top-btn dz-wide${grid ? " is-on" : ""}`}
               onClick={() => setGrid((g) => (g ? 0 : 20))}
               aria-pressed={grid > 0}
             >
@@ -568,7 +809,7 @@ export function Builder() {
             </button>
           </Tooltip>
           <select
-            className="dz-top-select"
+            className="dz-top-select dz-wide"
             value={scene.view}
             onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
             aria-label="Field"
@@ -582,33 +823,33 @@ export function Builder() {
           <label className="dz-zoom">
             <input
               type="range"
-              min={25}
-              max={140}
+              min={ZOOM_MIN * 100}
+              max={ZOOM_MAX * 100}
               value={Math.round(zoom * 100)}
-              onChange={(e) => {
-                setAutoFit(false);
-                setZoom(Number(e.target.value) / 100);
-              }}
+              onChange={(e) => zoomTo(Number(e.target.value) / 100)}
               aria-label="Zoom"
             />
             <span>{Math.round(zoom * 100)}%</span>
           </label>
-          <button type="button" className={`dz-top-btn${autoFit ? " is-on" : ""}`} aria-pressed={autoFit} onClick={() => setAutoFit(true)}>
+          <div className="dz-zoom-btns dz-short-only" role="group" aria-label="Zoom">
+            <ZoomButtons zoom={zoom} autoFit={autoFit} onZoom={zoomBy} onFit={() => setAutoFit(true)} />
+          </div>
+          <button type="button" className={`dz-top-btn dz-fit${autoFit ? " is-on" : ""}`} aria-pressed={autoFit} onClick={() => setAutoFit(true)}>
             Fit
           </button>
           <button
             type="button"
-            className={`dz-top-btn${sideOpen ? " is-on" : ""}`}
+            className={`dz-top-btn dz-wide${sideOpen ? " is-on" : ""}`}
             onClick={() => setSideOpen((v) => !v)}
             aria-expanded={sideOpen}
             aria-controls="play-details"
           >
             Details
           </button>
-          <button type="button" className="dz-top-btn" onClick={() => setRunning(true)}>
+          <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)}>
             Run play
           </button>
-          <button type="button" className="dz-top-btn" onClick={() => setExporting(true)}>
+          <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)}>
             Export
           </button>
           {dirty || saving ? (
@@ -620,15 +861,75 @@ export function Builder() {
               <Icon name="check" size={14} /> Saved
             </span>
           )}
-          <Link to="/upload" className="btn btn-outline-dark btn-sm">
+          <Link to="/upload" className="btn btn-outline-dark btn-sm dz-x">
             <Icon name="upload" size={14} /> Upload
           </Link>
-          <Link to="/tools" className="btn btn-outline-dark btn-sm">
+          <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
             More tools
           </Link>
           <Link to="/vault" className="dz-back">
             Back to the Vault
           </Link>
+          <div className="dz-more">
+            <button
+              type="button"
+              className={`dz-top-btn${moreOpen ? " is-on" : ""}`}
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-expanded={moreOpen}
+              aria-controls="dz-more-menu"
+              aria-label="More actions"
+            >
+              More <Icon name="chevron" size={13} />
+            </button>
+            {moreOpen && (
+              <>
+                <div className="stage-menu-scrim" onPointerDown={() => setMoreOpen(false)} aria-hidden="true" />
+                <div className="dz-more-menu" id="dz-more-menu" role="menu" aria-label="More actions" onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)}>
+                    Play details
+                  </button>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
+                    Run play
+                  </button>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
+                    Export · print · wristband
+                  </button>
+                  <button type="button" role="menuitemcheckbox" aria-checked={grid > 0} className="is-wide-dup" onClick={() => setGrid((g) => (g ? 0 : 20))}>
+                    Snap to grid: {grid ? "on" : "off"}
+                  </button>
+                  <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
+                    <span>Field</span>
+                    <select
+                      className="dz-top-select"
+                      value={scene.view}
+                      onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
+                    >
+                      {FIELD_VIEWS.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="button" role="menuitem" onClick={selectAll}>
+                    Select all
+                  </button>
+                  <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)}>
+                    Coach tips: {tipsOn ? "on" : "off"}
+                  </button>
+                  <Link to="/upload" role="menuitem">
+                    Upload a whiteboard photo
+                  </Link>
+                  <Link to="/tools" role="menuitem">
+                    More tools
+                  </Link>
+                  <Link to="/vault" role="menuitem">
+                    Back to the Vault
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -642,7 +943,18 @@ export function Builder() {
       )}
 
       <div className={`dz-body${sideOpen ? "" : " is-side-closed"}`}>
-        <aside className={`builder-rail${railOpen ? " is-open" : ""}`} aria-label="Drawing tools">
+        <aside className={`builder-rail${railOpen ? " is-open" : ""}`} id="dz-tools" aria-label="Drawing tools">
+          <div className="dz-sheet-head">
+            <span className="dz-sheet-grip" aria-hidden="true" />
+            <h2>Tools</h2>
+            <label className="dz-keep">
+              <input type="checkbox" checked={keepOpen} onChange={toggleKeepOpen} />
+              Keep open
+            </label>
+            <button type="button" className="dz-top-btn is-on" onClick={() => setRailOpen(false)}>
+              Done
+            </button>
+          </div>
           <RailGroup id="modes" title="Modes">
             <div className="dz-grid">
               <Tooltip
@@ -653,7 +965,7 @@ export function Builder() {
                 <button
                   type="button"
                   className={`dz-btn${tool === "select" && !mode ? " is-on" : ""}`}
-                  onClick={() => (setTool("select"), setMode(null))}
+                  onClick={pickSelect}
                   aria-pressed={tool === "select" && !mode}
                 >
                   Select
@@ -886,10 +1198,23 @@ export function Builder() {
           </RailGroup>
         </aside>
 
-        <main className="builder-main" id="main">
+        <main className="builder-main" id="main" ref={mainRef}>
           <PlayAssistant scene={scene} tokens={offense} plays={plays} nextZ={nextZ(scene)} onDraw={drawAssistant} />
           {drawingTool && (
             <div className="dz-drawbar" role="toolbar" aria-label="Drawing tools">
+              {draftPoints > 0 && (
+                <div className="dz-drawbar-line" role="group" aria-label="Line being drawn">
+                  <button type="button" className="is-on" onClick={() => canvasControl.current?.finish()} disabled={draftPoints < 2}>
+                    <Icon name="check" size={14} /> Finish line <kbd>Enter</kbd>
+                  </button>
+                  <button type="button" onClick={() => canvasControl.current?.undoPoint()}>
+                    <Icon name="undo" size={14} /> Undo point
+                  </button>
+                  <button type="button" onClick={() => canvasControl.current?.scrap()}>
+                    <Icon name="close" size={14} /> Scrap
+                  </button>
+                </div>
+              )}
               {(
                 [
                   ["select", "Select", "V"],
@@ -924,7 +1249,22 @@ export function Builder() {
                 Freehand <kbd>F</kbd>
               </button>
               <button type="button" className="dz-drawbar-exit" onClick={() => (setTool("select"), setMode(null))}>
-                Exit drawing · <kbd>Esc</kbd>
+                Exit drawing<span className="dz-kbd-only"> · </span><kbd>Esc</kbd>
+              </button>
+            </div>
+          )}
+
+          {/* Phones and tablets have no Delete key or right-click, so the selection gets its own bar. */}
+          {tool === "select" && selection.length > 0 && (
+            <div className="dz-selbar" role="toolbar" aria-label="Selected elements">
+              <span className="dz-selbar-count">{selection.length} selected</span>
+              {barActions.map((a) => (
+                <button key={a.id} type="button" className={a.danger ? "is-danger" : ""} onClick={a.run} aria-label={a.label}>
+                  {a.short}
+                </button>
+              ))}
+              <button type="button" className="dz-selbar-done" onClick={() => setSelection([])}>
+                Done
               </button>
             </div>
           )}
@@ -955,6 +1295,14 @@ export function Builder() {
               aids={aids}
               onPickNode={pickNode}
               onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
+              nodeActions={nodeActions}
+              fieldActions={fieldActions}
+              onZoom={zoomBy}
+              onPan={panBy}
+              onDoubleTap={doubleTapZoom}
+              onSignal={onSignal}
+              onDraftChange={setDraftPoints}
+              controlRef={canvasControl}
             />
           </div>
 
@@ -968,7 +1316,50 @@ export function Builder() {
           </div>
         </main>
 
+        {/* Phones: the thumb bar. Tools opens the sheet; the rest are the moves made most. */}
+        <nav className="dz-dock" aria-label="Quick tools">
+          <button type="button" className={railOpen ? "is-on" : ""} onClick={() => setRailOpen((v) => !v)} aria-expanded={railOpen} aria-controls="dz-tools">
+            <Icon name="multiselect" size={18} />
+            <span>Tools</span>
+          </button>
+          <button type="button" className={tool === "select" && !mode ? "is-on" : ""} onClick={pickSelect} aria-pressed={tool === "select" && !mode}>
+            <Icon name="cursor" size={18} />
+            <span>Select</span>
+          </button>
+          <button
+            type="button"
+            className={tool === "line" ? "is-on" : ""}
+            onClick={() => (tool === "line" ? pickSelect() : pickTool("line"))}
+            aria-pressed={tool === "line"}
+          >
+            <Icon name="arrow" size={18} />
+            <span>Route</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              railStore.open("players");
+              setTray((t) => t ?? "offense");
+              setRailOpen(true);
+              // After the sheet has slid up, bring the player tokens into view.
+              window.setTimeout(() => document.getElementById("dz-token-tray")?.scrollIntoView({ block: "center", behavior: "smooth" }), 280);
+            }}
+          >
+            <Icon name="user" size={18} />
+            <span>Players</span>
+          </button>
+          <div className="dz-dock-zoom" role="group" aria-label="Zoom">
+            <ZoomButtons zoom={zoom} autoFit={autoFit} onZoom={zoomBy} onFit={() => setAutoFit(true)} />
+          </div>
+        </nav>
+
         <aside className={`builder-side${sideOpen ? " is-open" : ""}`} id="play-details" aria-label="Play details">
+          <div className="dz-side-head">
+            <h2>Play details</h2>
+            <button type="button" className="dz-top-btn is-on" onClick={() => setSideOpen(false)}>
+              Done
+            </button>
+          </div>
           <Inspector
             scene={scene}
             selection={selection}
@@ -992,7 +1383,36 @@ export function Builder() {
           }}
         />
       )}
+
+      <CoachTip />
     </div>
+  );
+}
+
+/** − · Fit · + for screens without a mouse wheel; the % shows the current zoom. */
+function ZoomButtons({
+  zoom,
+  autoFit,
+  onZoom,
+  onFit,
+}: {
+  zoom: number;
+  autoFit: boolean;
+  onZoom: (factor: number) => void;
+  onFit: () => void;
+}) {
+  return (
+    <>
+      <button type="button" onClick={() => onZoom(1 / 1.25)} disabled={zoom <= ZOOM_MIN + 0.001} aria-label="Zoom out">
+        <b aria-hidden="true">−</b>
+      </button>
+      <button type="button" className={autoFit ? "is-on" : ""} onClick={onFit} aria-pressed={autoFit} aria-label={`Fit the field to the screen (now ${Math.round(zoom * 100)}%)`}>
+        <span>{autoFit ? "Fit" : `${Math.round(zoom * 100)}%`}</span>
+      </button>
+      <button type="button" onClick={() => onZoom(1.25)} disabled={zoom >= ZOOM_MAX - 0.001} aria-label="Zoom in">
+        <b aria-hidden="true">+</b>
+      </button>
+    </>
   );
 }
 
