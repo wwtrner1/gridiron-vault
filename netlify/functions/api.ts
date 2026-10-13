@@ -19,6 +19,7 @@ import {
   hashDevice,
   maskPhone,
   normalizePhone,
+  noteHost,
   PhoneError,
   phoneRequired,
   sendCode,
@@ -66,13 +67,32 @@ async function ensureProfile(user: Session) {
     .onConflictDoNothing();
 }
 
+const DEVICE_COOKIE = "gv_device";
+const DEVICE_ID = /^[A-Za-z0-9-]{8,100}$/;
+
+/**
+ * Which device this is. The browser's random id comes with every request; the
+ * server also keeps it in its own long-lived cookie, which iPhone Safari holds
+ * onto when it clears a site's saved data. So a confirmed phone stays
+ * confirmed, and a coach isn't texted a new code after every clean-up.
+ */
 export default async (req: Request) => {
+  noteHost(new URL(req.url).hostname);
+  const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
+  const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
+  const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";
+  const res = await route(req, deviceId);
+  if (deviceId && deviceId !== fromCookie) {
+    res.headers.append("Set-Cookie", `${DEVICE_COOKIE}=${deviceId}; Max-Age=${400 * 86400}; Path=/api; Secure; HttpOnly; SameSite=Lax`);
+  }
+  return res;
+};
+
+async function route(req: Request, deviceId: string): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
   const [resource, id, action] = parts;
   const me = await session();
-  // The browser's own random device id, for "one login, one coach" (see netlify/security/phone.ts).
-  const deviceId = (req.headers.get("x-device") ?? "").slice(0, 100);
 
   try {
     if (resource === "me") {

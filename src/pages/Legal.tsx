@@ -66,8 +66,8 @@ export function Privacy() {
           when you sign in on a new device.
         </li>
         <li>
-          <b>Devices:</b> a random code each browser makes for itself, stored only as a one-way fingerprint, so we can
-          recognise up to three devices you've confirmed.
+          <b>Devices:</b> a random code each browser makes for itself, kept in that browser and in a cookie only our site can
+          read, and stored on our side only as a one-way fingerprint, so we can recognise up to five devices you've confirmed.
         </li>
         <li>
           <b>Your work:</b> plays, playbooks and Season Grids you save to your account.

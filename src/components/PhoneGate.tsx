@@ -158,8 +158,9 @@ export function PhoneGate() {
             </button>
           </div>
           <p className="pg-note">
-            Message and data rates may apply. Up to 3 devices stay confirmed for 30 days; a fourth signs out the one used
-            longest ago. Plays saved in this browser stay here while you sign in.
+            Message and data rates may apply. You only do this once per device: up to 5 stay confirmed as long as you use
+            them at least once a month, and a sixth signs out the one used longest ago. Plays saved in this browser stay here
+            while you sign in.
           </p>
         </form>
       </div>
