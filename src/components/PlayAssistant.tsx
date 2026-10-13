@@ -17,12 +17,31 @@ import { PlayThumb } from "./PlayThumb";
 type Recognition = {
   lang: string;
   interimResults: boolean;
-  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+  continuous: boolean;
+  onresult: (e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void;
   onend: () => void;
-  onerror: () => void;
+  onerror: (e: { error?: string }) => void;
   start: () => void;
   stop: () => void;
+  abort?: () => void;
 };
+
+/** iPhone and iPad Safari: continuous listening is unreliable there, so each phrase restarts the mic. */
+const isIOS = () =>
+  typeof navigator !== "undefined" &&
+  (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1));
+
+/** How long the mic waits for more speech before it turns itself off. */
+const IDLE_MS = 60000;
+
+/** Spoken edits, so a coach can fix the call without touching the keyboard. */
+const VOICE_EDITS: { re: RegExp; edit: "phrase" | "word" | "clear" | "stop" | "read" }[] = [
+  { re: /^(scratch|delete|undo|remove) (that|the last (part|phrase|bit))$/, edit: "phrase" },
+  { re: /^(delete|remove|back) (the )?last word$/, edit: "word" },
+  { re: /^(clear( it| all| everything)?|start over)$/, edit: "clear" },
+  { re: /^(done|stop|stop listening|that's it|that is it)$/, edit: "stop" },
+  { re: /^(read it|go|draw it)$/, edit: "read" },
+];
 
 /** Browser speech-to-text, where the browser has it (Chrome, Edge, Safari). */
 function speechRecognition(): (new () => Recognition) | null {
@@ -66,14 +85,29 @@ export function PlayAssistant({
   const [error, setError] = useState<{ text: string; plans?: boolean } | null>(null);
   const [read, setRead] = useState<AssistantRead | null>(null);
   const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState("");
+  const [micNote, setMicNote] = useState<string | null>(null);
   const recog = useRef<Recognition | null>(null);
+  // The coach wants the mic on: browsers end a session after a pause, and it restarts until they say Done.
+  const wantMic = useRef(false);
+  const idle = useRef<number | undefined>(undefined);
+  /** Each spoken phrase added to the call, so "scratch that" takes back exactly the last one. */
+  const phrases = useRef<string[]>([]);
   const firstChip = useRef<HTMLSelectElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const Speech = useMemo(speechRecognition, []);
 
-  useEffect(() => () => recog.current?.stop(), []);
+  useEffect(
+    () => () => {
+      wantMic.current = false;
+      window.clearTimeout(idle.current);
+      recog.current?.abort?.();
+    },
+    [],
+  );
 
-  async function ask() {
-    const text = call.trim();
+  async function ask(override?: string) {
+    const text = (override ?? call).trim();
     if (!text) return;
     if (!user) {
       setError({ text: "Sign in to use the Play assistant. It is included with every plan." });
@@ -101,21 +135,131 @@ export function PlayAssistant({
     }
   }
 
+  function stopListening(note: string | null = null) {
+    wantMic.current = false;
+    window.clearTimeout(idle.current);
+    recog.current?.stop();
+    setListening(false);
+    setHeard("");
+    setMicNote(note);
+  }
+
+  function armIdle() {
+    window.clearTimeout(idle.current);
+    idle.current = window.setTimeout(() => stopListening("The mic turned off after a minute of quiet. Tap it to keep going."), IDLE_MS);
+  }
+
+  // The call as it stands right now, so spoken edits stack correctly between renders.
+  const callRef = useRef(call);
+  callRef.current = call;
+  const edit = (fn: (c: string) => string) => {
+    const next = fn(callRef.current);
+    callRef.current = next;
+    setCall(next);
+  };
+
+  /** One finished phrase: a spoken edit, or more of the call. */
+  function takePhrase(raw: string) {
+    const said = raw.trim();
+    if (!said) return;
+    const cmd = VOICE_EDITS.find((v) => v.re.test(said.toLowerCase().replace(/[.!?,]/g, "")));
+    if (cmd?.edit === "phrase") {
+      const last = phrases.current.pop();
+      edit((c) => (last && c.endsWith(last) ? c.slice(0, -last.length) : c.replace(/\s*\S+\s*$/, "")).trimEnd());
+      return;
+    }
+    if (cmd?.edit === "word") {
+      phrases.current = [];
+      edit((c) => c.replace(/\s*\S+\s*$/, ""));
+      return;
+    }
+    if (cmd?.edit === "clear") {
+      phrases.current = [];
+      edit(() => "");
+      return;
+    }
+    if (cmd?.edit === "stop") {
+      stopListening();
+      return;
+    }
+    if (cmd?.edit === "read") {
+      stopListening();
+      void ask(callRef.current);
+      return;
+    }
+    edit((c) => {
+      const piece = c && !/\s$/.test(c) ? ` ${said}` : said;
+      phrases.current.push(piece);
+      return `${c}${piece}`;
+    });
+  }
+
+  function startSession() {
+    if (!Speech) return;
+    // One recognizer for the whole session; iOS chimes and stalls when a new one starts each time.
+    const r = recog.current ?? new Speech();
+    r.lang = "en-US";
+    r.interimResults = true;
+    r.continuous = !isIOS();
+    r.onresult = (e) => {
+      let live = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (res.isFinal) takePhrase(res[0].transcript);
+        else live += res[0].transcript;
+      }
+      setHeard(live);
+      armIdle();
+    };
+    r.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        stopListening("Your browser blocked the microphone. Allow it for this site in the browser's settings, then tap the mic again.");
+      } else if (e.error === "audio-capture") {
+        stopListening("No microphone was found. Plug one in or type the call instead.");
+      }
+      // "no-speech" and "aborted" fall through to onend, which restarts while the coach still wants the mic.
+    };
+    r.onend = () => {
+      setHeard("");
+      if (!wantMic.current) {
+        setListening(false);
+        return;
+      }
+      window.setTimeout(() => {
+        if (!wantMic.current) return;
+        try {
+          r.start();
+        } catch {
+          /* already starting — the next end will try again */
+        }
+      }, 250);
+    };
+    recog.current = r;
+    try {
+      r.start();
+    } catch {
+      /* already running */
+    }
+  }
+
   function listen() {
     if (!Speech) return;
     if (listening) {
-      recog.current?.stop();
+      stopListening();
       return;
     }
-    const r = new Speech();
-    r.lang = "en-US";
-    r.interimResults = false;
-    r.onresult = (e) => setCall(e.results[0][0].transcript);
-    r.onend = () => setListening(false);
-    r.onerror = () => setListening(false);
-    recog.current = r;
+    wantMic.current = true;
+    phrases.current = [];
+    setMicNote(null);
     setListening(true);
-    r.start();
+    armIdle();
+    startSession();
+  }
+
+  /** Delete button: the last spoken phrase if there is one, else the last word. */
+  function deleteLast() {
+    const last = phrases.current.pop();
+    edit((c) => (last && c.endsWith(last) ? c.slice(0, -last.length) : c.replace(/\s*\S+\s*$/, "")).trimEnd());
   }
 
   const fix = (i: number, patch: Partial<Assignment>) =>
@@ -142,21 +286,39 @@ export function PlayAssistant({
         <h2 id="pa-h" className="pa-title">
           Play assistant
         </h2>
-        <input
-          className="pa-input"
-          type="text"
-          aria-label="Play call"
-          placeholder="Type a call, e.g. Trips Right Bunch, Scissors, X Bubble"
-          value={call}
-          maxLength={400}
-          onChange={(e) => setCall(e.target.value)}
-        />
+        <span className="pa-field">
+          <input
+            ref={inputRef}
+            className="pa-input"
+            type="text"
+            aria-label="Play call"
+            placeholder={listening ? "Listening… say the call" : "Type or say a call, e.g. Trips Right Bunch, X Bubble"}
+            value={call}
+            maxLength={400}
+            enterKeyHint="go"
+            onChange={(e) => setCall(e.target.value)}
+          />
+          {call && (
+            <button
+              type="button"
+              className="pa-clear"
+              onClick={() => {
+                phrases.current = [];
+                setCall("");
+                inputRef.current?.focus({ preventScroll: true });
+              }}
+              aria-label="Clear the call"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </span>
         {Speech && (
           <button
             type="button"
             className={`pa-mic${listening ? " is-on" : ""}`}
             onClick={listen}
-            aria-label={listening ? "Stop listening" : "Speak a play call"}
+            aria-label={listening ? "Done talking — turn the mic off" : "Speak a play call"}
             aria-pressed={listening}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -169,6 +331,28 @@ export function PlayAssistant({
           {state === "reading" ? "Reading…" : "Read it"}
         </button>
       </form>
+
+      {listening && (
+        <div className="pa-listen" role="status" aria-live="polite">
+          <span className="pa-dot" aria-hidden="true" />
+          <span className="pa-heard">
+            {heard ? <>Hearing: <em>{heard}</em></> : "Listening. Keep talking; the mic stays on until you tap Done."}
+          </span>
+          <span className="pa-listen-acts">
+            <button type="button" className="pa-btn" onClick={deleteLast} disabled={!call}>
+              Delete last
+            </button>
+            <button type="button" className="pa-btn" onClick={() => (phrases.current = [], setCall(""))} disabled={!call}>
+              Clear
+            </button>
+            <button type="button" className="pa-btn is-primary" onClick={() => stopListening()}>
+              Done
+            </button>
+          </span>
+          <span className="pa-say">Say “scratch that”, “delete last word”, “clear” or “read it”.</span>
+        </div>
+      )}
+      {micNote && !listening && <p className="pa-error">{micNote}</p>}
 
       {error && (
         <p className="pa-error" role="alert">
