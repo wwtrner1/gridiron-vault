@@ -17,6 +17,7 @@ import { FORMATIONS, uid } from "../lib/types";
 import { recolorScene, staleCount } from "../lib/recolor";
 import { applyFormat, usePlayFormat } from "../lib/playFormat";
 import { FormatPanel } from "../components/FormatPanel";
+import { addReadyPlaybook, READY_BOOK_NAME, READY_PLAYS } from "../lib/readyPlaybook";
 import type { Scene } from "../lib/types";
 import "../styles/vault.css";
 import type { StoredPlay } from "../lib/types";
@@ -192,6 +193,21 @@ export function Vault() {
     }
   }
 
+  // The Ready-to-Go playbook: offered until the coach has it.
+  const hasReady = playbooks.some((b) => b.name === READY_BOOK_NAME);
+  const [addingReady, setAddingReady] = useState(false);
+  async function addReady() {
+    setAddingReady(true);
+    const res = await addReadyPlaybook({ tier, vaultSize: plays.length, ownerName: account?.name ?? "You", signedIn: Boolean(account) });
+    setAddingReady(false);
+    if (!res.ok) {
+      toast(res.reason, true);
+      return;
+    }
+    setTag("ready-to-go");
+    toast(`${res.added} plays added to your Vault, filed in the ${READY_BOOK_NAME}. Open any one to change it.`);
+  }
+
   const clearFilters = () => (setQuery(""), setFormation(""), setType(""), setTag(""));
   const filtered = Boolean(query || formation || type || tag);
 
@@ -228,6 +244,21 @@ export function Vault() {
             Shared by coaches
           </button>
         </div>
+
+        {tab === "mine" && !hasReady && (
+          <div className="vault-note vault-ready">
+            <div>
+              <b>Ready-to-Go 5v5 Playbook · {READY_PLAYS.length} plays</b>
+              <p>
+                Spread, Trips &amp; Bunch, Twins, and Misdirection &amp; Run, each drawn with the quarterback's reads numbered 1-2-3.
+                Add them all to your Vault as one playbook, then change anything you like.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={addReady} disabled={addingReady}>
+              {addingReady ? "Adding…" : `Add all ${READY_PLAYS.length}`}
+            </button>
+          </div>
+        )}
 
         {tab === "mine" && stale.length > 0 && (
           <div className="vault-note" role="status">

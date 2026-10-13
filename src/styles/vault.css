@@ -65,3 +65,6 @@
 .vault-format-head b { margin-right: auto; font-size: 14px; }
 .play-thumb.is-paint { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: copy; }
 .play-thumb.is-paint:hover, .play-thumb.is-paint:focus-visible { outline: 3px solid var(--cyan); outline-offset: -3px; }
+
+/* The Ready-to-Go playbook offer. */
+.vault-ready { border-left: 4px solid var(--cyan); }
