@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
+import { CarryOver } from "./components/CarryOver";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
 import { Landing } from "./pages/Landing";
@@ -85,6 +86,7 @@ export function App() {
   return (
     <ToastProvider>
       <RouteChrome />
+      <CarryOver />
       <PhoneGate />
       <NewPassword />
       <Routes>
