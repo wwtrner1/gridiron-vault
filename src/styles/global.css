@@ -1429,3 +1429,8 @@ table.compare tbody tr:last-child td { border-bottom: 0; }
 .brand-mark { display: block; flex: none; border-radius: 22%; }
 .auth-logo { position: relative; display: block; width: min(260px, 70%); margin-bottom: 18px; }
 .auth-logo img { display: block; width: 100%; height: auto; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
+
+/* Season Grid: row move buttons, for fingers and keyboards (the grip drag needs a mouse). */
+.row-move { font-size: 9px; line-height: 1; color: var(--muted); }
+.row-move:disabled { opacity: 0.3; }
+@media (pointer: coarse) { .row-move { min-width: 32px; min-height: 32px; font-size: 12px; } }

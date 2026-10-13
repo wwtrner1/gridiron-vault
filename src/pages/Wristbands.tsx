@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
-import { useStore } from "../lib/store";
+import { playNamed, useStore } from "../lib/store";
 import type { SheetDoc } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { cappedDpi, gateSheets } from "../lib/plan";
@@ -24,8 +24,10 @@ function gridEntries(sheet: SheetDoc, plays: StoredPlay[]): BandEntry[] {
   const nameCol = sheet.columns.find((c) => /play/i.test(c.label));
   return sheet.rows
     .map((r, i) => {
-      const play = r.playId ? plays.find((p) => p.id === r.playId) : undefined;
-      const name = play?.name || (nameCol ? r.cells[nameCol.id]?.trim() : "") || "";
+      const typed = (nameCol ? r.cells[nameCol.id]?.trim() : "") || "";
+      // A linked row, or a typed name that matches one saved play, prints with its diagram.
+      const play = (r.playId ? plays.find((p) => p.id === r.playId) : undefined) ?? playNamed(plays, typed);
+      const name = play?.name || typed;
       return { number: (numCol && r.cells[numCol.id]?.trim()) || String(i + 1), name, scene: play?.scene ?? null };
     })
     .filter((e) => e.name);
@@ -57,7 +59,12 @@ export function Wristbands() {
     [sheets, playbooks, plays],
   );
 
-  const [sourceId, setSourceId] = useState<string>(() => sources[0]?.id ?? "hand");
+  // "Wristbands" on a Season Grid opens straight onto that grid.
+  const [params] = useSearchParams();
+  const [sourceId, setSourceId] = useState<string>(() => {
+    const asked = params.get("source");
+    return (asked && sources.some((s) => s.id === asked) ? asked : sources[0]?.id) ?? "hand";
+  });
   const [picked, setPicked] = useState<string[]>([]);
   const [perCard, setPerCard] = useState<6 | 8 | 10>(8);
   const [shows, setShows] = useState<CellShows>({ diagram: true, name: true, numberOnly: false });

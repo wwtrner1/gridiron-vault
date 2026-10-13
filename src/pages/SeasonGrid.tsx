@@ -5,7 +5,7 @@ import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { Modal } from "../components/Modal";
 import { PlayThumb } from "../components/PlayThumb";
-import { store, useStore, type SheetColumn, type SheetDoc, type SheetRow } from "../lib/store";
+import { playNamed, store, useStore, type SheetColumn, type SheetDoc, type SheetRow } from "../lib/store";
 import { learn, suggest } from "../lib/autofill";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -17,26 +17,35 @@ import { uid } from "../lib/types";
 
 const DEFAULT_HEADERS = ["#", "Play Name", "Group", "Run", "Pass", "Down", "Distance", "Hash", "YL", "Route", "Position"];
 
+// Strong enough to tell apart at a glance on the sideline and on a printout, still
+// light enough that black text keeps well over 4.5:1 contrast.
 const PAINTS = [
   { id: "", label: "No fill", hex: "" },
-  { id: "cyan", label: "Cyan", hex: "#E3F8FD" },
-  { id: "green", label: "Green", hex: "#E4F4EC" },
-  { id: "amber", label: "Amber", hex: "#FDF2DD" },
-  { id: "red", label: "Red", hex: "#FDEEE9" },
-  { id: "violet", label: "Violet", hex: "#ECEBFA" },
-  { id: "slate", label: "Slate", hex: "#E9EEF5" },
+  { id: "cyan", label: "Cyan", hex: "#B5ECF8" },
+  { id: "green", label: "Green", hex: "#BFE6CF" },
+  { id: "amber", label: "Amber", hex: "#FADFA3" },
+  { id: "red", label: "Red", hex: "#F7C4B8" },
+  { id: "violet", label: "Violet", hex: "#D3CFF4" },
+  { id: "slate", label: "Slate", hex: "#CCD7E5" },
   { id: "navy", label: "Navy", hex: "#0B1524" },
 ];
 
-/** The first paint shades; cells painted with them show the canvas shade (above). */
+/** Earlier, paler paint shades; cells painted with them show today's shade (above). */
 const LEGACY_PAINT: Record<string, string> = {
-  "#DDF6FB": "#E3F8FD",
-  "#E2F4EA": "#E4F4EC",
-  "#FCF1DA": "#FDF2DD",
-  "#FBE7E5": "#FDEEE9",
-  "#EEECFA": "#ECEBFA",
-  "#E7EDF2": "#E9EEF5",
+  "#DDF6FB": "#B5ECF8",
+  "#E2F4EA": "#BFE6CF",
+  "#FCF1DA": "#FADFA3",
+  "#FBE7E5": "#F7C4B8",
+  "#EEECFA": "#D3CFF4",
+  "#E7EDF2": "#CCD7E5",
+  "#E3F8FD": "#B5ECF8",
+  "#E4F4EC": "#BFE6CF",
+  "#FDF2DD": "#FADFA3",
+  "#FDEEE9": "#F7C4B8",
+  "#ECEBFA": "#D3CFF4",
+  "#E9EEF5": "#CCD7E5",
 };
+
 const paintHex = (hex?: string) => (hex ? LEGACY_PAINT[hex.toUpperCase()] ?? hex : hex);
 
 const newColumn = (label: string): SheetColumn => ({ id: uid("col"), label, width: label === "Play Name" ? 220 : 96, type: "text" });
@@ -82,6 +91,11 @@ export function SeasonGrid() {
   const [hintIndex, setHintIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const cellRef = useRef<HTMLInputElement | null>(null);
+  const [linkQuery, setLinkQuery] = useState("");
+  const linkable = useMemo(() => {
+    const q = linkQuery.trim().toLowerCase();
+    return q ? plays.filter((p) => `${p.name} ${p.formation}`.toLowerCase().includes(q)) : plays;
+  }, [plays, linkQuery]);
 
   // Open the coach's grid, or lay a fresh one out on the first visit.
   useEffect(() => {
@@ -136,12 +150,28 @@ export function SeasonGrid() {
   const setCell = (rowId: string, colId: string, value: string) =>
     update({ rows: sheet.rows.map((r) => (r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r)) });
 
+  const isNameCol = (colId: string) => sheet.columns.find((c) => c.id === colId)?.label.trim().toLowerCase() === "play name";
+
   const commitCell = (rowId: string, colId: string) => {
     const col = sheet.columns.find((c) => c.id === colId);
-    const value = sheet.rows.find((r) => r.id === rowId)?.cells[colId] ?? "";
+    const row = sheet.rows.find((r) => r.id === rowId);
+    const value = row?.cells[colId] ?? "";
     if (col) learn(col.label, value);
     setFocus(null);
     setHints([]);
+    if (!row || !isNameCol(colId)) return;
+    // A name that matches a saved play links the row to its diagram; clearing the name unlinks it.
+    const match = playNamed(plays, value);
+    if (match && row.playId !== match.id) linkPlay(rowId, match.id, true);
+    else if (!value.trim() && row.playId) update({ rows: sheet.rows.map((r) => (r.id === rowId ? { ...r, playId: null } : r)) });
+  };
+
+  /** Puts a suggestion in a cell; in Play Name, a saved play's name links the row too. */
+  const takeHint = (rowId: string, colId: string, value: string) => {
+    setHints([]);
+    const match = isNameCol(colId) ? playNamed(plays, value) : undefined;
+    if (match) linkPlay(rowId, match.id, true);
+    else setCell(rowId, colId, value);
   };
 
   const paintCell = (rowId: string, colId: string) => {
@@ -191,7 +221,15 @@ export function SeasonGrid() {
     setSortBy(null);
   };
 
-  const linkPlay = (rowId: string, playId: string) => {
+  /** One step up or down in the coach's own order (any sort is cleared so the move is visible). */
+  const nudgeRow = (rowId: string, step: -1 | 1) => {
+    const from = sheet.rows.findIndex((r) => r.id === rowId);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= sheet.rows.length) return;
+    moveRow(from, to);
+  };
+
+  const linkPlay = (rowId: string, playId: string, typed = false) => {
     const play = plays.find((p) => p.id === playId);
     if (!play) return;
     const byLabel = (label: string) => sheet.columns.find((c) => c.label.trim().toLowerCase() === label)?.id;
@@ -213,7 +251,11 @@ export function SeasonGrid() {
       }),
     });
     setLinking(null);
-    toast(`${play.name} linked. The diagram is one click away from the grid.`);
+    toast(
+      typed
+        ? `${play.name} is in your Vault, so this row is linked to its diagram and it will print on wristbands.`
+        : `${play.name} linked. The diagram is one click away from the grid.`,
+    );
   };
 
   async function syncUp() {
@@ -257,6 +299,15 @@ export function SeasonGrid() {
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.print()}>
               <Icon name="print" size={15} /> Print
             </button>
+          </Tooltip>
+          <Tooltip
+            title="Print wristbands from this grid"
+            hint="Opens the wristband builder with this grid's calls, numbered as they are here. Rows linked to a saved play print its diagram."
+            side="bottom"
+          >
+            <Link to={`/wristbands?source=${encodeURIComponent(`grid:${sheet.id}`)}`} className="btn btn-ghost btn-sm">
+              <Icon name="wristband" size={15} /> Wristbands
+            </Link>
           </Tooltip>
           <button type="button" className="btn btn-ghost btn-sm" onClick={newGrid}>
             <Icon name="plus" size={15} /> New grid
@@ -509,8 +560,7 @@ export function SeasonGrid() {
                               if (e.key === "Tab" || e.key === "Enter") {
                                 if (hints[hintIndex]) {
                                   e.preventDefault();
-                                  setCell(row.id, col.id, hints[hintIndex]);
-                                  setHints([]);
+                                  takeHint(row.id, col.id, hints[hintIndex]);
                                 }
                               }
                               if (e.key === "Escape") setHints([]);
@@ -534,8 +584,7 @@ export function SeasonGrid() {
                                 className={i === hintIndex ? "is-on" : ""}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
-                                  setCell(row.id, col.id, h);
-                                  setHints([]);
+                                  takeHint(row.id, col.id, h);
                                 }}
                               >
                                 {h}
@@ -555,11 +604,30 @@ export function SeasonGrid() {
                       </Tooltip>
                     ) : (
                       <Tooltip title="Link a saved play" hint="Pulls the name and formation from your Vault and keeps the diagram attached." side="top">
-                        <button type="button" className="th-sort" onClick={() => setLinking(row.id)} aria-label="Link a saved play">
+                        <button type="button" className="th-sort" onClick={() => (setLinkQuery(""), setLinking(row.id))} aria-label="Link a saved play">
                           <Icon name="connect" size={14} />
                         </button>
                       </Tooltip>
                     )}
+                    {/* Dragging the grip needs a mouse; fingers and keyboards move rows with these. */}
+                    <button
+                      type="button"
+                      className="th-sort row-move"
+                      onClick={() => nudgeRow(row.id, -1)}
+                      disabled={sheet.rows[0]?.id === row.id}
+                      aria-label={`Move row ${rowIndex + 1} up`}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="th-sort row-move"
+                      onClick={() => nudgeRow(row.id, 1)}
+                      disabled={sheet.rows[sheet.rows.length - 1]?.id === row.id}
+                      aria-label={`Move row ${rowIndex + 1} down`}
+                    >
+                      ▼
+                    </button>
                     <button type="button" className="th-sort" onClick={() => removeRow(row.id)} aria-label="Remove row">
                       <Icon name="close" size={12} />
                     </button>
@@ -584,7 +652,8 @@ export function SeasonGrid() {
             Clear all paint
           </button>
           <p className="hint" style={{ margin: "6px 0 0 auto", maxWidth: 460, textAlign: "right" }}>
-            Type freely — the grid learns what you enter in each column and offers it back next time. Tab accepts a suggestion.
+            Type freely — the grid learns what you enter in each column and offers it back next time. Tab accepts a suggestion. Type
+            the name of a play in your Vault and the row links to its diagram, ready for wristbands.
           </p>
         </div>
       </div>
@@ -599,8 +668,20 @@ export function SeasonGrid() {
               </Link>
             </>
           ) : (
+            <>
+            <input
+              className="input"
+              type="search"
+              placeholder={`Search ${plays.length} plays by name or formation`}
+              value={linkQuery}
+              onChange={(e) => setLinkQuery(e.target.value)}
+              aria-label="Search your plays"
+              autoFocus
+              style={{ marginBottom: 14 }}
+            />
+            {linkable.length === 0 && <p className="hint">No play matches “{linkQuery}”.</p>}
             <div className="play-grid">
-              {plays.slice(0, 24).map((p) => (
+              {linkable.map((p) => (
                 <button key={p.id} type="button" className="card play-card" style={{ textAlign: "left" }} onClick={() => linkPlay(linking, p.id)}>
                   <div className="play-thumb">
                     <PlayThumb scene={p.scene} label={p.name} />
@@ -614,6 +695,7 @@ export function SeasonGrid() {
                 </button>
               ))}
             </div>
+            </>
           )}
         </Modal>
       )}
