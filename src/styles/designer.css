@@ -277,6 +277,7 @@
 button.pp-key-token:hover { border-color: var(--ink-4); }
 .pp-key-token.is-on { border-color: var(--cyan); }
 .pp-legend { margin: 0; font-size: 11px; color: var(--muted-2); }
+.pp-seeds { align-self: flex-start; font-size: 12.5px; font-weight: 600; }
 .pp-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--ink-3); }
 .pp-edit-title { margin: 0; font-family: var(--display); font-size: 14px; font-weight: 700; text-transform: uppercase; }
 .pp-note { margin: 0; font-size: 12px; color: var(--muted-2); }
@@ -473,6 +474,3 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rp-error { margin: 0; font-size: 13px; color: #ffb4a8; }
 .rp-open { font-weight: 600; color: var(--cyan); }
 @media (max-width: 900px) { .rp-body { flex-direction: column; } }
-
-/* Player presets: add the starter set (coaches who saved presets before it grew). */
-.pp-seeds { align-self: flex-start; font-size: 12.5px; font-weight: 600; }
