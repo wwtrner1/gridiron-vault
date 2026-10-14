@@ -103,6 +103,19 @@
   color: var(--panel-head);
 }
 .dz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+/* The pinned everyday tools: stay at the top of the rail while the groups below scroll. */
+.dz-quick {
+  position: sticky;
+  top: calc(-1 * var(--space-4));
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) 0;
+  padding: var(--space-4);
+  background: var(--ink-2);
+  border-bottom: 1px solid var(--ink-3);
+}
 .dz-btn {
   display: inline-flex;
   align-items: center;
@@ -702,6 +715,8 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   }
   .builder .builder-rail.is-open { transform: none; visibility: visible; transition-delay: 0s; }
   .dz-sheet-head { display: flex; }
+  /* In the sheet the header is what stays pinned, so the quick tools just lead the list. */
+  .dz-quick { position: static; margin: 0 -16px; padding: 12px 16px; }
   .dz-zoom-btns { display: none; }
   /* The white stage hugs the field instead of filling the column. */
   .builder .builder-stage { flex: none; min-height: 0; padding: 8px; }
@@ -918,3 +933,37 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .pa-chip select { height: 34px; }
   .pa-chip-x { width: 32px; height: 32px; }
 }
+
+/* Designer panel tabs: Selection (what's picked) and Play (name, field). */
+.builder-side .insp { padding-top: 0; }
+.insp-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0 -18px 12px;
+  padding: 12px 18px;
+  background: var(--ink-2);
+  border-bottom: 1px solid var(--ink-3);
+}
+.insp-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-md);
+  background: var(--ink-2);
+  color: var(--tool-icon);
+  font-family: var(--display);
+  font-size: var(--fs-panel-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.insp-tabs button:hover { border-color: var(--ink-4); color: var(--white); }
+.insp-tabs button.is-on { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
+.insp-tab-count { font-family: var(--mono); font-size: 10px; font-weight: 600; }

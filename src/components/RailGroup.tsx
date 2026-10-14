@@ -4,10 +4,11 @@ import { Icon } from "./Icon";
 import { useToolPrefs } from "../lib/toolPrefs";
 
 /** The Designer's left-rail groups and whether each starts open. */
-export const RAIL_DEFAULTS = { modes: false, lines: true, routes: true, format: false, ink: false, shapes: false, players: true, sets: false };
+export const RAIL_DEFAULTS = { modes: false, lines: false, routes: false, format: false, ink: false, shapes: false, players: true, sets: false };
 export type RailId = keyof typeof RAIL_DEFAULTS;
 
-const KEY = "grid1ronvault.rail.v1";
+/** v2: the everyday tools moved to the pinned bar, so earlier open/closed choices no longer apply. */
+const KEY = "grid1ronvault.rail.v2";
 let state: Record<RailId, boolean> = (() => {
   try {
     return { ...RAIL_DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
