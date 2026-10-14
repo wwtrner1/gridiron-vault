@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { noteShowsOnHover } from "../lib/notes";
@@ -89,7 +89,8 @@ type Props = {
   controlRef?: React.MutableRefObject<CanvasControl | null>;
 };
 
-export type MenuAction = { id: string; label: string; run: () => void; danger?: boolean };
+/** `section` heads a run of items; `on` marks a current choice (true/false) so the item reads as a checkable option. */
+export type MenuAction = { id: string; label: string; run: () => void; danger?: boolean; section?: string; on?: boolean };
 export type CanvasSignal = { kind: "emptyTap" | "emptyBox" | "lockedPress"; touch: boolean };
 export type CanvasControl = { finish: () => void; undoPoint: () => void; scrap: () => void; cancel: () => void };
 
@@ -1440,21 +1441,34 @@ export function PlayCanvas({
           {/* A tap anywhere else closes the menu without doing anything. */}
           <div className="stage-menu-scrim" onPointerDown={() => setMenu(null)} aria-hidden="true" />
           {menu.node && nodeActions?.length ? (
-            <div className="stage-menu" role="menu" aria-label="Selected element" style={{ left: menu.x, top: menu.y }}>
+            <div
+              className="stage-menu is-wide"
+              role="menu"
+              aria-label="Selected element"
+              style={{ left: menu.x, top: menu.y, maxHeight: `calc(100dvh - ${menu.y}px - 8px)` }}
+            >
               {nodeActions.map((a, i) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="menuitem"
-                  className={a.danger ? "is-danger" : ""}
-                  autoFocus={i === 0}
-                  onClick={() => {
-                    setMenu(null);
-                    a.run();
-                  }}
-                >
-                  {a.label}
-                </button>
+                <Fragment key={a.id}>
+                  {a.section && a.section !== nodeActions[i - 1]?.section && (
+                    <div className="stage-menu-head" role="presentation">
+                      {a.section}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    role={a.on === undefined ? "menuitem" : "menuitemcheckbox"}
+                    aria-checked={a.on}
+                    className={`${a.danger ? "is-danger" : ""}${a.on ? " is-on" : ""}`}
+                    autoFocus={i === 0}
+                    onClick={() => {
+                      setMenu(null);
+                      a.run();
+                    }}
+                  >
+                    {a.on !== undefined && <span className="stage-menu-tick" aria-hidden="true">{a.on ? "✓" : ""}</span>}
+                    {a.label}
+                  </button>
+                </Fragment>
               ))}
             </div>
           ) : onPickTool ? (

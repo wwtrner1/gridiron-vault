@@ -30,9 +30,9 @@ import {
   makePlayer,
   type TokenPreset,
 } from "../lib/presets";
-import { cloneNodes, describe, nextZ, reconcileConnections } from "../lib/scene";
+import { cloneNodes, describe, flipNodes, nextZ, reconcileConnections } from "../lib/scene";
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
-import type { PlayMeta, PlayerNode, Scene, SceneNode, StoredPlay } from "../lib/types";
+import type { PathNode, PlayMeta, PlayerNode, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -143,6 +143,13 @@ export function Builder() {
   const [mode, setMode] = useState<ModeId | null>(null);
   const [color, setColor] = useState(PALETTE[0]);
   const [width, setWidth] = useState(DEFAULT_STROKE);
+  // Picking one player opens the Route library, since giving that player a route is the next thing to do.
+  useEffect(() => {
+    if (selection.length !== 1) return;
+    if (scene.nodes.find((n) => n.id === selection[0])?.kind === "player") railStore.open("routes");
+    // Only the pick matters here: dragging or restyling the player must not keep reopening the group.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
   const [grid, setGrid] = useState(0);
   const [anchor, setAnchor] = useState({ ax: 0.5, ay: 0.5 });
   const [zoom, setZoom] = useState(0.86);
@@ -546,12 +553,92 @@ export function Builder() {
       : []),
     ...(selectedNodes.some((n) => n.groupId) ? [{ id: "ungroup", label: "Ungroup", short: "Ungroup", run: ungroupSelection }] : []),
   ];
+  const patchSelected = (changes: Partial<SceneNode>, label: string) =>
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? ({ ...n, ...changes } as SceneNode) : n)) }, label);
+  const allPaths = selectedNodes.length > 0 && selectedNodes.every((n) => n.kind === "path");
+  const paths = allPaths ? (selectedNodes as PathNode[]) : [];
+  const players = selectedNodes.filter((n): n is PlayerNode => n.kind === "player");
+  const setFirstRead = (on: boolean) =>
+    applyScene(
+      {
+        ...scene,
+        nodes: scene.nodes.map((n) =>
+          n.kind !== "path" ? n : n.id === paths[0].id ? { ...n, firstRead: on } : on && n.firstRead ? { ...n, firstRead: false } : n,
+        ),
+      },
+      "First read",
+    );
+  const bringToFront = () => {
+    const z = nextZ(scene);
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, z: z + selection.indexOf(n.id) } : n)) }, "Bring to front");
+  };
+  // Right-click (or press and hold) on something already picked: what you can do to it, grouped by kind.
   const nodeActions: MenuAction[] = [
-    { id: "duplicate", label: "Duplicate", run: duplicateSelection },
-    ...groupActions,
-    { id: "lock", label: "Lock in place", run: lockSelection },
-    { id: "details", label: "Edit details", run: () => setSideOpen(true) },
-    { id: "delete", label: "Delete", run: deleteSelection, danger: true },
+    ...(allPaths
+      ? [
+          ...(["solid", "dashed", "dotted", "motion"] as const).map((s) => ({
+            id: `style-${s}`,
+            section: "Line style",
+            label: s[0].toUpperCase() + s.slice(1),
+            on: paths.every((p) => p.style === s),
+            run: () => patchSelected({ style: s } as Partial<SceneNode>, "Line style"),
+          })),
+          ...(["Thin", "Medium", "Thick"] as const).map((label, i) => ({
+            id: `weight-${i}`,
+            section: "Weight",
+            label,
+            on: paths.every((p) => p.width === STROKE_WEIGHTS[i]),
+            run: () => patchSelected({ width: STROKE_WEIGHTS[i] } as Partial<SceneNode>, "Weight"),
+          })),
+          ...RAIL_INKS.map((ink) => ({
+            id: `ink-${ink.name}`,
+            section: "Color",
+            label: ink.name,
+            on: paths.every((p) => p.stroke.toLowerCase() === ink.color.toLowerCase()),
+            run: () => patchSelected({ stroke: ink.color } as Partial<SceneNode>, "Color"),
+          })),
+          {
+            id: "arrow",
+            section: "Ends",
+            label: "Arrow at the end",
+            on: paths.every((p) => p.endCap === "arrow"),
+            run: () => patchSelected({ endCap: paths.every((p) => p.endCap === "arrow") ? "none" : "arrow" } as Partial<SceneNode>, "End cap"),
+          },
+          ...(paths.length === 1
+            ? [{ id: "first-read", section: "Ends", label: "First read", on: !!paths[0].firstRead, run: () => setFirstRead(!paths[0].firstRead) }]
+            : []),
+        ]
+      : []),
+    ...(players.length
+      ? [
+          {
+            id: "draw-route",
+            section: "Player",
+            label: "Draw a route from here",
+            run: () => {
+              pickTool("line");
+              setStatus("Click along the route, then press Enter to finish.");
+            },
+          },
+          {
+            id: "route-library",
+            section: "Player",
+            label: "Pick from the route library",
+            run: () => {
+              railStore.open("routes");
+              setRailOpen(true);
+            },
+          },
+          { id: "note", section: "Player", label: "Add a note", run: () => setSideOpen(true) },
+        ]
+      : []),
+    { id: "duplicate", section: "Edit", label: "Duplicate", run: duplicateSelection },
+    ...groupActions.map((g) => ({ ...g, section: "Edit" })),
+    { id: "front", section: "Edit", label: "Bring to front", run: bringToFront },
+    { id: "flip", section: "Edit", label: "Flip left/right", run: () => applyScene(flipNodes(scene, selection, "x"), "Flip") },
+    { id: "lock", section: "Edit", label: "Lock in place", run: lockSelection },
+    { id: "details", section: "Edit", label: "Edit details", run: () => setSideOpen(true) },
+    { id: "delete", section: "Edit", label: "Delete", run: deleteSelection, danger: true },
   ];
   // The bar under a thumb leads with the moves made most and keeps every label short.
   const barActions: (MenuAction & { short: string })[] = [

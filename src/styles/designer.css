@@ -511,6 +511,11 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .stage-menu { position: fixed; z-index: 300; max-height: calc(100dvh - 16px); overflow-y: auto; }
 .stage-menu-scrim { position: fixed; inset: 0; z-index: 299; }
 .stage-menu button.is-danger { color: #ffb4a8; }
+.stage-menu.is-wide { min-width: 210px; }
+.stage-menu-head { margin-top: 4px; padding: 8px 10px 3px; border-top: 1px solid var(--ink-3); font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--panel-head); }
+.stage-menu-head:first-child { margin-top: 0; border-top: 0; }
+.stage-menu-tick { display: inline-block; width: 16px; color: var(--cyan); font-weight: 700; }
+.stage-menu button.is-on { color: var(--cyan); }
 .stage-menu button:not(.is-extra) + .is-extra { margin-top: 4px; border-top: 1px solid var(--ink-3); border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
 
 /* Undo and Redo: words on wide screens, icons on phones. */
