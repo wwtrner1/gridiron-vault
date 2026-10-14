@@ -817,7 +817,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .pa-clear { position: absolute; top: 50%; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: transparent; color: var(--muted-2); transform: translateY(-50%); }
 .pa-clear:hover { color: var(--white); }
 .pa-mic.is-on { animation: pa-pulse 1.4s ease-in-out infinite; }
-@keyframes pa-pulse { 50% { box-shadow: 0 0 0 3px var(--ink), 0 0 0 9px rgba(22, 200, 232, 0.35); } }
+@keyframes pa-pulse { 50% { box-shadow: 0 0 0 3px var(--ink), 0 0 0 9px rgba(14, 162, 190, 0.35); } }
 .pa-listen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 10px; border: 1px solid var(--cyan); border-radius: var(--radius-md); background: var(--ink); }
 .pa-dot { width: 10px; height: 10px; border-radius: 50%; background: #e2463a; animation: pa-blink 1s steps(2) infinite; }
 @keyframes pa-blink { 50% { opacity: 0.3; } }
@@ -885,7 +885,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .tour-dots button { width: 10px; height: 10px; padding: 0; border-radius: 50%; background: var(--border); }
 .tour-dots button.is-on { background: var(--cyan); }
 .tour-count { margin-right: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.tour-finger { fill: rgba(22, 200, 232, 0.25); stroke: #16c8e8; stroke-width: 2; }
+.tour-finger { fill: rgba(14, 162, 190, 0.25); stroke: #0ea2be; stroke-width: 2; }
 
 .tour-drop { animation: tour-drop 3.2s ease-out infinite both; }
 .tour-art .d1 { animation-delay: 0s; } .tour-art .d2 { animation-delay: 0.35s; } .tour-art .d3 { animation-delay: 0.7s; } .tour-art .d4 { animation-delay: 1.05s; }

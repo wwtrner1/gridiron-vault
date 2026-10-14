@@ -12,9 +12,9 @@
   --ink-4: #26405f; /* strong line on light only; never text on ink */
 
   /* ---- Color: the accent ---- */
-  --cyan: #16c8e8;
-  --cyan-2: #0fa8c4; /* pressed state, primary button lip */
-  --cyan-hover: #2fd6f2;
+  --cyan: #0ea2be;
+  --cyan-2: #0b8fa8; /* pressed state, primary button lip */
+  --cyan-hover: #12b4d2;
   --cyan-ink: #127b8f; /* cyan as text on white (4.9:1; 4.6:1 on paper) */
   --cyan-soft: #e3f8fd;
   --on-cyan: #04212a; /* text on a cyan fill */

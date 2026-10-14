@@ -338,7 +338,7 @@ table.sheet thead th {
 .th-drag { cursor: grab; color: #b6c8d6; flex: none; padding: 0 1px; letter-spacing: 0; }
 th.is-drop { box-shadow: inset 3px 0 0 var(--cyan); }
 table.sheet tbody td { padding: 0; height: 34px; }
-table.sheet tbody tr:hover td { background: rgba(22, 200, 232, .045); }
+table.sheet tbody tr:hover td { background: rgba(14, 162, 190, .045); }
 /* tbody row headers are the drag grips, not sticky column headers. */
 table.sheet tbody th { position: static; z-index: auto; }
 .cell-input { width: 100%; height: 100%; min-height: 34px; border: none; background: none; padding: 0 8px; font: inherit; }
@@ -361,7 +361,7 @@ ul.suggest { position: absolute; z-index: 60; min-width: 150px; max-height: 190p
 .mkt-nav .spacer { margin-left: auto; }
 .hero { position: relative; overflow: hidden; background: var(--ink); color: var(--white); padding: clamp(52px, 8vw, 104px) clamp(18px, 4vw, 54px) clamp(60px, 7vw, 92px); }
 .hero::before { content: ""; position: absolute; inset: 0; background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 84px), repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 84px); }
-.hero::after { content: ""; position: absolute; right: -14%; top: -34%; width: 780px; height: 780px; background: radial-gradient(circle, rgba(22,200,232,.22), transparent 62%); }
+.hero::after { content: ""; position: absolute; right: -14%; top: -34%; width: 780px; height: 780px; background: radial-gradient(circle, rgba(14,162,190,.22), transparent 62%); }
 .hero-inner { position: relative; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: clamp(28px, 5vw, 64px); align-items: center; max-width: 1280px; margin: 0 auto; }
 .hero h1 { font-size: clamp(46px, 7.4vw, 92px); line-height: .92; text-transform: uppercase; letter-spacing: -.03em; }
 .hero h1 em { font-style: normal; color: var(--cyan); }
@@ -398,7 +398,7 @@ footer.mkt a:hover { color: var(--cyan); }
 
 .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(244px, 1fr)); gap: 14px; align-items: start; }
 .plan { padding: 22px; position: relative; }
-.plan.is-featured { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(22,200,232,.22); }
+.plan.is-featured { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(14,162,190,.22); }
 .plan-tag { position: absolute; top: -10px; left: 22px; }
 .plan h3 { font-size: 22px; text-transform: uppercase; }
 .plan .price { font-family: var(--display); font-size: 42px; font-weight: 700; line-height: 1; margin: 12px 0 2px; }

@@ -47,7 +47,7 @@ const MENU_TOOLS: { id: ToolId; label: string }[] = [
   { id: "free", label: "Freehand" },
   { id: "text", label: "Text" },
 ];
-const SEL = "#16C8E8";
+const SEL = "#0EA2BE";
 
 type Anchor = { ax: number; ay: number };
 
