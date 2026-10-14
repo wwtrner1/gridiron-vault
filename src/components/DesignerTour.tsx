@@ -124,7 +124,7 @@ const SLIDES: Slide[] = [
         <text x="32" y="52" fontSize="12" fill="#fff" fontFamily="Barlow, sans-serif" className="tour-type">
           Trips right, X go, Z post
         </text>
-        <circle cx="252" cy="47" r="17" fill="#16c8e8" className="tour-mic" />
+        <circle cx="252" cy="47" r="17" fill="#0ea2be" className="tour-mic" />
         <rect x="246" y="38" width="12" height="14" rx="6" fill="#0b1524" />
         {["Trips Right", "X · go", "Z · post"].map((c, i) => (
           <g key={c} className={`tour-chip d${i + 2}`}>
@@ -144,7 +144,7 @@ const SLIDES: Slide[] = [
     art: (
       <svg viewBox="0 0 320 180" className="tour-art" aria-hidden="true">
         <rect width="320" height="180" rx="10" fill="#0b1524" />
-        <rect x="24" y="70" width="90" height="34" rx="6" fill="#16c8e8" className="tour-save" />
+        <rect x="24" y="70" width="90" height="34" rx="6" fill="#0ea2be" className="tour-save" />
         <text x="69" y="92" textAnchor="middle" fontSize="12" fontWeight="700" fill="#04212a" fontFamily="Saira Condensed, sans-serif">
           SAVE PLAY
         </text>
