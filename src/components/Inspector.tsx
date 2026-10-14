@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Panel } from "./Panel";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -32,6 +32,12 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
   const selected = useMemo(() => scene.nodes.filter((n) => selection.includes(n.id)), [scene.nodes, selection]);
   const one = selected.length === 1 ? selected[0] : null;
 
+  // One panel for what you're working on: Selection while something is picked, Play (name, field) when nothing is.
+  // The coach can still switch by hand; it flips back whenever the field goes from empty to picked or the reverse.
+  const hasSelection = selection.length > 0;
+  const [tab, setTab] = useState<"selection" | "play">(hasSelection ? "selection" : "play");
+  useEffect(() => setTab(hasSelection ? "selection" : "play"), [hasSelection]);
+
   const patch = (changes: Partial<SceneNode> | ((n: SceneNode) => Partial<SceneNode>), label = "Edit") =>
     onScene(
       {
@@ -52,6 +58,17 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
 
   return (
     <div className="insp">
+      <div className="insp-tabs" role="tablist" aria-label="Designer panel">
+        <button type="button" role="tab" id="insp-tab-selection" aria-selected={tab === "selection"} aria-controls="insp-pane" className={tab === "selection" ? "is-on" : ""} onClick={() => setTab("selection")}>
+          Selection{hasSelection && <b className="insp-tab-count">{selection.length}</b>}
+        </button>
+        <button type="button" role="tab" id="insp-tab-play" aria-selected={tab === "play"} aria-controls="insp-pane" className={tab === "play" ? "is-on" : ""} onClick={() => setTab("play")}>
+          Play
+        </button>
+      </div>
+      <div id="insp-pane" role="tabpanel" aria-labelledby={`insp-tab-${tab}`}>
+      {tab === "play" && (
+      <>
       <Panel title="Play details" icon="board" defaultOpen>
         <label className="field">
           <span>Play name</span>
@@ -147,57 +164,6 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
         </label>
       </Panel>
 
-      <Panel title="Player presets" icon="user">
-        <PlayerPresets scene={scene} selection={selection} onScene={onScene} onSelection={onSelection} />
-      </Panel>
-
-      <Panel title="Player notes" icon="text">
-        {one?.kind === "player" ? (
-          <div className="pn">
-            <p className="pn-who">
-              <span className="pn-token" style={{ background: one.fill, color: one.textColor }} aria-hidden="true">
-                {one.label}
-              </span>
-              {one.label || one.name} selected
-            </p>
-            <textarea
-              className="textarea"
-              rows={3}
-              aria-label={`Notes for ${one.label || one.name}`}
-              placeholder="Read the flat defender. If he sinks, sit down at 4 yards and face the QB."
-              value={one.note ?? ""}
-              onChange={(e) => patch({ note: e.target.value } as Partial<SceneNode>, "Player note")}
-            />
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={one.noteHover !== false}
-                onChange={(e) => patch({ noteHover: e.target.checked } as Partial<SceneNode>, "Player note")}
-              />
-              Show on hover in the Designer
-            </label>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={one.notePrint !== false}
-                onChange={(e) => patch({ notePrint: e.target.checked } as Partial<SceneNode>, "Player note")}
-              />
-              Print under the diagram
-            </label>
-            <label className="switch">
-              <input
-                type="checkbox"
-                checked={one.noteWristband === true}
-                onChange={(e) => patch({ noteWristband: e.target.checked } as Partial<SceneNode>, "Player note")}
-              />
-              Add to this player’s wristband card
-            </label>
-          </div>
-        ) : (
-          <p className="hint">Select one player on the field to write a note for them.</p>
-        )}
-      </Panel>
-
       <Panel title="Field" icon="grid" count={FIELD_VIEWS.find((v) => v.id === scene.view)?.label}>
         <div className="chip-row">
           {FIELD_VIEWS.map((v) => (
@@ -229,7 +195,11 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           </button>
         )}
       </Panel>
+      </>
+      )}
 
+      {tab === "selection" && (
+      <>
       {selected.length === 0 ? (
         <div className="insp-sect">
           <p>Properties</p>
@@ -323,6 +293,61 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
         </Panel>
       )}
 
+      {hasSelection && (
+      <Panel title="Player presets" icon="user">
+        <PlayerPresets scene={scene} selection={selection} onScene={onScene} onSelection={onSelection} />
+      </Panel>
+      )}
+
+      {one?.kind === "player" && (
+      <Panel title="Player notes" icon="text">
+        {one?.kind === "player" ? (
+          <div className="pn">
+            <p className="pn-who">
+              <span className="pn-token" style={{ background: one.fill, color: one.textColor }} aria-hidden="true">
+                {one.label}
+              </span>
+              {one.label || one.name} selected
+            </p>
+            <textarea
+              className="textarea"
+              rows={3}
+              aria-label={`Notes for ${one.label || one.name}`}
+              placeholder="Read the flat defender. If he sinks, sit down at 4 yards and face the QB."
+              value={one.note ?? ""}
+              onChange={(e) => patch({ note: e.target.value } as Partial<SceneNode>, "Player note")}
+            />
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.noteHover !== false}
+                onChange={(e) => patch({ noteHover: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Show on hover in the Designer
+            </label>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.notePrint !== false}
+                onChange={(e) => patch({ notePrint: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Print under the diagram
+            </label>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={one.noteWristband === true}
+                onChange={(e) => patch({ noteWristband: e.target.checked } as Partial<SceneNode>, "Player note")}
+              />
+              Add to this player’s wristband card
+            </label>
+          </div>
+        ) : (
+          <p className="hint">Select one player on the field to write a note for them.</p>
+        )}
+      </Panel>
+      )}
+
       {selected.length > 0 && (
         <Panel title="Arrange" icon="align" defaultOpen={false}>
           <div className="chip-row">
@@ -394,6 +419,9 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           </div>
         </Panel>
       )}
+      </>
+      )}
+      </div>
     </div>
   );
 }
