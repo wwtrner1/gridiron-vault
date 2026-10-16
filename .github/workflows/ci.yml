@@ -1,0 +1,31 @@
+# The checks a contributor runs before pushing (see CLAUDE.md), on every PR,
+# so a change that doesn't typecheck or build can't be merged by accident.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (app, API function and database schema)
+        run: npx tsc -p .
+      - name: Build
+        run: npm run build
