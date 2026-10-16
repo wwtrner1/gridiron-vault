@@ -24,7 +24,11 @@ export type GriddyDrawer = {
   scene: Scene;
   tokens: TokenPreset[];
   play: NonNullable<GriddyContext["play"]>;
+  /** The saved play open in the Designer, if it has been saved. */
+  playId: string | null;
   onDraw: (nodes: SceneNode[], read: AssistantRead) => void;
+  /** Changes the open field in place, as one undoable step (a bulk edit that includes this play). */
+  onEdit: (edit: (scene: Scene) => Scene, label: string) => void;
 };
 
 type GriddyValue = {
@@ -166,16 +170,31 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
  * Only a change to the field or the play's name re-registers; the draw
  * handler is read fresh each time.
  */
-export function useGriddyDrawer(scene: Scene, tokens: TokenPreset[], meta: { name: string; formation: string }, onDraw: GriddyDrawer["onDraw"]) {
+export function useGriddyDrawer(opts: {
+  scene: Scene;
+  tokens: TokenPreset[];
+  meta: { name: string; formation: string };
+  playId: string | null;
+  onDraw: GriddyDrawer["onDraw"];
+  onEdit: GriddyDrawer["onEdit"];
+}) {
   const { setDrawer } = useGriddy();
-  const handler = useRef(onDraw);
-  handler.current = onDraw;
-  const { name, formation } = meta;
+  const handlers = useRef({ onDraw: opts.onDraw, onEdit: opts.onEdit });
+  handlers.current = { onDraw: opts.onDraw, onEdit: opts.onEdit };
+  const { scene, tokens, playId } = opts;
+  const { name, formation } = opts.meta;
   useEffect(() => {
     const players = scene.nodes.flatMap((n) => (n.kind === "player" && n.label && !n.hidden ? [n.label] : []));
     const lines = scene.nodes.filter((n) => n.kind === "path").length;
-    setDrawer({ scene, tokens, play: { name, formation, players, lines }, onDraw: (nodes, read) => handler.current(nodes, read) });
-  }, [scene, tokens, name, formation, setDrawer]);
+    setDrawer({
+      scene,
+      tokens,
+      play: { name, formation, players, lines },
+      playId,
+      onDraw: (nodes, read) => handlers.current.onDraw(nodes, read),
+      onEdit: (edit, label) => handlers.current.onEdit(edit, label),
+    });
+  }, [scene, tokens, name, formation, playId, setDrawer]);
   useEffect(() => () => setDrawer(null), [setDrawer]);
 }
 

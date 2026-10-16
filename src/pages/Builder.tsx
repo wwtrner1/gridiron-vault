@@ -449,7 +449,15 @@ export function Builder() {
     setMeta((m) => ({ ...m, name: m.name || read.name, formation: m.formation || read.formation }));
     setStatus(`Drew ${read.name}. Drag, restyle or undo it like anything else.`);
   };
-  useGriddyDrawer(scene, offense, meta, drawAssistant);
+  useGriddyDrawer({
+    scene,
+    tokens: offense,
+    meta,
+    playId: existing?.id ?? null,
+    onDraw: drawAssistant,
+    // A Griddy bulk edit that includes the open play changes the field too, so the next save keeps it.
+    onEdit: (edit, label) => applyScene(edit(sceneRefValue.current), label),
+  });
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
     // Line up on the ball: the center if there is one, else the middle of the field.

@@ -12,6 +12,7 @@ import {
   type GriddyTurn,
 } from "../../src/lib/griddy.js";
 import type { AssistantRead } from "../../src/lib/assistant.js";
+import { bulkColor, LETTER, MAX_BULK_CHANGES, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
 import { AiError, converse, MODELS } from "./claude.js";
 import { cleanRead } from "./reads.js";
 
@@ -86,6 +87,11 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
 function toolInput(a: GriddyAction): unknown {
   if (a.tool === "draw_play") return a.read;
   if (a.tool === "import_plays") return a.playbook ? { plays: a.plays, playbook: a.playbook } : { plays: a.plays };
+  if (a.tool === "bulk_edit") {
+    const scope =
+      a.scope.kind === "playbook" ? { scope: "playbook", playbook: a.scope.name } : a.scope.kind === "plays" ? { scope: "plays", ids: a.scope.ids } : { scope: "vault" };
+    return { ...scope, changes: a.changes };
+  }
   return { ids: a.ids };
 }
 
@@ -139,6 +145,29 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
         .map((p) => ({ ...p, name: p.name || p.call.slice(0, 60) }));
       const playbook = str(input.playbook, 120).trim() || null;
       return plays.length ? [{ id: u.id, tool: "import_plays", plays, playbook }] : [];
+    }
+    if (u.name === "bulk_edit") {
+      const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, MAX_BULK_CHANGES).flatMap((c): BulkChange[] => {
+        const letter = (v: unknown) => str(v, 3).trim().toUpperCase();
+        if (c?.op === "recolor") {
+          const color = bulkColor(str(c.color, 30));
+          return LETTER.test(letter(c.letter)) && color ? [{ op: "recolor", letter: letter(c.letter), color }] : [];
+        }
+        if (c?.op === "swap")
+          return LETTER.test(letter(c.from)) && LETTER.test(letter(c.to)) && letter(c.from) !== letter(c.to)
+            ? [{ op: "swap", from: letter(c.from), to: letter(c.to) }]
+            : [];
+        return [];
+      });
+      let scope: BulkScope = { kind: "vault" };
+      if (input.scope === "playbook" && str(input.playbook, 120).trim()) scope = { kind: "playbook", name: str(input.playbook, 120).trim() };
+      if (input.scope === "plays") {
+        const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));
+        // Plays it named that aren't in the Vault would quietly widen to everything; drop the card instead.
+        if (!ids.length) return [];
+        scope = { kind: "plays", ids: [...new Set(ids)] };
+      }
+      return changes.length ? [{ id: u.id, tool: "bulk_edit", scope, changes }] : [];
     }
     if (u.name === "show_plays") {
       const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));
