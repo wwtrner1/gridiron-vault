@@ -38,6 +38,8 @@ import {
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
 import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
@@ -247,10 +249,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
           .from(playbooks)
           .where(eq(playbooks.ownerId, me.id))
           .orderBy(desc(playbooks.updatedAt));
+        // Only this coach's playbooks, and only plays they may see: their own or public ones.
         const members = await db
-          .select()
+          .select({ playbook_plays: playbookPlays, plays })
           .from(playbookPlays)
-          .innerJoin(plays, eq(playbookPlays.playId, plays.id));
+          .innerJoin(playbooks, eq(playbookPlays.playbookId, playbooks.id))
+          .innerJoin(plays, eq(playbookPlays.playId, plays.id))
+          .where(and(eq(playbooks.ownerId, me.id), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))));
         return json({ playbooks: books, members });
       }
 
@@ -274,9 +279,21 @@ async function route(req: Request, deviceId: string): Promise<Response> {
 
       if (req.method === "POST" && id && action === "plays") {
         const { playId, sortOrder } = await req.json();
+        // The playbook has to be this coach's, and the play theirs or public.
+        if (!UUID.test(id) || !UUID.test(String(playId ?? ""))) return fail("That play isn't in your Vault.", 404);
+        const [book] = await db
+          .select({ id: playbooks.id })
+          .from(playbooks)
+          .where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id)));
+        if (!book) return fail("You can only add plays to your own playbooks.", 403);
+        const [play] = await db
+          .select({ id: plays.id })
+          .from(plays)
+          .where(and(eq(plays.id, String(playId ?? "")), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))));
+        if (!play) return fail("That play isn't in your Vault.", 404);
         const [row] = await db
           .insert(playbookPlays)
-          .values({ playbookId: id, playId, sortOrder: sortOrder ?? 0 })
+          .values({ playbookId: id, playId: play.id, sortOrder: Number.isFinite(Number(sortOrder)) ? Math.trunc(Number(sortOrder)) : 0 })
           .returning();
         return json({ member: row }, 201);
       }
