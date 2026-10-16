@@ -3,7 +3,8 @@ import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { OFFERS, PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
-import { tierStore, useTier } from "../lib/tier";
+import { useAuth } from "../lib/auth";
+import { choosePlan, useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
 import "../styles/pricing.css";
@@ -86,9 +87,15 @@ const FAQ = [
 export function Pricing() {
   const tier = useTier();
   const toast = useToast();
+  const { account } = useAuth();
 
-  const choose = (id: TierId) => {
-    tierStore.set(id);
+  const choose = async (id: TierId) => {
+    try {
+      await choosePlan(id, Boolean(account));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Your plan didn't change. Try again in a minute.", true);
+      return;
+    }
     toast(
       id === "free"
         ? "Switched to Sideline. The extra drawing tools are locked now."

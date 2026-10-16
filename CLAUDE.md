@@ -17,7 +17,7 @@ npx tsc -p .           # typecheck (tsconfig has noEmit; there is no lint or tes
 npm run db:generate    # drizzle-kit: generate a migration from db/schema.ts
 ```
 
-There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing.
+There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing; the `Checks` workflow (`.github/workflows/ci.yml`) runs both on every PR.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - One function mounted at `/api/*`, hand-routed by path segments `[resource, id, action]`. Resources: `me`, `plays` (incl. `POST plays/:id/copy`), `playbooks` (incl. `POST playbooks/:id/plays`), `call-sheets`, `ai` (`griddy`, `assistant`, `photo`; see Griddy below).
 - Auth comes from `getUser()` (`@netlify/identity`) server-side; writes are scoped with `ownerId = me.id` in the `WHERE` clause. `ensureProfile` upserts a `profiles` row on first write.
 - Errors are returned as `{ error }` with coach-facing wording; `src/lib/api.ts` throws `data.error` so the UI can toast it directly.
-- `track()` beacons to `/api/events`, which the function does not handle (404s silently).
+- `track()` beacons to `/api/events`; the function stores the three known events for signed-in coaches (`events` table) and answers 204 to everything else.
 - Client wrapper: `src/lib/api.ts`. Add a resource by adding a branch in the function and a method on `api`.
 
 ### Griddy (the coaching agent)
@@ -58,7 +58,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 
 ### Plans and gating
 - `src/lib/plan.ts` owns every entitlement (`TIERS`, `gateSave`, `gateGrid`, `gateSize`, `gateSheets`, `gateTool`, `gateShare`, `cappedDpi`). UI and export both read gates from here — add new limits here, not in components. A `Gate` carries user-facing `reason`/`cta`.
-- The current tier is client-side only (`tier.ts`, defaults to `beta`); no billing yet and the API does not enforce tiers.
+- The account's plan lives in `profiles.plan` (default `beta`) and the API enforces what it can see: Vault size and public copies (`plays`), Season Grids (`call-sheets`), and monthly Griddy/photo use (`ai`), refusing with `{ code: "plan_limit" }` and the gate's own wording. `tier.ts` mirrors it in the browser (`syncPlan` after sign-in; `choosePlan` for the Account/Pricing pickers). During beta coaches switch plans themselves via `PUT /api/me/plan`; set `PLAN_SELF_SERVE=false` when billing takes over. Export sizes, sheets and locked tools happen in the browser, so they're client-side gates only.
 - `lib/guard.ts` (`useCaptureGuard`) deters screenshots on paid diagrams; the real protection is watermark + DPI cap in `export.tsx`/`plan.ts`.
 
 ### Export

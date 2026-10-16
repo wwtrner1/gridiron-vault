@@ -19,6 +19,8 @@ export const profiles = pgTable("profiles", {
   /** Verified mobile number (E.164). One account per phone, one phone per account. */
   phone: text().unique(),
   phoneVerifiedAt: timestamp("phone_verified_at"),
+  /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
+  plan: text().notNull().default("beta"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -139,4 +141,20 @@ export const aiUsage = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (t) => [uniqueIndex("ai_usage_owner_day_kind_idx").on(t.ownerId, t.day, t.kind)],
+);
+
+/**
+ * The three usage events (play_created, call_sheet_opened, play_exported)
+ * that track() beacons, kept for signed-in coaches only.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    name: text().notNull(),
+    payload: jsonb().$type<Record<string, string | number | boolean | null>>().notNull().default({}),
+    at: timestamp().defaultNow(),
+  },
+  (t) => [index("events_owner_idx").on(t.ownerId)],
 );

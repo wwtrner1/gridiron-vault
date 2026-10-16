@@ -8,7 +8,7 @@ import { DevicesCard } from "../components/DevicesCard";
 import { InstallCard } from "../components/InstallCard";
 import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS, TIERS, type TierId } from "../lib/plan";
-import { tierStore, useTier } from "../lib/tier";
+import { choosePlan, useTier } from "../lib/tier";
 import { store, useStore } from "../lib/store";
 import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
@@ -167,9 +167,13 @@ export function Account() {
                     type="button"
                     className={`chip${tier.id === t.id ? " is-on" : ""}`}
                     aria-pressed={tier.id === t.id}
-                    onClick={() => {
-                      tierStore.set(t.id as TierId);
-                      toast(`Now on ${t.name}.`);
+                    onClick={async () => {
+                      try {
+                        await choosePlan(t.id as TierId, Boolean(account));
+                        toast(`Now on ${t.name}.`);
+                      } catch (e) {
+                        toast(e instanceof Error ? e.message : "Your plan didn't change. Try again in a minute.", true);
+                      }
                     }}
                   >
                     {t.name}

@@ -1,10 +1,11 @@
 import type { Config } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
-import { and, desc, eq, gt, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   aiUsage,
   callSheets,
+  events,
   playbookPlays,
   playbooks,
   plays,
@@ -27,6 +28,7 @@ import {
 } from "../security/phone.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
+import { gateAi, gateGrid, gateSave, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
 import {
   ASSISTANT_TOOL,
@@ -104,7 +106,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
       if (!me) return json({ user: null });
       await ensureProfile(me);
-      return json({ user: me, security: await securityOf(me, deviceId) });
+      if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
+      return json({ user: me, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
     }
 
     /* ---------------------------------------------------------- phone --- */
@@ -122,11 +125,20 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!sec.trusted) return json({ error: "Confirm this device with the code we text you.", code: "device_unverified" }, 403);
     }
 
+    /* --------------------------------------------------------- events --- */
+    if (resource === "events") {
+      // track() beacons here; only signed-in coaches' events are kept, and nothing is ever an error for a beacon.
+      if (req.method === "POST" && me) await recordEvent(me, await req.text().catch(() => ""));
+      return new Response(null, { status: 204 });
+    }
+
     /* ------------------------------------------------------------- ai --- */
     if (resource === "ai") {
       if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
       if (!me) return fail("Sign in to talk to Griddy. He comes with every plan.", 401);
       if (id === "griddy") {
+        const monthly = await monthlyAi(me, "assistant");
+        if (monthly) return monthly;
         if (!(await spend(me, "assistant")))
           return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
         return json({ reply: await griddy(await req.json()) });
@@ -185,6 +197,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
 
       if (req.method === "POST" && id === undefined) {
         const body = await req.json();
+        const full = await vaultFull(me);
+        if (full) return full;
         const [row] = await db
           .insert(plays)
           .values({ ...sanitisePlay(body), ownerId: me.id, ownerName: me.name })
@@ -196,6 +210,19 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         const [source] = await db.select().from(plays).where(eq(plays.id, id));
         if (!source || (!source.isPublic && source.ownerId !== me.id))
           return fail("That play is not available to copy.", 404);
+        const full = await vaultFull(me);
+        if (full) return full;
+        const tier = await planOf(me);
+        const [copied] = await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(playSaves)
+          .where(and(eq(playSaves.userId, me.id), gte(playSaves.createdAt, monthStart())));
+        if ((copied?.n ?? 0) >= tier.copyLimit)
+          return planFail({
+            ok: false,
+            reason: `${tier.name} includes ${tier.copyLimit} copies from the public Vault a month, and you've used them. They reset on the 1st, or move up a plan for more.`,
+            cta: "See plans",
+          });
         const [row] = await db
           .insert(plays)
           .values({
@@ -337,6 +364,10 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
       if (req.method === "POST") {
         const body = await req.json();
+        const tier = await planOf(me);
+        const [grids] = await db.select({ n: sql<number>`count(*)::int` }).from(callSheets).where(eq(callSheets.ownerId, me.id));
+        const gate = gateGrid(tier, grids?.n ?? 0);
+        if (!gate.ok) return planFail(gate);
         const [row] = await db
           .insert(callSheets)
           .values({
@@ -379,6 +410,77 @@ async function route(req: Request, deviceId: string): Promise<Response> {
   }
 };
 
+/* ---------------------------------------------------------- plans --- */
+
+/** First day of this month (UTC), as a timestamp and as the ai_usage day text. */
+const monthStart = () => {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+};
+
+/** The coach's plan as the server knows it (profiles.plan). The browser's copy is only for display. */
+async function planOf(me: Session): Promise<Tier> {
+  const [row] = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, me.id));
+  return tierFor(row?.plan);
+}
+
+const planFail = (gate: Extract<Gate, { ok: false }>) => json({ error: gate.reason, code: "plan_limit", cta: gate.cta }, 403);
+
+/** A plan-limit refusal when the Vault is full, else null. */
+async function vaultFull(me: Session) {
+  const tier = await planOf(me);
+  const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, me.id));
+  const gate = gateSave(tier, have?.n ?? 0);
+  return gate.ok ? null : planFail(gate);
+}
+
+/** A plan-limit refusal when this month's Griddy requests or photo reviews are used up, else null. */
+async function monthlyAi(me: Session, kind: AiKind) {
+  const tier = await planOf(me);
+  const [used] = await db
+    .select({ n: sql<number>`coalesce(sum(${aiUsage.count}), 0)::int` })
+    .from(aiUsage)
+    .where(and(eq(aiUsage.ownerId, me.id), eq(aiUsage.kind, kind), gte(aiUsage.day, monthStart().toISOString().slice(0, 10))));
+  const gate = gateAi(tier, kind, used?.n ?? 0);
+  return gate.ok ? null : planFail(gate);
+}
+
+/**
+ * During beta a coach picks their own plan (Account and Pricing pages). Set
+ * PLAN_SELF_SERVE=false when billing takes over, and only billing changes it.
+ */
+async function choosePlan(me: Session, body: Record<string, unknown>) {
+  if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);
+  const id = String(body.plan ?? "") as TierId;
+  if (!(id in TIERS)) return fail("That isn't one of our plans.");
+  await db.update(profiles).set({ plan: id }).where(eq(profiles.id, me.id));
+  return json({ plan: id });
+}
+
+/* --------------------------------------------------------- events --- */
+
+const EVENT_NAMES = new Set(["play_created", "call_sheet_opened", "play_exported"]);
+
+/** One beacon from track(): one of the three events, with a small flat payload. Anything else is dropped. */
+async function recordEvent(me: Session, raw: string) {
+  if (raw.length > 2000) return;
+  let row: Record<string, unknown>;
+  try {
+    row = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  const name = String(row?.name ?? "");
+  if (!EVENT_NAMES.has(name)) return;
+  const payload: Record<string, string | number | boolean | null> = {};
+  for (const [k, v] of Object.entries(row).slice(0, 16)) {
+    if (k === "name" || k === "at") continue;
+    if (typeof v === "string") payload[k.slice(0, 40)] = v.slice(0, 120);
+    else if (typeof v === "number" || typeof v === "boolean" || v === null) payload[k.slice(0, 40)] = v;
+  }
+  await db.insert(events).values({ ownerId: me.id, name, payload });
+}
+
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
 // "texts" counts codes Twilio actually sent. (It replaced "sms", which also counted refused sends.)
 // "import" counts plays Griddy draws from a dump, one per play, so a big import doesn't use up the coach's chat for the day.
@@ -416,6 +518,10 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
     .map((t) => ({ term: String(t?.term ?? "").slice(0, 60), means: String(t?.means ?? "").slice(0, 200) }))
     .filter((t) => t.term);
 
+  if (!body.bulk) {
+    const monthly = await monthlyAi(me, "assistant");
+    if (monthly) return monthly;
+  }
   if (body.bulk) {
     if (!(await spend(me, "import")))
       return fail(`That's ${DAILY_AI.import} imported plays today — the daily limit. The rest can go in tomorrow; it resets at midnight UTC.`, 429);
@@ -446,6 +552,8 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
     .map((t) => ({ term: String(t?.term ?? "").slice(0, 60), means: String(t?.means ?? "").slice(0, 200) }))
     .filter((t) => t.term);
 
+  const monthly = await monthlyAi(me, "photo");
+  if (monthly) return monthly;
   if (!(await spend(me, "photo")))
     return fail(`That's ${DAILY_AI.photo} photo reviews today — the daily limit. It resets at midnight UTC.`, 429);
 
@@ -520,6 +628,7 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
   await db.delete(callSheets).where(eq(callSheets.ownerId, me.id));
   await db.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
   await db.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
+  await db.delete(events).where(eq(events.ownerId, me.id));
   await db.delete(profiles).where(eq(profiles.id, me.id));
   try {
     await admin.deleteUser(me.id);
