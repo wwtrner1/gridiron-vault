@@ -28,11 +28,20 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - Other per-browser stores: `tier.ts` (`nextplay.tier.v1`), `track.ts` (`nextplay.events.v1`), `autofill.ts` (`nextplay.autofill.v1`).
 
 ### API (`netlify/functions/api.ts`)
-- One function mounted at `/api/*`, hand-routed by path segments `[resource, id, action]`. Resources: `me`, `plays` (incl. `POST plays/:id/copy`), `playbooks` (incl. `POST playbooks/:id/plays`), `call-sheets`.
+- One function mounted at `/api/*`, hand-routed by path segments `[resource, id, action]`. Resources: `me`, `plays` (incl. `POST plays/:id/copy`), `playbooks` (incl. `POST playbooks/:id/plays`), `call-sheets`, `ai` (`griddy`, `assistant`, `photo`; see Griddy below).
 - Auth comes from `getUser()` (`@netlify/identity`) server-side; writes are scoped with `ownerId = me.id` in the `WHERE` clause. `ensureProfile` upserts a `profiles` row on first write.
 - Errors are returned as `{ error }` with coach-facing wording; `src/lib/api.ts` throws `data.error` so the UI can toast it directly.
 - `track()` beacons to `/api/events`, which the function does not handle (404s silently).
 - Client wrapper: `src/lib/api.ts`. Add a resource by adding a branch in the function and a method on `api`.
+
+### Griddy (the coaching agent)
+- Griddy replaced the Play assistant. A coach talks to him from any page: `GriddyProvider` (`src/components/Griddy.tsx`, mounted in `App.tsx`) holds one conversation for the visit, a floating launcher opens the panel everywhere except `/signin` and `/build`, and the Designer has `GriddyComposer variant="bar"` in place of the old assistant bar. The Designer registers its field with `useGriddyDrawer` so "Yes, draw it" drops a play straight on it.
+- `src/lib/griddy.ts` is the contract shared by browser and function: turn/action types, `GRIDDY_LIMITS`, the three tools (`draw_play`, `import_plays`, `show_plays`) and the cached system prompt. Per-message context (page, open play, the coach's terms, a list of Vault plays and playbooks) goes after the coach's latest message as a `role: "system"` message, so the cached prefix stays stable.
+- `POST /api/ai/griddy` → `netlify/ai/griddy.ts`: checks the browser-held history, rebuilds it as Claude messages (every `tool_use` gets a `tool_result` saying what the coach did with the card), calls `converse()` and validates every action (`cleanRead` in `netlify/ai/reads.ts`; `show_plays` ids must be in the Vault list sent). Thinking blocks are never replayed, so history edits can't invalidate them.
+- Bulk import: Griddy only splits a dump into `{ name, call }` entries. The import card then reads each play through `POST /api/ai/assistant` with `bulk: true` (Haiku, three at a time) and saves with `savePlays` in `src/lib/griddyVault.ts`, which also files them in a named playbook. Nothing is drawn or saved without the coach confirming on a card.
+- Models live in `MODELS` in `netlify/ai/claude.ts` (official `@anthropic-ai/sdk`; key in the `ANTHROPIC_API_KEY` Netlify env var). Griddy's conversation uses server-side refusal fallbacks (`fallbacks: "default"`) and low effort.
+- Limits: server daily caps in `DAILY_AI` (`api.ts`: `assistant` counts Griddy messages and single reads, `import` counts bulk-read plays); monthly plan limits in `plan.ts` (`assistantCalls`, gated by `gateAi`, counted per browser in `aiUsage.ts`).
+- Griddy's face (`GriddyMascot.tsx`) is the GridIronVault "G" with the football, in a lighter cyan: `public/brand/griddy.webp`. The badge does the Griddy (a CSS bob and tilt) when a play he drew is saved. Don't use NFL footage or a real player's likeness for him.
 
 ### Database
 - Schema: `db/schema.ts` (Drizzle, Postgres). Client: `db/index.ts` uses `drizzle-orm/netlify-db` — no connection string in code.

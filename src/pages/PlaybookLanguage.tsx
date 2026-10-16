@@ -55,7 +55,7 @@ export function PlaybookLanguage() {
   function save() {
     if (!draft) return;
     if (!draft.term.trim()) return setError("Give the term a name — the word you say on the sideline.");
-    if (!draft.means.trim()) return setError("Say what it means, so the Play assistant draws it your way.");
+    if (!draft.means.trim()) return setError("Say what it means, so Griddy draws it your way.");
     const dupe = terms.find((t) => t.term.trim().toLowerCase() === draft.term.trim().toLowerCase() && t.id !== draft.id);
     if (dupe) return setError(`“${dupe.term}” is already in your terms. Edit that one instead.`);
     termStore.save(draft);
@@ -84,8 +84,8 @@ export function PlaybookLanguage() {
           <p className="eyebrow">The Vault</p>
           <h2>Playbook language</h2>
           <p className="lang-lede">
-            Your words for concepts, formations and tags. The Play assistant will draw them your way; until it arrives, this is your
-            glossary. Review, rename or delete them here.
+            Your words for concepts, formations and tags. Griddy reads them with every message and draws your plays your
+            way. Review, rename or delete them here.
           </p>
         </div>
 

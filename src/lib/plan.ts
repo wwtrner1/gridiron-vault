@@ -36,7 +36,7 @@ export type Tier = {
   lockedTools: string[];
   /** Whiteboard photo reviews per month (the costlier AI job). */
   photoReviews: number;
-  /** Play assistant calls per month. */
+  /** Griddy requests per month (messages and single play reads). */
   assistantCalls: number;
   perks: string[];
 };
@@ -246,7 +246,7 @@ export type AiKind = "assistant" | "photo";
 export function gateAi(tier: Tier, kind: AiKind, usedThisMonth: number): Gate {
   const limit = kind === "photo" ? tier.photoReviews : tier.assistantCalls;
   if (usedThisMonth < limit) return { ok: true };
-  const what = kind === "photo" ? "whiteboard photo reviews" : "Play assistant calls";
+  const what = kind === "photo" ? "whiteboard photo reviews" : "Griddy requests";
   return {
     ok: false,
     reason: `${tier.name} includes ${limit.toLocaleString()} ${what} a month, and you've used them. They reset on the 1st, or move up a plan for more.`,
