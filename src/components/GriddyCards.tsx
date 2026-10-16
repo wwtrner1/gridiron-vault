@@ -8,9 +8,10 @@ import { describeChange, editScene, planBulkEdit, restorePlayers } from "../lib/
 import type { BulkEdit, BulkTarget } from "../lib/bulkEdit";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
-import type { GriddyAction, ImportItem } from "../lib/griddy";
+import type { CallSheetLine, GriddyAction, ImportItem } from "../lib/griddy";
 import { currentGame, playFromRead, savePlays } from "../lib/griddyVault";
-import { gateSave } from "../lib/plan";
+import { gateGrid, gateSave } from "../lib/plan";
+import { gridFromPlays } from "../lib/sheet";
 import { usePositionTokens } from "../lib/positions";
 import { emptyScene } from "../lib/presets";
 import { nextZ } from "../lib/scene";
@@ -27,6 +28,7 @@ export function GriddyActionCard({ action }: { action: GriddyAction }) {
   if (action.tool === "draw_play") return <DrawCard id={action.id} initial={action.read} />;
   if (action.tool === "import_plays") return <ImportCard id={action.id} plays={action.plays} playbook={action.playbook} />;
   if (action.tool === "bulk_edit") return <BulkCard id={action.id} edit={{ scope: action.scope, changes: action.changes }} />;
+  if (action.tool === "build_call_sheet") return <CallSheetCard id={action.id} name={action.name} lines={action.lines} />;
   return <PlaysCard ids={action.ids} />;
 }
 
@@ -444,7 +446,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       setApplied(list);
       setOutcome(
         id,
-        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}`,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players or lines changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}`,
       );
       toast(`${list.length} ${list.length === 1 ? "play" : "plays"} updated.`);
       dance();
@@ -494,7 +496,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       ) : (
         <>
           <p className="gd-bulk-count">
-            <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays · <strong>{players}</strong> {players === 1 ? "player" : "players"}
+            <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays · <strong>{players}</strong> {players === 1 ? "change" : "changes"} on the field
           </p>
           <ul className="gd-bulk-list">
             {targets.slice(0, 3).map((t) => (
@@ -543,6 +545,107 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
             </button>
           </div>
         )
+      )}
+    </div>
+  );
+}
+
+/**
+ * A game-day call sheet Griddy laid out from the Vault. The coach can drop
+ * rows and rename it; "Create the grid" makes a Season Grid with every row
+ * linked to its play, so it prints on wristbands like any other grid.
+ */
+function CallSheetCard({ id, name: suggested, lines }: { id: string; name: string; lines: CallSheetLine[] }) {
+  const { outcomes, setOutcome, setOpen, dance } = useGriddy();
+  const { account } = useAuth();
+  const tier = useTier();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const plays = useStore((s) => s.plays);
+  const sheets = useStore((s) => s.sheets);
+  const [name, setName] = useState(suggested);
+  const [dropped, setDropped] = useState<Set<number>>(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const done = outcomes[id];
+
+  const rows = lines.flatMap((l, i) => {
+    const play = plays.find((p) => p.id === l.playId);
+    return play && !dropped.has(i) ? [{ i, line: l, play }] : [];
+  });
+  const sections = [...new Set(rows.map((r) => r.line.group || r.play.formation || "Plays"))];
+
+  async function create() {
+    const gate = gateGrid(tier, sheets.length);
+    if (!gate.ok) return toast(gate.reason, true);
+    setBusy(true);
+    try {
+      const sheet = gridFromPlays(name.trim() || "Game plan", rows.map((r) => ({ play: r.play, ...r.line })));
+      store.upsertSheet(sheet);
+      if (account) {
+        try {
+          const res = await api.createSheet({ name: sheet.name, columns: sheet.columns, rows: sheet.rows });
+          store.upsertSheet({ ...sheet, remoteId: res.sheet.id });
+        } catch (e) {
+          toast(e instanceof Error ? e.message : "The grid is saved in this browser. It syncs the next time you save it.", true);
+        }
+      }
+      setOutcome(id, `The coach created the Season Grid "${sheet.name}" with ${rows.length} plays.`);
+      toast(`${sheet.name} is ready in Season Grid.`);
+      dance();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="gd-card gd-sheet">
+      <p className="pa-kicker">Call sheet · {rows.length} plays</p>
+      <label className="gd-import-book">
+        <span>Name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} disabled={Boolean(done)} />
+      </label>
+      {sections.map((sec) => (
+        <div key={sec} className="gd-sheet-section">
+          <p className="gd-sheet-head">{sec}</p>
+          <ol className="gd-sheet-rows">
+            {rows
+              .filter((r) => (r.line.group || r.play.formation || "Plays") === sec)
+              .map((r) => (
+                <li key={r.i}>
+                  <span className="gd-sheet-name">{r.play.name}</span>
+                  <span className="gd-sheet-meta">{[r.line.down && `${r.line.down} & ${r.line.distance ?? "?"}`, r.line.hash, r.play.playType].filter(Boolean).join(" · ")}</span>
+                  {!done && (
+                    <button type="button" className="pa-chip-x" onClick={() => setDropped((d) => new Set(d).add(r.i))} aria-label={`Drop ${r.play.name}`}>
+                      <Icon name="close" size={11} />
+                    </button>
+                  )}
+                </li>
+              ))}
+          </ol>
+        </div>
+      ))}
+      {done ? (
+        <div className="gd-bulk-done">
+          <p className="gd-done">
+            <Icon name="check" size={14} /> Grid created.
+          </p>
+          <button
+            type="button"
+            className="pa-btn"
+            onClick={() => {
+              setOpen(false);
+              navigate("/grid");
+            }}
+          >
+            Open Season Grid
+          </button>
+        </div>
+      ) : (
+        <div className="pa-acts">
+          <button type="button" className="pa-btn is-primary" onClick={() => void create()} disabled={busy || !rows.length}>
+            {busy ? "Creating…" : "Create the grid"}
+          </button>
+        </div>
       )}
     </div>
   );

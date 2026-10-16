@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { trustSaidLetters } from "../lib/assistant";
 import type { AssistantRead } from "../lib/assistant";
@@ -47,6 +47,9 @@ type GriddyValue = {
   setDrawer: (drawer: GriddyDrawer | null) => void;
   dancing: boolean;
   dance: () => void;
+  /** A quick pick typed into the panel's message box; `n` changes on every pick so the same one can be picked twice. */
+  draft: { text: string; n: number } | null;
+  prefill: (text: string) => void;
 };
 
 const GriddyContextValue = createContext<GriddyValue | null>(null);
@@ -81,6 +84,11 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
   const [drawer, setDrawer] = useState<GriddyDrawer | null>(null);
   const [dancing, setDancing] = useState(false);
+  const [draft, setDraft] = useState<GriddyValue["draft"]>(null);
+  const prefill = useCallback((text: string) => {
+    setOpen(true);
+    setDraft((d) => ({ text, n: (d?.n ?? 0) + 1 }));
+  }, []);
   const danceTimer = useRef<number | undefined>(undefined);
   // The latest state, so send() never works from a stale render.
   const live = useRef({ turns, outcomes, drawer, busy });
@@ -152,8 +160,8 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => () => window.clearTimeout(danceTimer.current), []);
 
   const value = useMemo<GriddyValue>(
-    () => ({ open, setOpen, turns, busy, error, send, reset, outcomes, setOutcome, drawer, setDrawer, dancing, dance }),
-    [open, turns, busy, error, send, reset, outcomes, setOutcome, drawer, dancing, dance],
+    () => ({ open, setOpen, turns, busy, error, send, reset, outcomes, setOutcome, drawer, setDrawer, dancing, dance, draft, prefill }),
+    [open, turns, busy, error, send, reset, outcomes, setOutcome, drawer, dancing, dance, draft, prefill],
   );
 
   return (
@@ -222,11 +230,20 @@ function GriddyLauncher() {
   );
 }
 
-const STARTERS = [
-  "Trips Right, X bubble, Z go, Y corner",
-  "What beats Cover 2 in 5v5?",
-  "Find my plays with a flat route",
-  "I'm pasting my whole playbook. Add them all to the Vault",
+/**
+ * Quick picks: tapping one types it into the message box for the coach to
+ * finish or change, rather than sending it, so the blanks are theirs.
+ */
+export const QUICK_PICKS: { label: string; text: string }[] = [
+  { label: "Draw a play", text: "Draw: Trips Right, X bubble, Z go, Y corner" },
+  { label: "Recolor a letter", text: "Make every Y in my Vault yellow" },
+  { label: "Swap a letter", text: "Take the S out of all my plays and put in an H" },
+  { label: "Flip plays", text: "Flip my Trips Right plays to the left" },
+  { label: "Route colors", text: "Make all of X's routes red" },
+  { label: "Call sheet", text: "Build a call sheet for Saturday: 4 openers, 3 red zone, 2 goal line" },
+  { label: "Find plays", text: "Find my plays with a " },
+  { label: "Paste a playbook", text: "Add these plays to my Vault:\n" },
+  { label: "Ask the coach", text: "What beats Cover 2 in 5v5?" },
 ];
 
 /** **bold** in Griddy's answers; everything else is plain text. */
@@ -241,7 +258,7 @@ function Rich({ text }: { text: string }) {
 }
 
 function GriddyPanel() {
-  const { open, setOpen, turns, busy, error, reset, send, dancing, drawer } = useGriddy();
+  const { open, setOpen, turns, busy, error, reset, prefill, dancing, drawer } = useGriddy();
   const logRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
 
@@ -292,9 +309,9 @@ function GriddyPanel() {
           <div className="gd-hello">
             <p>Hey Coach. Tell me a play and I'll draw it, ask me about the game, or paste a list of plays and I'll put them all in your Vault.</p>
             <div className="gd-starters">
-              {STARTERS.map((s) => (
-                <button key={s} type="button" className="gd-starter" onClick={() => void send(s)} disabled={busy}>
-                  {s}
+              {QUICK_PICKS.map((q) => (
+                <button key={q.label} type="button" className="gd-starter" onClick={() => prefill(q.text)}>
+                  <strong>{q.label}</strong> {q.text.trim()}
                 </button>
               ))}
             </div>
@@ -340,8 +357,19 @@ function GriddyPanel() {
 
 /** Where the coach types, talks or drops a file. The panel's is a text area; the Designer's a single line. */
 export function GriddyComposer({ variant }: { variant: "panel" | "bar" }) {
-  const { send, busy } = useGriddy();
+  const { send, busy, draft, prefill, setOpen, turns } = useGriddy();
+  const navigate = useNavigate();
   const [text, setText] = useState("");
+  // A quick pick lands in the panel's box, cursor at the end, ready to finish.
+  useEffect(() => {
+    if (!draft || variant !== "panel") return;
+    setText(draft.text);
+    requestAnimationFrame(() => {
+      const el = boxRef.current;
+      el?.focus();
+      el?.setSelectionRange(draft.text.length, draft.text.length);
+    });
+  }, [draft, variant]);
   const [fileNote, setFileNote] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
@@ -356,6 +384,12 @@ export function GriddyComposer({ variant }: { variant: "panel" | "bar" }) {
 
   async function attach(file: File) {
     setFileNote(null);
+    // A whiteboard photo goes to the photo review, which reads it play by play.
+    if (file.type.startsWith("image/")) {
+      setOpen(false);
+      navigate("/upload", { state: { photo: file } });
+      return;
+    }
     if (file.size > 2_000_000) return setFileNote("That file is too big. Paste the plays in, or send a smaller file.");
     const body = (await file.text()).trim();
     if (!body) return setFileNote(`${file.name} is empty.`);
@@ -381,6 +415,15 @@ export function GriddyComposer({ variant }: { variant: "panel" | "bar" }) {
 
   return (
     <div className={variant === "panel" ? "gd-compose" : "pa"}>
+      {variant === "panel" && turns.length > 0 && (
+        <div className="gd-picks" role="group" aria-label="Quick picks">
+          {QUICK_PICKS.map((q) => (
+            <button key={q.label} type="button" className="gd-pick" onClick={() => prefill(q.text)} title={q.text.trim()}>
+              {q.label}
+            </button>
+          ))}
+        </div>
+      )}
       <form
         className={variant === "panel" ? "gd-compose-row" : "pa-bar"}
         onSubmit={(e) => {
@@ -419,7 +462,7 @@ export function GriddyComposer({ variant }: { variant: "panel" | "bar" }) {
             <input
               ref={fileRef}
               type="file"
-              accept=".txt,.csv,.md,text/plain,text/csv,text/markdown"
+              accept=".txt,.csv,.md,text/plain,text/csv,text/markdown,image/*"
               hidden
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -427,7 +470,7 @@ export function GriddyComposer({ variant }: { variant: "panel" | "bar" }) {
                 if (f) void attach(f);
               }}
             />
-            <button type="button" className="gd-icon-btn" onClick={() => fileRef.current?.click()} aria-label="Attach a list of plays (text or CSV)" title="Attach a list of plays">
+            <button type="button" className="gd-icon-btn" onClick={() => fileRef.current?.click()} aria-label="Attach a list of plays (text or CSV) or a whiteboard photo" title="Attach a list of plays or a whiteboard photo">
               <Icon name="upload" size={16} />
             </button>
           </>

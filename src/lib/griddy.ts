@@ -35,7 +35,14 @@ export type GriddyAction =
   | { id: string; tool: "draw_play"; read: AssistantRead }
   | { id: string; tool: "import_plays"; plays: ImportItem[]; playbook: string | null }
   | { id: string; tool: "show_plays"; ids: string[] }
-  | ({ id: string; tool: "bulk_edit" } & BulkEdit);
+  | ({ id: string; tool: "bulk_edit" } & BulkEdit)
+  | { id: string; tool: "build_call_sheet"; name: string; lines: CallSheetLine[] };
+
+/** One row of a call sheet Griddy builds: a Vault play and, if the coach said, when to call it. */
+export type CallSheetLine = { playId: string; group?: string; down?: string; distance?: string; hash?: string };
+
+/** Most rows one call sheet carries. */
+export const MAX_CALL_LINES = 40;
 
 /**
  * One turn of the conversation. A coach turn carries what happened to each of
@@ -103,7 +110,7 @@ export const GRIDDY_TOOLS = [
   {
     name: "bulk_edit",
     description:
-      "Change many saved plays at once: recolor every player with a letter, or swap one letter for another (the new letter takes its position color and shape, and keeps the old player's routes). The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
+      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, and keeps the old player's routes), recolor the routes a letter runs, or flip plays left to right. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
     input_schema: {
       type: "object",
       properties: {
@@ -117,9 +124,9 @@ export const GRIDDY_TOOLS = [
           items: {
             type: "object",
             properties: {
-              op: { type: "string", enum: ["recolor", "swap"] },
-              letter: { type: "string", description: "recolor: the player letter, e.g. Y." },
-              color: { type: "string", description: "recolor: a 6-digit hex color, e.g. #f5d33b for yellow." },
+              op: { type: "string", enum: ["recolor", "swap", "route_color", "mirror"] },
+              letter: { type: "string", description: "recolor / route_color: the player letter, e.g. Y." },
+              color: { type: "string", description: "recolor / route_color: a 6-digit hex color, e.g. #f5d33b for yellow." },
               from: { type: "string", description: "swap: the letter to take out, e.g. S." },
               to: { type: "string", description: "swap: the letter to put in, e.g. H." },
             },
@@ -128,6 +135,33 @@ export const GRIDDY_TOOLS = [
         },
       },
       required: ["scope", "changes"],
+    },
+  },
+  {
+    name: "build_call_sheet",
+    description:
+      "Lay out a game-day call sheet (a Season Grid) from plays in the coach's Vault, one row per play, grouped by situation if the coach asked. The coach reviews the list and creates the grid; nothing is saved until they do.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The grid's name, e.g. 'Saturday vs. Eagles'." },
+        lines: {
+          type: "array",
+          maxItems: 40,
+          items: {
+            type: "object",
+            properties: {
+              playId: { type: "string", description: "A Vault id from the latest context." },
+              group: { type: "string", description: "The situation or section, e.g. Openers, Red zone, 3rd and short." },
+              down: { type: "string" },
+              distance: { type: "string" },
+              hash: { type: "string" },
+            },
+            required: ["playId"],
+          },
+        },
+      },
+      required: ["name", "lines"],
     },
   },
   {
@@ -148,7 +182,8 @@ Tools:
 - draw_play: one play, called or described. Also use it to change the play you last proposed: send the whole play again with the change.
 - import_plays: several plays at once (a pasted list, a call sheet, a long dictation, a file). Make one entry per play and keep the coach's words. Up to ${GRIDDY_LIMITS.importPlays} at a time; if there are more, take the first ${GRIDDY_LIMITS.importPlays} and say so.
 - show_plays: find plays in the coach's Vault. Use only ids from the Vault list in the latest context.
-- bulk_edit: change many saved plays at once ("make every Y yellow", "take the S out of all my plays and put in an H", "in my Red Zone playbook, swap Z for X"). Scope it to the playbook or plays the coach names, else the whole Vault. You don't need to find which plays have the letter; the app does. Colors as hex; palette: ${[...TEAM_COLORS, ...BRAND_COLORS].map((c) => `${c.name} ${c.hex}`).join(", ")}.
+- build_call_sheet: a game-day call sheet from the coach's Vault ("4 openers, 3 red zone, 2 goal line"). Pick real Vault plays that fit each situation, by formation, type and tags; say which sections you couldn't fill.
+- bulk_edit: change many saved plays at once ("make every Y yellow", "take the S out of all my plays and put in an H", "in my Red Zone playbook, swap Z for X", "make all of X's routes red", "flip my Trips plays to the left" = mirror on those plays). Scope it to the playbook or plays the coach names, else the whole Vault. You don't need to find which plays have the letter; the app does. Colors as hex; palette: ${[...TEAM_COLORS, ...BRAND_COLORS].map((c) => `${c.name} ${c.hex}`).join(", ")}.
 
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
 

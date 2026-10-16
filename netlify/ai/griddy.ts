@@ -13,6 +13,7 @@ import {
 } from "../../src/lib/griddy.js";
 import type { AssistantRead } from "../../src/lib/assistant.js";
 import { bulkColor, LETTER, MAX_BULK_CHANGES, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
+import { MAX_CALL_LINES } from "../../src/lib/griddy.js";
 import { AiError, converse, MODELS } from "./claude.js";
 import { cleanRead } from "./reads.js";
 
@@ -87,6 +88,7 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
 function toolInput(a: GriddyAction): unknown {
   if (a.tool === "draw_play") return a.read;
   if (a.tool === "import_plays") return a.playbook ? { plays: a.plays, playbook: a.playbook } : { plays: a.plays };
+  if (a.tool === "build_call_sheet") return { name: a.name, lines: a.lines };
   if (a.tool === "bulk_edit") {
     const scope =
       a.scope.kind === "playbook" ? { scope: "playbook", playbook: a.scope.name } : a.scope.kind === "plays" ? { scope: "plays", ids: a.scope.ids } : { scope: "vault" };
@@ -146,19 +148,36 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
       const playbook = str(input.playbook, 120).trim() || null;
       return plays.length ? [{ id: u.id, tool: "import_plays", plays, playbook }] : [];
     }
+    if (u.name === "build_call_sheet") {
+      const lines = (Array.isArray(input.lines) ? input.lines : [])
+        .filter((l) => l && vaultIds.has(String(l.playId)))
+        .slice(0, MAX_CALL_LINES)
+        .map((l) => {
+          const line: { playId: string; group?: string; down?: string; distance?: string; hash?: string } = { playId: String(l.playId) };
+          for (const k of ["group", "down", "distance", "hash"] as const) if (str(l[k], 40).trim()) line[k] = str(l[k], 40).trim();
+          return line;
+        });
+      return lines.length ? [{ id: u.id, tool: "build_call_sheet", name: str(input.name, 80).trim() || "Game plan", lines }] : [];
+    }
     if (u.name === "bulk_edit") {
-      const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, MAX_BULK_CHANGES).flatMap((c): BulkChange[] => {
+      // Invalid entries are dropped first, so they can't use up the cap on changes.
+      const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, 40).flatMap((c): BulkChange[] => {
         const letter = (v: unknown) => str(v, 3).trim().toUpperCase();
         if (c?.op === "recolor") {
           const color = bulkColor(str(c.color, 30));
           return LETTER.test(letter(c.letter)) && color ? [{ op: "recolor", letter: letter(c.letter), color }] : [];
         }
+        if (c?.op === "route_color") {
+          const color = bulkColor(str(c.color, 30));
+          return LETTER.test(letter(c.letter)) && color ? [{ op: "route_color", letter: letter(c.letter), color }] : [];
+        }
+        if (c?.op === "mirror") return [{ op: "mirror" }];
         if (c?.op === "swap")
           return LETTER.test(letter(c.from)) && LETTER.test(letter(c.to)) && letter(c.from) !== letter(c.to)
             ? [{ op: "swap", from: letter(c.from), to: letter(c.to) }]
             : [];
         return [];
-      });
+      }).slice(0, MAX_BULK_CHANGES);
       let scope: BulkScope = { kind: "vault" };
       if (input.scope === "playbook" && str(input.playbook, 120).trim()) scope = { kind: "playbook", name: str(input.playbook, 120).trim() };
       if (input.scope === "plays") {

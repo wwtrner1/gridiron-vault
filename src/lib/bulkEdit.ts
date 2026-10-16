@@ -1,7 +1,8 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
-import type { PlayerNode, Scene, StoredPlay } from "./types";
+import { CANVAS_W } from "./types";
+import type { PathNode, PlayerNode, Scene, SceneNode, StoredPlay } from "./types";
 
 /**
  * Bulk changes Griddy can make across many plays at once: recolor every
@@ -14,7 +15,11 @@ export type BulkChange =
   /** Every offense player with this letter takes this fill; the letter stays readable. */
   | { op: "recolor"; letter: string; color: string }
   /** Every offense player with letter `from` becomes `to`, wearing `to`'s position color and shape. */
-  | { op: "swap"; from: string; to: string };
+  | { op: "swap"; from: string; to: string }
+  /** The routes, blocks and motion run by players with this letter take this color. */
+  | { op: "route_color"; letter: string; color: string }
+  /** The whole play flipped left to right across the middle of the field ("run it to the other side"). */
+  | { op: "mirror" };
 
 export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] };
 
@@ -31,7 +36,7 @@ const up = (s: string) => s.trim().toUpperCase();
 export const bulkColor = (input: string) =>
   normalizeHex(input) ?? [...TEAM_COLORS, ...BRAND_COLORS].find((c) => c.name.toLowerCase() === input.trim().toLowerCase())?.hex ?? null;
 
-function changePlayer(p: PlayerNode, change: BulkChange, tokens: TokenPreset[]): PlayerNode | null {
+function changePlayer(p: PlayerNode, change: Extract<BulkChange, { op: "recolor" | "swap" }>, tokens: TokenPreset[]): PlayerNode | null {
   if (p.side !== "offense" || !p.label) return null;
   const label = up(p.label);
   if (change.op === "recolor") {
@@ -47,6 +52,27 @@ function changePlayer(p: PlayerNode, change: BulkChange, tokens: TokenPreset[]):
     : { ...p, label: up(change.to) };
 }
 
+/** The player a line belongs to: the one it's glued to, else the one standing where it starts. */
+function runnerOf(path: PathNode, players: PlayerNode[]): PlayerNode | undefined {
+  return players.find((p) => p.id === path.fromId) ?? players.find((p) => Math.hypot(p.x - path.x, p.y - path.y) < 2);
+}
+
+/** Left to right across the middle of the field. Letters and text stay readable; lines and shapes mirror. */
+function mirrorNode(n: SceneNode): SceneNode {
+  const x = CANVAS_W - n.x;
+  if (n.kind === "player") return { ...n, x, rotation: -n.rotation };
+  if (n.kind === "text") return { ...n, x, rotation: -n.rotation, align: n.align === "start" ? "end" : n.align === "end" ? "start" : n.align };
+  if (n.kind === "path")
+    return {
+      ...n,
+      x,
+      rotation: -n.rotation,
+      points: n.points.map((p) => ({ x: -p.x, y: p.y })),
+      handles: Object.fromEntries(Object.entries(n.handles).map(([k, h]) => [k, { x: -h.x, y: h.y }])),
+    };
+  return { ...n, x, rotation: -n.rotation, scaleX: -n.scaleX };
+}
+
 /**
  * One scene with every change applied in order (so "swap S for H, then make
  * H yellow" works), and how many players changed. Node ids are kept, so
@@ -56,6 +82,22 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
   const touched = new Set<string>();
   let nodes = scene.nodes;
   for (const change of changes) {
+    if (change.op === "mirror") {
+      nodes = nodes.map(mirrorNode);
+      nodes.forEach((n) => n.kind === "player" && touched.add(n.id));
+      continue;
+    }
+    if (change.op === "route_color") {
+      const fill = bulkColor(change.color);
+      const players = nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "offense" && up(n.label) === up(change.letter));
+      if (!fill || !players.length) continue;
+      nodes = nodes.map((n) => {
+        if (n.kind !== "path" || n.stroke.toLowerCase() === fill || !runnerOf(n, players)) return n;
+        touched.add(n.id);
+        return { ...n, stroke: fill };
+      });
+      continue;
+    }
     nodes = nodes.map((n) => {
       if (n.kind !== "player") return n;
       const next = changePlayer(n, change, tokens);
@@ -107,6 +149,8 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
 
 /** "Y → yellow (#f5d33b)", "S → H", for the card and for Griddy. */
 export function describeChange(c: BulkChange, colorLabel: (hex: string) => string): string {
+  if (c.op === "mirror") return "Flip left ↔ right";
+  if (c.op === "route_color") return `${up(c.letter)}'s routes → ${colorLabel(bulkColor(c.color) ?? c.color)}`;
   return c.op === "recolor" ? `${up(c.letter)} → ${colorLabel(bulkColor(c.color) ?? c.color)}` : `${up(c.from)} → ${up(c.to)}`;
 }
 
@@ -115,21 +159,30 @@ const look = (p: PlayerNode): Look => ({ label: p.label, fill: p.fill, stroke: p
 const sameLook = (a: Look, b: Look) => (Object.keys(a) as (keyof Look)[]).every((k) => a[k] === b[k]);
 
 /**
- * Undo on a field that may have changed since: only the players the bulk
- * edit touched get their old letter and colors back; everything else on the
- * field (moves, new routes) stays as it is now.
+ * Undo on a field that may have changed since. A player whose only change
+ * was its letter or colors gets those back and keeps any later moves; any
+ * other node the bulk edit changed (a flipped line, a recolored route) goes
+ * back as it was. Nodes the edit didn't touch stay as they are now.
  */
 export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene {
-  const was = new Map(before.nodes.flatMap((n) => (n.kind === "player" ? [[n.id, n] as const] : [])));
-  const touched = new Set(
+  const was = new Map(before.nodes.map((n) => [n.id, n] as const));
+  const changed = new Map(
     after.nodes.flatMap((n) => {
-      const old = n.kind === "player" ? was.get(n.id) : undefined;
-      return n.kind === "player" && old && !sameLook(look(n), look(old)) ? [n.id] : [];
+      const old = was.get(n.id);
+      if (!old || JSON.stringify(old) === JSON.stringify(n)) return [];
+      const lookOnly =
+        n.kind === "player" && old.kind === "player" && JSON.stringify({ ...n, ...look(old) }) === JSON.stringify(old) && !sameLook(look(n), look(old));
+      return [[n.id, lookOnly ? "look" : "node"] as const];
     }),
   );
-  if (!touched.size) return field;
+  if (!changed.size) return field;
   return {
     ...field,
-    nodes: field.nodes.map((n) => (n.kind === "player" && touched.has(n.id) ? { ...n, ...look(was.get(n.id)!) } : n)),
+    nodes: field.nodes.map((n) => {
+      const how = changed.get(n.id);
+      const old = was.get(n.id);
+      if (!how || !old) return n;
+      return how === "look" && n.kind === "player" && old.kind === "player" ? { ...n, ...look(old) } : old;
+    }),
   };
 }
