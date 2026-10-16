@@ -202,3 +202,18 @@
 .gd-panel.is-designer { top: 56px; }
 .gd-panel.is-designer .gd-head { padding-top: 12px; }
 @media (max-height: 500px) and (pointer: coarse) { .gd-panel.is-designer { top: 48px; } }
+
+/* ---- Bulk change card ---- */
+.gd-bulk { display: flex; flex-direction: column; gap: 10px; }
+.gd-bulk-count { margin: 0; font-size: 13.5px; color: var(--panel-head); }
+.gd-bulk-count strong { color: var(--white); }
+.gd-bulk-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.gd-bulk-name { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; }
+.gd-bulk-pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; color: var(--panel-head); }
+.gd-bulk-pair svg[role="img"] { display: block; width: 100%; height: auto; border-radius: 4px; background: var(--white); }
+.gd-bulk-more { font-size: 12.5px; color: var(--panel-head); }
+.gd-bulk-more summary { cursor: pointer; color: var(--cyan); }
+.gd-bulk-more p { margin: 6px 0 0; line-height: 1.5; }
+.gd-bulk-done { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+/* The shared chevron points down; between before and after it points across. */
+.gd-bulk-pair > svg:not([role="img"]) { transform: rotate(-90deg); }

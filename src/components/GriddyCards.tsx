@@ -4,6 +4,9 @@ import { api } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
+import { describeChange, editScene, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
+import type { BulkEdit, BulkTarget } from "../lib/bulkEdit";
+import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
 import type { GriddyAction, ImportItem } from "../lib/griddy";
 import { currentGame, playFromRead, savePlays } from "../lib/griddyVault";
@@ -11,9 +14,10 @@ import { gateSave } from "../lib/plan";
 import { usePositionTokens } from "../lib/positions";
 import { emptyScene } from "../lib/presets";
 import { nextZ } from "../lib/scene";
-import { useStore } from "../lib/store";
+import { store, useStore } from "../lib/store";
 import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
+import type { StoredPlay } from "../lib/types";
 import { useToast } from "../lib/toast";
 import { useGriddy } from "./Griddy";
 import { Icon } from "./Icon";
@@ -22,6 +26,7 @@ import { PlayThumb } from "./PlayThumb";
 export function GriddyActionCard({ action }: { action: GriddyAction }) {
   if (action.tool === "draw_play") return <DrawCard id={action.id} initial={action.read} />;
   if (action.tool === "import_plays") return <ImportCard id={action.id} plays={action.plays} playbook={action.playbook} />;
+  if (action.tool === "bulk_edit") return <BulkCard id={action.id} edit={{ scope: action.scope, changes: action.changes }} />;
   return <PlaysCard ids={action.ids} />;
 }
 
@@ -381,5 +386,164 @@ function PlaysCard({ ids }: { ids: string[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Saved plays changed in place: this browser first, then the account copy of any play that has one. */
+async function writePlays(plays: StoredPlay[], signedIn: boolean) {
+  plays.forEach((p) => store.upsertPlay(p));
+  if (!signedIn) return;
+  for (const p of plays.filter((x) => x.remote)) {
+    try {
+      await api.updatePlay(p.id, { scene: p.scene });
+    } catch {
+      /* the local copy is already updated; it syncs on the next save */
+    }
+  }
+}
+
+/**
+ * Many plays changed at once ("every Y yellow", "S out, H in"). The card
+ * counts what changes and shows a before and after; nothing is written until
+ * the coach applies it, and Undo puts every play back as it was.
+ */
+function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
+  const { outcomes, setOutcome, drawer, dance } = useGriddy();
+  const { account } = useAuth();
+  const toast = useToast();
+  const tokens = usePositionTokens();
+  const plays = useStore((s) => s.plays);
+  const books = useStore((s) => s.playbooks);
+  const live = useMemo(() => planBulkEdit(edit, plays, books, tokens), [edit, plays, books, tokens]);
+  /** What was written, kept for Undo. */
+  const [applied, setApplied] = useState<BulkTarget[] | null>(null);
+  const [undone, setUndone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const done = outcomes[id];
+
+  const changes = edit.changes.map((c) => describeChange(c, (hex) => colorName(hex).toLowerCase()));
+  const where =
+    edit.scope.kind === "vault" ? "your whole Vault" : edit.scope.kind === "playbook" ? `the playbook "${edit.scope.name}"` : `${edit.scope.ids.length} picked plays`;
+  const targets = applied ?? live.targets;
+  const players = targets.reduce((n, t) => n + t.players, 0);
+  const doubled = targets.filter((t) => t.doubled.length);
+  const changeLabel = `Griddy: ${changes.join(", ")}`;
+
+  async function apply() {
+    const list = live.targets;
+    if (!list.length) return;
+    setBusy(true);
+    try {
+      await writePlays(
+        list.map((t) => t.after),
+        Boolean(account),
+      );
+      // The play open in the Designer changes on the field too, so its next save keeps the edit.
+      if (drawer?.playId && list.some((t) => t.before.id === drawer.playId))
+        drawer.onEdit((field) => editScene(field, edit.changes, tokens).scene, changeLabel);
+      setApplied(list);
+      setOutcome(
+        id,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}`,
+      );
+      toast(`${list.length} ${list.length === 1 ? "play" : "plays"} updated.`);
+      dance();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undo() {
+    if (!applied) return;
+    setBusy(true);
+    try {
+      // Only plays still exactly as the bulk edit left them go back; anything edited since is kept.
+      const current = new Map(store.get().plays.map((p) => [p.id, p]));
+      // Compared by content: a Vault refresh can swap in an equal copy of the play.
+      const same = (t: BulkTarget) => JSON.stringify(current.get(t.after.id)?.scene) === JSON.stringify(t.after.scene);
+      const back = applied.filter(same).map((t) => ({ ...t.before, updatedAt: new Date().toISOString() }));
+      await writePlays(back, Boolean(account));
+      const open = applied.find((t) => t.before.id === drawer?.playId);
+      if (drawer && open) drawer.onEdit((field) => restorePlayers(field, open.before.scene, open.after.scene), `Undo ${changeLabel}`);
+      setUndone(true);
+      const kept = applied.length - back.length;
+      setOutcome(
+        id,
+        `The coach applied the change, then undid it: ${back.length} plays are back as they were.${kept ? ` ${kept} had been edited since and were left alone.` : ""}`,
+      );
+      toast(`${back.length} ${back.length === 1 ? "play is" : "plays are"} back the way they were.`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="gd-card gd-bulk">
+      <p className="pa-kicker">Bulk change · {where}</p>
+      <div className="pa-chips">
+        {changes.map((c) => (
+          <span key={c} className="pa-chip">
+            {c}
+          </span>
+        ))}
+      </div>
+      {live.missingBook && !applied ? (
+        <p className="pa-error">There's no playbook called "{live.missingBook}". Tell me which one you mean.</p>
+      ) : !targets.length ? (
+        <p className="gd-done">None of the {live.inScope} plays here have a player to change.</p>
+      ) : (
+        <>
+          <p className="gd-bulk-count">
+            <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays · <strong>{players}</strong> {players === 1 ? "player" : "players"}
+          </p>
+          <ul className="gd-bulk-list">
+            {targets.slice(0, 3).map((t) => (
+              <li key={t.before.id}>
+                <span className="gd-bulk-name">{t.before.name}</span>
+                <span className="gd-bulk-pair">
+                  <PlayThumb scene={t.before.scene} label={`${t.before.name} before`} />
+                  <Icon name="chevron" size={14} aria-hidden="true" />
+                  <PlayThumb scene={t.after.scene} label={`${t.before.name} after`} />
+                </span>
+              </li>
+            ))}
+          </ul>
+          {targets.length > 3 && (
+            <details className="gd-bulk-more">
+              <summary>And {targets.length - 3} more</summary>
+              <p>{targets.slice(3).map((t) => t.before.name).join(" · ")}</p>
+            </details>
+          )}
+          {doubled.length > 0 && (
+            <p className="pa-error">
+              {doubled.length} {doubled.length === 1 ? "play already has" : "plays already have"} a {doubled[0].doubled.join("/")}, so{" "}
+              {doubled.length === 1 ? "it ends up" : "they end up"} with two: {doubled.slice(0, 4).map((t) => t.before.name).join(", ")}
+              {doubled.length > 4 ? "…" : ""}. Open {doubled.length === 1 ? "it" : "them"} afterwards to relabel one.
+            </p>
+          )}
+        </>
+      )}
+      {done ? (
+        <div className="gd-bulk-done">
+          <p className="gd-done">
+            <Icon name="check" size={14} /> {undone ? done.replace(/^The coach applied the change, then undid it: /, "Undone. ") : `Applied to ${applied?.length ?? 0} plays.`}
+          </p>
+          {applied && !undone && (
+            <button type="button" className="pa-btn" onClick={() => void undo()} disabled={busy}>
+              Undo this change
+            </button>
+          )}
+        </div>
+      ) : (
+        targets.length > 0 &&
+        !live.missingBook && (
+          <div className="pa-acts">
+            <button type="button" className="pa-btn is-primary" onClick={() => void apply()} disabled={busy}>
+              {busy ? "Applying…" : `Apply to ${targets.length} ${targets.length === 1 ? "play" : "plays"}`}
+            </button>
+          </div>
+        )
+      )}
+    </div>
   );
 }
