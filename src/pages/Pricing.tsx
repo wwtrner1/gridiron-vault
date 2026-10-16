@@ -54,8 +54,8 @@ const COMPARE: {
     read: (t) => `${t.photoReviews.toLocaleString()}/month`,
   },
   {
-    label: "Play assistant",
-    hint: "Type or say a call and see it drawn, plus auto-tagging.",
+    label: "Griddy, your coaching assistant",
+    hint: "Ask anything, call a play and see it drawn, or drop in a whole list of plays at once.",
     read: (t) => `${t.assistantCalls.toLocaleString()}/month`,
   },
 ];

@@ -4,9 +4,9 @@ import type { StoredPlay } from "./types";
 
 /**
  * Playbook language, from the Grid1ron Design canvas: the coach's own words
- * for concepts, formations and tags. The Play assistant (Phase 3, item 4)
- * will read these; until then they are the coach's glossary, and new ones
- * are suggested from the words already used in the Vault.
+ * for concepts, formations and tags. Griddy (formerly the Play assistant)
+ * reads these with every message, and new ones are suggested from the words
+ * already used in the Vault.
  */
 export type TermType = "concept" | "formation" | "tag";
 export type TermScope = "you" | "staff" | "shared";

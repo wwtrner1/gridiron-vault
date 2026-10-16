@@ -12,7 +12,7 @@ export const COMING_SOON: Record<string, Screen> = {
   "/tools": {
     title: "More tools",
     icon: "sparkle",
-    blurb: "The Play assistant, formation and defense libraries, the route tree and Saved play format — everything that speeds up drawing a play.",
+    blurb: "Griddy, the formation and defense libraries, the route tree and Saved play format — everything that speeds up drawing a play.",
   },
 };
 

@@ -7,10 +7,11 @@ import { baseNode, CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, SceneNode, StoredPlay } from "./types";
 
 /**
- * Play assistant, from the Grid1ron Design canvas (Designer · assistant,
- * tools…): the coach types or says a call, the assistant shows how it read
- * each player, and nothing is drawn until the coach confirms. Shared by the
- * browser and the Netlify function so both agree on the shape of a read.
+ * How Griddy reads one play call (formerly the Play assistant, from the
+ * Grid1ron Design canvas: Designer · assistant, tools…): the read shows how
+ * each player was taken, as chips, and nothing is drawn until the coach
+ * confirms. Shared by the browser and the Netlify function so both agree on
+ * the shape of a read.
  */
 export const ROUTE_IDS = Object.keys(ROUTES).filter((r) => !["rush", "drop", "block"].includes(r));
 export const BLOCK_IDS = Object.keys(BLOCKS);
@@ -45,6 +46,8 @@ export type AssistantRequest = {
   game: GameType;
   /** The coach's own words from Playbook language. */
   terms: { term: string; means: string }[];
+  /** One play of a Griddy import: counted against the daily import limit, not chat. */
+  bulk?: boolean;
 };
 
 export const MAX_CALL = 400;

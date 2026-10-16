@@ -20,7 +20,7 @@ import { RunPlay } from "../components/RunPlay";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, playerAt, type Tile } from "../lib/routeLibrary";
 import { DefenseLibrary } from "../components/DefenseLibrary";
-import { PlayAssistant } from "../components/PlayAssistant";
+import { GriddyComposer, useGriddyDrawer } from "../components/Griddy";
 import type { AssistantRead } from "../lib/assistant";
 import { FIELD_VIEWS } from "../lib/field";
 import { LINE_TOOLS, MODES, SHAPE_TOOLS, type ModeId, type ToolId } from "../lib/tools";
@@ -444,11 +444,12 @@ export function Builder() {
   const drawAssistant = (nodes: SceneNode[], read: AssistantRead) => {
     const group = uid("grp");
     const grouped = nodes.map((n) => ({ ...n, groupId: group }));
-    applyScene({ ...scene, nodes: [...scene.nodes, ...grouped] }, `Assistant: ${read.name}`);
+    applyScene({ ...scene, nodes: [...scene.nodes, ...grouped] }, `Griddy: ${read.name}`);
     setSelection(grouped.map((n) => n.id));
     setMeta((m) => ({ ...m, name: m.name || read.name, formation: m.formation || read.formation }));
     setStatus(`Drew ${read.name}. Drag, restyle or undo it like anything else.`);
   };
+  useGriddyDrawer(scene, offense, meta, drawAssistant);
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
     // Line up on the ball: the center if there is one, else the middle of the field.
@@ -1100,7 +1101,7 @@ export function Builder() {
               <Icon name="upload" size={14} /> Upload
             </Link>
           </Tooltip>
-          <Tooltip title="More tools" hint="Coming soon: the assistant, libraries and route tree on one page. Everything on it is already in the tool panel here." side="bottom">
+          <Tooltip title="More tools" hint="Coming soon: Griddy, libraries and route tree on one page. Everything on it is already in the tool panel here." side="bottom">
             <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
               More tools
             </Link>
@@ -1504,7 +1505,7 @@ export function Builder() {
         </aside>
 
         <main className="builder-main" id="main" ref={mainRef}>
-          <PlayAssistant scene={scene} tokens={offense} plays={plays} nextZ={nextZ(scene)} onDraw={drawAssistant} />
+          <GriddyComposer variant="bar" />
           {drawingTool && (
             <div className="dz-drawbar" role="toolbar" aria-label="Drawing tools">
               {draftPoints > 0 && (

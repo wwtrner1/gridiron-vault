@@ -2,6 +2,7 @@ import type { Scene, StoredPlay } from "./types";
 import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
 import type { PhotoRead, PhotoRequest } from "./photo";
+import type { GriddyReply, GriddyRequest } from "./griddy";
 
 export type ApiPlay = {
   id: string;
@@ -51,6 +52,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   assistant: (body: AssistantRequest) =>
     request<{ read: AssistantRead }>("ai/assistant", { method: "POST", body: JSON.stringify(body) }),
+
+  griddy: (body: GriddyRequest) =>
+    request<{ reply: GriddyReply }>("ai/griddy", { method: "POST", body: JSON.stringify(body) }),
 
   photo: (body: PhotoRequest) =>
     request<{ read: PhotoRead }>("ai/photo", { method: "POST", body: JSON.stringify(body) }),

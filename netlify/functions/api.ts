@@ -26,12 +26,12 @@ import {
   SMS_PER_DAY,
 } from "../security/phone.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
+import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
+import { griddy } from "../ai/griddy.js";
 import {
   ASSISTANT_TOOL,
   assistantSystem,
-  BLOCK_IDS,
   MAX_CALL,
-  ROUTE_IDS,
   type AssistantRead,
   type AssistantRequest,
 } from "../../src/lib/assistant.js";
@@ -123,7 +123,12 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     /* ------------------------------------------------------------- ai --- */
     if (resource === "ai") {
       if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
-      if (!me) return fail("Sign in to use the Play assistant. It is included with every plan.", 401);
+      if (!me) return fail("Sign in to talk to Griddy. He comes with every plan.", 401);
+      if (id === "griddy") {
+        if (!(await spend(me, "assistant")))
+          return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
+        return json({ reply: await griddy(await req.json()) });
+      }
       if (id === "assistant") return await assistant(me, await req.json());
       if (id === "photo") return await photo(me, await req.json());
       return fail("That address is not part of the playbook API.", 404);
@@ -359,7 +364,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
 
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
 // "texts" counts codes Twilio actually sent. (It replaced "sms", which also counted refused sends.)
-const DAILY_AI = { assistant: 60, photo: 15, texts: SMS_PER_DAY } as const;
+// "import" counts plays Griddy draws from a dump, one per play, so a big import doesn't use up the coach's chat for the day.
+const DAILY_AI = { assistant: 60, import: 200, photo: 15, texts: SMS_PER_DAY } as const;
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
@@ -393,8 +399,11 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
     .map((t) => ({ term: String(t?.term ?? "").slice(0, 60), means: String(t?.means ?? "").slice(0, 200) }))
     .filter((t) => t.term);
 
-  if (!(await spend(me, "assistant")))
-    return fail(`That's ${DAILY_AI.assistant} assistant calls today — the daily limit. It resets at midnight UTC.`, 429);
+  if (body.bulk) {
+    if (!(await spend(me, "import")))
+      return fail(`That's ${DAILY_AI.import} imported plays today — the daily limit. The rest can go in tomorrow; it resets at midnight UTC.`, 429);
+  } else if (!(await spend(me, "assistant")))
+    return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
 
   const raw = await callTool<AssistantRead>({
     model: MODELS.assistant,
@@ -404,37 +413,7 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
     maxTokens: 900,
   });
 
-  const result: AssistantRead = {
-    formation: FORMATION_NAMES.includes(raw.formation) ? raw.formation : FORMATION_NAMES[0],
-    game: GAME_TYPES.some((g) => g.id === raw.game) ? raw.game : game,
-    personnel: typeof raw.personnel === "string" ? raw.personnel.slice(0, 2) : undefined,
-    name: String(raw.name ?? call).slice(0, 80),
-    assignments: cleanAssignments(raw.assignments),
-    unsure: (Array.isArray(raw.unsure) ? raw.unsure : []).map((q) => String(q).slice(0, 200)).slice(0, 4),
-  };
-  return json({ read: result });
-}
-
-const ACTIONS = new Set([...ROUTE_IDS, ...BLOCK_IDS, "motion"]);
-
-/** Trust nothing the model returns without checking it against our own lists. */
-function cleanAssignments(list: unknown): AssistantRead["assignments"] {
-  let read = false;
-  return (Array.isArray(list) ? (list as AssistantRead["assignments"]) : [])
-    .filter((a) => a && typeof a.player === "string" && ACTIONS.has(a.action))
-    .slice(0, 11)
-    .map((a) => {
-      const first = Boolean(a.firstRead) && !read && a.kind === "route";
-      if (first) read = true;
-      return {
-        player: a.player.slice(0, 3).toUpperCase(),
-        kind: (["route", "block", "motion"].includes(a.kind) ? a.kind : "route") as AssistantRead["assignments"][number]["kind"],
-        action: a.action,
-        toward: a.toward === "in" || a.toward === "out" ? a.toward : undefined,
-        firstRead: first || undefined,
-        heard: String(a.heard ?? "").slice(0, 80),
-      };
-    });
+  return json({ read: cleanRead(raw, game, call) });
 }
 
 const unit = (n: unknown) => Math.min(1, Math.max(0, Number(n) || 0));

@@ -7,7 +7,7 @@ import "../styles/help.css";
 
 const AREAS = [
   "Designer",
-  "Play assistant",
+  "Griddy (coaching assistant)",
   "Upload plays",
   "The Vault",
   "Season Grid / call sheet",

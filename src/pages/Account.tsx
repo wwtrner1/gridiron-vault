@@ -152,7 +152,7 @@ export function Account() {
               <dd>{tier.photoReviews} per month</dd>
             </div>
             <div>
-              <dt>Play assistant</dt>
+              <dt>Griddy requests</dt>
               <dd>{tier.assistantCalls} per month</dd>
             </div>
           </dl>

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
+import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
@@ -85,6 +86,7 @@ function RouteChrome() {
 export function App() {
   return (
     <ToastProvider>
+      <GriddyProvider>
       <RouteChrome />
       <CarryOver />
       <PhoneGate />
@@ -113,6 +115,7 @@ export function App() {
         <Route path="/login" element={<Navigate to="/signin" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </GriddyProvider>
     </ToastProvider>
   );
 }

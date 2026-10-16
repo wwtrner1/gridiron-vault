@@ -73,8 +73,9 @@ export function Privacy() {
           <b>Your work:</b> plays, playbooks and Season Grids you save to your account.
         </li>
         <li>
-          <b>Photos you send to the Play assistant:</b> a whiteboard photo or typed call is sent to our AI provider to read
-          it, then the result comes back to you. We don't keep the photo.
+          <b>What you send to Griddy:</b> your messages, any file of plays you attach, a whiteboard photo, and — so Griddy can
+          find your plays — the names, formations and tags of the plays in your Vault go to our AI provider, and the answer
+          comes back to you. We don't keep the photo or the conversation.
         </li>
         <li>
           <b>Feedback:</b> whatever you write on Help &amp; feedback, plus an optional email and screenshot.
@@ -97,7 +98,7 @@ export function Privacy() {
           <b>Twilio</b> sends the text-message codes.
         </li>
         <li>
-          <b>Anthropic</b> (Claude) reads whiteboard photos and play calls for the Play assistant.
+          <b>Anthropic</b> (Claude) powers Griddy: it reads your messages, play calls and whiteboard photos.
         </li>
       </ul>
       <p>Each only gets what it needs for that job.</p>
