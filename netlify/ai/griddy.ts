@@ -179,7 +179,12 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
         return [];
       }).slice(0, MAX_BULK_CHANGES);
       let scope: BulkScope = { kind: "vault" };
-      if (input.scope === "playbook" && str(input.playbook, 120).trim()) scope = { kind: "playbook", name: str(input.playbook, 120).trim() };
+      if (input.scope === "playbook") {
+        const name = str(input.playbook, 120).trim();
+        // A playbook with no name would quietly widen to the whole Vault, like unknown ids below; drop the card instead.
+        if (!name) return [];
+        scope = { kind: "playbook", name };
+      }
       if (input.scope === "plays") {
         const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));
         // Plays it named that aren't in the Vault would quietly widen to everything; drop the card instead.
