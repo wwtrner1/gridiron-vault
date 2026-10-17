@@ -446,7 +446,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       setApplied(list);
       setOutcome(
         id,
-        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players or lines changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}`,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players or lines changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
       );
       toast(`${list.length} ${list.length === 1 ? "play" : "plays"} updated.`);
       dance();
@@ -510,6 +510,11 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
               </li>
             ))}
           </ul>
+          {live.firstReads > 0 && !applied && (
+            <p className="gd-bulk-count">
+              {live.firstReads} first-read {live.firstReads === 1 ? "route stays" : "routes stay"} cyan, so the read still stands out.
+            </p>
+          )}
           {targets.length > 3 && (
             <details className="gd-bulk-more">
               <summary>And {targets.length - 3} more</summary>

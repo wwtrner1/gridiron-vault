@@ -134,16 +134,15 @@ const scopeText = (e: BulkEdit) => (e.scope.kind === "playbook" ? `playbook "${e
 function routeOutcome(edit: BulkEdit, fx: Fixture): Verdict {
   const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
   if (!plan.targets.length) return fail(`card would change nothing (${plan.inScope} plays in scope)`);
-  let hidden = 0;
   for (const t of plan.targets) {
     const before = new Map(t.before.scene.nodes.map((n) => [n.id, n]));
     for (const n of t.after.scene.nodes) {
       if (JSON.stringify(n) === JSON.stringify(before.get(n.id))) continue;
       if (n.kind !== "path") return fail(`changed a ${n.kind}, not a route, in "${t.before.name}"`);
-      if ((n as PathNode).firstRead) hidden++;
+      if ((n as PathNode).firstRead) return fail(`recolored the first-read route in "${t.before.name}"; it still draws cyan`);
     }
   }
-  return pass(`${plan.targets.length} of ${plan.inScope} plays${hidden ? `; ${hidden} first-read ${hidden === 1 ? "route still draws" : "routes still draw"} cyan` : ""}`);
+  return pass(`${plan.targets.length} of ${plan.inScope} plays${plan.firstReads ? `; ${plan.firstReads} first-read ${plan.firstReads === 1 ? "route stays" : "routes stay"} cyan` : ""}`);
 }
 
 function routeRed(scope: "vault" | "Red Zone") {
