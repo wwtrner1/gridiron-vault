@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
@@ -34,7 +34,12 @@ const SOURCES = [
  */
 export function Upload() {
   const [deck, setDeck] = useState<Deck | null>(null);
-  const [photo, setPhoto] = useState<File | null>(null);
+  const location = useLocation();
+  // A whiteboard photo dropped into Griddy's chat arrives here to be reviewed.
+  const [photo, setPhoto] = useState<File | null>(() => {
+    const handed = (location.state as { photo?: unknown } | null)?.photo;
+    return handed instanceof File ? handed : null;
+  });
   const [error, setError] = useState("");
   const [waiting, setWaiting] = useState("");
   const [busy, setBusy] = useState(false);

@@ -14,8 +14,8 @@ import { gateGrid } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { uid } from "../lib/types";
+import { blankRow, freshSheet, newColumn } from "../lib/sheet";
 
-const DEFAULT_HEADERS = ["#", "Play Name", "Group", "Run", "Pass", "Down", "Distance", "Hash", "YL", "Route", "Position"];
 
 // Strong enough to tell apart at a glance on the sideline and on a printout, still
 // light enough that black text keeps well over 4.5:1 contrast.
@@ -48,26 +48,6 @@ const LEGACY_PAINT: Record<string, string> = {
 
 const paintHex = (hex?: string) => (hex ? LEGACY_PAINT[hex.toUpperCase()] ?? hex : hex);
 
-const newColumn = (label: string): SheetColumn => ({ id: uid("col"), label, width: label === "Play Name" ? 220 : 96, type: "text" });
-
-const blankRow = (columns: SheetColumn[], index: number): SheetRow => ({
-  id: uid("row"),
-  cells: Object.fromEntries(columns.map((c) => [c.id, c.label === "#" ? String(index + 1) : ""])),
-  colors: {},
-  playId: null,
-});
-
-function freshSheet(name = "Season Grid"): SheetDoc {
-  const columns = DEFAULT_HEADERS.map(newColumn);
-  return {
-    id: uid("sheet"),
-    name,
-    columns,
-    rows: Array.from({ length: 12 }, (_, i) => blankRow(columns, i)),
-    updatedAt: new Date().toISOString(),
-    remoteId: null,
-  };
-}
 
 export function SeasonGrid() {
   const navigate = useNavigate();

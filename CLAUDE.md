@@ -17,7 +17,7 @@ npx tsc -p .           # typecheck (tsconfig has noEmit; there is no lint or tes
 npm run db:generate    # drizzle-kit: generate a migration from db/schema.ts
 ```
 
-There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing.
+There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing; the `Checks` workflow (`.github/workflows/ci.yml`) runs both on every PR.
 
 ## Architecture
 
@@ -31,15 +31,17 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - One function mounted at `/api/*`, hand-routed by path segments `[resource, id, action]`. Resources: `me`, `plays` (incl. `POST plays/:id/copy`), `playbooks` (incl. `POST playbooks/:id/plays`), `call-sheets`, `ai` (`griddy`, `assistant`, `photo`; see Griddy below).
 - Auth comes from `getUser()` (`@netlify/identity`) server-side; writes are scoped with `ownerId = me.id` in the `WHERE` clause. `ensureProfile` upserts a `profiles` row on first write.
 - Errors are returned as `{ error }` with coach-facing wording; `src/lib/api.ts` throws `data.error` so the UI can toast it directly.
-- `track()` beacons to `/api/events`, which the function does not handle (404s silently).
+- `track()` beacons to `/api/events`; the function stores the three known events for signed-in coaches (`events` table) and answers 204 to everything else.
 - Client wrapper: `src/lib/api.ts`. Add a resource by adding a branch in the function and a method on `api`.
 
 ### Griddy (the coaching agent)
 - Griddy replaced the Play assistant. A coach talks to him from any page: `GriddyProvider` (`src/components/Griddy.tsx`, mounted in `App.tsx`) holds one conversation for the visit, a floating launcher opens the panel everywhere except `/signin` and `/build`, and the Designer has `GriddyComposer variant="bar"` in place of the old assistant bar. The Designer registers its field with `useGriddyDrawer` so "Yes, draw it" drops a play straight on it.
-- `src/lib/griddy.ts` is the contract shared by browser and function: turn/action types, `GRIDDY_LIMITS`, the four tools (`draw_play`, `import_plays`, `show_plays`, `bulk_edit`) and the cached system prompt. Per-message context (page, open play, the coach's terms, a list of Vault plays and playbooks) goes after the coach's latest message as a `role: "system"` message, so the cached prefix stays stable.
+- `src/lib/griddy.ts` is the contract shared by browser and function: turn/action types, `GRIDDY_LIMITS`, the five tools (`draw_play`, `import_plays`, `show_plays`, `bulk_edit`, `build_call_sheet`) and the cached system prompt. Per-message context (page, open play, the coach's terms, a list of Vault plays and playbooks) goes after the coach's latest message as a `role: "system"` message, so the cached prefix stays stable.
 - `POST /api/ai/griddy` → `netlify/ai/griddy.ts`: checks the browser-held history, rebuilds it as Claude messages (every `tool_use` gets a `tool_result` saying what the coach did with the card), calls `converse()` and validates every action (`cleanRead` in `netlify/ai/reads.ts`; `show_plays` ids must be in the Vault list sent). Thinking blocks are never replayed, so history edits can't invalidate them.
 - Bulk import: Griddy only splits a dump into `{ name, call }` entries. The import card then reads each play through `POST /api/ai/assistant` with `bulk: true` (Haiku, three at a time) and saves with `savePlays` in `src/lib/griddyVault.ts`, which also files them in a named playbook. Nothing is drawn or saved without the coach confirming on a card.
-- Bulk edits (`bulk_edit`): Griddy only describes the change (recolor a letter, or swap one letter for another) and the scope (whole Vault, a playbook by name, or listed plays). `src/lib/bulkEdit.ts` works out the plays and players it touches (pure, so the card's preview and the write use the same code); node ids are kept so routes stay attached. The card writes through the store and `api.updatePlay`, edits the open Designer play live via the drawer's `onEdit` (so its next save doesn't overwrite the change), and Undo restores only plays still as the edit left them.
+- Bulk edits (`bulk_edit`): Griddy only describes the change (recolor a letter, swap one letter for another, recolor the routes a letter runs, or flip plays left to right) and the scope (whole Vault, a playbook by name, or listed plays). `src/lib/bulkEdit.ts` works out the plays and players it touches (pure, so the card's preview and the write use the same code); node ids are kept so routes stay attached. The card writes through the store and `api.updatePlay`, edits the open Designer play live via the drawer's `onEdit` (so its next save doesn't overwrite the change), and Undo restores only plays still as the edit left them.
+- Call sheets (`build_call_sheet`): Griddy picks Vault plays per situation; the card builds a Season Grid with `gridFromPlays` from `src/lib/sheet.ts` (the same helpers the Season Grid page uses), every row linked to its play.
+- Quick picks (`QUICK_PICKS` in `Griddy.tsx`) type a starter into the panel's box via the provider's `prefill`; they never send. A whiteboard photo attached in chat goes to `/upload` (router state `{ photo }`) for the existing photo review.
 - Models live in `MODELS` in `netlify/ai/claude.ts` (official `@anthropic-ai/sdk`; key in the `ANTHROPIC_API_KEY` Netlify env var). Griddy's conversation uses server-side refusal fallbacks (`fallbacks: "default"`) and low effort.
 - Limits: server daily caps in `DAILY_AI` (`api.ts`: `assistant` counts Griddy messages and single reads, `import` counts bulk-read plays); monthly plan limits in `plan.ts` (`assistantCalls`, gated by `gateAi`, counted per browser in `aiUsage.ts`).
 - Griddy's face (`GriddyMascot.tsx`) is the GridIronVault "G" with the football, in a lighter cyan: `public/brand/griddy.webp`. The badge does the Griddy (a CSS bob and tilt) when a play he drew is saved. Don't use NFL footage or a real player's likeness for him.
@@ -58,7 +60,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 
 ### Plans and gating
 - `src/lib/plan.ts` owns every entitlement (`TIERS`, `gateSave`, `gateGrid`, `gateSize`, `gateSheets`, `gateTool`, `gateShare`, `cappedDpi`). UI and export both read gates from here — add new limits here, not in components. A `Gate` carries user-facing `reason`/`cta`.
-- The current tier is client-side only (`tier.ts`, defaults to `beta`); no billing yet and the API does not enforce tiers.
+- The account's plan lives in `profiles.plan` (default `beta`) and the API enforces what it can see: Vault size and public copies (`plays`), Season Grids (`call-sheets`), and monthly Griddy/photo use (`ai`), refusing with `{ code: "plan_limit" }` and the gate's own wording. `tier.ts` mirrors it in the browser (`syncPlan` after sign-in; `choosePlan` for the Account/Pricing pickers). During beta coaches switch plans themselves via `PUT /api/me/plan`; set `PLAN_SELF_SERVE=false` when billing takes over. Export sizes, sheets and locked tools happen in the browser, so they're client-side gates only.
 - `lib/guard.ts` (`useCaptureGuard`) deters screenshots on paid diagrams; the real protection is watermark + DPI cap in `export.tsx`/`plan.ts`.
 
 ### Export
