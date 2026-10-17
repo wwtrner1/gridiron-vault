@@ -622,14 +622,18 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
   const sec = await securityOf(me, deviceId);
   if (sec.verified && !sec.trusted) return json({ error: "Confirm this device with the code we text you first.", code: "device_unverified" }, 403);
 
-  await db.delete(plays).where(eq(plays.ownerId, me.id));
-  await db.delete(playSaves).where(eq(playSaves.userId, me.id));
-  await db.delete(playbooks).where(eq(playbooks.ownerId, me.id));
-  await db.delete(callSheets).where(eq(callSheets.ownerId, me.id));
-  await db.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
-  await db.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
-  await db.delete(events).where(eq(events.ownerId, me.id));
-  await db.delete(profiles).where(eq(profiles.id, me.id));
+  // One transaction: if any delete fails, none of them happen, so a coach is
+  // never left with a profile and sign-in but no plays.
+  await db.transaction(async (tx) => {
+    await tx.delete(plays).where(eq(plays.ownerId, me.id));
+    await tx.delete(playSaves).where(eq(playSaves.userId, me.id));
+    await tx.delete(playbooks).where(eq(playbooks.ownerId, me.id));
+    await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
+    await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
+    await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
+    await tx.delete(events).where(eq(events.ownerId, me.id));
+    await tx.delete(profiles).where(eq(profiles.id, me.id));
+  });
   try {
     await admin.deleteUser(me.id);
   } catch {
