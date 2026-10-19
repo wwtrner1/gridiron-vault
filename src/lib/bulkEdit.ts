@@ -76,10 +76,12 @@ function mirrorNode(n: SceneNode): SceneNode {
 /**
  * One scene with every change applied in order (so "swap S for H, then make
  * H yellow" works), and how many players changed. Node ids are kept, so
- * routes stay attached to their runners.
+ * routes stay attached to their runners. A first read always draws in
+ * FIRST_READ, so a route recolor leaves it alone and counts it instead.
  */
-export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPreset[]): { scene: Scene; players: number } {
+export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPreset[]): { scene: Scene; players: number; firstReads: number } {
   const touched = new Set<string>();
+  const firstReads = new Set<string>();
   let nodes = scene.nodes;
   for (const change of changes) {
     if (change.op === "mirror") {
@@ -93,6 +95,10 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       if (!fill || !players.length) continue;
       nodes = nodes.map((n) => {
         if (n.kind !== "path" || n.stroke.toLowerCase() === fill || !runnerOf(n, players)) return n;
+        if (n.firstRead) {
+          firstReads.add(n.id);
+          return n;
+        }
         touched.add(n.id);
         return { ...n, stroke: fill };
       });
@@ -106,7 +112,7 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       return next;
     });
   }
-  return { scene: touched.size ? { ...scene, nodes } : scene, players: touched.size };
+  return { scene: touched.size ? { ...scene, nodes } : scene, players: touched.size, firstReads: firstReads.size };
 }
 
 export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
@@ -117,6 +123,8 @@ export type BulkPlan = {
   inScope: number;
   /** A playbook the coach named that doesn't exist. */
   missingBook: string | null;
+  /** First-read routes a route recolor left as they are. */
+  firstReads: number;
 };
 
 /** Which plays a bulk edit changes, and what each looks like afterwards. */
@@ -134,8 +142,10 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     scoped = plays.filter((p) => ids.has(p.id));
   }
   const now = new Date().toISOString();
+  let firstReads = 0;
   const targets = scoped.flatMap((p): BulkTarget[] => {
-    const { scene, players } = editScene(p.scene, edit.changes, tokens);
+    const { scene, players, firstReads: reads } = editScene(p.scene, edit.changes, tokens);
+    firstReads += reads;
     if (!players) return [];
     // A swap onto a letter the play already has leaves two of them; say so rather than guess which to move.
     const letters = scene.nodes.flatMap((n) => (n.kind === "player" && n.side === "offense" && n.label ? [up(n.label)] : []));
@@ -144,7 +154,7 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     );
     return [{ before: p, after: { ...p, scene, updatedAt: now }, players, doubled }];
   });
-  return { targets, inScope: scoped.length, missingBook };
+  return { targets, inScope: scoped.length, missingBook, firstReads };
 }
 
 /** "Y → yellow (#f5d33b)", "S → H", for the card and for Griddy. */

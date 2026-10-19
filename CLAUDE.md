@@ -15,6 +15,7 @@ netlify dev            # full stack locally: Vite + functions + Identity (needs 
 npm run build          # production build to dist/
 npx tsc -p .           # typecheck (tsconfig has noEmit; there is no lint or test script)
 npm run db:generate    # drizzle-kit: generate a migration from db/schema.ts
+npm run griddy:live    # Griddy against the real Claude API with a fixture Vault (needs ANTHROPIC_API_KEY; --dry scores ideal replies, --runs N, --only flip,sheet)
 ```
 
 There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing; the `Checks` workflow (`.github/workflows/ci.yml`) runs both on every PR.
