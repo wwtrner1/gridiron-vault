@@ -20,9 +20,17 @@ export const BAND_LAYOUT: Record<6 | 8 | 10, { cols: number; rows: number }> = {
   10: { cols: 5, rows: 2 },
 };
 
-/** Printed wristband card, matching the NFL FLAG card ratio (4.5 × 2.02 in). */
-const CARD_W = 4.5;
-const CARD_H = 2.02;
+/**
+ * Printed card sizes. The NFL FLAG card (4.5 × 2.02 in) is the default; the
+ * large card fits wristband windows of 4.75 × 2.50 in. `perPage` is how many
+ * stack in one column on a letter sheet.
+ */
+export const BAND_SIZES = [
+  { id: "flag", label: "NFL FLAG", w: 4.5, h: 2.02, perPage: 5, note: "Fits the standard NFL FLAG wristband window." },
+  { id: "large", label: "Large", w: 4.75, h: 2.5, perPage: 4, note: "Fits a 4.75 × 2.50 in wristband window." },
+] as const;
+export type BandSize = (typeof BAND_SIZES)[number];
+export type BandSizeId = BandSize["id"];
 
 export function entriesFromPlays(plays: StoredPlay[], numbers?: string[]): BandEntry[] {
   return plays.map((p, i) => ({ number: numbers?.[i] ?? String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
@@ -41,9 +49,11 @@ async function drawCard(
   perCard: 6 | 8 | 10,
   shows: CellShows,
   label: string,
+  card: BandSize,
   opts: { watermark: string | null; dpi: number },
 ) {
   const { cols, rows } = BAND_LAYOUT[perCard];
+  const { w: CARD_W, h: CARD_H } = card;
   const headH = 0.2;
   doc.setDrawColor(11, 21, 36);
   doc.setLineWidth(0.01);
@@ -102,6 +112,7 @@ export async function wristbandSheets(
   copies: BandCopies,
   source: string,
   opts: { watermark: string | null; dpi: number },
+  card: BandSize = BAND_SIZES[0],
 ): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "in", format: "letter", orientation: "portrait" });
   const cards: BandEntry[][] = [];
@@ -111,9 +122,9 @@ export async function wristbandSheets(
     ...Array.from({ length: copies.center }, () => "Center wristband"),
   ];
 
-  // Cards: one column of five per letter page, cut along the borders.
-  const perPage = 5;
-  const x = (8.5 - CARD_W) / 2;
+  // Cards: one column per letter page (five standard, four large), cut along the borders.
+  const { perPage } = card;
+  const x = (8.5 - card.w) / 2;
   let slot = 0;
   let first = true;
   for (const label of labels) {
@@ -124,7 +135,7 @@ export async function wristbandSheets(
         slot = 0;
       }
       const letter = String.fromCharCode(65 + c);
-      await drawCard(doc, x, 0.4 + slot * (CARD_H + 0.1), cards[c], perCard, shows, `${label} · Card ${letter} · ${source}`, opts);
+      await drawCard(doc, x, 0.4 + slot * (card.h + 0.1), cards[c], perCard, shows, `${label} · Card ${letter} · ${source}`, card, opts);
       slot++;
     }
   }

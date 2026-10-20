@@ -39,7 +39,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const vectorGate = gateVector(tier);
   const many = plays.length > 1;
   const watermark = tier.watermark ? "GRIDIRONVAULT" : null;
-  const size = useMemo(() => EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES[4], [options.size]);
+  const size = useMemo(() => EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES.find((s) => s.id === "letter-p")!, [options.size]);
 
   const set = (patch: Partial<SheetOptions>) => setOptions((o) => ({ ...o, ...patch }));
 

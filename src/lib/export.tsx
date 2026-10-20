@@ -127,7 +127,7 @@ export async function playsToPdf(
   options: SheetOptions,
   title = "Playbook",
 ): Promise<jsPDF> {
-  const size = EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES[4];
+  const size = EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES.find((s) => s.id === "letter-p")!;
   const landscape = size.w > size.h;
   const doc = new jsPDF({
     unit: "in",

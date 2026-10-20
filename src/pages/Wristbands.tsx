@@ -12,7 +12,7 @@ import { track } from "../lib/track";
 import { slug } from "../lib/export";
 import { applyFormat, usePlayFormat } from "../lib/playFormat";
 import { FormatPanel } from "../components/FormatPanel";
-import { BAND_LAYOUT, wristbandSheets, type BandCopies, type BandEntry, type CellShows } from "../lib/wristbands";
+import { BAND_LAYOUT, BAND_SIZES, wristbandSheets, type BandCopies, type BandEntry, type BandSizeId, type CellShows } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
 import "../styles/wristbands.css";
 
@@ -67,6 +67,7 @@ export function Wristbands() {
   });
   const [picked, setPicked] = useState<string[]>([]);
   const [perCard, setPerCard] = useState<6 | 8 | 10>(8);
+  const [sizeId, setSizeId] = useState<BandSizeId>("flag");
   const [shows, setShows] = useState<CellShows>({ diagram: true, name: true, numberOnly: false });
   const [copies, setCopies] = useState<BandCopies>({ qb: 2, center: 1, coach: 1 });
   const [printing, setPrinting] = useState(false);
@@ -88,6 +89,7 @@ export function Wristbands() {
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
   const cardA = entries.slice(0, perCard);
   const { cols } = BAND_LAYOUT[perCard];
+  const card = BAND_SIZES.find((b) => b.id === sizeId) ?? BAND_SIZES[0];
   const gate = gateSheets(tier);
 
   async function print() {
@@ -97,7 +99,7 @@ export function Wristbands() {
       const doc = await wristbandSheets(entries, perCard, shows, copies, sourceName, {
         watermark: tier.watermark ? "GRIDIRONVAULT" : null,
         dpi: cappedDpi(tier, 200),
-      });
+      }, card);
       doc.save(`${slug(`wristbands-${sourceName}`)}.pdf`);
       track("play_exported", { kind: "wristband" });
       toast("Wristband cards downloaded. Print at 100% scale and cut along the borders.");
@@ -151,6 +153,18 @@ export function Wristbands() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-card-size">
+              <span id="wb-card-size">Card size</span>
+              <div className="tab-row">
+                {BAND_SIZES.map((b) => (
+                  <button key={b.id} type="button" className={sizeId === b.id ? "is-on" : ""} aria-pressed={sizeId === b.id} onClick={() => setSizeId(b.id)}>
+                    {b.w} × {b.h.toFixed(2)} in
+                  </button>
+                ))}
+              </div>
+              <p className="wb-note">{card.note}</p>
             </div>
 
             <label className="wb-field">
@@ -248,10 +262,12 @@ export function Wristbands() {
               </div>
             ) : (
               <>
-                <div className="wb-card" aria-label={`Preview of card A, ${cardA.length} plays`}>
+                <div className="wb-card" aria-label={`Preview of card A, ${cardA.length} plays, ${card.w} by ${card.h.toFixed(2)} inches`}>
                   <div className="wb-card-head">
                     <span>QB wristband · Card A · {sourceName}</span>
-                    <span>{cardA.length} plays</span>
+                    <span>
+                      {cardA.length} plays · {card.w} × {card.h.toFixed(2)} in
+                    </span>
                   </div>
                   <div className="wb-cells" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
                     {Array.from({ length: perCard }, (_, i) => cardA[i]).map((e, i) => (
