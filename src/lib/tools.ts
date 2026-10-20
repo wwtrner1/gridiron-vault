@@ -100,6 +100,7 @@ export const SHAPE_TOOLS: ToolDef[] = [
 
 export const EXPORT_SIZES = [
   { id: "wristband", label: "Wristband card", w: 4.5, h: 2.02, note: "Matches the printed NFL FLAG card ratio, 4.5 × 2.02 in." },
+  { id: "wristband-lg", label: "Large wristband card", w: 4.75, h: 2.5, note: "Fits a 4.75 × 2.50 in wristband window." },
   { id: "index", label: "Index card", w: 5, h: 3, note: "Classic 5 × 3 in sideline card." },
   { id: "quarter", label: "Quarter page", w: 4.25, h: 5.5, note: "Four plays per letter sheet." },
   { id: "half", label: "Half page", w: 8.5, h: 5.5, note: "Two plays per letter sheet." },

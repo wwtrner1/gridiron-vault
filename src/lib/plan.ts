@@ -176,7 +176,7 @@ export const OFFERS: { id: string; name: string; price: string; cadence: string;
 ];
 
 /** Sizes a free coach can print, so the product is genuinely usable first. */
-export const STARTER_SIZES = ["wristband", "letter-p"];
+export const STARTER_SIZES = ["wristband", "wristband-lg", "letter-p"];
 
 export function tierFor(id: string | null | undefined): Tier {
   return TIERS[(id as TierId) ?? "beta"] ?? TIERS.beta;
