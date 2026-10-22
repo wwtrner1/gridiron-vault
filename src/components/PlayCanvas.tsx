@@ -67,7 +67,8 @@ type Props = {
   watermark?: string | null;
   onScene: (next: Scene, label?: string) => void;
   onSelection: (ids: string[]) => void;
-  onToolDone: () => void;
+  /** Back to Select: `placed` after something was drawn or dropped (the Designer may keep the tool out), else Esc. */
+  onToolDone: (placed?: boolean) => void;
   onStatus?: (text: string) => void;
   aids?: DrawAids;
   /** The node actually clicked, even when its whole group gets selected. */
@@ -303,11 +304,12 @@ export function PlayCanvas({
       setGhost(null);
       say(
         lastPointerType.current === "mouse"
-          ? `${node.name} drawn. Press Escape to drop the tool, or keep clicking to draw another.`
+          ? `${node.name} drawn. Keep clicking to draw another, or press Escape when you're done.`
           : `${node.name} drawn. Keep tapping to draw another, or tap Select when you're done.`,
       );
+      onToolDone(true);
     },
-    [tool, color, width, look, onScene, onSelection, say],
+    [tool, color, width, look, onScene, onSelection, say, onToolDone],
   );
 
   const finishDraft = useCallback(() => {
@@ -489,6 +491,7 @@ export function PlayCanvas({
       onSelection([link.id]);
       setConnectFrom(null);
       say("Connected. Move either token and the line follows.");
+      onToolDone(true);
       return;
     }
 
@@ -605,7 +608,7 @@ export function PlayCanvas({
 
     if (tool === "pivot") {
       onScene({ ...sceneRef.current, pivot: p }, "Pivot point");
-      onToolDone();
+      onToolDone(true);
       say("Pivot dropped. Rotate Mode now spins around it. Drop another anywhere to move it.");
       return;
     }
@@ -615,7 +618,7 @@ export function PlayCanvas({
       onScene({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, node] }, "Add text");
       onSelection([node.id]);
       setEditing(node.id);
-      onToolDone();
+      onToolDone(true);
       return;
     }
 
@@ -915,7 +918,7 @@ export function PlayCanvas({
         );
         onScene({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, node] }, "Add shape");
         onSelection([node.id]);
-        onToolDone();
+        onToolDone(true);
         return;
       }
 
