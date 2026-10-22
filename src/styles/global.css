@@ -421,6 +421,29 @@ footer.mkt a:hover { color: var(--cyan); }
 .size-opt:hover { border-color: var(--ink-4); }
 .size-opt.is-on { border-color: var(--cyan); background: var(--cyan-soft); }
 .size-opt strong { font-size: 14px; display: block; }
+
+/* Export dialog: print preview, custom size and print order */
+.ex-preview { display: grid; gap: 6px; justify-items: center; margin-bottom: 16px; padding: 14px; background: var(--border-2); border-radius: 8px; }
+.ex-page {
+  position: relative;
+  max-width: 100%;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(11, 21, 36, 0.18);
+  container-type: inline-size;
+}
+.ex-page-title, .ex-page-art, .ex-page-notes { position: absolute; }
+.ex-page-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; overflow: hidden; line-height: 1; white-space: nowrap; }
+.ex-page-title span { color: #78847c; text-transform: uppercase; }
+.ex-page-art svg { display: block; width: 100%; height: 100%; }
+.ex-page-notes { margin: 0; overflow: hidden; line-height: 1.2; color: #3c4840; white-space: pre-line; }
+.ex-dims { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.ex-dims label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.ex-dims .input { width: 100px; }
+.ex-order { display: grid; gap: 4px; max-height: 200px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.ex-order li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: grab; }
+.ex-order li.is-dragging { opacity: 0.4; }
+.ex-order-name { flex: 1; overflow: hidden; font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ex-grip { color: var(--muted); letter-spacing: -2px; }
 .size-opt small { color: var(--muted); font-size: 12px; }
 .size-opt .dim { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 .radio-dot { width: 16px; height: 16px; border-radius: var(--radius-round); border: 1.5px solid var(--border); display: grid; place-items: center; }

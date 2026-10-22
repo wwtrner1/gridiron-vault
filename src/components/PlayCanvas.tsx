@@ -84,6 +84,11 @@ type Props = {
   onPan?: (dx: number, dy: number) => void;
   /** Double-tap on the empty field. */
   onDoubleTap?: (focal: { clientX: number; clientY: number }) => void;
+  /**
+   * A route tile loaded from the library with nobody picked: the next click
+   * places it, on the player clicked or (null) on the empty field there.
+   */
+  stamp?: { label: string; place: (at: Point, playerId: string | null) => void } | null;
   /** Input that did nothing, for coach tips. */
   onSignal?: (signal: CanvasSignal) => void;
   /** How many points the line being drawn has, so touch screens can show Finish. */
@@ -93,7 +98,7 @@ type Props = {
 };
 
 /** `section` heads a run of items; `on` marks a current choice (true/false) so the item reads as a checkable option. */
-export type MenuAction = { id: string; label: string; run: () => void; danger?: boolean; section?: string; on?: boolean };
+export type MenuAction = { id: string; label: string; run: (at?: Point) => void; danger?: boolean; section?: string; on?: boolean };
 export type CanvasSignal = { kind: "emptyTap" | "emptyBox" | "lockedPress"; touch: boolean };
 export type CanvasControl = { finish: () => void; undoPoint: () => void; scrap: () => void; cancel: () => void };
 
@@ -164,6 +169,7 @@ export function PlayCanvas({
   onSignal,
   onDraftChange,
   controlRef,
+  stamp,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -223,20 +229,25 @@ export function PlayCanvas({
   // The player a line starts on, so the line stays glued to him.
   const startPlayer = useRef<string | null>(null);
   /** The tool menu (empty field) or the element menu (a player or line), placed in frame pixels. */
-  const [menu, setMenu] = useState<(Point & { node: boolean }) | null>(null);
+  const [menu, setMenu] = useState<(Point & { node: boolean; at: Point }) | null>(null);
   const lastPointerType = useRef("mouse");
 
   /**
    * Opens a menu where the press or click happened. It is fixed to the screen,
    * not the field, so a small field on a phone never clips it.
    */
-  const openMenu = useCallback((clientX: number, clientY: number, node: boolean) => {
-    setMenu({
-      x: Math.max(8, Math.min(clientX, window.innerWidth - 188)),
-      y: Math.max(8, Math.min(clientY, window.innerHeight - 300)),
-      node,
-    });
-  }, []);
+  const openMenu = useCallback(
+    (clientX: number, clientY: number, node: boolean) => {
+      setMenu({
+        x: Math.max(8, Math.min(clientX, window.innerWidth - 188)),
+        y: Math.max(8, Math.min(clientY, window.innerHeight - 300)),
+        node,
+        // Where on the field the menu was opened, for "Paste here".
+        at: point({ clientX, clientY }),
+      });
+    },
+    [point],
+  );
 
   /**
    * Where a drawing click lands: on a player's center with Snap on, else on
@@ -477,6 +488,12 @@ export function PlayCanvas({
 
     if (tool !== "select") return;
 
+    // A loaded route tile goes to the player clicked (or, on a line or shape, to that spot).
+    if (stamp) {
+      stamp.place(node.kind === "player" ? { x: node.x, y: node.y } : p, node.kind === "player" ? node.id : null);
+      return;
+    }
+
     // Holding a finger on a player or line opens its menu (Duplicate, Delete…), the touch right-click.
     const at = { x: e.clientX, y: e.clientY };
     beginPress(e, () => {
@@ -549,6 +566,10 @@ export function PlayCanvas({
     const p = snapped(raw);
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
 
+    if (tool === "select" && stamp) {
+      stamp.place(p, null);
+      return;
+    }
     if (tool === "select") {
       if (isDoubleTap(e)) {
         onDoubleTap?.({ clientX: e.clientX, clientY: e.clientY });
@@ -1017,11 +1038,13 @@ export function PlayCanvas({
   const drawing = POLY_TOOLS.includes(tool);
   const cursor =
     tool === "select"
-      ? mode === "rotate"
-        ? "grab"
-        : mode === "duplicate"
-          ? "copy"
-          : "default"
+      ? stamp
+        ? "crosshair"
+        : mode === "rotate"
+          ? "grab"
+          : mode === "duplicate"
+            ? "copy"
+            : "default"
       : tool === "text"
         ? "text"
         : "crosshair";
@@ -1474,7 +1497,7 @@ export function PlayCanvas({
                     autoFocus={i === 0}
                     onClick={() => {
                       setMenu(null);
-                      a.run();
+                      a.run(menu.at);
                     }}
                   >
                     {a.on !== undefined && <span className="stage-menu-tick" aria-hidden="true">{a.on ? "✓" : ""}</span>}
@@ -1509,7 +1532,7 @@ export function PlayCanvas({
                   className="is-extra"
                   onClick={() => {
                     setMenu(null);
-                    a.run();
+                    a.run(menu.at);
                   }}
                 >
                   {a.label}

@@ -2,19 +2,27 @@ import { useMemo, useState } from "react";
 import { Modal } from "./Modal";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
-import { EXPORT_SIZES, type ExportSizeId } from "../lib/tools";
+import { EXPORT_SIZES } from "../lib/tools";
 import {
+  CUSTOM_LIMITS,
   defaultSheetOptions,
-  playToPng,
+  noteSize,
+  pdfSlots,
+  playToImage,
   playsToPdf,
+  PrintDiagram,
   sceneToSvg,
+  sheetSize,
   slug,
   triggerDownload,
   WRISTBAND_COUNTS,
   type SheetOptions,
+  type SizeChoice,
 } from "../lib/export";
+import { CARD_LOOK, FIELD_OPTIONS, FIT_OPTIONS, FULL_LOOK, WEIGHT_STEPS, type PrintLook } from "../lib/printLook";
 import { cappedDpi, gateSheets, gateSize, gateVector, type Tier } from "../lib/plan";
 import type { StoredPlay } from "../lib/types";
+import { CANVAS_H, CANVAS_W } from "../lib/types";
 
 type Exportable = Pick<StoredPlay, "name" | "formation" | "playType" | "description" | "scene">;
 
@@ -26,11 +34,26 @@ type Props = {
   onDone?: (kind: string) => void;
 };
 
+type Kind = "pdf" | "png" | "jpeg" | "svg" | "pptx";
+
+const KINDS: { id: Kind; label: string }[] = [
+  { id: "pdf", label: "Print-ready PDF" },
+  { id: "png", label: "PNG image" },
+  { id: "jpeg", label: "JPEG image" },
+  { id: "svg", label: "SVG vector" },
+  { id: "pptx", label: "PowerPoint" },
+];
+
 const DPI_STEPS = [96, 150, 300, 600];
 
+/** Small cards print zoomed in and heavier; big pages print the field as drawn. */
+const lookForSize = (w: number, h: number): PrintLook => (w < 5.5 && h < 5.5 ? CARD_LOOK : FULL_LOOK);
+
 export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props) {
-  const [kind, setKind] = useState<"pdf" | "png" | "svg">("pdf");
-  const [options, setOptions] = useState<SheetOptions>({ ...defaultSheetOptions, dpi: cappedDpi(tier, 300) });
+  const [kind, setKind] = useState<Kind>("pdf");
+  const [options, setOptions] = useState<SheetOptions>({ ...defaultSheetOptions, dpi: cappedDpi(tier, 300), custom: { w: 4.75, h: 2.5 } });
+  const [order, setOrder] = useState<number[]>(() => plays.map((_, i) => i));
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -39,9 +62,31 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const vectorGate = gateVector(tier);
   const many = plays.length > 1;
   const watermark = tier.watermark ? "GRIDIRONVAULT" : null;
-  const size = useMemo(() => EXPORT_SIZES.find((s) => s.id === options.size) ?? EXPORT_SIZES.find((s) => s.id === "letter-p")!, [options.size]);
+  const size = useMemo(() => sheetSize(options), [options]);
+  const look = options.look ?? FULL_LOOK;
+  const ordered = order.map((i) => plays[i]).filter(Boolean);
+  const vectorPdf = kind === "pdf" && vectorGate.ok;
 
   const set = (patch: Partial<SheetOptions>) => setOptions((o) => ({ ...o, ...patch }));
+  const setLook = (patch: Partial<PrintLook>) => setOptions((o) => ({ ...o, look: { ...(o.look ?? FULL_LOOK), ...patch } }));
+  const pickSize = (id: SizeChoice) => {
+    const next = sheetSize({ ...options, size: id });
+    set({ size: id, look: lookForSize(next.w, next.h) });
+  };
+  const setCustom = (patch: Partial<{ w: number; h: number }>) => {
+    const custom = { ...(options.custom ?? { w: 4.75, h: 2.5 }), ...patch };
+    set({ custom, look: lookForSize(custom.w, custom.h) });
+  };
+
+  function move(from: number, to: number) {
+    if (to < 0 || to >= order.length || from === to) return;
+    setOrder((o) => {
+      const next = [...o];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }
 
   const title = plays.length === 1 ? plays[0].name || "Untitled play" : `${plays.length} plays`;
 
@@ -52,20 +97,40 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
     setProblem(null);
     try {
       const stem = slug(plays.length === 1 ? plays[0].name || "play" : "gridironvault-playbook");
+      const dpi = cappedDpi(tier, options.dpi);
+      // Images and slides take the page's shape so a zoomed play fills them edge to edge.
+      const shaped = { look, widthIn: size.w, heightIn: look.fit === "play" ? size.h : (size.w * CANVAS_H) / CANVAS_W };
       if (kind === "pdf") {
-        const doc = await playsToPdf(plays, { ...options, dpi: cappedDpi(tier, options.dpi), watermark }, title);
+        const doc = await playsToPdf(ordered, { ...options, dpi, watermark, vector: vectorGate.ok }, title);
         doc.save(`${stem}.pdf`);
-      } else if (kind === "png") {
-        const dpi = cappedDpi(tier, options.dpi);
-        for (const play of plays) {
-          const url = await playToPng(play, dpi, size.w, options.transparent, watermark);
-          triggerDownload(url, `${slug(play.name || "play")}-${dpi}dpi.png`);
+      } else if (kind === "png" || kind === "jpeg") {
+        for (const play of ordered) {
+          const url = await playToImage(play, {
+            ...shaped,
+            dpi,
+            inches: size.w,
+            transparent: kind === "png" && options.transparent,
+            watermark,
+            type: kind === "png" ? "image/png" : "image/jpeg",
+          });
+          triggerDownload(url, `${slug(play.name || "play")}-${dpi}dpi.${kind === "png" ? "png" : "jpg"}`);
         }
-      } else {
-        for (const play of plays) {
-          const svg = sceneToSvg(play.scene, { transparent: options.transparent, watermark });
+      } else if (kind === "svg") {
+        for (const play of ordered) {
+          const svg = sceneToSvg(play.scene, { ...shaped, transparent: options.transparent, watermark });
           triggerDownload(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, `${slug(play.name || "play")}.svg`);
         }
+      } else {
+        const { playsToPptx } = await import("../lib/pptxExport");
+        const deck = await playsToPptx(ordered, {
+          look,
+          dpi: Math.min(dpi, 300),
+          watermark,
+          includeNotes: options.includeNotes,
+          includeName: options.includeName,
+          title,
+        });
+        await deck.save(`${stem}.pptx`);
       }
       onDone?.(kind);
       onClose();
@@ -75,6 +140,12 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
       setBusy(false);
     }
   }
+
+  // Print preview: the first page exactly as the PDF lays it out.
+  const previewOptions: SheetOptions = { ...options, perPage: kind === "pdf" ? options.perPage : 1 };
+  const previewSlots = pdfSlots(ordered.slice(0, previewOptions.perPage), previewOptions);
+  const pct = (v: number, whole: number) => `${(v / whole) * 100}%`;
+  const cq = (pt: number) => `${(pt / 72 / size.w) * 100}cqw`;
 
   return (
     <Modal
@@ -87,33 +158,97 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
           </button>
           <button type="button" className="btn btn-primary" onClick={run} disabled={busy || !sizeGate.ok}>
             <Icon name={kind === "pdf" ? "print" : "download"} size={15} />
-            {busy ? "Building…" : kind === "pdf" ? "Build the PDF" : `Download ${kind.toUpperCase()}`}
+            {busy ? "Building…" : kind === "pdf" ? "Build the PDF" : kind === "pptx" ? "Download the deck" : `Download ${kind.toUpperCase()}`}
           </button>
         </>
       }
     >
       <p className="eyebrow" id="ex-file">File</p>
       <div className="chip-row" style={{ marginBottom: 16 }} role="group" aria-labelledby="ex-file">
-        {(["pdf", "png", "svg"] as const).map((k) => (
+        {KINDS.map((k) => (
           <button
-            key={k}
+            key={k.id}
             type="button"
-            className={`chip${kind === k ? " is-on" : ""}`}
-            onClick={() => setKind(k)}
-            aria-pressed={kind === k}
-            disabled={k === "svg" && !vectorGate.ok}
-            style={k === "svg" && !vectorGate.ok ? { opacity: 0.55 } : undefined}
+            className={`chip${kind === k.id ? " is-on" : ""}`}
+            onClick={() => setKind(k.id)}
+            aria-pressed={kind === k.id}
+            disabled={k.id === "svg" && !vectorGate.ok}
+            style={k.id === "svg" && !vectorGate.ok ? { opacity: 0.55 } : undefined}
           >
-            {k === "pdf" ? "Print-ready PDF" : k === "png" ? "PNG image" : "SVG vector"}
-            {k === "svg" && !vectorGate.ok && <span className="pill pill-amber">Locked</span>}
+            {k.label}
+            {k.id === "svg" && !vectorGate.ok && <span className="pill pill-amber">Locked</span>}
           </button>
         ))}
       </div>
       {!vectorGate.ok && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>{vectorGate.reason}</p>}
 
+      <div className="ex-preview" aria-label={`Print preview, ${size.w} by ${size.h} inches`}>
+        <div
+          className="ex-page"
+          style={{ width: Math.round(Math.min(360, (300 * size.w) / size.h)), aspectRatio: `${size.w} / ${size.h}` }}
+        >
+          {previewSlots.map((slot, i) => {
+            const play = ordered[i];
+            return (
+              <div key={i}>
+                {options.includeName && kind !== "svg" && (
+                  <div
+                    className="ex-page-title"
+                    style={{
+                      left: pct(slot.x, size.w),
+                      top: pct(slot.y, size.h),
+                      width: pct(slot.cellW, size.w),
+                      height: pct(slot.titleH, size.h),
+                      fontSize: cq(slot.small ? 10 : 13),
+                    }}
+                  >
+                    <b>{play.name || "Untitled play"}</b>
+                    <span style={{ fontSize: cq(slot.small ? 6.5 : 8) }}>
+                      {[play.formation, play.playType].filter(Boolean).join(" · ")}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className="ex-page-art"
+                  style={{ left: pct(slot.art.x, size.w), top: pct(slot.art.y, size.h), width: pct(slot.art.w, size.w), height: pct(slot.art.h, size.h) }}
+                >
+                  <PrintDiagram
+                    scene={play.scene}
+                    look={look}
+                    widthIn={slot.art.w}
+                    heightIn={slot.art.h}
+                    transparent={options.transparent}
+                    watermark={watermark}
+                    label={play.name}
+                  />
+                </div>
+                {slot.notesH > 0 && kind !== "svg" && (
+                  <p
+                    className="ex-page-notes"
+                    style={{
+                      left: pct(slot.x, size.w),
+                      top: pct(slot.art.y + slot.art.h + 0.04, size.h),
+                      width: pct(slot.cellW, size.w),
+                      height: pct(slot.notesH, size.h),
+                      fontSize: cq(noteSize(slot)),
+                    }}
+                  >
+                    {slot.notes}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="hint">
+          {size.w} × {size.h} in
+          {kind === "pdf" ? (vectorPdf ? " · vector lines, sharp at any print size" : ` · ${cappedDpi(tier, options.dpi)} DPI`) : ""}
+        </p>
+      </div>
+
       <p className="eyebrow" id="ex-size">Size</p>
       <div className="size-list" role="radiogroup" aria-labelledby="ex-size">
-        {EXPORT_SIZES.map((s) => {
+        {[...EXPORT_SIZES, { id: "custom" as const, label: "Custom size", w: 0, h: 0, note: "Any width and height — measure your wristband window or card stock." }].map((s) => {
           const gate = gateSize(tier, s.id);
           return (
             <button
@@ -122,7 +257,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
               role="radio"
               aria-checked={options.size === s.id}
               className={`size-opt${options.size === s.id ? " is-on" : ""}`}
-              onClick={() => set({ size: s.id as ExportSizeId })}
+              onClick={() => pickSize(s.id)}
               disabled={!gate.ok}
               style={!gate.ok ? { opacity: 0.55 } : undefined}
             >
@@ -133,12 +268,63 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
                 </strong>
                 <small>{s.note}</small>
               </span>
-              <span className="dim">
-                {s.w} × {s.h} in
-              </span>
+              <span className="dim">{s.id === "custom" ? "" : `${s.w} × ${s.h} in`}</span>
             </button>
           );
         })}
+      </div>
+      {options.size === "custom" && (
+        <div className="ex-dims">
+          {(["w", "h"] as const).map((k) => (
+            <label key={k}>
+              {k === "w" ? "Width (in)" : "Height (in)"}
+              <input
+                className="input"
+                type="number"
+                step={0.05}
+                min={CUSTOM_LIMITS.min}
+                max={CUSTOM_LIMITS.max}
+                value={options.custom?.[k] ?? ""}
+                onChange={(e) => setCustom({ [k]: Number(e.target.value) })}
+              />
+            </label>
+          ))}
+        </div>
+      )}
+
+      <p className="eyebrow" style={{ marginTop: 18 }} id="ex-look">
+        Diagram
+      </p>
+      <div className="chip-row" role="group" aria-labelledby="ex-look">
+        {FIT_OPTIONS.map((f) => (
+          <Tooltip key={f.id} title={f.label} hint={f.hint} side="top">
+            <button type="button" className={`chip${look.fit === f.id ? " is-on" : ""}`} aria-pressed={look.fit === f.id} onClick={() => setLook({ fit: f.id })}>
+              {f.label}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+      <div className="ex-dims">
+        <label>
+          Line and player weight
+          <select className="select" value={String(look.weight)} onChange={(e) => setLook({ weight: e.target.value === "auto" ? "auto" : Number(e.target.value) })}>
+            {WEIGHT_STEPS.map((w) => (
+              <option key={String(w)} value={String(w)}>
+                {w === "auto" ? "Auto, sized for the page" : w === 1 ? "As drawn (1×)" : `${w}× heavier`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Field
+          <select className="select" value={look.field} onChange={(e) => setLook({ field: e.target.value as PrintLook["field"] })}>
+            {FIELD_OPTIONS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {kind === "pdf" && (
@@ -153,7 +339,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
                 title={n === 1 ? "One play per page" : `${n} plays per sheet`}
                 hint={
                   WRISTBAND_COUNTS.includes(n as 6 | 8 | 10)
-                    ? `Wristband layout — ${n} plays to a card with cut guides printed between them.`
+                    ? `${n} plays to a sheet with cut guides between them. For real wristband cards, use the Wristbands page.`
                     : "Cut guides print between plays so you can trim them apart."
                 }
                 side="top"
@@ -185,7 +371,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         </>
       )}
 
-      {kind !== "svg" && (
+      {kind !== "svg" && !vectorPdf && (
         <>
           <p className="eyebrow" style={{ marginTop: 18 }} id="ex-dpi">
             Resolution
@@ -208,25 +394,78 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
           <p className="hint">
             {tier.maxDpi < 300
               ? `${tier.name} exports top out at ${tier.maxDpi} DPI — fine on screen, soft on paper. Head Coach prints at 300.`
-              : "300 DPI is the right choice for anything you hand to a player."}
+              : kind === "pptx"
+                ? "Slides use up to 300 DPI, sharp on any projector."
+                : "300 DPI is the right choice for anything you hand to a player; 600 for booklets."}
           </p>
         </>
       )}
 
       <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-        <label className="switch">
-          <input type="checkbox" checked={options.includeName} onChange={(e) => set({ includeName: e.target.checked })} />
-          Print the play name and formation
-        </label>
-        <label className="switch">
-          <input type="checkbox" checked={options.includeNotes} onChange={(e) => set({ includeNotes: e.target.checked })} />
-          Print the coaching notes underneath
-        </label>
-        <label className="switch">
-          <input type="checkbox" checked={options.transparent} onChange={(e) => set({ transparent: e.target.checked })} />
-          Drop the field lines — diagram only
-        </label>
+        {kind !== "png" && kind !== "jpeg" && kind !== "svg" && (
+          <>
+            <label className="switch">
+              <input type="checkbox" checked={options.includeName} onChange={(e) => set({ includeName: e.target.checked })} />
+              Print the play name and formation
+            </label>
+            <label className="switch">
+              <input type="checkbox" checked={options.includeNotes} onChange={(e) => set({ includeNotes: e.target.checked })} />
+              Print the coaching notes underneath
+            </label>
+          </>
+        )}
+        {kind !== "jpeg" && kind !== "pptx" && (
+          <label className="switch">
+            <input type="checkbox" checked={options.transparent} onChange={(e) => set({ transparent: e.target.checked })} />
+            Drop the field lines — diagram only
+          </label>
+        )}
       </div>
+
+      {many && (
+        <>
+          <p className="eyebrow" style={{ marginTop: 18 }} id="ex-order">
+            Order
+          </p>
+          <ol className="ex-order" aria-labelledby="ex-order">
+            {order.map((pi, at) => (
+              <li
+                key={pi}
+                draggable
+                className={dragFrom === at ? "is-dragging" : undefined}
+                onDragStart={(e) => {
+                  setDragFrom(at);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(at));
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragFrom !== null) move(dragFrom, at);
+                  setDragFrom(null);
+                }}
+                onDragEnd={() => setDragFrom(null)}
+              >
+                <span className="ex-grip" aria-hidden="true">⋮⋮</span>
+                <span className="ex-order-name">{plays[pi].name || "Untitled play"}</span>
+                <button type="button" className="btn btn-quiet btn-sm" aria-label={`Move ${plays[pi].name || "play"} up`} disabled={at === 0} onClick={() => move(at, at - 1)}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-quiet btn-sm"
+                  aria-label={`Move ${plays[pi].name || "play"} down`}
+                  disabled={at === order.length - 1}
+                  onClick={() => move(at, at + 1)}
+                >
+                  ↓
+                </button>
+              </li>
+            ))}
+          </ol>
+          <p className="hint">Drag a play, or use the arrows, to set the print order.</p>
+        </>
+      )}
 
       {watermark && (
         <div className="lock-note">
@@ -240,7 +479,6 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         </div>
       )}
 
-      {many && <p className="hint" style={{ marginTop: 12 }}>{plays.length} plays queued, in the order you picked them.</p>}
       {problem && <p className="error-line">{problem}</p>}
     </Modal>
   );

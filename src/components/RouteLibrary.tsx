@@ -22,11 +22,12 @@ const elevenMan = () => {
   }
 };
 
-function TileButton({ tile, onPick }: { tile: Tile; onPick: (t: Tile) => void }) {
+function TileButton({ tile, onPick, armed }: { tile: Tile; onPick: (t: Tile) => void; armed: boolean }) {
   return (
     <button
       type="button"
-      className="rl-tile"
+      className={`rl-tile${armed ? " is-on" : ""}`}
+      aria-pressed={armed}
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-route", tile.id)}
       onClick={() => onPick(tile)}
@@ -47,9 +48,10 @@ function TileButton({ tile, onPick }: { tile: Tile; onPick: (t: Tile) => void })
 /**
  * Route library panel, from the Grid1ron Design canvas: the route tree (or
  * a 5v5 set), then handoffs, motion and coverage tiles. Pick players and
- * click a tile, or drag a tile onto a player.
+ * click a tile, drag a tile onto a player, or click a tile with nobody picked
+ * to load it (`armed`) and then click players or the field to place it.
  */
-export function RouteLibrary({ onPick }: { onPick: (tile: Tile) => void }) {
+export function RouteLibrary({ onPick, armed }: { onPick: (tile: Tile) => void; armed: string | null }) {
   const [set, setSet] = useState<"tree" | "five">(() => (read(SET_KEY) === "five" ? "five" : "tree"));
   const choose = (s: "tree" | "five") => {
     setSet(s);
@@ -78,17 +80,17 @@ export function RouteLibrary({ onPick }: { onPick: (tile: Tile) => void }) {
       </div>
       <div className="rl-grid">
         {(set === "tree" ? OUR_TREE : FIVE_SET).map((t) => (
-          <TileButton key={t.id} tile={t} onPick={onPick} />
+          <TileButton key={t.id} tile={t} onPick={onPick} armed={armed === t.id} />
         ))}
       </div>
       <span className="fl-label">Handoffs · blocking · coverage</span>
       <div className="rl-grid">
         {more.map((t) => (
-          <TileButton key={t.id} tile={t} onPick={onPick} />
+          <TileButton key={t.id} tile={t} onPick={onPick} armed={armed === t.id} />
         ))}
       </div>
       <p className="dz-note">
-        Drag a tile onto a player, or pick a player and click the tile.
+        Click a tile, then click players or the field to place it (Esc puts it away). Or pick players first, or drag a tile onto one.
         {blocking ? "" : " Block shows when the Formation library is set to 11-man — flag leagues don't block."}
       </p>
     </div>

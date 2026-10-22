@@ -1,153 +1,256 @@
 import { jsPDF } from "jspdf";
-import { sceneToSvg, svgToPng } from "./export";
+import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
-import { CANVAS_H, CANVAS_W } from "./types";
+import { CARD_LOOK, FULL_LOOK, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
 
 /**
  * Wristband cards from the Grid1ron Design canvas (Wristbands · print
- * builder): numbered cells that match the Season Grid, 6, 8 or 10 to a
- * card, printed as quarterback and center cards plus a coach sheet.
+ * builder): numbered cells that match the Season Grid, laid out in a grid on
+ * each card, printed as quarterback and center cards plus a coach sheet.
  */
 export type BandEntry = { number: string; name: string; scene: Scene | null };
 export type CellShows = { diagram: boolean; name: boolean; numberOnly: boolean };
 export type BandCopies = { qb: number; center: number; coach: number };
+export type BandGrid = { cols: number; rows: number };
 
-/** Card grid for each size: columns × rows. */
-export const BAND_LAYOUT: Record<6 | 8 | 10, { cols: number; rows: number }> = {
-  6: { cols: 3, rows: 2 },
-  8: { cols: 4, rows: 2 },
-  10: { cols: 5, rows: 2 },
-};
+/** Plays per card, as columns × rows. */
+export const BAND_GRIDS: BandGrid[] = [
+  { cols: 1, rows: 1 },
+  { cols: 2, rows: 1 },
+  { cols: 3, rows: 1 },
+  { cols: 2, rows: 2 },
+  { cols: 3, rows: 2 },
+  { cols: 4, rows: 2 },
+  { cols: 3, rows: 3 },
+  { cols: 5, rows: 2 },
+  { cols: 4, rows: 3 },
+];
+export const gridKey = (g: BandGrid) => `${g.cols}x${g.rows}`;
 
 /**
  * Printed card sizes. The NFL FLAG card (4.5 × 2.02 in) is the default; the
- * large card fits wristband windows of 4.75 × 2.50 in. `perPage` is how many
- * stack in one column on a letter sheet.
+ * large card fits wristband windows of 4.75 × 2.50 in. "Custom" takes the
+ * coach's own window size.
  */
 export const BAND_SIZES = [
-  { id: "flag", label: "NFL FLAG", w: 4.5, h: 2.02, perPage: 5, note: "Fits the standard NFL FLAG wristband window." },
-  { id: "large", label: "Large", w: 4.75, h: 2.5, perPage: 4, note: "Fits a 4.75 × 2.50 in wristband window." },
+  { id: "flag", label: "NFL FLAG", w: 4.5, h: 2.02, note: "Fits the standard NFL FLAG wristband window." },
+  { id: "large", label: "Large", w: 4.75, h: 2.5, note: "Fits a 4.75 × 2.50 in wristband window." },
+  { id: "index", label: "Index", w: 5, h: 3, note: "A 5 × 3 in card for a large window or the sideline." },
+  { id: "custom", label: "Custom", w: 4.5, h: 2.5, note: "Measure the inside of your wristband window and type it in." },
 ] as const;
-export type BandSize = (typeof BAND_SIZES)[number];
-export type BandSizeId = BandSize["id"];
+export type BandSizeId = (typeof BAND_SIZES)[number]["id"];
+export const BAND_CUSTOM_LIMITS = { min: 1.5, max: 8 };
+
+/** Where the cards go: laid up on a sheet with cut lines, or one card per page for a print shop. */
+export const BAND_PAPERS = [
+  { id: "letter", label: "Letter", w: 8.5, h: 11 },
+  { id: "legal", label: "Legal", w: 8.5, h: 14 },
+  { id: "a4", label: "A4", w: 8.27, h: 11.69 },
+  { id: "card", label: "One card per page", w: 0, h: 0 },
+] as const;
+export type BandPaperId = (typeof BAND_PAPERS)[number]["id"];
+
+export const NUMBER_SIZES = { s: 8, m: 11, l: 15 } as const;
+export type NumberSize = keyof typeof NUMBER_SIZES;
+
+/** Words in the header and border text that fill in per card. */
+export const BAND_TOKENS = ["{role}", "{card}", "{source}", "{count}"] as const;
+
+export type BandOptions = {
+  card: { w: number; h: number };
+  grid: BandGrid;
+  shows: CellShows;
+  look: PrintLook;
+  numberSize: NumberSize;
+  header: { show: boolean; left: string; right: string };
+  /** Text printed along the bottom border, e.g. the team name. Empty for none. */
+  footer: string;
+  paper: BandPaperId;
+  cutMarks: boolean;
+  copies: BandCopies;
+  source: string;
+  watermark: string | null;
+  dpi: number;
+  vector: boolean;
+};
+
+export const defaultBandText = {
+  left: "{role} · Card {card} · {source}",
+  right: "{count} plays",
+};
+
+export const DEFAULT_BAND_LOOK = CARD_LOOK;
 
 export function entriesFromPlays(plays: StoredPlay[], numbers?: string[]): BandEntry[] {
   return plays.map((p, i) => ({ number: numbers?.[i] ?? String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
 }
 
-async function diagram(scene: Scene, watermark: string | null, dpi: number, wIn: number) {
-  const px = Math.max(240, Math.round(wIn * dpi));
-  return svgToPng(sceneToSvg(scene, { watermark }), px, Math.round((px * CANVAS_H) / CANVAS_W));
+/** Fill the {tokens} in a header or footer line. */
+export function fillBandText(text: string, vars: { role: string; card: string; source: string; count: number }) {
+  return text
+    .replace(/\{role\}/gi, vars.role)
+    .replace(/\{card\}/gi, vars.card)
+    .replace(/\{source\}/gi, vars.source)
+    .replace(/\{count\}/gi, String(vars.count));
 }
 
-async function drawCard(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  entries: BandEntry[],
-  perCard: 6 | 8 | 10,
-  shows: CellShows,
-  label: string,
-  card: BandSize,
-  opts: { watermark: string | null; dpi: number },
-) {
-  const { cols, rows } = BAND_LAYOUT[perCard];
-  const { w: CARD_W, h: CARD_H } = card;
-  const headH = 0.2;
+/** Header and footer band heights, in inches, shared by the PDF and the preview. */
+export function bandChrome(opts: Pick<BandOptions, "header" | "footer">) {
+  return { headH: opts.header.show ? 0.2 : 0, footH: opts.footer.trim() ? 0.16 : 0 };
+}
+
+/** Number strip at the top of each cell, in inches. */
+export const stripHeight = (size: NumberSize) => (NUMBER_SIZES[size] * 1.3) / 72;
+
+/** Card letter for the nth card: A … Z, then AA, AB … */
+export function cardLetter(n: number): string {
+  return n < 26 ? String.fromCharCode(65 + n) : cardLetter(Math.floor(n / 26) - 1) + cardLetter(n % 26);
+}
+
+async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], vars: Parameters<typeof fillBandText>[1], o: BandOptions) {
+  const { cols, rows } = o.grid;
+  const { w: CARD_W, h: CARD_H } = o.card;
+  const { headH, footH } = bandChrome(o);
+  const perCard = cols * rows;
+
   doc.setDrawColor(11, 21, 36);
   doc.setLineWidth(0.01);
   doc.rect(x, y, CARD_W, CARD_H);
-  doc.setFillColor(11, 21, 36);
-  doc.rect(x, y, CARD_W, headH, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.setTextColor(22, 200, 232);
-  doc.text(label.toUpperCase(), x + 0.06, y + 0.135);
-  doc.text(`${entries.length} PLAYS`, x + CARD_W - 0.06, y + 0.135, { align: "right" });
+  if (headH) {
+    doc.setFillColor(11, 21, 36);
+    doc.rect(x, y, CARD_W, headH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(22, 200, 232);
+    doc.text(fillBandText(o.header.left, vars).toUpperCase(), x + 0.06, y + 0.135);
+    doc.text(fillBandText(o.header.right, vars).toUpperCase(), x + CARD_W - 0.06, y + 0.135, { align: "right" });
+  }
+  if (footH) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(11, 21, 36);
+    doc.text(fillBandText(o.footer, vars).toUpperCase(), x + CARD_W / 2, y + CARD_H - 0.05, { align: "center" });
+    doc.setDrawColor(11, 21, 36);
+    doc.line(x, y + CARD_H - footH, x + CARD_W, y + CARD_H - footH);
+  }
 
   const cellW = CARD_W / cols;
-  const cellH = (CARD_H - headH) / rows;
+  const cellH = (CARD_H - headH - footH) / rows;
+  const numPt = NUMBER_SIZES[o.numberSize];
+  const strip = stripHeight(o.numberSize);
   for (let i = 0; i < perCard; i++) {
     const cx = x + (i % cols) * cellW;
     const cy = y + headH + Math.floor(i / cols) * cellH;
-    doc.setDrawColor(221, 229, 236);
+    doc.setDrawColor(150, 164, 178);
+    doc.setLineWidth(0.008);
     doc.rect(cx, cy, cellW, cellH);
     const e = entries[i];
     if (!e) continue;
     doc.setFont("helvetica", "bold");
     doc.setTextColor(11, 21, 36);
-    if (shows.numberOnly || !e.scene) {
-      doc.setFontSize(22);
-      doc.text(e.number, cx + cellW / 2, cy + cellH / 2 + 0.06, { align: "center" });
-      if (shows.name) {
-        doc.setFontSize(5.5);
+    if (o.shows.numberOnly || !e.scene || !o.shows.diagram) {
+      doc.setFontSize(Math.min(40, numPt * 2.4));
+      doc.text(e.number, cx + cellW / 2, cy + cellH / 2 + 0.05, { align: "center", baseline: "middle" });
+      if (o.shows.name) {
+        doc.setFontSize(Math.max(6, numPt * 0.62));
         doc.text(doc.splitTextToSize(e.name.toUpperCase(), cellW - 0.08).slice(0, 2), cx + cellW / 2, cy + cellH - 0.12, { align: "center" });
       }
       continue;
     }
-    doc.setFontSize(8);
-    doc.text(e.number, cx + 0.05, cy + 0.12);
-    if (shows.name) {
-      doc.setFontSize(5);
-      doc.setTextColor(60, 72, 90);
-      doc.text(doc.splitTextToSize(e.name.toUpperCase(), cellW - 0.3)[0] ?? "", cx + 0.25, cy + 0.115);
+    // Number in a solid tab, name beside it, diagram filling the rest of the cell.
+    doc.setFontSize(numPt);
+    const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
+    doc.setFillColor(11, 21, 36);
+    doc.rect(cx, cy, tabW, strip, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
+    if (o.shows.name) {
+      doc.setFontSize(Math.max(5.5, numPt * 0.66));
+      doc.setTextColor(11, 21, 36);
+      const name = doc.splitTextToSize(e.name.toUpperCase(), cellW - tabW - 0.08)[0] ?? "";
+      doc.text(name, cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
     }
-    if (shows.diagram) {
-      const top = cy + 0.16;
-      const availH = cellH - 0.2;
-      const w = Math.min(cellW - 0.08, (availH * CANVAS_W) / CANVAS_H);
-      const h = (w * CANVAS_H) / CANVAS_W;
-      const png = await diagram(e.scene, opts.watermark, opts.dpi, w);
-      doc.addImage(png, "PNG", cx + (cellW - w) / 2, top, w, h);
-    }
+    const pad = 0.03;
+    await placeDiagram(doc, e.scene, cx + pad, cy + strip + pad / 2, cellW - pad * 2, cellH - strip - pad * 1.5, {
+      look: o.look,
+      watermark: o.watermark,
+      vector: o.vector,
+      dpi: o.dpi,
+    });
   }
 }
 
-/** Letter sheet(s) of wristband cards, then the coach sheet. */
-export async function wristbandSheets(
-  entries: BandEntry[],
-  perCard: 6 | 8 | 10,
-  shows: CellShows,
-  copies: BandCopies,
-  source: string,
-  opts: { watermark: string | null; dpi: number },
-  card: BandSize = BAND_SIZES[0],
-): Promise<jsPDF> {
-  const doc = new jsPDF({ unit: "in", format: "letter", orientation: "portrait" });
+/** Short corner ticks just outside a card, so it can be trimmed without a printed border. */
+function cutMarks(doc: jsPDF, x: number, y: number, w: number, h: number) {
+  const gap = 0.04;
+  const len = 0.14;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.005);
+  for (const [px, sx] of [[x, -1], [x + w, 1]] as const)
+    for (const [py, sy] of [[y, -1], [y + h, 1]] as const) {
+      doc.line(px + sx * gap, py, px + sx * (gap + len), py);
+      doc.line(px, py + sy * gap, px, py + sy * (gap + len));
+    }
+}
+
+/** Cards in rows and columns on the paper, or one per page. */
+function sheetSlots(o: BandOptions) {
+  const paper = BAND_PAPERS.find((p) => p.id === o.paper) ?? BAND_PAPERS[0];
+  if (paper.id === "card") return { paper: { w: o.card.w, h: o.card.h }, slots: [{ x: 0, y: 0 }] };
+  const margin = 0.4;
+  const gap = o.cutMarks ? 0.36 : 0.12;
+  const across = Math.max(1, Math.floor((paper.w - margin * 2 + gap) / (o.card.w + gap)));
+  const down = Math.max(1, Math.floor((paper.h - margin * 2 + gap) / (o.card.h + gap)));
+  const usedW = across * o.card.w + (across - 1) * gap;
+  const left = (paper.w - usedW) / 2;
+  const slots: { x: number; y: number }[] = [];
+  for (let r = 0; r < down; r++)
+    for (let c = 0; c < across; c++) slots.push({ x: left + c * (o.card.w + gap), y: margin + r * (o.card.h + gap) });
+  return { paper: { w: paper.w, h: paper.h }, slots };
+}
+
+/** How many cards land on each printed page, for the summary line. */
+export const cardsPerPage = (o: BandOptions) => sheetSlots(o).slots.length;
+
+/** Sheet(s) of wristband cards, then the coach sheet. */
+export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Promise<jsPDF> {
+  const perCard = o.grid.cols * o.grid.rows;
+  const { paper, slots } = sheetSlots(o);
+  const orient = paper.w > paper.h ? "landscape" : "portrait";
+  const doc = new jsPDF({ unit: "in", format: [paper.w, paper.h], orientation: orient, compress: true });
   const cards: BandEntry[][] = [];
   for (let i = 0; i < entries.length; i += perCard) cards.push(entries.slice(i, i + perCard));
-  const labels = [
-    ...Array.from({ length: copies.qb }, () => "QB wristband"),
-    ...Array.from({ length: copies.center }, () => "Center wristband"),
+  const roles = [
+    ...Array.from({ length: o.copies.qb }, () => "QB wristband"),
+    ...Array.from({ length: o.copies.center }, () => "Center wristband"),
   ];
 
-  // Cards: one column per letter page (five standard, four large), cut along the borders.
-  const { perPage } = card;
-  const x = (8.5 - card.w) / 2;
   let slot = 0;
   let first = true;
-  for (const label of labels) {
+  for (const role of roles) {
     for (let c = 0; c < cards.length; c++) {
-      if (slot === perPage || first) {
-        if (!first) doc.addPage("letter", "portrait");
+      if (slot === slots.length || first) {
+        if (!first) doc.addPage([paper.w, paper.h], orient);
         first = false;
         slot = 0;
       }
-      const letter = String.fromCharCode(65 + c);
-      await drawCard(doc, x, 0.4 + slot * (card.h + 0.1), cards[c], perCard, shows, `${label} · Card ${letter} · ${source}`, card, opts);
+      const { x, y } = slots[slot];
+      const vars = { role, card: cardLetter(c), source: o.source, count: cards[c].length };
+      await drawCard(doc, x, y, cards[c], vars, o);
+      if (o.cutMarks && o.paper !== "card") cutMarks(doc, x, y, o.card.w, o.card.h);
       slot++;
     }
   }
 
-  // Coach sheet: every call with its number, a bigger diagram and player notes.
-  for (let n = 0; n < copies.coach; n++) {
+  // Coach sheet: every call with its number, a bigger diagram and player notes. Always on letter.
+  for (let n = 0; n < o.copies.coach; n++) {
     if (!first) doc.addPage("letter", "portrait");
     first = false;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(11, 21, 36);
-    doc.text(`Coach sheet · ${source}`, 0.5, 0.6);
+    doc.text(`Coach sheet · ${o.source}`, 0.5, 0.6);
     const colW = 3.6;
     const rowH = 2.35;
     let i = 0;
@@ -160,11 +263,14 @@ export async function wristbandSheets(
       doc.setFontSize(10);
       doc.setTextColor(11, 21, 36);
       doc.text(`${e.number}  ${e.name}`, cx, cy + 0.15);
-      if (e.scene && !shows.numberOnly) {
-        const w = colW;
-        const h = Math.min(1.7, (w * CANVAS_H) / CANVAS_W);
-        const png = await diagram(e.scene, opts.watermark, opts.dpi, w);
-        doc.addImage(png, "PNG", cx, cy + 0.25, (h * CANVAS_W) / CANVAS_H, h);
+      if (e.scene && !o.shows.numberOnly) {
+        const h = 1.7;
+        await placeDiagram(doc, e.scene, cx, cy + 0.25, colW, h, {
+          look: o.look.fit === "play" ? { ...o.look, weight: "auto" } : FULL_LOOK,
+          watermark: o.watermark,
+          vector: o.vector,
+          dpi: o.dpi,
+        });
         const notes = playerNoteLines(e.scene, "print");
         if (notes.length) {
           doc.setFont("helvetica", "normal");
@@ -177,6 +283,6 @@ export async function wristbandSheets(
     }
   }
 
-  doc.setProperties({ title: `Wristbands · ${source}` });
+  doc.setProperties({ title: `Wristbands · ${o.source}` });
   return doc;
 }

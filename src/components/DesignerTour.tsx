@@ -80,7 +80,7 @@ const SLIDES: Slide[] = [
   {
     title: "Move it, change it",
     touch: "Tap a player to select him. If he's part of a formation, the whole group is framed and labelled; tap him again to pick just him. His routes light up, so you can see what moves with him. Press and hold for Duplicate, Delete, Lock and more.",
-    mouse: "Drag to move; the route follows. Right-click a player for Duplicate, Delete, Lock and more. Delete removes, Ctrl+D duplicates, Ctrl+Z undoes.",
+    mouse: "Drag to move; the route follows. Right-click a player for Duplicate, Delete, Lock and more. Delete removes, Ctrl+C and Ctrl+V copy and paste (even onto another play), Ctrl+D duplicates, Ctrl+Z undoes.",
     art: (
       <Field>
         <g className="tour-slide">

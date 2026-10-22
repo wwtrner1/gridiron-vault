@@ -1,7 +1,14 @@
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 
-type Props = { view: FieldView; losY: number };
+type Props = {
+  view: FieldView;
+  losY: number;
+  /** Print cards: white ground and the line of scrimmage only. */
+  lite?: boolean;
+  /** Print line weight, so the line of scrimmage keeps up with heavier routes. */
+  weight?: number;
+};
 
 /* GridIronVault field: paper-white turf, cool navy chalk. Prints clean at any size. */
 const TURF = "#FFFFFF";
@@ -21,7 +28,23 @@ const SPACING: Record<FieldView, number> = {
   blank: 0,
 };
 
-export function FieldBackground({ view, losY }: Props) {
+export function FieldBackground({ view, losY, lite = false, weight = 1 }: Props) {
+  if (lite)
+    return (
+      <g pointerEvents="none">
+        <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={TURF} />
+        <line
+          x1={-CANVAS_W}
+          x2={CANVAS_W * 2}
+          y1={losY}
+          y2={losY}
+          stroke={NAVY}
+          strokeWidth={2.6 * weight}
+          strokeDasharray={`${13 * weight} ${10 * weight}`}
+          opacity={0.55}
+        />
+      </g>
+    );
   const gap = SPACING[view];
   const lines: number[] = [];
   if (gap > 0) for (let y = gap; y < CANVAS_H - 6; y += gap) lines.push(y);

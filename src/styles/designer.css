@@ -461,6 +461,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   text-align: left;
 }
 .rl-tile:hover { border-color: var(--cyan); }
+.rl-tile.is-on { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan) inset; }
 .rl-tile:active { cursor: grabbing; }
 .rl-tile svg { display: block; width: 100%; height: 30px; border-radius: 3px; background: var(--white); color: var(--ink); }
 .rl-tile span { display: flex; gap: 4px; font-size: 11px; color: #b6cadb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

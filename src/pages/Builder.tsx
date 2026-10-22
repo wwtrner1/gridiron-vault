@@ -19,7 +19,8 @@ import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
-import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, playerAt, type Tile } from "../lib/routeLibrary";
+import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
+import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { GriddyComposer, useGriddyDrawer } from "../components/Griddy";
 import type { AssistantRead } from "../lib/assistant";
@@ -31,9 +32,21 @@ import {
   makePlayer,
   type TokenPreset,
 } from "../lib/presets";
-import { cloneNodes, describe, flipNodes, nextZ, reconcileConnections, toolLook, type LineLook } from "../lib/scene";
+import {
+  canReshape,
+  cloneNodes,
+  describe,
+  flipNodes,
+  nextZ,
+  reconcileConnections,
+  smoothPaths,
+  snapPathsToPlayers,
+  straightenPaths,
+  toolLook,
+  type LineLook,
+} from "../lib/scene";
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
-import type { PathNode, PlayMeta, PlayerNode, Scene, SceneNode, StoredPlay } from "../lib/types";
+import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -56,6 +69,9 @@ const blankMeta: PlayMeta = {
   tags: [],
   isPublic: false,
 };
+
+const HANDOFF = MORE_TILES.find((t) => t.id === "handoff")!;
+const PITCH = MORE_TILES.find((t) => t.id === "pitch")!;
 
 const ANCHOR_ROW: Record<number, string> = { 0: "top", 0.5: "middle", 1: "bottom" };
 const ANCHOR_COL: Record<number, string> = { 0: "left", 0.5: "centre", 1: "right" };
@@ -133,6 +149,8 @@ export function Builder() {
   const [meta, setMeta] = useState<PlayMeta>(() => existing ?? blankMeta);
   const [selection, setSelection] = useState<string[]>([]);
   const [tool, setTool] = useState<ToolId>("select");
+  /** A route tile loaded onto the cursor (see `pickTile`). */
+  const [armed, setArmed] = useState<Tile | null>(null);
   const [mode, setMode] = useState<ModeId | null>(null);
   const [color, setColor] = useState(PALETTE[0]);
   const [width, setWidth] = useState(DEFAULT_STROKE);
@@ -526,6 +544,34 @@ export function Builder() {
     setSelection(copies.map((n) => n.id));
   };
 
+  const copySelection = () => {
+    const source = scene.nodes.filter((n) => selection.includes(n.id));
+    if (!source.length) return;
+    copyNodes(source);
+    setStatus(`Copied ${source.length === 1 ? describe(source[0]) : `${source.length} elements`}. Paste here or on another play with Ctrl+V.`);
+  };
+
+  const cutSelection = () => {
+    if (!selection.length) return;
+    copySelection();
+    applyScene({ ...scene, nodes: scene.nodes.filter((n) => !selection.includes(n.id)) }, "Cut");
+    setSelection([]);
+  };
+
+  /** Pastes the clipboard, centred on `at` when the field's right-click menu asked for it. */
+  const pasteClipboard = (at?: Point) => {
+    const pasted = pasteNodes(scene, at);
+    if (!pasted) {
+      setStatus("Nothing copied yet. Pick a player or route and press Ctrl+C first.");
+      return;
+    }
+    applyScene(pasted.scene, "Paste");
+    setTool("select");
+    setMode(null);
+    setSelection(pasted.ids);
+    setStatus(`Pasted ${pasted.ids.length === 1 ? "1 element" : `${pasted.ids.length} elements`}. Drag to place it.`);
+  };
+
   const groupSelection = () => {
     if (selection.length < 2) return;
     const group = uid("grp");
@@ -578,6 +624,22 @@ export function Builder() {
     const z = nextZ(scene);
     applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, z: z + selection.indexOf(n.id) } : n)) }, "Bring to front");
   };
+  const snapToPlayer = () => {
+    const { scene: next, snapped } = snapPathsToPlayers(scene, selection);
+    if (!snapped.length) {
+      setStatus("No player close enough to that route's start. Drag it nearer a player, then try again.");
+      return;
+    }
+    applyScene(next, "Snap to player");
+    setStatus(`Snapped to ${[...new Set(snapped)].join(", ")}. The route now moves with ${snapped.length === 1 ? "him" : "them"}.`);
+  };
+  const reshape = (op: (s: Scene, ids: string[]) => Scene, label: string) => {
+    applyScene(op(scene, selection), label);
+    setStatus(`${label}. Undo puts the line back the way you drew it.`);
+  };
+  // Offensive players who can take a handoff or pitch: not the quarterback or a lineman.
+  const hasQb = scene.nodes.some((n) => n.kind === "player" && !n.hidden && n.side === "offense" && n.label.toUpperCase() === "Q");
+  const ballCarriers = hasQb ? players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !isLineman(p)) : [];
   // Right-click (or press and hold) on something already picked: what you can do to it, grouped by kind.
   const nodeActions: MenuAction[] = [
     ...(allPaths
@@ -613,6 +675,15 @@ export function Builder() {
           ...(paths.length === 1
             ? [{ id: "first-read", section: "Ends", label: "First read", on: !!paths[0].firstRead, run: () => setFirstRead(!paths[0].firstRead) }]
             : []),
+          ...(paths.some((p) => !p.closed && !p.toId && !p.fromId && !p.assignOf)
+            ? [{ id: "snap-player", section: "Clean up", label: "Snap to nearest player", run: snapToPlayer }]
+            : []),
+          ...(canReshape(scene, selection)
+            ? [
+                { id: "smooth", section: "Clean up", label: "Smooth into a curve", run: () => reshape(smoothPaths, "Smoothed") },
+                { id: "straighten", section: "Clean up", label: "Straighten into clean cuts", run: () => reshape(straightenPaths, "Straightened") },
+              ]
+            : []),
         ]
       : []),
     ...(players.length
@@ -635,9 +706,17 @@ export function Builder() {
               setRailOpen(true);
             },
           },
+          ...(ballCarriers.length
+            ? [
+                { id: "handoff", section: "Player", label: "Handoff from Q", run: () => giveTile(HANDOFF, ballCarriers.map((p) => p.id)) },
+                { id: "pitch", section: "Player", label: "Pitch from Q", run: () => giveTile(PITCH, ballCarriers.map((p) => p.id)) },
+              ]
+            : []),
           { id: "note", section: "Player", label: "Add a note", run: () => setSideOpen(true) },
         ]
       : []),
+    { id: "copy", section: "Edit", label: "Copy", run: copySelection },
+    { id: "cut", section: "Edit", label: "Cut", run: cutSelection },
     { id: "duplicate", section: "Edit", label: "Duplicate", run: duplicateSelection },
     ...groupActions.map((g) => ({ ...g, section: "Edit" })),
     { id: "front", section: "Edit", label: "Bring to front", run: bringToFront },
@@ -655,6 +734,8 @@ export function Builder() {
     { id: "lock", label: "Lock in place", short: "Lock", run: lockSelection },
   ];
   const fieldActions: MenuAction[] = [
+    ...(armed ? [{ id: "put-away", label: `Put away ${armed.label}`, run: () => putAway() }] : []),
+    ...(hasClipboard() ? [{ id: "paste", label: "Paste here", run: (at?: Point) => pasteClipboard(at) }] : []),
     { id: "all", label: "Select all", run: selectAll },
     {
       id: "box",
@@ -818,6 +899,21 @@ export function Builder() {
         duplicateSelection();
         return;
       }
+      if (meta_ && e.key.toLowerCase() === "c" && selection.length) {
+        e.preventDefault();
+        copySelection();
+        return;
+      }
+      if (meta_ && e.key.toLowerCase() === "x" && selection.length) {
+        e.preventDefault();
+        cutSelection();
+        return;
+      }
+      if (meta_ && e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        pasteClipboard();
+        return;
+      }
       if (meta_ && e.key.toLowerCase() === "g") {
         e.preventDefault();
         groupSelection();
@@ -836,6 +932,7 @@ export function Builder() {
         return;
       }
       if (e.key === "Escape") {
+        if (armed) putAway();
         setTool("select");
         setMode(null);
         return;
@@ -874,7 +971,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier, tool, drawingTool]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -982,6 +1079,50 @@ export function Builder() {
     return oneGroup ? [pick.id] : ids;
   };
 
+  /**
+   * A route tile clicked with nobody picked is loaded onto the cursor: each
+   * click on a player gives it to him, a click on the field drops it there.
+   * It stays loaded for the next player until Esc or another tile or tool.
+   */
+  const putAway = () => {
+    setArmed(null);
+    setStatus("Route put away.");
+  };
+  const pickTile = (tile: Tile) => {
+    const targets = tileTargets(selection).filter((id) => scene.nodes.some((n) => n.id === id && n.kind === "player"));
+    if (targets.length) {
+      setArmed(null);
+      giveTile(tile, targets);
+      return;
+    }
+    if (armed?.id === tile.id) {
+      putAway();
+      return;
+    }
+    setArmed(tile);
+    setTool("select");
+    setMode(null);
+    picked();
+    setStatus(`${tile.label} loaded. Click a player to give it to him, or click the field to drop it there. Esc puts it away.`);
+  };
+  const stampTile = (tile: Tile, at: Point, playerId: string | null) => {
+    if (playerId) {
+      giveTile(tile, [playerId]);
+      return;
+    }
+    const result = placeTile(scene, tile, at, color, width, nextZ(scene));
+    if ("error" in result) {
+      toast(result.error, true);
+      return;
+    }
+    applyScene(result.scene, tile.label);
+    setStatus(result.message);
+  };
+  // Another tool puts a loaded route away.
+  useEffect(() => {
+    if (tool !== "select") setArmed(null);
+  }, [tool]);
+
   const giveTile = (tile: Tile, playerIds: string[]) => {
     const result = applyTile(scene, tile, playerIds, color, width, nextZ(scene));
     if ("error" in result) {
@@ -1006,7 +1147,10 @@ export function Builder() {
         y: ((e.clientY - r.top) / r.height) * CANVAS_H,
       });
       if (!target) {
-        toast(`Drop ${tile.label} right on a player.`, true);
+        stampTile(tile, {
+          x: ((e.clientX - r.left) / r.width) * CANVAS_W,
+          y: ((e.clientY - r.top) / r.height) * CANVAS_H,
+        }, null);
         return;
       }
       setSelection([target.id]);
@@ -1322,7 +1466,7 @@ export function Builder() {
 
             {railTab === "routes" && (
               <RailGroup id="routes" title="Route library">
-                <RouteLibrary onPick={(tile) => giveTile(tile, tileTargets(selection))} />
+                <RouteLibrary onPick={pickTile} armed={armed?.id ?? null} />
               </RailGroup>
             )}
 
@@ -1533,7 +1677,7 @@ export function Builder() {
             <div className="dz-selbar" role="toolbar" aria-label="Selected elements">
               <span className="dz-selbar-count">{selection.length} selected</span>
               {barActions.map((a) => (
-                <button key={a.id} type="button" className={a.danger ? "is-danger" : ""} onClick={a.run} aria-label={a.label}>
+                <button key={a.id} type="button" className={a.danger ? "is-danger" : ""} onClick={() => a.run()} aria-label={a.label}>
                   {a.short}
                 </button>
               ))}
@@ -1579,6 +1723,7 @@ export function Builder() {
               onSignal={onSignal}
               onDraftChange={setDraftPoints}
               controlRef={canvasControl}
+              stamp={armed ? { label: armed.label, place: (at, playerId) => stampTile(armed, at, playerId) } : null}
             />
           </div>
 
