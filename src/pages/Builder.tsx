@@ -51,6 +51,7 @@ import {
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
+import { overlayStore, useOverlay } from "../lib/overlay";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -1103,6 +1104,43 @@ export function Builder() {
   const goPlayRef = useRef(goPlay);
   goPlayRef.current = goPlay;
 
+  // Vs defense: a saved defense (or any play) faded under this one.
+  const overlayKey = existing?.id ?? "draft";
+  const overlayId = useOverlay(overlayKey);
+  const underPlay = overlayId ? plays.find((p) => p.id === overlayId && p.id !== existing?.id) ?? null : null;
+  const overlayChoices = useMemo(() => {
+    const others = plays.filter((p) => p.id !== existing?.id).sort((a, b) => a.name.localeCompare(b.name));
+    return { defenses: others.filter((p) => p.playType === "defense"), rest: others.filter((p) => p.playType !== "defense") };
+  }, [plays, existing?.id]);
+  const pickOverlay = (pid: string) => {
+    overlayStore.set(overlayKey, pid || null);
+    const picked = plays.find((p) => p.id === pid);
+    setStatus(picked ? `Showing ${picked.name} under this play. It's only a guide: it won't print or save into the play.` : "Defense overlay off.");
+  };
+  const overlaySelect = (className: string) => (
+    <select className={className} value={underPlay?.id ?? ""} onChange={(e) => pickOverlay(e.target.value)} aria-label="Show a defense under this play">
+      <option value="">Vs defense: none</option>
+      {overlayChoices.defenses.length > 0 && (
+        <optgroup label="Defenses">
+          {overlayChoices.defenses.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {overlayChoices.rest.length > 0 && (
+        <optgroup label="Other plays">
+          {overlayChoices.rest.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </select>
+  );
+
   /* ----------------------------------------------------------------- render */
 
   const activeMode = MODES.find((m) => m.id === mode);
@@ -1319,6 +1357,13 @@ export function Builder() {
               ))}
             </select>
           </Tooltip>
+          <Tooltip
+            title="Vs defense"
+            hint="Shows a saved defense faded under this play, lined up on the line of scrimmage, so you can check routes against the coverage. It won't print or save into the play."
+            side="bottom"
+          >
+            {overlaySelect(`dz-top-select dz-wide dz-vs${underPlay ? " is-on" : ""}`)}
+          </Tooltip>
           <label className="dz-zoom">
             <input
               type="range"
@@ -1423,6 +1468,10 @@ export function Builder() {
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
+                    <span>Vs defense</span>
+                    {overlaySelect("dz-top-select")}
                   </label>
                   <button type="button" role="menuitem" onClick={selectAll}>
                     Select all
@@ -1815,6 +1864,7 @@ export function Builder() {
               onSignal={onSignal}
               onDraftChange={setDraftPoints}
               controlRef={canvasControl}
+              underlay={underPlay?.scene ?? null}
               stamp={armed ? { label: armed.label, place: (at, playerId) => stampTile(armed, at, playerId) } : null}
             />
           </div>
@@ -1823,6 +1873,14 @@ export function Builder() {
             <span role="status" aria-live="polite">
               {status}
             </span>
+            {underPlay && (
+              <span className="dz-vs-chip">
+                Vs {underPlay.name}
+                <button type="button" onClick={() => pickOverlay("")} aria-label={`Hide ${underPlay.name}`}>
+                  <Icon name="close" size={12} />
+                </button>
+              </span>
+            )}
             <span className="mono">
               {scene.nodes.length} elements · {selection.length} selected
             </span>
