@@ -11,7 +11,7 @@ import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { slug } from "../lib/export";
 import { applyFormat, usePlayFormat } from "../lib/playFormat";
-import { FIELD_OPTIONS, FIT_OPTIONS, WEIGHT_STEPS, type PrintLook } from "../lib/printLook";
+import { FIELD_OPTIONS, FIT_OPTIONS, ICON_STEPS, LINE_STEPS, WEIGHT_STEPS, ZOOM_STEPS, type PrintLook } from "../lib/printLook";
 import { FormatPanel } from "../components/FormatPanel";
 import {
   BAND_CUSTOM_LIMITS,
@@ -31,6 +31,8 @@ import {
   type BandSizeId,
   type CellShows,
   type NumberSize,
+  type NumberStyle,
+  BAND_PRESETS,
 } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
 import "../styles/wristbands.css";
@@ -61,6 +63,7 @@ type BandPrefs = {
   copies: BandCopies;
   look: PrintLook;
   numberSize: NumberSize;
+  numberStyle: NumberStyle;
   header: BandOptions["header"];
   footer: string;
   paper: BandPaperId;
@@ -76,6 +79,7 @@ const DEFAULT_PREFS: BandPrefs = {
   copies: { qb: 2, center: 1, coach: 1 },
   look: DEFAULT_BAND_LOOK,
   numberSize: "m",
+  numberStyle: "tab",
   header: { show: true, ...defaultBandText },
   footer: "",
   paper: "letter",
@@ -142,6 +146,9 @@ export function Wristbands() {
   }, [prefs]);
 
   const set = (patch: Partial<BandPrefs>) => setPrefs((p) => ({ ...p, ...patch }));
+  // A preset shows as on while every setting it sets is still as it left it.
+  const presetOn = (pre: (typeof BAND_PRESETS)[number]) =>
+    (Object.keys(pre.prefs) as (keyof typeof pre.prefs)[]).every((k) => JSON.stringify(prefs[k]) === JSON.stringify(pre.prefs[k]));
   const setLook = (patch: Partial<PrintLook>) => setPrefs((p) => ({ ...p, look: { ...p.look, ...patch } }));
 
   // "Apply game-day format" (canvas): print every play in the saved play format; the plays themselves don't change.
@@ -186,6 +193,7 @@ export function Wristbands() {
     shows: prefs.shows,
     look: prefs.look,
     numberSize: prefs.numberSize,
+    numberStyle: prefs.numberStyle,
     header: prefs.header,
     footer: prefs.footer,
     paper: prefs.paper,
@@ -249,6 +257,25 @@ export function Wristbands() {
 
         <div className="wb-body">
           <div className="wb-controls card">
+            <div className="wb-field" role="group" aria-labelledby="wb-presets">
+              <span id="wb-presets">One-click styles</span>
+              <div className="chip-row">
+                {BAND_PRESETS.map((pre) => (
+                  <button
+                    key={pre.id}
+                    type="button"
+                    className={`chip${presetOn(pre) ? " is-on" : ""}`}
+                    aria-pressed={presetOn(pre)}
+                    title={pre.hint}
+                    onClick={() => set(pre.prefs)}
+                  >
+                    {pre.label}
+                  </button>
+                ))}
+              </div>
+              <p className="wb-note">Pick a style, then fine-tune anything below. Your card size stays as it is.</p>
+            </div>
+
             <label className="wb-field">
               <span>Pull plays from</span>
               <select className="select" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
@@ -380,6 +407,31 @@ export function Wristbands() {
                   ))}
                 </select>
               </label>
+              {(
+                [
+                  ["Zoom", "zoom", ZOOM_STEPS.map((z) => ({ value: z, label: `${Math.round(z * 100)}%` }))],
+                  ["Player icons", "icons", ICON_STEPS],
+                  ["Route lines", "lines", LINE_STEPS],
+                ] as const
+              ).map(([title, key, steps]) => (
+                <div key={key} className="wb-sub" role="group" aria-label={title}>
+                  {title}
+                  <div className="chip-row">
+                    {steps.map((st) => {
+                      const on = (prefs.look[key] ?? 1) === st.value;
+                      return (
+                        <button key={st.value} type="button" className={`chip${on ? " is-on" : ""}`} aria-pressed={on} onClick={() => setLook({ [key]: st.value })}>
+                          {st.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <label className="switch">
+                <input type="checkbox" checked={!!prefs.look.dots} onChange={(e) => setLook({ dots: e.target.checked })} />
+                Solid dots, no letters
+              </label>
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-shows">
@@ -395,6 +447,13 @@ export function Wristbands() {
               <label className="switch">
                 <input type="checkbox" checked={prefs.shows.numberOnly} onChange={(e) => set({ shows: { ...prefs.shows, numberOnly: e.target.checked } })} />
                 Number only (no diagram)
+              </label>
+              <label className="wb-sub">
+                Number style
+                <select className="select" value={prefs.numberStyle} onChange={(e) => set({ numberStyle: e.target.value as NumberStyle })}>
+                  <option value="tab">Dark tab, name beside it</option>
+                  <option value="band">Gray strip across the top</option>
+                </select>
               </label>
               <label className="wb-sub">
                 Number size

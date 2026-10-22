@@ -13,7 +13,7 @@ import {
 type Props = {
   /** Entries in print order. */
   entries: BandEntry[];
-  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "header" | "footer" | "source">;
+  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "numberStyle" | "header" | "footer" | "source">;
   /** Draw at the card's real size in inches instead of filling the column. */
   actualSize: boolean;
   /** Move the entry at `from` to position `to` in print order. */
@@ -111,10 +111,16 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                 >
                   {diagram ? (
                     <>
-                      <div className="wb-cell-top" style={{ height: pct(strip, cellH) }}>
-                        <b style={{ fontSize: cq(numPt) }}>{e.number}</b>
-                        {o.shows.name && <span style={{ fontSize: cq(Math.max(5.5, numPt * 0.66)) }}>{e.name}</span>}
-                      </div>
+                      {o.numberStyle === "band" ? (
+                        <div className="wb-cell-band" style={{ height: pct(strip, cellH), fontSize: cq(numPt) }}>
+                          {o.shows.name ? `${e.number} · ${e.name}` : e.number}
+                        </div>
+                      ) : (
+                        <div className="wb-cell-top" style={{ height: pct(strip, cellH) }}>
+                          <b style={{ fontSize: cq(numPt) }}>{e.number}</b>
+                          {o.shows.name && <span style={{ fontSize: cq(Math.max(5.5, numPt * 0.66)) }}>{e.name}</span>}
+                        </div>
+                      )}
                       <div className="wb-cell-art">
                         <PrintDiagram
                           scene={e.scene!}
