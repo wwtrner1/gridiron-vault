@@ -71,6 +71,8 @@ export type PathNode = NodeCommon & {
   firstRead?: boolean;
   /** The player this route or block belongs to, when a player preset drew it. */
   assignOf?: string;
+  /** Short label that rides at the end of the route ("Post", "12 yds", "Hot"); a zone shows it in the middle. */
+  tag?: string;
 };
 
 export type ShapeNode = NodeCommon & {

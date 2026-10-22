@@ -5,6 +5,7 @@ import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
 import { PlayerPresets } from "./PlayerPresets";
 import { FIELD_VIEWS } from "../lib/field";
+import { TAG_MAX } from "../lib/render";
 import { knownPersonnel, personnelGroups } from "../lib/personnel";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ, sendToBack } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
@@ -422,6 +423,24 @@ type PatchFn = (changes: Partial<SceneNode> | ((n: SceneNode) => Partial<SceneNo
 function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: PatchFn; onFirstRead: (on: boolean) => void }) {
   return (
     <>
+      <label className="field">
+        <span>{node.closed ? "Zone tag" : "Route tag"}</span>
+        <input
+          className="input"
+          id="route-tag"
+          value={node.tag ?? ""}
+          maxLength={TAG_MAX}
+          list="route-tag-ideas"
+          placeholder={node.closed ? "Hook, Deep 1/3, Flat" : "Post, 12 yds, Hot, Option"}
+          onChange={(e) => patch({ tag: e.target.value || undefined } as Partial<SceneNode>, "Route tag")}
+        />
+        <datalist id="route-tag-ideas">
+          {[...ROUTE_TREE, "Hot", "Option", "Read 1", "Read 2", "Check down", "Hook", "Curl/Flat", "Deep 1/3", "Deep 1/2"].map((r) => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
+        <p className="hint">Prints at the end of the line and moves with it.</p>
+      </label>
       <label className="switch">
         <input type="checkbox" checked={!!node.firstRead} onChange={(e) => onFirstRead(e.target.checked)} />
         First read (draws this route in cyan)
