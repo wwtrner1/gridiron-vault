@@ -495,7 +495,11 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
           />
         </label>
       )}
-      {(node.fromId || node.toId) && <p className="hint">This line is joined to two tokens and follows them when they move.</p>}
+      {node.fromId && node.toId ? (
+        <p className="hint">This line is joined to two tokens and follows them when they move.</p>
+      ) : node.fromId ? (
+        <p className="hint">This route starts on a player and moves with him.</p>
+      ) : null}
     </>
   );
 }
@@ -571,4 +575,4 @@ function TextFields({ node, patch }: { node: TextNode; patch: PatchFn }) {
     </>
   );
 }
-
+

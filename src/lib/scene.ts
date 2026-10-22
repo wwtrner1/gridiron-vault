@@ -1,6 +1,6 @@
 import { baseNode, uid } from "./types";
-import type { PathNode, Point, Scene, SceneNode, ShapeNode, TextNode } from "./types";
-import { localBox, toWorld, worldBox, unionBox } from "./geometry";
+import type { PathNode, PlayerNode, Point, Scene, SceneNode, ShapeNode, TextNode } from "./types";
+import { dist, localBox, straighten, toWorld, worldBox, unionBox } from "./geometry";
 import type { ToolId } from "./tools";
 
 export const nextZ = (scene: Scene) =>
@@ -197,3 +197,54 @@ export function anchorPoint(node: SceneNode, ax: number, ay: number): Point {
   const b = localBox(node);
   return toWorld(node, { x: b.x + b.w * ax, y: b.y + b.h * ay });
 }
+
+/* ------------------------------------------------------ right-click route ops */
+
+/** How far (field px) a route's start may be from a player and still snap to him. */
+const SNAP_REACH = 140;
+
+/**
+ * Moves each loose route so it starts on the nearest player and glues it to
+ * him (`fromId`), so it follows when he moves. Routes already on a player,
+ * and ones with no player in reach, are left alone.
+ */
+export function snapPathsToPlayers(scene: Scene, ids: string[]): { scene: Scene; snapped: string[] } {
+  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+  const snapped: string[] = [];
+  const nodes = scene.nodes.map((n) => {
+    if (n.kind !== "path" || !ids.includes(n.id) || n.closed || n.toId || n.assignOf || !n.points.length) return n;
+    const start = toWorld(n, n.points[0]);
+    let best: PlayerNode | null = null;
+    for (const p of players) if (dist(p, start) < SNAP_REACH && (!best || dist(p, start) < dist(best, start))) best = p;
+    if (!best || (n.fromId === best.id && dist(best, start) < 1)) return n;
+    snapped.push(best.label || best.name || "player");
+    return { ...n, x: n.x + best.x - start.x, y: n.y + best.y - start.y, fromId: best.id };
+  });
+  return { scene: snapped.length ? { ...scene, nodes } : scene, snapped };
+}
+
+/** Line tool kinds that are clean-up candidates: open lines, not auto-connects or zones. */
+const reshapeable = (n: SceneNode, ids: string[]): n is PathNode =>
+  n.kind === "path" && ids.includes(n.id) && !n.closed && !n.toId && n.points.length > 2;
+
+/**
+ * Turns shaky hand-drawn lines into one smooth curve: wobble is dropped and
+ * the remaining points are joined with a spline.
+ */
+export function smoothPaths(scene: Scene, ids: string[]): Scene {
+  return {
+    ...scene,
+    nodes: scene.nodes.map((n) => (reshapeable(n, ids) ? { ...n, points: straighten(n.points, 5), curve: "spline", handles: {} } : n)),
+  };
+}
+
+/** Turns a hand-drawn line into its real cuts, joined with straight legs. */
+export function straightenPaths(scene: Scene, ids: string[]): Scene {
+  return {
+    ...scene,
+    nodes: scene.nodes.map((n) => (reshapeable(n, ids) ? { ...n, points: straighten(n.points, 12), curve: "straight", handles: {} } : n)),
+  };
+}
+
+/** True when any of `ids` is a line `smoothPaths`/`straightenPaths` can reshape. */
+export const canReshape = (scene: Scene, ids: string[]) => scene.nodes.some((n) => reshapeable(n, ids));
