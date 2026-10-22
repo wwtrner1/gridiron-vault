@@ -163,6 +163,40 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
   };
 }
 
+/**
+ * Drops a tile on the empty field at `at`, for a coach who clicked a tile
+ * with nobody picked: the route starts where they clicked, belongs to no one
+ * yet ("Snap to nearest player" glues it on later), and breaks toward the
+ * near sideline like a library route does.
+ */
+export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, width: number, z: number): ApplyResult {
+  const own = { stroke: ink, width };
+  switch (tile.kind) {
+    case "route":
+    case "block":
+    case "motion":
+    case "rush": {
+      const kind = tile.kind === "rush" ? "route" : tile.kind;
+      const a: Assignment = { player: "", kind, action: tile.action ?? tile.kind, heard: "" };
+      const node = { ...assignmentPath(a, at, scene.losY, z), ...own, name: tile.label };
+      return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} placed. Right-click it and pick Snap to nearest player to give it to someone.` };
+    }
+    case "handoff":
+    case "pitch": {
+      const { qb } = cast(scene);
+      if (!qb) return { error: `Add a quarterback (Q) first — the ${tile.label.toLowerCase()} starts from him.` };
+      const node = line(qb, at, { ...own, name: tile.label, style: tile.kind === "pitch" ? "dashed" : "solid", endCap: tile.kind === "pitch" ? "arrow" : "none" }, z);
+      return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} drawn from the quarterback.` };
+    }
+    case "zone": {
+      const node = { ...makeShape("ellipse", at, 220, 78, ZONE_STROKE, z), name: "Zone", fill: ZONE_FILL, fillOpacity: 0.85, width: 1.6, dash: "dashed" as const };
+      return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: "Zone dropped. Drag its handles to fit the area." };
+    }
+    case "man":
+      return { error: "Man coverage goes from a defender to a receiver. Click a defender." };
+  }
+}
+
 /** Why some chosen players didn't get the job, in plain words. */
 function skippedNote(chosen: PlayerNode[], fits: PlayerNode[], tile: Tile): string {
   const left = chosen.filter((p) => !fits.includes(p));
