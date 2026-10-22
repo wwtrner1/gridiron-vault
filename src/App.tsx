@@ -20,6 +20,7 @@ import { Privacy, Terms } from "./pages/Legal";
 import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
+import { Assignments } from "./pages/Assignments";
 import { notePage } from "./lib/lastPage";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
@@ -39,6 +40,7 @@ const TITLES: Record<string, string> = {
   "/wristbands": "Wristbands — GridIronVault",
   "/language": "Playbook language — GridIronVault",
   "/upload": "Upload plays — GridIronVault",
+  "/assignments": "Assignments — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -58,6 +60,7 @@ const NAMES: Record<string, string> = {
   "/wristbands": "Wristbands",
   "/language": "Playbook language",
   "/upload": "Upload plays",
+  "/assignments": "Assignments",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -109,6 +112,7 @@ export function App() {
         <Route path="/wristbands" element={<Wristbands />} />
         <Route path="/language" element={<PlaybookLanguage />} />
         <Route path="/upload" element={<Upload />} />
+        <Route path="/assignments" element={<Assignments />} />
         {Object.keys(COMING_SOON).map((p) => (
           <Route key={p} path={p} element={<ComingSoon path={p} />} />
         ))}

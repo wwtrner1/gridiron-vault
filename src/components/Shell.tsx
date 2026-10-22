@@ -35,6 +35,12 @@ const PLAYBOOK_NAV: NavItem[] = [
     hint: "Group plays into an install order — base, red zone, third down.",
   },
   {
+    to: "/assignments",
+    icon: "user",
+    label: "Assignments",
+    hint: "One player's job on every play in a playbook. Print it as a position sheet.",
+  },
+  {
     to: "/grid",
     icon: "table",
     label: "Season Grid",

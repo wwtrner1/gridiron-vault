@@ -749,6 +749,19 @@ export function Builder() {
               ]
             : []),
           { id: "note", section: "Player", label: "Add a note", run: () => setSideOpen(true) },
+          ...(players.length === 1 && players[0].label.trim()
+            ? [
+                {
+                  id: "assignments",
+                  section: "Player",
+                  label: `${players[0].label.trim().toUpperCase()} on every play`,
+                  run: async () => {
+                    if (dirty && !(await save())) return;
+                    navigate(`/assignments?${homeBook ? `book=${homeBook.id}&` : "book=vault&"}player=${encodeURIComponent(players[0].label.trim())}`);
+                  },
+                },
+              ]
+            : []),
         ]
       : []),
     { id: "copy", section: "Edit", label: "Copy", run: copySelection },

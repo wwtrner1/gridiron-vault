@@ -190,6 +190,9 @@ export function Playbooks() {
                   >
                     <Icon name="plus" size={14} /> Add plays
                   </button>
+                  <Link to={`/assignments?book=${book.id}`} className="btn btn-quiet btn-sm" aria-label={`Assignments in ${book.name}`}>
+                    <Icon name="user" size={14} /> Assignments
+                  </Link>
                   <Tooltip title="Export the whole book" hint="Prints every play in this book as one PDF packet or wristband run.">
                     <button
                       type="button"
