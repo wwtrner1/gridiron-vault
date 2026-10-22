@@ -52,6 +52,8 @@ import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
 import { overlayStore, useOverlay } from "../lib/overlay";
+import { editScene, swapSides } from "../lib/bulkEdit";
+import { savePlays } from "../lib/griddyVault";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -788,6 +790,7 @@ export function Builder() {
           { id: "straight-all", label: "Straighten all lines", run: () => reshapeEvery("straight") },
         ]
       : []),
+    ...(existing ? [{ id: "flip-copy", label: "Flip and save as a new play", run: () => void flipToCopy() }] : []),
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
   ];
 
@@ -1091,17 +1094,69 @@ export function Builder() {
    * play from (?book=), else the first playbook it's in, else the whole Vault
    * A to Z. Unsaved changes are saved first so nothing is lost on the way.
    */
+  const homeBook = useMemo(
+    () =>
+      existing
+        ? playbooks.find((b) => b.id === params.get("book") && b.playIds.includes(existing.id)) ??
+          playbooks.find((b) => b.playIds.includes(existing.id))
+        : undefined,
+    [existing, playbooks, params],
+  );
   const lineup = useMemo(() => {
     if (!existing) return null;
-    const book =
-      playbooks.find((b) => b.id === params.get("book") && b.playIds.includes(existing.id)) ??
-      playbooks.find((b) => b.playIds.includes(existing.id));
+    const book = homeBook;
     const ids = book
       ? book.playIds.filter((pid) => plays.some((p) => p.id === pid))
       : [...plays].sort((a, b) => a.name.localeCompare(b.name)).map((p) => p.id);
     const at = ids.indexOf(existing.id);
     return at < 0 || ids.length < 2 ? null : { book, ids, at };
-  }, [existing, playbooks, plays, params]);
+  }, [existing, homeBook, plays]);
+
+  /*
+   * Flip the whole play left to right and save it as a new play ("Trips
+   * Right" becomes "Trips Left"), filed in the same playbook right after the
+   * original. The original is saved first if it has changes.
+   */
+  const flipToCopy = async () => {
+    if (!existing) {
+      toast("Save this play first, then flip a copy of it.", true);
+      return;
+    }
+    const gate = gateSave(tier, plays.length);
+    if (!gate.ok) {
+      toast(gate.reason, true);
+      return;
+    }
+    if (dirty && !(await save())) return;
+    const original = existing.id;
+    const swapped = swapSides(meta.name.trim());
+    const copy: StoredPlay = {
+      ...meta,
+      id: uid("play"),
+      name: swapped === meta.name.trim() ? `${meta.name.trim()} (flipped)` : swapped,
+      formation: swapSides(meta.formation),
+      isPublic: false,
+      ownerName: account?.name ?? "You",
+      fieldView: scene.view,
+      scene: editScene(reconcileConnections(scene), [{ op: "mirror" }], offense).scene,
+      preview: "",
+      saveCount: 0,
+      updatedAt: new Date().toISOString(),
+      remote: false,
+    };
+    const [saved] = await savePlays([copy], { playbook: homeBook?.name ?? null, signedIn: !!account });
+    if (homeBook) {
+      const book = store.get().playbooks.find((b) => b.id === homeBook.id);
+      const at = book ? book.playIds.indexOf(original) : -1;
+      if (book && at >= 0) {
+        const ids = book.playIds.filter((pid) => pid !== saved.id);
+        ids.splice(at + 1, 0, saved.id);
+        store.upsertPlaybook({ ...book, playIds: ids, updatedAt: new Date().toISOString() });
+      }
+    }
+    toast(`Saved ${saved.name}${homeBook ? ` in ${homeBook.name}` : ""}. You're on the flipped copy now.`);
+    navigate(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
+  };
   const stepName = (step: 1 | -1) => {
     if (!lineup) return "";
     const n = lineup.ids.length;
@@ -1486,6 +1541,9 @@ export function Builder() {
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}
                   </label>
+                  <button type="button" role="menuitem" onClick={() => void flipToCopy()}>
+                    Flip and save as a new play
+                  </button>
                   <button type="button" role="menuitem" onClick={selectAll}>
                     Select all
                   </button>
