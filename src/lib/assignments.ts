@@ -9,7 +9,7 @@ const FADE = "#C9D3DB";
 export type Assignment = { play: StoredPlay; player: PlayerNode; lines: PathNode[]; scene: Scene };
 
 const visiblePlayers = (scene: Scene) =>
-  scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !!n.label.trim());
+  scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && !!n.label.trim());
 
 /** The lines that belong to a player: glued to him, drawn by his preset, or starting where he stands. */
 export function linesOf(scene: Scene, player: PlayerNode): PathNode[] {

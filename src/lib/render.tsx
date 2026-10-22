@@ -64,14 +64,18 @@ const markerUrl = (cap: string, color: string) =>
 function PlayerGlyph({ node }: { node: PlayerNode }) {
   const r = node.size / 2;
   const outline = node.outlineStyle ?? "solid";
-  const common = {
-    fill: node.fill,
-    stroke: outline === "none" ? "none" : node.stroke,
-    strokeWidth: 2.4,
-    strokeDasharray: outline === "dash" ? "5 4" : undefined,
-  };
+  // A pre-snap ghost: hollow, dashed and faded, in the player's own color.
+  const ghost = !!node.ghostOf;
+  const common = ghost
+    ? { fill: "#FFFFFF", fillOpacity: 0.7, stroke: node.fill, strokeWidth: 2, strokeDasharray: "4 3" }
+    : {
+        fill: node.fill,
+        stroke: outline === "none" ? "none" : node.stroke,
+        strokeWidth: 2.4,
+        strokeDasharray: outline === "dash" ? "5 4" : undefined,
+      };
   return (
-    <>
+    <g opacity={ghost ? 0.75 : undefined}>
       {node.shade && node.shade !== "transparent" && <circle cx={0} cy={0} r={r * 1.6} fill={node.shade} stroke="none" />}
       {node.shape === "circle" && <circle cx={0} cy={0} r={r} {...common} />}
       {node.shape === "square" && <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...common} />}
@@ -94,13 +98,13 @@ function PlayerGlyph({ node }: { node: PlayerNode }) {
           dominantBaseline="central"
           fontSize={node.size * 0.6}
           fontWeight={700}
-          fill={node.textColor}
+          fill={ghost ? node.fill : node.textColor}
           fontFamily="'Saira Condensed', 'Arial Narrow', sans-serif"
         >
           {node.label}
         </text>
       )}
-    </>
+    </g>
   );
 }
 

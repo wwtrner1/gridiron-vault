@@ -33,6 +33,7 @@ import {
   type TokenPreset,
 } from "../lib/presets";
 import {
+  addGhost,
   bendAroundPlayers,
   canReshape,
   cleanUpPaths,
@@ -42,6 +43,7 @@ import {
   flipNodes,
   nextZ,
   reconcileConnections,
+  removeGhost,
   reshapeAll,
   sendToBack,
   smoothPaths,
@@ -792,6 +794,34 @@ export function Builder() {
               ]
             : []),
           { id: "note", section: "Player", label: "Add a note", run: () => setSideOpen(true) },
+          ...(players.length === 1 && !players[0].ghostOf
+            ? scene.nodes.some((n) => n.kind === "player" && n.ghostOf === players[0].id)
+              ? [
+                  {
+                    id: "ghost-off",
+                    section: "Player",
+                    label: "Remove the pre-snap spot",
+                    run: () => {
+                      applyScene(removeGhost(scene, players[0].id), "Remove pre-snap spot");
+                      setStatus("Pre-snap spot removed. Undo brings it back.");
+                    },
+                  },
+                ]
+              : [
+                  {
+                    id: "ghost",
+                    section: "Player",
+                    label: "Show where he lines up pre-snap",
+                    run: () => {
+                      const { scene: next, ghostId } = addGhost(scene, players[0].id);
+                      if (!ghostId) return;
+                      applyScene(next, "Pre-snap spot");
+                      setSelection([ghostId]);
+                      setStatus(`Drag the faded ${players[0].label || "token"} to where he lines up before the snap. The dotted line follows.`);
+                    },
+                  },
+                ]
+            : []),
           ...(players.length === 1 && players[0].label.trim()
             ? [
                 {

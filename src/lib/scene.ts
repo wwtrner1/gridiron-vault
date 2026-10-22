@@ -290,6 +290,44 @@ export function reshapeAll(scene: Scene, how: "smooth" | "straight"): Scene {
   return how === "smooth" ? smoothPaths(scene, ids) : straightenPaths(scene, ids);
 }
 
+/* ------------------------------------------------------ pre-snap ghosts */
+
+/** How far (field px) a new ghost starts from its player, toward the middle of the field. */
+const GHOST_STEP = 110;
+
+/**
+ * Adds a faded copy of a player where he lines up before the snap, joined to
+ * him by a thin dotted auto-connect line, so motion or a shift reads at a
+ * glance. Both are real nodes: they move, flip, print and undo like the rest.
+ * Returns the ghost's id so the coach can drag it straight to the spot.
+ */
+export function addGhost(scene: Scene, playerId: string): { scene: Scene; ghostId: string | null } {
+  const p = scene.nodes.find((n): n is PlayerNode => n.kind === "player" && n.id === playerId && !n.ghostOf);
+  if (!p || scene.nodes.some((n) => n.kind === "player" && n.ghostOf === p.id)) return { scene, ghostId: null };
+  const z = nextZ(scene);
+  const toward = p.x > CANVAS_W / 2 ? -1 : 1;
+  const ghost: PlayerNode = { ...p, ...baseNode({ x: p.x + toward * GHOST_STEP, y: p.y, z, name: `${p.label || "Player"} pre-snap` }), ghostOf: p.id, note: undefined, shade: undefined, groupId: null };
+  const link: PathNode = {
+    ...makePath("connect", { x: ghost.x, y: ghost.y }, [{ x: 0, y: 0 }, { x: 1, y: 0 }], "#8A9BA8", 2, z - 0.5),
+    style: "dotted",
+    endCap: "none",
+    name: "Pre-snap link",
+    fromId: ghost.id,
+    toId: p.id,
+  };
+  return { scene: reconcileConnections({ ...scene, nodes: [...scene.nodes, link, ghost] }), ghostId: ghost.id };
+}
+
+/** Takes a player's ghost, and the dotted line to it, back off the field. */
+export function removeGhost(scene: Scene, playerId: string): Scene {
+  const ghosts = new Set(scene.nodes.filter((n) => n.kind === "player" && n.ghostOf === playerId).map((n) => n.id));
+  if (!ghosts.size) return scene;
+  return {
+    ...scene,
+    nodes: scene.nodes.filter((n) => !ghosts.has(n.id) && !(n.kind === "path" && n.fromId && ghosts.has(n.fromId) && n.toId === playerId)),
+  };
+}
+
 /* ------------------------------------------------------------ line snaps */
 
 /** Open lines among `ids` that can be re-pointed (not auto-connects or zones). */
@@ -350,7 +388,7 @@ export function stopAtLos(scene: Scene, ids: string[]): { scene: Scene; count: n
  * starts from or ends on) by adding a turn just outside his token.
  */
 export function bendAroundPlayers(scene: Scene, ids: string[]): { scene: Scene; count: number } {
-  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf);
   let count = 0;
   const nodes = scene.nodes.map((n) => {
     if (!snappable(n, ids)) return n;
