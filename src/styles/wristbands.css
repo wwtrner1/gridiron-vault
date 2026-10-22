@@ -150,3 +150,24 @@
   .wb-body { grid-template-columns: minmax(0, 1fr); }
 }
 .wb-note { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* Call-sheet builder: the numbers warning and the coach's call sheet preview. */
+.wb-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.wb-warn { margin: 0; padding: 8px 12px; border-radius: var(--radius-md); background: var(--red-bg); color: var(--red-fg); font-size: 13px; }
+.wb-sheet { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.wb-sheet-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.wb-sheet-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.wb-sheet-table th {
+  padding: 8px 10px;
+  background: var(--ink-2);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.wb-sheet-table td { padding: 7px 10px; border-top: 1px solid var(--border); white-space: nowrap; }
+.wb-sheet-table tbody tr:nth-child(even) td { background: var(--surface-sunken); }
+.wb-sheet-table tr.is-dupe td { background: var(--red-bg); color: var(--red-fg); }
+.wb-sheet-num { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+.wb-sheet-spot { font-weight: 600; }

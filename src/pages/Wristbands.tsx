@@ -18,15 +18,24 @@ import {
   BAND_GRIDS,
   BAND_PAPERS,
   BAND_SIZES,
+  callSheetRows,
   cardsPerPage,
+  COACH_SHEETS,
   DEFAULT_BAND_LOOK,
+  DEFAULT_NUMBERING,
   defaultBandText,
+  duplicateNumbers,
+  entryFromPlay,
   gridKey,
   NUMBER_SIZES,
+  NUMBERING_MODES,
+  numberEntries,
   wristbandSheets,
   type BandCopies,
   type BandEntry,
+  type BandNumbering,
   type BandOptions,
+  type CoachSheet,
   type BandPaperId,
   type BandSizeId,
   type CellShows,
@@ -43,13 +52,25 @@ type Source = { id: string; label: string; entries: BandEntry[] };
 function gridEntries(sheet: SheetDoc, plays: StoredPlay[]): BandEntry[] {
   const numCol = sheet.columns.find((c) => c.label.trim() === "#");
   const nameCol = sheet.columns.find((c) => /play/i.test(c.label));
+  const cell = (r: SheetDoc["rows"][number], label: string) => {
+    const col = sheet.columns.find((c) => c.label.trim().toLowerCase() === label);
+    return (col && r.cells[col.id]?.trim()) || "";
+  };
   return sheet.rows
     .map((r, i) => {
       const typed = (nameCol ? r.cells[nameCol.id]?.trim() : "") || "";
       // A linked row, or a typed name that matches one saved play, prints with its diagram.
       const play = (r.playId ? plays.find((p) => p.id === r.playId) : undefined) ?? playNamed(plays, typed);
       const name = play?.name || typed;
-      return { number: (numCol && r.cells[numCol.id]?.trim()) || String(i + 1), name, scene: play?.scene ?? null };
+      // Formation and type come from the play, or from the grid's own Group and Run/Pass columns for a typed call.
+      const typedType = /^y/i.test(cell(r, "run")) ? "run" : /^y/i.test(cell(r, "pass")) ? "pass" : "";
+      return {
+        number: (numCol && r.cells[numCol.id]?.trim()) || String(i + 1),
+        name,
+        scene: play?.scene ?? null,
+        formation: play?.formation || cell(r, "group"),
+        type: play?.playType || typedType,
+      };
     })
     .filter((e) => e.name);
 }
@@ -68,6 +89,8 @@ type BandPrefs = {
   footer: string;
   paper: BandPaperId;
   cutMarks: boolean;
+  numbering: BandNumbering;
+  coachSheet: CoachSheet;
 };
 
 const PREFS_KEY = "grid1ronvault.wristbands.v1";
@@ -84,6 +107,8 @@ const DEFAULT_PREFS: BandPrefs = {
   footer: "",
   paper: "letter",
   cutMarks: false,
+  numbering: DEFAULT_NUMBERING,
+  coachSheet: "list",
 };
 
 function loadPrefs(): BandPrefs {
@@ -117,7 +142,7 @@ export function Wristbands() {
         entries: b.playIds
           .map((id) => plays.find((p) => p.id === id))
           .filter((p): p is StoredPlay => !!p)
-          .map((p, i) => ({ number: String(i + 1), name: p.name || "Untitled play", scene: p.scene })),
+          .map((p, i) => entryFromPlay(p, String(i + 1))),
       })),
     ],
     [sheets, playbooks, plays],
@@ -133,7 +158,6 @@ export function Wristbands() {
   const [prefs, setPrefs] = useState<BandPrefs>(loadPrefs);
   const [printing, setPrinting] = useState(false);
   const [actualSize, setActualSize] = useState(false);
-  const [renumber, setRenumber] = useState(false);
   // Print order as indexes into the source's entries; reset when the source changes.
   const [order, setOrder] = useState<{ key: string; list: number[] } | null>(null);
 
@@ -161,12 +185,11 @@ export function Wristbands() {
     : picked
         .map((id) => plays.find((p) => p.id === id))
         .filter((p): p is StoredPlay => !!p)
-        .map((p, i) => ({ number: String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
+        .map((p, i) => entryFromPlay(p, String(i + 1)));
   const formatted: BandEntry[] =
     gameDay && format && parts.length ? raw.map((e) => (e.scene ? { ...e, scene: applyFormat(e.scene, format, parts) } : e)) : raw;
   const orderKey = `${sourceId}:${source ? "" : picked.join(",")}:${raw.length}`;
   const list = order?.key === orderKey ? order.list : formatted.map((_, i) => i);
-  const entries = list.map((i, at) => (renumber ? { ...formatted[i], number: String(at + 1) } : formatted[i]));
   const moved = order?.key === orderKey;
 
   function move(from: number, to: number) {
@@ -180,6 +203,14 @@ export function Wristbands() {
   const sourceName = source ? source.label.replace(/^[^·]+·\s*/, "") : "Hand-picked";
   const grid = BAND_GRIDS.find((g) => gridKey(g) === prefs.grid) ?? BAND_GRIDS[5];
   const perCard = grid.cols * grid.rows;
+  // Numbers are worked out on the print order, so they follow a box when it's dragged.
+  const entries = numberEntries(
+    list.map((i) => formatted[i]),
+    prefs.numbering,
+    perCard,
+  );
+  const dupes = duplicateNumbers(entries);
+  const sheetRows = callSheetRows(entries, perCard);
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
   const preset = BAND_SIZES.find((b) => b.id === prefs.sizeId) ?? BAND_SIZES[0];
   const clampIn = (v: number) => Math.min(BAND_CUSTOM_LIMITS.max, Math.max(BAND_CUSTOM_LIMITS.min, v || BAND_CUSTOM_LIMITS.min));
@@ -199,6 +230,7 @@ export function Wristbands() {
     paper: prefs.paper,
     cutMarks: prefs.cutMarks,
     copies: prefs.copies,
+    coachSheet: prefs.coachSheet,
     source: sourceName,
     watermark: tier.watermark ? "GRIDIRONVAULT" : null,
     dpi: cappedDpi(tier, 600),
@@ -207,20 +239,28 @@ export function Wristbands() {
   const printed = cards * (prefs.copies.qb + prefs.copies.center);
   const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
-  async function print() {
+  async function print(sheetOnly = false) {
     if (!gate.ok || !entries.length) return;
     setPrinting(true);
     try {
-      const doc = await wristbandSheets(entries, options);
-      doc.save(`${slug(`wristbands-${sourceName}`)}.pdf`);
-      track("play_exported", { kind: "wristband" });
-      toast("Wristband cards downloaded. Print at 100% scale (Actual size), then cut along the borders.");
+      // The call sheet on its own is the coach copy with no wristband cards.
+      const opts = sheetOnly ? { ...options, copies: { qb: 0, center: 0, coach: 1 } } : options;
+      const doc = await wristbandSheets(entries, opts);
+      doc.save(`${slug(`${sheetOnly ? "call-sheet" : "wristbands"}-${sourceName}`)}.pdf`);
+      track("play_exported", { kind: sheetOnly ? "call_sheet" : "wristband" });
+      toast(
+        sheetOnly
+          ? "Call sheet downloaded. Its numbers match the wristband cards as they're set up now."
+          : "Wristband cards downloaded. Print at 100% scale (Actual size), then cut along the borders.",
+      );
     } catch {
       toast("The wristband PDF could not be built. Try again, or pick fewer plays.");
     } finally {
       setPrinting(false);
     }
   }
+
+  const setNumbering = (patch: Partial<BandNumbering>) => setPrefs((p) => ({ ...p, numbering: { ...p.numbering, ...patch } }));
 
   const setCopy = (k: keyof BandCopies, v: number) =>
     setPrefs((p) => ({ ...p, copies: { ...p.copies, [k]: Math.max(0, Math.min(10, v)) } }));
@@ -244,9 +284,14 @@ export function Wristbands() {
               the sideline is the box on the wrist.
             </p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={print} disabled={printing || !entries.length || !gate.ok}>
-            <Icon name="print" size={15} /> {printing ? "Building cards…" : "Print cards"}
-          </button>
+          <div className="wb-head-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => print(true)} disabled={printing || !entries.length || !gate.ok}>
+              <Icon name="table" size={15} /> Download call sheet
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => print()} disabled={printing || !entries.length || !gate.ok}>
+              <Icon name="print" size={15} /> {printing ? "Building cards…" : "Print cards"}
+            </button>
+          </div>
         </div>
         {!gate.ok && (
           <p className="wb-gate" role="note">
@@ -303,6 +348,47 @@ export function Wristbands() {
                 ))}
               </div>
             )}
+
+            <div className="wb-field" role="group" aria-labelledby="wb-numbering">
+              <span id="wb-numbering">Numbering</span>
+              <div className="chip-row">
+                {NUMBERING_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`chip${prefs.numbering.mode === m.id ? " is-on" : ""}`}
+                    aria-pressed={prefs.numbering.mode === m.id}
+                    title={m.hint}
+                    onClick={() => setNumbering({ mode: m.id })}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {prefs.numbering.mode !== "source" && (
+                <label className="wb-sub">
+                  {prefs.numbering.mode === "card" ? "First card starts at" : "Start at"}
+                  <input
+                    className="input"
+                    type="number"
+                    min={prefs.numbering.mode === "card" ? 1 : 0}
+                    max={999}
+                    value={prefs.numbering.start}
+                    onChange={(e) => setNumbering({ start: Math.max(0, Math.min(999, Math.floor(Number(e.target.value)) || 0)) })}
+                  />
+                </label>
+              )}
+              <p className="wb-note">
+                {NUMBERING_MODES.find((m) => m.id === prefs.numbering.mode)?.hint}
+                {entries.length > 0 && ` Your calls run ${sheetRows[0]?.number} to ${sheetRows[sheetRows.length - 1]?.number}.`}
+              </p>
+              {dupes.length > 0 && (
+                <p className="wb-warn" role="alert">
+                  {dupes.length === 1 ? `Number ${dupes[0]} is` : `Numbers ${dupes.slice(0, 5).join(", ")}${dupes.length > 5 ? "…" : ""} are`} on
+                  more than one box. Fix the # column in your Season Grid, or pick "1, 2, 3 in print order" or "By card".
+                </p>
+              )}
+            </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-card-size">
               <span id="wb-card-size">Card size</span>
@@ -535,6 +621,20 @@ export function Wristbands() {
                   </button>
                 </div>
               ))}
+              <label className="wb-sub">
+                Coach sheet prints
+                <select className="select" value={prefs.coachSheet} onChange={(e) => set({ coachSheet: e.target.value as CoachSheet })}>
+                  {COACH_SHEETS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.id === "list"
+                        ? "Call list: number, play, formation, type, card"
+                        : c.id === "diagrams"
+                          ? "Diagrams: every call with its picture and notes"
+                          : "Both: the call list, then the diagrams"}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div className="wb-field">
@@ -572,10 +672,6 @@ export function Wristbands() {
                     <input type="checkbox" checked={actualSize} onChange={(e) => setActualSize(e.target.checked)} />
                     Actual size
                   </label>
-                  <label className="switch">
-                    <input type="checkbox" checked={renumber} onChange={(e) => setRenumber(e.target.checked)} />
-                    Number in this order
-                  </label>
                   {moved && (
                     <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOrder(null)}>
                       <Icon name="undo" size={13} /> Original order
@@ -597,6 +693,41 @@ export function Wristbands() {
                   {vector ? " Diagrams print as sharp vector lines." : ` Diagrams print at ${options.dpi} DPI.`}
                   {entries.some((e) => !e.scene) && " Calls without a linked play print as a number."}
                 </p>
+
+                <section className="wb-sheet" aria-labelledby="wb-sheet-title">
+                  <div className="wb-preview-bar">
+                    <p className="eyebrow" id="wb-sheet-title">
+                      Coach's call sheet
+                    </p>
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => print(true)} disabled={printing || !gate.ok}>
+                      <Icon name="download" size={13} /> Download
+                    </button>
+                  </div>
+                  <div className="wb-sheet-scroll">
+                    <table className="wb-sheet-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">#</th>
+                          <th scope="col">Play</th>
+                          <th scope="col">Formation</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Card</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sheetRows.map((r, i) => (
+                          <tr key={`${r.spot}-${i}`} className={dupes.includes(r.number) ? "is-dupe" : undefined}>
+                            <td className="wb-sheet-num">{r.number}</td>
+                            <td>{r.name}</td>
+                            <td>{r.formation || "—"}</td>
+                            <td>{r.type || "—"}</td>
+                            <td className="wb-sheet-spot">{r.spot}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
               </>
             )}
           </div>

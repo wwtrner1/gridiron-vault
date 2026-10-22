@@ -9,7 +9,14 @@ import type { Scene, StoredPlay } from "./types";
  * builder): numbered cells that match the Season Grid, laid out in a grid on
  * each card, printed as quarterback and center cards plus a coach sheet.
  */
-export type BandEntry = { number: string; name: string; scene: Scene | null };
+export type BandEntry = {
+  number: string;
+  name: string;
+  scene: Scene | null;
+  /** For the coach's call sheet; blank when the call has no linked play. */
+  formation?: string;
+  type?: string;
+};
 export type CellShows = { diagram: boolean; name: boolean; numberOnly: boolean };
 export type BandCopies = { qb: number; center: number; coach: number };
 export type BandGrid = { cols: number; rows: number };
@@ -51,6 +58,62 @@ export const BAND_PAPERS = [
 ] as const;
 export type BandPaperId = (typeof BAND_PAPERS)[number]["id"];
 
+/**
+ * How calls are numbered. "source" keeps the Season Grid's # column (or the
+ * playbook order); "order" counts up from `start` in print order; "card" makes
+ * the first digits the card and the last the box (card A 11–18, card B 21–28),
+ * so the call tells the quarterback which panel to look at.
+ */
+export type BandNumbering = { mode: "source" | "order" | "card"; start: number };
+export const NUMBERING_MODES = [
+  { id: "source", label: "Keep my numbers", hint: "The Season Grid's # column, or the playbook order." },
+  { id: "order", label: "1, 2, 3 in print order", hint: "Counts up from the start number as the boxes sit on the cards." },
+  { id: "card", label: "By card", hint: "Card A is 11, 12, 13…, card B is 21, 22, 23…, so the first digit names the panel." },
+] as const;
+export const DEFAULT_NUMBERING: BandNumbering = { mode: "source", start: 1 };
+
+/** Number entries already in print order. Pure, so the preview, the cards and the call sheet agree. */
+export function numberEntries(entries: BandEntry[], n: BandNumbering, perCard: number): BandEntry[] {
+  if (n.mode === "source") return entries;
+  const start = Math.max(0, Math.floor(n.start) || 0);
+  if (n.mode === "order") return entries.map((e, i) => ({ ...e, number: String(start + i) }));
+  // Ten per card while the box number stays one digit, a hundred once a card holds ten or more.
+  const step = perCard < 10 ? 10 : 100;
+  const first = Math.max(1, start);
+  return entries.map((e, i) => ({ ...e, number: String((Math.floor(i / perCard) + first) * step + (i % perCard) + 1) }));
+}
+
+/** Numbers printed on more than one box, so the page can warn before game day. */
+export function duplicateNumbers(entries: BandEntry[]): string[] {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const e of entries) (seen.has(e.number) ? dup : seen).add(e.number);
+  return [...dup];
+}
+
+/** Where a call sits: card letter and box, counted left to right, top to bottom ("B3"). */
+export const cardSpot = (index: number, perCard: number) => `${cardLetter(Math.floor(index / perCard))}${(index % perCard) + 1}`;
+
+const TYPE_LABEL: Record<string, string> = { pass: "Pass", run: "Run", defense: "Defense", special: "Special" };
+export const playTypeLabel = (t?: string) => (t ? TYPE_LABEL[t] ?? t : "");
+
+export type CallSheetRow = { number: string; name: string; formation: string; type: string; spot: string };
+
+/** The coach's call sheet: every call sorted by number, with its spot on the wristband. */
+export function callSheetRows(entries: BandEntry[], perCard: number): CallSheetRow[] {
+  return entries
+    .map((e, i) => ({ number: e.number, name: e.name, formation: e.formation ?? "", type: playTypeLabel(e.type), spot: cardSpot(i, perCard) }))
+    .sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+}
+
+/** What the coach copy holds: the number list, a diagram per call, or the list followed by the diagrams. */
+export type CoachSheet = "list" | "diagrams" | "both";
+export const COACH_SHEETS = [
+  { id: "list", label: "Call list" },
+  { id: "diagrams", label: "Diagrams" },
+  { id: "both", label: "Both" },
+] as const;
+
 export const NUMBER_SIZES = { s: 8, m: 11, l: 15 } as const;
 export type NumberSize = keyof typeof NUMBER_SIZES;
 
@@ -73,6 +136,7 @@ export type BandOptions = {
   paper: BandPaperId;
   cutMarks: boolean;
   copies: BandCopies;
+  coachSheet: CoachSheet;
   source: string;
   watermark: string | null;
   dpi: number;
@@ -87,7 +151,11 @@ export const defaultBandText = {
 export const DEFAULT_BAND_LOOK = CARD_LOOK;
 
 export function entriesFromPlays(plays: StoredPlay[], numbers?: string[]): BandEntry[] {
-  return plays.map((p, i) => ({ number: numbers?.[i] ?? String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
+  return plays.map((p, i) => ({ ...entryFromPlay(p), number: numbers?.[i] ?? String(i + 1) }));
+}
+
+export function entryFromPlay(p: StoredPlay, number = ""): BandEntry {
+  return { number, name: p.name || "Untitled play", scene: p.scene, formation: p.formation, type: p.playType };
 }
 
 /** Fill the {tokens} in a header or footer line. */
@@ -231,6 +299,76 @@ function sheetSlots(o: BandOptions) {
 /** How many cards land on each printed page, for the summary line. */
 export const cardsPerPage = (o: BandOptions) => sheetSlots(o).slots.length;
 
+/** Call list columns on a letter page, in inches from the left margin. */
+const LIST_COLS = { number: 0.5, name: 1.35, formation: 4.55, type: 6.35, spot: 7.45 };
+const LIST_ROW = 0.3;
+
+/**
+ * The coach's call sheet: number, play, formation, type and card spot, sorted
+ * by number in rows big enough to read on the sideline.
+ */
+function drawCallList(doc: jsPDF, rows: CallSheetRow[], source: string) {
+  const top = 1.15;
+  const perPage = Math.floor((11 - top - 0.5) / LIST_ROW);
+  const pages = Math.max(1, Math.ceil(rows.length / perPage));
+  for (let p = 0; p < pages; p++) {
+    if (p > 0) doc.addPage("letter", "portrait");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(11, 21, 36);
+    doc.text(`Call sheet · ${source}`, 0.5, 0.62);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(60, 72, 90);
+    doc.text(`${rows.length} ${rows.length === 1 ? "call" : "calls"}${pages > 1 ? ` · page ${p + 1} of ${pages}` : ""}`, 8, 0.62, { align: "right" });
+
+    // Column heads on a dark band.
+    doc.setFillColor(11, 21, 36);
+    doc.rect(0.4, top - 0.27, 7.7, 0.27, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    const headY = top - 0.09;
+    doc.text("#", LIST_COLS.number, headY);
+    doc.text("PLAY", LIST_COLS.name, headY);
+    doc.text("FORMATION", LIST_COLS.formation, headY);
+    doc.text("TYPE", LIST_COLS.type, headY);
+    doc.text("CARD", LIST_COLS.spot, headY);
+
+    rows.slice(p * perPage, (p + 1) * perPage).forEach((r, i) => {
+      const y = top + i * LIST_ROW;
+      if (i % 2) {
+        doc.setFillColor(236, 241, 246);
+        doc.rect(0.4, y, 7.7, LIST_ROW, "F");
+      }
+      const mid = y + LIST_ROW / 2;
+      doc.setTextColor(11, 21, 36);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(r.number, LIST_COLS.number, mid, { baseline: "middle" });
+      doc.setFontSize(11);
+      doc.text(fitText(doc, r.name, LIST_COLS.formation - LIST_COLS.name - 0.15), LIST_COLS.name, mid, { baseline: "middle" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(fitText(doc, r.formation, LIST_COLS.type - LIST_COLS.formation - 0.15), LIST_COLS.formation, mid, { baseline: "middle" });
+      doc.text(r.type, LIST_COLS.type, mid, { baseline: "middle" });
+      doc.setFont("helvetica", "bold");
+      doc.text(r.spot, LIST_COLS.spot, mid, { baseline: "middle" });
+    });
+    doc.setDrawColor(150, 164, 178);
+    doc.setLineWidth(0.01);
+    doc.rect(0.4, top - 0.27, 7.7, 0.27 + Math.min(perPage, rows.length - p * perPage) * LIST_ROW);
+  }
+}
+
+/** Trim text with an ellipsis to fit a width at the current font. */
+function fitText(doc: jsPDF, text: string, width: number) {
+  if (doc.getTextWidth(text) <= width) return text;
+  let t = text;
+  while (t.length > 1 && doc.getTextWidth(`${t}…`) > width) t = t.slice(0, -1);
+  return `${t.trimEnd()}…`;
+}
+
 /** Sheet(s) of wristband cards, then the coach sheet. */
 export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Promise<jsPDF> {
   const perCard = o.grid.cols * o.grid.rows;
@@ -261,8 +399,14 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
     }
   }
 
-  // Coach sheet: every call with its number, a bigger diagram and player notes. Always on letter.
+  // Coach copy: the call list, then (or instead) every call with a bigger diagram and player notes. Always on letter.
   for (let n = 0; n < o.copies.coach; n++) {
+    if (o.coachSheet !== "diagrams") {
+      if (!first) doc.addPage("letter", "portrait");
+      first = false;
+      drawCallList(doc, callSheetRows(entries, perCard), o.source);
+      if (o.coachSheet === "list") continue;
+    }
     if (!first) doc.addPage("letter", "portrait");
     first = false;
     doc.setFont("helvetica", "bold");
