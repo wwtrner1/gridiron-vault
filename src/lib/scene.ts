@@ -1,6 +1,8 @@
 import { baseNode, uid } from "./types";
 import type { PathNode, PlayerNode, Point, Scene, SceneNode, ShapeNode, TextNode } from "./types";
-import { dist, localBox, straighten, toWorld, worldBox, unionBox } from "./geometry";
+import { dist, localBox, straighten, toLocal, toWorld, worldBox, unionBox } from "./geometry";
+import { fieldInset } from "./field";
+import { CANVAS_H, CANVAS_W } from "./types";
 import type { ToolId } from "./tools";
 
 export const nextZ = (scene: Scene) =>
@@ -286,6 +288,113 @@ export function cleanUpPaths(scene: Scene): { scene: Scene; count: number } {
 export function reshapeAll(scene: Scene, how: "smooth" | "straight"): Scene {
   const ids = scene.nodes.map((n) => n.id);
   return how === "smooth" ? smoothPaths(scene, ids) : straightenPaths(scene, ids);
+}
+
+/* ------------------------------------------------------------ line snaps */
+
+/** Open lines among `ids` that can be re-pointed (not auto-connects or zones). */
+const snappable = (n: SceneNode, ids: string[]): n is PathNode =>
+  n.kind === "path" && ids.includes(n.id) && !n.closed && !n.toId && n.points.length >= 2;
+
+/** Rewrites a line from world-space points, keeping its own transform. */
+const fromWorld = (n: PathNode, world: Point[]): PathNode => ({ ...n, points: world.map((p) => toLocal(n, p)), handles: {} });
+
+/**
+ * Runs each line's last leg on, in the direction it's already going, until it
+ * meets the sideline (or the top or bottom of the field first). A leg running
+ * straight up or down the field has no sideline to meet and is left alone.
+ */
+export function extendToSideline(scene: Scene, ids: string[]): { scene: Scene; count: number } {
+  const inset = fieldInset(scene.view) + 6;
+  let count = 0;
+  const nodes = scene.nodes.map((n) => {
+    if (!snappable(n, ids)) return n;
+    const world = n.points.map((p) => toWorld(n, p));
+    const end = world[world.length - 1];
+    const prev = world[world.length - 2];
+    const dx = end.x - prev.x;
+    const dy = end.y - prev.y;
+    if (Math.abs(dx) < 0.5 * Math.abs(dy) || Math.abs(dx) < 1) return n;
+    const tx = ((dx > 0 ? CANVAS_W - inset : inset) - end.x) / dx;
+    const ty = dy === 0 ? Infinity : ((dy > 0 ? CANVAS_H - 8 : 8) - end.y) / dy;
+    const t = Math.min(tx, ty);
+    if (!(t > 0.01)) return n;
+    count++;
+    return fromWorld(n, [...world.slice(0, -1), { x: end.x + dx * t, y: end.y + dy * t }]);
+  });
+  return { scene: count ? { ...scene, nodes } : scene, count };
+}
+
+/** Cuts each line where it first crosses the line of scrimmage: a block or a rush that stops at the line. */
+export function stopAtLos(scene: Scene, ids: string[]): { scene: Scene; count: number } {
+  const los = scene.losY;
+  let count = 0;
+  const nodes = scene.nodes.map((n) => {
+    if (!snappable(n, ids)) return n;
+    const world = n.points.map((p) => toWorld(n, p));
+    for (let i = 0; i < world.length - 1; i++) {
+      const a = world[i];
+      const b = world[i + 1];
+      if ((a.y - los) * (b.y - los) >= 0) continue;
+      const t = (los - a.y) / (b.y - a.y);
+      count++;
+      return fromWorld(n, [...world.slice(0, i + 1), { x: a.x + (b.x - a.x) * t, y: los }]);
+    }
+    return n;
+  });
+  return { scene: count ? { ...scene, nodes } : scene, count };
+}
+
+/**
+ * Bends each line around any player it runs through (other than the one it
+ * starts from or ends on) by adding a turn just outside his token.
+ */
+export function bendAroundPlayers(scene: Scene, ids: string[]): { scene: Scene; count: number } {
+  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+  let count = 0;
+  const nodes = scene.nodes.map((n) => {
+    if (!snappable(n, ids)) return n;
+    const world = n.points.map((p) => toWorld(n, p));
+    const start = world[0];
+    const finish = world[world.length - 1];
+    const out: Point[] = [world[0]];
+    let bent = false;
+    for (let i = 0; i < world.length - 1; i++) {
+      const a = world[i];
+      const b = world[i + 1];
+      const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1;
+      let hit: { p: PlayerNode; t: number; d: number } | null = null;
+      for (const p of players) {
+        const r = p.size / 2 + 8;
+        if (p.id === n.fromId || dist(p, start) <= r || dist(p, finish) <= r) continue;
+        const t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2;
+        if (t <= 0.02 || t >= 0.98) continue;
+        const c = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        const d = dist(p, c);
+        if (d < r && (!hit || t < hit.t)) hit = { p, t, d };
+      }
+      if (hit) {
+        const { p, t } = hit;
+        const c = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        const len = Math.sqrt(len2);
+        // Push out on the side the line already passes, or to its left when it runs dead centre.
+        let nx = c.x - p.x;
+        let ny = c.y - p.y;
+        if (Math.hypot(nx, ny) < 0.5) {
+          nx = -(b.y - a.y) / len;
+          ny = (b.x - a.x) / len;
+        }
+        const k = (p.size / 2 + 14) / (Math.hypot(nx, ny) || 1);
+        out.push({ x: p.x + nx * k, y: p.y + ny * k });
+        bent = true;
+      }
+      out.push(b);
+    }
+    if (!bent) return n;
+    count++;
+    return fromWorld(n, out);
+  });
+  return { scene: count ? { ...scene, nodes } : scene, count };
 }
 
 /** True when any of `ids` is a line `smoothPaths`/`straightenPaths` can reshape. */
