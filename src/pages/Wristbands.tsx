@@ -1,18 +1,37 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
-import { PlayThumb } from "../components/PlayThumb";
+import { BandPreview } from "../components/BandPreview";
 import { playNamed, useStore } from "../lib/store";
 import type { SheetDoc } from "../lib/store";
 import { useTier } from "../lib/tier";
-import { cappedDpi, gateSheets } from "../lib/plan";
+import { cappedDpi, gateSheets, gateVector } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { slug } from "../lib/export";
 import { applyFormat, usePlayFormat } from "../lib/playFormat";
+import { FIELD_OPTIONS, FIT_OPTIONS, WEIGHT_STEPS, type PrintLook } from "../lib/printLook";
 import { FormatPanel } from "../components/FormatPanel";
-import { BAND_LAYOUT, BAND_SIZES, wristbandSheets, type BandCopies, type BandEntry, type BandSizeId, type CellShows } from "../lib/wristbands";
+import {
+  BAND_CUSTOM_LIMITS,
+  BAND_GRIDS,
+  BAND_PAPERS,
+  BAND_SIZES,
+  cardsPerPage,
+  DEFAULT_BAND_LOOK,
+  defaultBandText,
+  gridKey,
+  NUMBER_SIZES,
+  wristbandSheets,
+  type BandCopies,
+  type BandEntry,
+  type BandOptions,
+  type BandPaperId,
+  type BandSizeId,
+  type CellShows,
+  type NumberSize,
+} from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
 import "../styles/wristbands.css";
 
@@ -33,9 +52,49 @@ function gridEntries(sheet: SheetDoc, plays: StoredPlay[]): BandEntry[] {
     .filter((e) => e.name);
 }
 
+/** Card settings a coach sets once for the season, remembered in this browser. */
+type BandPrefs = {
+  grid: string;
+  sizeId: BandSizeId;
+  custom: { w: number; h: number };
+  shows: CellShows;
+  copies: BandCopies;
+  look: PrintLook;
+  numberSize: NumberSize;
+  header: BandOptions["header"];
+  footer: string;
+  paper: BandPaperId;
+  cutMarks: boolean;
+};
+
+const PREFS_KEY = "grid1ronvault.wristbands.v1";
+const DEFAULT_PREFS: BandPrefs = {
+  grid: "4x2",
+  sizeId: "flag",
+  custom: { w: 4.5, h: 2.5 },
+  shows: { diagram: true, name: true, numberOnly: false },
+  copies: { qb: 2, center: 1, coach: 1 },
+  look: DEFAULT_BAND_LOOK,
+  numberSize: "m",
+  header: { show: true, ...defaultBandText },
+  footer: "",
+  paper: "letter",
+  cutMarks: false,
+};
+
+function loadPrefs(): BandPrefs {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null");
+    return saved ? { ...DEFAULT_PREFS, ...saved } : DEFAULT_PREFS;
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
 /**
  * Wristbands · print builder, from the Grid1ron Design canvas: pick the
- * plays, pick the size, print. Numbers match the Season Grid.
+ * plays, set the card up, drag the calls into order, print. Numbers match the
+ * Season Grid.
  */
 export function Wristbands() {
   const plays = useStore((s) => s.plays);
@@ -43,6 +102,7 @@ export function Wristbands() {
   const playbooks = useStore((s) => s.playbooks);
   const tier = useTier();
   const toast = useToast();
+  const headerInput = useRef<HTMLInputElement>(null);
 
   const sources = useMemo<Source[]>(
     () => [
@@ -66,11 +126,23 @@ export function Wristbands() {
     return (asked && sources.some((s) => s.id === asked) ? asked : sources[0]?.id) ?? "hand";
   });
   const [picked, setPicked] = useState<string[]>([]);
-  const [perCard, setPerCard] = useState<6 | 8 | 10>(8);
-  const [sizeId, setSizeId] = useState<BandSizeId>("flag");
-  const [shows, setShows] = useState<CellShows>({ diagram: true, name: true, numberOnly: false });
-  const [copies, setCopies] = useState<BandCopies>({ qb: 2, center: 1, coach: 1 });
+  const [prefs, setPrefs] = useState<BandPrefs>(loadPrefs);
   const [printing, setPrinting] = useState(false);
+  const [actualSize, setActualSize] = useState(false);
+  const [renumber, setRenumber] = useState(false);
+  // Print order as indexes into the source's entries; reset when the source changes.
+  const [order, setOrder] = useState<{ key: string; list: number[] } | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+      // Private windows can refuse storage; the settings still work for this visit.
+    }
+  }, [prefs]);
+
+  const set = (patch: Partial<BandPrefs>) => setPrefs((p) => ({ ...p, ...patch }));
+  const setLook = (patch: Partial<PrintLook>) => setPrefs((p) => ({ ...p, look: { ...p.look, ...patch } }));
 
   // "Apply game-day format" (canvas): print every play in the saved play format; the plays themselves don't change.
   const { format, parts } = usePlayFormat();
@@ -83,26 +155,58 @@ export function Wristbands() {
         .map((id) => plays.find((p) => p.id === id))
         .filter((p): p is StoredPlay => !!p)
         .map((p, i) => ({ number: String(i + 1), name: p.name || "Untitled play", scene: p.scene }));
-  const entries: BandEntry[] =
+  const formatted: BandEntry[] =
     gameDay && format && parts.length ? raw.map((e) => (e.scene ? { ...e, scene: applyFormat(e.scene, format, parts) } : e)) : raw;
+  const orderKey = `${sourceId}:${source ? "" : picked.join(",")}:${raw.length}`;
+  const list = order?.key === orderKey ? order.list : formatted.map((_, i) => i);
+  const entries = list.map((i, at) => (renumber ? { ...formatted[i], number: String(at + 1) } : formatted[i]));
+  const moved = order?.key === orderKey;
+
+  function move(from: number, to: number) {
+    if (to < 0 || to >= list.length) return;
+    const next = [...list];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setOrder({ key: orderKey, list: next });
+  }
+
   const sourceName = source ? source.label.replace(/^[^·]+·\s*/, "") : "Hand-picked";
+  const grid = BAND_GRIDS.find((g) => gridKey(g) === prefs.grid) ?? BAND_GRIDS[5];
+  const perCard = grid.cols * grid.rows;
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
-  const cardA = entries.slice(0, perCard);
-  const { cols } = BAND_LAYOUT[perCard];
-  const card = BAND_SIZES.find((b) => b.id === sizeId) ?? BAND_SIZES[0];
+  const preset = BAND_SIZES.find((b) => b.id === prefs.sizeId) ?? BAND_SIZES[0];
+  const clampIn = (v: number) => Math.min(BAND_CUSTOM_LIMITS.max, Math.max(BAND_CUSTOM_LIMITS.min, v || BAND_CUSTOM_LIMITS.min));
+  const card = preset.id === "custom" ? { w: clampIn(prefs.custom.w), h: clampIn(prefs.custom.h) } : { w: preset.w, h: preset.h };
   const gate = gateSheets(tier);
+  const vector = gateVector(tier).ok;
+
+  const options: BandOptions = {
+    card,
+    grid,
+    shows: prefs.shows,
+    look: prefs.look,
+    numberSize: prefs.numberSize,
+    header: prefs.header,
+    footer: prefs.footer,
+    paper: prefs.paper,
+    cutMarks: prefs.cutMarks,
+    copies: prefs.copies,
+    source: sourceName,
+    watermark: tier.watermark ? "GRIDIRONVAULT" : null,
+    dpi: cappedDpi(tier, 600),
+    vector,
+  };
+  const printed = cards * (prefs.copies.qb + prefs.copies.center);
+  const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
   async function print() {
     if (!gate.ok || !entries.length) return;
     setPrinting(true);
     try {
-      const doc = await wristbandSheets(entries, perCard, shows, copies, sourceName, {
-        watermark: tier.watermark ? "GRIDIRONVAULT" : null,
-        dpi: cappedDpi(tier, 200),
-      }, card);
+      const doc = await wristbandSheets(entries, options);
       doc.save(`${slug(`wristbands-${sourceName}`)}.pdf`);
       track("play_exported", { kind: "wristband" });
-      toast("Wristband cards downloaded. Print at 100% scale and cut along the borders.");
+      toast("Wristband cards downloaded. Print at 100% scale (Actual size), then cut along the borders.");
     } catch {
       toast("The wristband PDF could not be built. Try again, or pick fewer plays.");
     } finally {
@@ -110,7 +214,8 @@ export function Wristbands() {
     }
   }
 
-  const setCopy = (k: keyof BandCopies, v: number) => setCopies((c) => ({ ...c, [k]: Math.max(0, Math.min(10, v)) }));
+  const setCopy = (k: keyof BandCopies, v: number) =>
+    setPrefs((p) => ({ ...p, copies: { ...p.copies, [k]: Math.max(0, Math.min(10, v)) } }));
 
   return (
     <Shell
@@ -127,8 +232,8 @@ export function Wristbands() {
             <p className="eyebrow">Print</p>
             <h2>Wristbands</h2>
             <p className="wb-lede">
-              Pick the plays, pick the size, print. Numbers match your Season Grid so the call from the sideline is the box on the
-              wrist.
+              Pick the plays, set up the card, then drag the calls into order. Numbers match your Season Grid so the call from
+              the sideline is the box on the wrist.
             </p>
           </div>
           <button type="button" className="btn btn-primary" onClick={print} disabled={printing || !entries.length || !gate.ok}>
@@ -144,29 +249,6 @@ export function Wristbands() {
 
         <div className="wb-body">
           <div className="wb-controls card">
-            <div className="wb-field" role="group" aria-labelledby="wb-size">
-              <span id="wb-size">Plays per card</span>
-              <div className="tab-row">
-                {([6, 8, 10] as const).map((n) => (
-                  <button key={n} type="button" className={perCard === n ? "is-on" : ""} aria-pressed={perCard === n} onClick={() => setPerCard(n)}>
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="wb-field" role="group" aria-labelledby="wb-card-size">
-              <span id="wb-card-size">Card size</span>
-              <div className="tab-row">
-                {BAND_SIZES.map((b) => (
-                  <button key={b.id} type="button" className={sizeId === b.id ? "is-on" : ""} aria-pressed={sizeId === b.id} onClick={() => setSizeId(b.id)}>
-                    {b.w} × {b.h.toFixed(2)} in
-                  </button>
-                ))}
-              </div>
-              <p className="wb-note">{card.note}</p>
-            </div>
-
             <label className="wb-field">
               <span>Pull plays from</span>
               <select className="select" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
@@ -195,20 +277,183 @@ export function Wristbands() {
               </div>
             )}
 
+            <div className="wb-field" role="group" aria-labelledby="wb-card-size">
+              <span id="wb-card-size">Card size</span>
+              <div className="chip-row">
+                {BAND_SIZES.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className={`chip${prefs.sizeId === b.id ? " is-on" : ""}`}
+                    aria-pressed={prefs.sizeId === b.id}
+                    onClick={() => set({ sizeId: b.id })}
+                  >
+                    {b.id === "custom" ? "Custom" : `${b.w} × ${b.h.toFixed(2)}`}
+                  </button>
+                ))}
+              </div>
+              {preset.id === "custom" && (
+                <div className="wb-dims">
+                  <label>
+                    Width
+                    <input
+                      className="input"
+                      type="number"
+                      step={0.05}
+                      min={BAND_CUSTOM_LIMITS.min}
+                      max={BAND_CUSTOM_LIMITS.max}
+                      value={prefs.custom.w}
+                      onChange={(e) => set({ custom: { ...prefs.custom, w: Number(e.target.value) } })}
+                    />
+                  </label>
+                  <span aria-hidden="true">×</span>
+                  <label>
+                    Height
+                    <input
+                      className="input"
+                      type="number"
+                      step={0.05}
+                      min={BAND_CUSTOM_LIMITS.min}
+                      max={BAND_CUSTOM_LIMITS.max}
+                      value={prefs.custom.h}
+                      onChange={(e) => set({ custom: { ...prefs.custom, h: Number(e.target.value) } })}
+                    />
+                  </label>
+                  <span>in</span>
+                </div>
+              )}
+              <p className="wb-note">{preset.note}</p>
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-grid">
+              <span id="wb-grid">Plays per card (columns × rows)</span>
+              <div className="chip-row">
+                {BAND_GRIDS.map((g) => (
+                  <button
+                    key={gridKey(g)}
+                    type="button"
+                    className={`chip${gridKey(g) === gridKey(grid) ? " is-on" : ""}`}
+                    aria-pressed={gridKey(g) === gridKey(grid)}
+                    aria-label={`${g.cols * g.rows} plays, ${g.cols} across and ${g.rows} down`}
+                    onClick={() => set({ grid: gridKey(g) })}
+                  >
+                    {g.cols * g.rows} <small>{g.cols}×{g.rows}</small>
+                  </button>
+                ))}
+              </div>
+              <p className="wb-note">
+                Each box prints {(card.w / grid.cols).toFixed(2)} × {((card.h - (prefs.header.show ? 0.2 : 0) - (prefs.footer.trim() ? 0.16 : 0)) / grid.rows).toFixed(2)} in.
+                {card.w / grid.cols < 1.2 && " That's tight for a diagram; fewer plays per card prints bigger."}
+              </p>
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-look">
+              <span id="wb-look">Diagram</span>
+              <div className="chip-row">
+                {FIT_OPTIONS.map((f) => (
+                  <button key={f.id} type="button" className={`chip${prefs.look.fit === f.id ? " is-on" : ""}`} aria-pressed={prefs.look.fit === f.id} title={f.hint} onClick={() => setLook({ fit: f.id })}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <label className="wb-sub">
+                Line and player weight
+                <select
+                  className="select"
+                  value={String(prefs.look.weight)}
+                  onChange={(e) => setLook({ weight: e.target.value === "auto" ? "auto" : Number(e.target.value) })}
+                >
+                  {WEIGHT_STEPS.map((w) => (
+                    <option key={String(w)} value={String(w)}>
+                      {w === "auto" ? "Auto, sized for the box" : w === 1 ? "As drawn (1×)" : `${w}× heavier`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="wb-sub">
+                Field
+                <select className="select" value={prefs.look.field} onChange={(e) => setLook({ field: e.target.value as PrintLook["field"] })}>
+                  {FIELD_OPTIONS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <div className="wb-field" role="group" aria-labelledby="wb-shows">
-              <span id="wb-shows">Cell shows</span>
+              <span id="wb-shows">Each box shows</span>
               <label className="switch">
-                <input type="checkbox" checked={shows.diagram && !shows.numberOnly} disabled={shows.numberOnly} onChange={(e) => setShows((s) => ({ ...s, diagram: e.target.checked }))} />
+                <input type="checkbox" checked={prefs.shows.diagram && !prefs.shows.numberOnly} disabled={prefs.shows.numberOnly} onChange={(e) => set({ shows: { ...prefs.shows, diagram: e.target.checked } })} />
                 Diagram
               </label>
               <label className="switch">
-                <input type="checkbox" checked={shows.name} onChange={(e) => setShows((s) => ({ ...s, name: e.target.checked }))} />
+                <input type="checkbox" checked={prefs.shows.name} onChange={(e) => set({ shows: { ...prefs.shows, name: e.target.checked } })} />
                 Play name
               </label>
               <label className="switch">
-                <input type="checkbox" checked={shows.numberOnly} onChange={(e) => setShows((s) => ({ ...s, numberOnly: e.target.checked }))} />
+                <input type="checkbox" checked={prefs.shows.numberOnly} onChange={(e) => set({ shows: { ...prefs.shows, numberOnly: e.target.checked } })} />
                 Number only (no diagram)
               </label>
+              <label className="wb-sub">
+                Number size
+                <select className="select" value={prefs.numberSize} onChange={(e) => set({ numberSize: e.target.value as NumberSize })}>
+                  {(Object.keys(NUMBER_SIZES) as NumberSize[]).map((k) => (
+                    <option key={k} value={k}>
+                      {k === "s" ? "Small" : k === "m" ? "Medium" : "Large"} ({NUMBER_SIZES[k]} pt)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-text">
+              <span id="wb-text">Header and border text</span>
+              <label className="switch">
+                <input type="checkbox" checked={prefs.header.show} onChange={(e) => set({ header: { ...prefs.header, show: e.target.checked } })} />
+                Print a header band
+              </label>
+              {prefs.header.show && (
+                <>
+                  <label className="wb-sub">
+                    Header, left
+                    <input ref={headerInput} className="input" value={prefs.header.left} onChange={(e) => set({ header: { ...prefs.header, left: e.target.value } })} />
+                  </label>
+                  <label className="wb-sub">
+                    Header, right
+                    <input className="input" value={prefs.header.right} onChange={(e) => set({ header: { ...prefs.header, right: e.target.value } })} />
+                  </label>
+                </>
+              )}
+              <label className="wb-sub">
+                Bottom border
+                <input className="input" placeholder="e.g. Mid TN Blue · Fall 2026" value={prefs.footer} onChange={(e) => set({ footer: e.target.value })} />
+              </label>
+              <p className="wb-note">
+                {"{role}"} prints QB or Center, {"{card}"} the card letter, {"{source}"} the grid or playbook name and {"{count}"} the
+                number of plays.{" "}
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => set({ header: { ...prefs.header, ...defaultBandText } })}>
+                  Reset header
+                </button>
+              </p>
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-paper">
+              <span id="wb-paper">Paper</span>
+              <select className="select" aria-labelledby="wb-paper" value={prefs.paper} onChange={(e) => set({ paper: e.target.value as BandPaperId })}>
+                {BAND_PAPERS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id === "card" ? "One card per page (print shop, card stock)" : `${p.label} sheet, ${p.w} × ${p.h} in`}
+                  </option>
+                ))}
+              </select>
+              {prefs.paper !== "card" && (
+                <label className="switch">
+                  <input type="checkbox" checked={prefs.cutMarks} onChange={(e) => set({ cutMarks: e.target.checked })} />
+                  Corner cut marks
+                </label>
+              )}
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-copies">
@@ -222,11 +467,11 @@ export function Wristbands() {
               ).map(([k, label]) => (
                 <div key={k} className="wb-copy">
                   <span>{label}</span>
-                  <button type="button" onClick={() => setCopy(k, copies[k] - 1)} aria-label={`Fewer ${label}`}>
+                  <button type="button" onClick={() => setCopy(k, prefs.copies[k] - 1)} aria-label={`Fewer ${label}`}>
                     −
                   </button>
-                  <b aria-live="polite">×{copies[k]}</b>
-                  <button type="button" onClick={() => setCopy(k, copies[k] + 1)} aria-label={`More ${label}`}>
+                  <b aria-live="polite">×{prefs.copies[k]}</b>
+                  <button type="button" onClick={() => setCopy(k, prefs.copies[k] + 1)} aria-label={`More ${label}`}>
                     +
                   </button>
                 </div>
@@ -262,33 +507,35 @@ export function Wristbands() {
               </div>
             ) : (
               <>
-                <div className="wb-card" aria-label={`Preview of card A, ${cardA.length} plays, ${card.w} by ${card.h.toFixed(2)} inches`}>
-                  <div className="wb-card-head">
-                    <span>QB wristband · Card A · {sourceName}</span>
-                    <span>
-                      {cardA.length} plays · {card.w} × {card.h.toFixed(2)} in
-                    </span>
-                  </div>
-                  <div className="wb-cells" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-                    {Array.from({ length: perCard }, (_, i) => cardA[i]).map((e, i) => (
-                      <div key={i} className={`wb-cell${shows.numberOnly ? " is-number" : ""}`}>
-                        {e && (
-                          <>
-                            <div className="wb-cell-top">
-                              <b>{e.number}</b>
-                              {shows.name && <span>{e.name}</span>}
-                            </div>
-                            {shows.diagram && !shows.numberOnly && e.scene && <PlayThumb scene={e.scene} label={e.name} />}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                <div className="wb-preview-bar">
+                  <p className="eyebrow">Print preview</p>
+                  <label className="switch">
+                    <input type="checkbox" checked={actualSize} onChange={(e) => setActualSize(e.target.checked)} />
+                    Actual size
+                  </label>
+                  <label className="switch">
+                    <input type="checkbox" checked={renumber} onChange={(e) => setRenumber(e.target.checked)} />
+                    Number in this order
+                  </label>
+                  {moved && (
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOrder(null)}>
+                      <Icon name="undo" size={13} /> Original order
+                    </button>
+                  )}
                 </div>
+                <p className="wb-note">Drag a box to move the call, or use the arrows. Click the header to edit its text.</p>
+                <BandPreview
+                  entries={entries}
+                  options={options}
+                  actualSize={actualSize}
+                  onMove={move}
+                  onEditHeader={() => headerInput.current?.focus()}
+                />
                 <p className="wb-summary">
-                  {entries.length} {entries.length === 1 ? "play" : "plays"} · {cards} {cards === 1 ? "card" : "cards"} · prints{" "}
-                  {cards * (copies.qb + copies.center)} wristband {cards * (copies.qb + copies.center) === 1 ? "card" : "cards"}
-                  {copies.coach ? ` and ${copies.coach} coach ${copies.coach === 1 ? "sheet" : "sheets"}` : ""} on letter paper.
+                  {entries.length} {entries.length === 1 ? "play" : "plays"} · {cards} {cards === 1 ? "card" : "cards"} · prints {printed}{" "}
+                  wristband {printed === 1 ? "card" : "cards"} on {pages} {pages === 1 ? "page" : "pages"}
+                  {prefs.copies.coach ? `, plus ${prefs.copies.coach} coach ${prefs.copies.coach === 1 ? "sheet" : "sheets"}` : ""}.
+                  {vector ? " Diagrams print as sharp vector lines." : ` Diagrams print at ${options.dpi} DPI.`}
                   {entries.some((e) => !e.scene) && " Calls without a linked play print as a number."}
                 </p>
               </>
