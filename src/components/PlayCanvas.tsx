@@ -24,6 +24,7 @@ import {
   resolveSelection,
   selectionBox,
 } from "../lib/scene";
+import type { LineLook } from "../lib/scene";
 import type { PathNode, Point, Scene, SceneNode } from "../lib/types";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { ModeId, ToolId } from "../lib/tools";
@@ -58,6 +59,8 @@ type Props = {
   mode: ModeId | null;
   color: string;
   width: number;
+  /** The Style card's dash, curve and end for the next line, on top of the tool's own look. */
+  look?: LineLook;
   grid: number;
   anchor: Anchor;
   zoom: number;
@@ -141,6 +144,7 @@ export function PlayCanvas({
   mode,
   color,
   width,
+  look,
   grid,
   anchor,
   zoom,
@@ -272,7 +276,9 @@ export function PlayCanvas({
       }
       const origin = pts[0];
       const local = pts.map((p) => ({ x: p.x - origin.x, y: p.y - origin.y }));
-      const node = { ...makePath(tool, origin, local, color, width, nextZ(sceneRef.current)), fromId: startPlayer.current };
+      const made = makePath(tool, origin, local, color, width, nextZ(sceneRef.current));
+      // Zones and polygons are areas, so the line look only shapes open lines.
+      const node = { ...made, ...(made.closed ? {} : look), fromId: startPlayer.current };
       startPlayer.current = null;
       onScene({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, node] }, `Draw ${node.name}`);
       onSelection([node.id]);
@@ -284,7 +290,7 @@ export function PlayCanvas({
           : `${node.name} drawn. Keep tapping to draw another, or tap Select when you're done.`,
       );
     },
-    [tool, color, width, onScene, onSelection, say],
+    [tool, color, width, look, onScene, onSelection, say],
   );
 
   const finishDraft = useCallback(() => {
@@ -1308,7 +1314,13 @@ export function PlayCanvas({
             fillOpacity={0.14}
             stroke={color}
             strokeWidth={width}
-            strokeDasharray={tool === "dashed" || tool === "zone" ? `${width * 3} ${width * 2.2}` : undefined}
+            strokeDasharray={
+              (look?.style ?? (tool === "dashed" || tool === "zone" ? "dashed" : "solid")) === "dashed"
+                ? `${width * 3} ${width * 2.2}`
+                : look?.style === "dotted"
+                  ? `0 ${width * 2}`
+                  : undefined
+            }
             strokeLinecap="round"
             pointerEvents="none"
             opacity={0.85}

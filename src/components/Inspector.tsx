@@ -4,11 +4,10 @@ import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
 import { PlayerPresets } from "./PlayerPresets";
-import { letterColor } from "../lib/colors";
 import { FIELD_VIEWS } from "../lib/field";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
-import { FORMATIONS, ROUTE_TREE, STROKE_WEIGHTS, uid } from "../lib/types";
+import { FORMATIONS, ROUTE_TREE, uid } from "../lib/types";
 
 type Props = {
   scene: Scene;
@@ -20,12 +19,6 @@ type Props = {
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
-
-/** The colour currently on the selection, whichever field holds it. */
-function strokeOf(node?: SceneNode | null) {
-  if (!node) return undefined;
-  return node.kind === "text" ? node.color : "stroke" in node ? node.stroke : undefined;
-}
 
 export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection }: Props) {
   const [tagDraft, setTagDraft] = useState("");
@@ -211,23 +204,10 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
         <Panel title={selected.length === 1 ? describe(selected[0]) : `${selected.length} elements`} icon="cursor">
           {one?.kind === "player" && (
             <>
-              <div className="row">
-                <label className="field">
-                  <span>Label</span>
-                  <input className="input" value={one.label} maxLength={3} onChange={(e) => patch({ label: e.target.value.toUpperCase() } as Partial<SceneNode>, "Label")} />
-                </label>
-                <label className="field">
-                  <span>Size</span>
-                  <input
-                    type="number"
-                    className="input"
-                    value={Math.round(one.size)}
-                    min={16}
-                    max={90}
-                    onChange={(e) => patch({ size: Number(e.target.value) } as Partial<SceneNode>, "Size")}
-                  />
-                </label>
-              </div>
+              <label className="field">
+                <span>Label</span>
+                <input className="input" value={one.label} maxLength={3} onChange={(e) => patch({ label: e.target.value.toUpperCase() } as Partial<SceneNode>, "Label")} />
+              </label>
               <p className="mini-label">Shape</p>
               <div className="chip-row">
                 {(["circle", "square", "triangle", "diamond", "cross", "ball"] as const).map((s) => (
@@ -236,25 +216,6 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
                   </button>
                 ))}
               </div>
-              <p className="mini-label">Fill color</p>
-              <ColorPicker
-                label="Fill"
-                value={one.fill}
-                onChange={(c) =>
-                  patch(
-                    (n) =>
-                      (n.kind === "player"
-                        ? {
-                            fill: c,
-                            textColor: letterColor(c),
-                            // Outlines follow the fill (canvas default) unless the coach set their own.
-                            stroke: n.stroke.toLowerCase() === n.fill.toLowerCase() ? c : n.stroke,
-                          }
-                        : {}) as Partial<SceneNode>,
-                    "Fill",
-                  )
-                }
-              />
             </>
           )}
 
@@ -278,18 +239,15 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           {one?.kind === "shape" && <ShapeFields node={one} patch={patch} />}
           {one?.kind === "text" && <TextFields node={one} patch={patch} />}
 
-          {selected.length > 1 && (
-            <p className="hint">
-              Editing {selected.length} elements at once. Colour and weight changes apply to all of them.
-            </p>
+          {one?.kind === "shape" && (
+            <>
+              <p className="mini-label">Outline color</p>
+              <ColorPicker label="Outline" value={one.stroke} onChange={(c) => patch({ stroke: c } as Partial<SceneNode>, "Color")} />
+            </>
           )}
-
-          <p className="mini-label">{one?.kind === "player" ? "Outline color" : one?.kind === "text" ? "Text color" : "Line color"}</p>
-          <ColorPicker
-            label={one?.kind === "player" ? "Outline" : one?.kind === "text" ? "Text" : "Line"}
-            value={strokeOf(one ?? selected[0]) ?? ""}
-            onChange={(c) => patch((n) => (n.kind === "text" ? { color: c } : { stroke: c }) as Partial<SceneNode>, "Color")}
-          />
+          {selected.some((n) => n.kind !== "shape") && (
+            <p className="hint">Color, weight, dash, curve and size are in the Style card under the tools on the left.</p>
+          )}
         </Panel>
       )}
 
@@ -435,43 +393,10 @@ function PathFields({ node, patch, onFirstRead }: { node: PathNode; patch: Patch
         <input type="checkbox" checked={!!node.firstRead} onChange={(e) => onFirstRead(e.target.checked)} />
         First read (draws this route in cyan)
       </label>
-      <p className="mini-label">Line weight</p>
-      <div className="chip-row">
-        {STROKE_WEIGHTS.map((w) => (
-          <button key={w} type="button" className={`chip${node.width === w ? " is-on" : ""}`} onClick={() => patch({ width: w } as Partial<SceneNode>, "Weight")}>
-            {w.toFixed(1)}
-          </button>
-        ))}
-      </div>
-      <p className="mini-label">Dash</p>
-      <div className="chip-row">
-        {(["solid", "dashed", "dotted", "motion"] as const).map((s) => (
-          <button key={s} type="button" className={`chip${node.style === s ? " is-on" : ""}`} onClick={() => patch({ style: s } as Partial<SceneNode>, "Dash")}>
-            {s}
-          </button>
-        ))}
-      </div>
-      <p className="mini-label">Curve</p>
-      <div className="chip-row">
-        {(["straight", "spline", "bezier"] as const).map((c) => (
-          <button key={c} type="button" className={`chip${node.curve === c ? " is-on" : ""}`} onClick={() => patch({ curve: c } as Partial<SceneNode>, "Curve")}>
-            {c === "bezier" ? "bezier nodes" : c}
-          </button>
-        ))}
-      </div>
-      <p className="mini-label">End caps</p>
       <div className="row">
         <label className="field">
-          <span>Start</span>
+          <span>Start cap</span>
           <select className="select" value={node.startCap} onChange={(e) => patch({ startCap: e.target.value } as Partial<SceneNode>, "Cap")}>
-            {["none", "arrow", "tee", "dot", "chevron"].map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>End</span>
-          <select className="select" value={node.endCap} onChange={(e) => patch({ endCap: e.target.value } as Partial<SceneNode>, "Cap")}>
             {["none", "arrow", "tee", "dot", "chevron"].map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -550,20 +475,6 @@ function TextFields({ node, patch }: { node: TextNode; patch: PatchFn }) {
         <span>Text</span>
         <input className="input" value={node.text} onChange={(e) => patch({ text: e.target.value } as Partial<SceneNode>, "Text")} />
       </label>
-      <div className="row">
-        <label className="field">
-          <span>Size</span>
-          <input type="number" className="input" value={node.fontSize} min={9} max={72} onChange={(e) => patch({ fontSize: Number(e.target.value) } as Partial<SceneNode>, "Size")} />
-        </label>
-        <label className="field">
-          <span>Weight</span>
-          <select className="select" value={node.weight} onChange={(e) => patch({ weight: Number(e.target.value) } as Partial<SceneNode>, "Weight")}>
-            <option value={400}>Regular</option>
-            <option value={600}>Semibold</option>
-            <option value={800}>Heavy</option>
-          </select>
-        </label>
-      </div>
       <label className="switch">
         <input type="checkbox" checked={node.boxed} onChange={(e) => patch({ boxed: e.target.checked } as Partial<SceneNode>, "Boxed")} />
         Boxed callout
@@ -571,4 +482,4 @@ function TextFields({ node, patch }: { node: TextNode; patch: PatchFn }) {
     </>
   );
 }
-
+

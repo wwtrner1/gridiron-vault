@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import type { RailId } from "../components/RailGroup";
 import type { ModeId, ToolId } from "./tools";
 
 /**
@@ -8,15 +7,18 @@ import type { ModeId, ToolId } from "./tools";
  * lists everything and brings any of it back. Remembered per browser.
  */
 export type ToolKey = ToolId | ModeId;
+
+/** The Designer's left-rail groups and the tab each lives on. */
+export const RAIL_GROUPS = { modes: "draw", lines: "draw", shapes: "draw", routes: "routes", players: "players", sets: "sets", format: "sets" } as const;
+export type RailId = keyof typeof RAIL_GROUPS;
 export type ToolPrefs = { hiddenGroups: RailId[]; hiddenTools: ToolKey[] };
 
 /** What a group is for, in the guide's table of contents. */
 export const GROUP_GUIDE: { id: RailId; title: string; text: string }[] = [
   { id: "modes", title: "Modes", text: "How a press on the field behaves: select, add to a selection, copy, grab inside a group, rotate or scale." },
-  { id: "lines", title: "Lines · Routes", text: "Draw routes, blocks and motion by hand: straight, curved, dashed, freehand, or joined between two players." },
+  { id: "lines", title: "Lines", text: "Draw routes, blocks and motion by hand: straight, curved, dashed, freehand, or joined between two players." },
   { id: "routes", title: "Route library", text: "Ready-made routes. Pick a player, then tap a route and it's drawn from that player." },
   { id: "format", title: "Saved play format", text: "Save how this play looks (colors, line weights) and give the same look to other plays." },
-  { id: "ink", title: "Ink · Weight", text: "The color and thickness of the next line you draw." },
   { id: "shapes", title: "Shapes · Zones", text: "Zones, boxes, circles and text labels for coverage areas and notes." },
   { id: "players", title: "Offense · Defense", text: "Single player tokens to drop on the field." },
   { id: "sets", title: "Libraries · Layers", text: "Whole formations and defenses in one tap, and the list of everything on the field." },
@@ -32,7 +34,9 @@ export const EVERYTHING: ToolPrefs = { hiddenGroups: [], hiddenTools: [] };
 const KEY = "grid1ronvault.toolPrefs.v1";
 let prefs: ToolPrefs = (() => {
   try {
-    return { ...EVERYTHING, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    const saved: ToolPrefs = { ...EVERYTHING, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    // Groups that have since left the rail (Ink · Weight became the Style card) drop out of the list.
+    return { ...saved, hiddenGroups: saved.hiddenGroups.filter((g) => g in RAIL_GROUPS) };
   } catch {
     return EVERYTHING;
   }
