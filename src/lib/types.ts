@@ -49,6 +49,8 @@ export type PlayerNode = NodeCommon & {
   outlineStyle?: "solid" | "dash" | "none";
   /** Shade color drawn under the player (player presets). */
   shade?: string;
+  /** Set on a faded "ghost" token: where the player with this id lines up before the snap. */
+  ghostOf?: string;
 };
 
 export type PathNode = NodeCommon & {
