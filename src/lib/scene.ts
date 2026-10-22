@@ -6,6 +6,14 @@ import type { ToolId } from "./tools";
 export const nextZ = (scene: Scene) =>
   scene.nodes.reduce((m, n) => Math.max(m, n.z), 0) + 1;
 
+/** Puts `ids` under everything else, keeping their order among themselves. */
+export function sendToBack(scene: Scene, ids: string[]): Scene {
+  const rest = scene.nodes.filter((n) => !ids.includes(n.id));
+  const floor = rest.reduce((m, n) => Math.min(m, n.z), Infinity);
+  const base = (Number.isFinite(floor) ? floor : 0) - ids.length;
+  return { ...scene, nodes: scene.nodes.map((n) => (ids.includes(n.id) ? { ...n, z: base + ids.indexOf(n.id) } : n)) };
+}
+
 /** Expand a click target to its whole group unless click-through is on. */
 export function resolveSelection(scene: Scene, id: string, clickThrough: boolean): string[] {
   const node = scene.nodes.find((n) => n.id === id);
@@ -253,6 +261,31 @@ export function straightenPaths(scene: Scene, ids: string[]): Scene {
     ...scene,
     nodes: scene.nodes.map((n) => (reshapeable(n, ids) ? { ...n, points: straighten(n.points, 12), curve: "straight", handles: {} } : n)),
   };
+}
+
+/**
+ * One click to tidy every hand-drawn line in the play, each the way it was
+ * meant: curved lines (freehand, arcs) are smoothed, straight routes get clean
+ * cuts. Lines shaped by hand with the bezier pen are left alone.
+ */
+export function cleanUpPaths(scene: Scene): { scene: Scene; count: number } {
+  const ids = scene.nodes.map((n) => n.id);
+  let count = 0;
+  const nodes = scene.nodes.map((n) => {
+    if (!reshapeable(n, ids) || (n.curve === "bezier" && Object.keys(n.handles ?? {}).length)) return n;
+    const smooth = n.curve !== "straight";
+    const points = straighten(n.points, smooth ? 5 : 12);
+    if (points.length === n.points.length) return n;
+    count++;
+    return { ...n, points, curve: smooth ? "spline" : "straight", handles: {} } as PathNode;
+  });
+  return { scene: count ? { ...scene, nodes } : scene, count };
+}
+
+/** Every line `cleanUpPaths` could tidy, smoothed (`"smooth"`) or straightened. */
+export function reshapeAll(scene: Scene, how: "smooth" | "straight"): Scene {
+  const ids = scene.nodes.map((n) => n.id);
+  return how === "smooth" ? smoothPaths(scene, ids) : straightenPaths(scene, ids);
 }
 
 /** True when any of `ids` is a line `smoothPaths`/`straightenPaths` can reshape. */

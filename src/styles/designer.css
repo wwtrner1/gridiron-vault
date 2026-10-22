@@ -966,3 +966,15 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .insp-tabs button:hover { border-color: var(--ink-4); color: var(--white); }
 .insp-tabs button.is-on { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
 .insp-tab-count { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+
+/* ---- Previous / next play in the playbook ---- */
+.dz-step { display: flex; flex: none; align-items: center; gap: 4px; }
+.dz-step-btn { width: 32px; padding: 0; justify-content: center; }
+.dz-step-count {
+  min-width: 44px;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  text-align: center;
+  white-space: nowrap;
+  color: var(--panel-head);
+}

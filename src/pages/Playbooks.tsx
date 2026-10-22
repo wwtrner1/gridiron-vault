@@ -406,7 +406,7 @@ export function Playbooks() {
                       <button
                         type="button"
                         className="btn btn-quiet btn-sm"
-                        onClick={() => navigate(`/build/${play.id}`)}
+                        onClick={() => navigate(`/build/${play.id}?book=${current.id}`)}
                         aria-label={`Edit ${play.name}`}
                       >
                         Edit
