@@ -67,6 +67,15 @@ const LINE_DEFAULTS: Record<string, Partial<PathNode>> = {
   polygon: { style: "solid", endCap: "none", closed: true, fill: "#DB5A33", fillOpacity: 0.14 },
 };
 
+/** How a line looks apart from its ink and weight: dash, curve and end. */
+export type LineLook = Partial<Pick<PathNode, "style" | "curve" | "endCap">>;
+
+/** The look a line tool gives a new line; anything that isn't a line tool reads as the route arrow. */
+export function toolLook(tool: ToolId): Required<LineLook> {
+  const d = { style: "solid", curve: "straight", endCap: "none", ...(LINE_DEFAULTS[tool] ?? LINE_DEFAULTS.line) } as PathNode;
+  return { style: d.style, curve: d.curve, endCap: d.endCap };
+}
+
 export function makePath(tool: ToolId, origin: Point, points: Point[], color: string, width: number, z: number): PathNode {
   return {
     ...baseNode({ x: origin.x, y: origin.y, z, name: LABELS[tool] ?? "Line" }),

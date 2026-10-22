@@ -51,7 +51,7 @@ const Finger = ({ x, y, cls }: { x: number; y: number; cls: string }) => (
 const SLIDES: Slide[] = [
   {
     title: "Put players on the field",
-    touch: "Tap Players in the bar at the bottom, then tap a position to drop it. For a whole set at once, open Tools → Libraries · Layers → Formations.",
+    touch: "Tap Players in the bar at the bottom, then tap a position to drop it. For a whole set at once, open Tools → Sets → Formations.",
     mouse: "Drag a token from Offense · Defense onto the field, or click it to drop it in the middle. Libraries · Layers → Formations drops a whole set.",
     art: (
       <Field>

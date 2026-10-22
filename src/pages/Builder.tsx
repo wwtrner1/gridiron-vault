@@ -6,14 +6,15 @@ import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type 
 import { CoachTip } from "../components/CoachTip";
 import { ToolsGuide, type GuideTool } from "../components/ToolsGuide";
 import { DesignerTour, tourSeen } from "../components/DesignerTour";
-import { useToolPrefs } from "../lib/toolPrefs";
+import { RAIL_GROUPS, useToolPrefs } from "../lib/toolPrefs";
 import { coachTips, useTipsEnabled } from "../lib/coachTips";
 import { Inspector } from "../components/Inspector";
 import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
-import { RailGroup, railStore } from "../components/RailGroup";
+import { RAIL_TABS, RailGroup, railStore, useRailTab, type RailTab } from "../components/RailGroup";
+import { StyleCard } from "../components/StyleCard";
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
@@ -41,6 +42,8 @@ import {
   smoothPaths,
   snapPathsToPlayers,
   straightenPaths,
+  toolLook,
+  type LineLook,
 } from "../lib/scene";
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
@@ -79,17 +82,9 @@ const DRAW_TOOLS: ToolId[] = ["line", "arc", "dashed", "block", "motion", "free"
 
 const RAIL_LINES: ToolId[] = ["line", "arc", "dashed", "block", "motion", "pen", "free", "connect", "pivot"];
 const RAIL_SHAPES: ToolId[] = ["zone", "polygon", "text", "rect", "ellipse"];
-/** The everyday tools, pinned at the top of the rail so they never scroll away. Each follows its group's hide setting. */
-const QUICK_TOOLS: { id: ToolId; group: "lines" | "shapes" }[] = [
-  { id: "line", group: "lines" },
-  { id: "dashed", group: "lines" },
-  { id: "block", group: "lines" },
-  { id: "motion", group: "lines" },
-  { id: "arc", group: "lines" },
-  { id: "text", group: "shapes" },
-  { id: "zone", group: "shapes" },
-];
-const QUICK_IDS = QUICK_TOOLS.map((q) => q.id);
+/** Line tools whose look the Style card can change before drawing. */
+const LOOK_TOOLS: ToolId[] = [...DRAW_TOOLS, "connect"];
+const MODE_LABEL: Partial<Record<ModeId, string>> = { multiSelect: "Multi", clickThrough: "Click-thru" };
 const RAIL_LABEL: Partial<Record<ToolId, string>> = {
   line: "Solid",
   arc: "3-pt arc",
@@ -135,7 +130,7 @@ const UNDO_TIPS: Record<string, string> = {
   Move: "To move one player out of a formation, tap him once to pick the set, then press him again to pick only him. To move the whole set, tap the empty field first.",
   "Add shape": "Shapes draw from corner to corner as you drag. Drag farther for a bigger one, or pick Select to stop adding them.",
   Rotate: "Rotate spins around the middle of the selection, or around your pivot point if you dropped one. Pick Pivot in Tools to choose the spot.",
-  Scale: "Scale grows away from the anchor dot. Pick a different anchor in Tools → Modes, or drag a corner handle instead.",
+  Scale: "Scale grows away from the anchor dot. Pick Scale at the top of Tools and choose a different anchor dot, or drag a corner handle instead.",
   Duplicate: "Duplicate mode copies whatever you press. Tap Select to go back to moving things.",
 };
 
@@ -159,13 +154,9 @@ export function Builder() {
   const [mode, setMode] = useState<ModeId | null>(null);
   const [color, setColor] = useState(PALETTE[0]);
   const [width, setWidth] = useState(DEFAULT_STROKE);
-  // Picking one player opens the Route library, since giving that player a route is the next thing to do.
-  useEffect(() => {
-    if (selection.length !== 1) return;
-    if (scene.nodes.find((n) => n.id === selection[0])?.kind === "player") railStore.open("routes");
-    // Only the pick matters here: dragging or restyling the player must not keep reopening the group.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection]);
+  // The Style card's dash, curve and end for the next line. Picking a tool starts again from that tool's look.
+  const [lookOverride, setLookOverride] = useState<LineLook>({});
+  const look = { ...toolLook(tool), ...lookOverride };
   const [grid, setGrid] = useState(0);
   const [anchor, setAnchor] = useState({ ax: 0.5, ay: 0.5 });
   const [zoom, setZoom] = useState(0.86);
@@ -508,8 +499,15 @@ export function Builder() {
     }
     setTool(next);
     setMode(null);
+    setLookOverride({});
     picked();
     introduce(next);
+  };
+
+  /** A dash, curve or end picked with nothing selected: it shapes the next line, so a line tool comes out if none is. */
+  const changeLook = (patch: LineLook) => {
+    if (!LOOK_TOOLS.includes(tool)) pickTool("line");
+    setLookOverride((o) => ({ ...o, ...patch }));
   };
 
   const pickMode = (next: ModeId) => {
@@ -594,7 +592,7 @@ export function Builder() {
     if (!selection.length) return;
     applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, locked: true } : n)) }, "Lock");
     setSelection([]);
-    setStatus("Locked in place. To unlock, open Libraries · Layers, pick it, then Details → Arrange → Lock.");
+    setStatus("Locked in place. To unlock, open Tools → Sets → Layers, pick it, then Details → Arrange → Lock.");
   };
 
   const selectAll = () => setSelection(scene.nodes.filter((n) => !n.locked && !n.hidden).map((n) => n.id));
@@ -764,8 +762,8 @@ export function Builder() {
         id: "emptyTaps",
         title: "Nothing to pick there",
         text: s.touch
-          ? "Tapping empty field only clears the selection. To draw a route, tap Route in the bar below. To add players, open Tools → Offense · Defense. Press and hold the field for the tool menu."
-          : "Clicking empty field only clears the selection. Pick a line tool on the left (or press L) to draw, or drag players in from Offense · Defense. Right-click the field for the tool menu.",
+          ? "Tapping empty field only clears the selection. To draw a route, tap Route in the bar below. To add players, open Tools → Players. Press and hold the field for the tool menu."
+          : "Clicking empty field only clears the selection. Pick a line tool on the left (or press L) to draw, or drag players in from the Players tab. Right-click the field for the tool menu.",
         action: sheetScreen() ? { label: "Open Tools", run: () => setRailOpen(true) } : undefined,
       });
     if (s.kind === "lockedPress")
@@ -810,6 +808,39 @@ export function Builder() {
   const prefs = useToolPrefs();
   const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
   const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;
+  const railTabNow = useRailTab();
+  // A tab whose groups are all hidden in the Tools guide leaves the strip.
+  const tabs = RAIL_TABS.filter((t) =>
+    Object.entries(RAIL_GROUPS).some(([g, tab]) => tab === t.id && !prefs.hiddenGroups.includes(g as keyof typeof RAIL_GROUPS)),
+  );
+  const railTab: RailTab = tabs.some((t) => t.id === railTabNow) ? railTabNow : (tabs[0]?.id ?? "players");
+  /** Arrow keys move between tabs, as WAI-ARIA tabs do. */
+  const onTabKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const i = tabs.findIndex((t) => t.id === railTab);
+    const next = tabs[(i + step + tabs.length) % tabs.length];
+    railStore.show(next.id);
+    document.getElementById(`dz-tab-${next.id}`)?.focus();
+  };
+  const toolButton = (t: (typeof LINE_TOOLS)[number]) => {
+    const locked = !gateTool(tier, t.id).ok;
+    return (
+      <Tooltip key={t.id} title={t.title} hint={locked ? `${t.hint} — unlocks with any paid plan.` : t.hint} shortcut={t.key}>
+        <button
+          type="button"
+          className={`dz-btn${tool === t.id ? " is-on" : ""}${locked ? " is-locked" : ""}`}
+          onClick={() => pickTool(t.id)}
+          aria-label={locked ? `${t.title} — locked` : t.title}
+          aria-pressed={tool === t.id}
+        >
+          {locked && <Icon name="lock" size={12} />}
+          {RAIL_LABEL[t.id] ?? t.label}
+        </button>
+      </Tooltip>
+    );
+  };
   const guideTools: Record<string, GuideTool[]> = {
     modes: MODES.map((m) => ({ id: m.id, label: m.label, hint: m.hint })),
     lines: RAIL_LINES.map((id) => {
@@ -1354,8 +1385,9 @@ export function Builder() {
               Done
             </button>
           </div>
-          {/* Pinned: the tools used on every play, always in reach. Rarer ones live in the groups below. */}
-          <div className="dz-quick" role="toolbar" aria-label="Everyday tools">
+
+          {/* Modes: how a press on the field behaves. Always in view, whichever tab is open. */}
+          <div className="dz-modes" role="toolbar" aria-label="Modes">
             <Tooltip title="Select" hint="The default pointer. Click to pick an element, drag a box across several, drag to move them." shortcut="V">
               <button
                 type="button"
@@ -1366,43 +1398,8 @@ export function Builder() {
                 Select
               </button>
             </Tooltip>
-            {QUICK_TOOLS.filter((q) => shown(q.id) && !prefs.hiddenGroups.includes(q.group)).map((q) => {
-              const t = [...LINE_TOOLS, ...SHAPE_TOOLS].find((x) => x.id === q.id)!;
-              const locked = !gateTool(tier, t.id).ok;
-              return (
-                <Tooltip key={t.id} title={t.title} hint={locked ? `${t.hint} — unlocks with any paid plan.` : t.hint} shortcut={t.key}>
-                  <button
-                    type="button"
-                    className={`dz-btn${tool === t.id ? " is-on" : ""}${locked ? " is-locked" : ""}`}
-                    onClick={() => pickTool(t.id)}
-                    aria-label={locked ? `${t.title} — locked` : t.title}
-                    aria-pressed={tool === t.id}
-                  >
-                    {locked && <Icon name="lock" size={12} />}
-                    {RAIL_LABEL[t.id] ?? t.label}
-                  </button>
-                </Tooltip>
-              );
-            })}
-          </div>
-
-          <RailGroup id="modes" title="Modes">
-            <div className="dz-grid">
-              <Tooltip
-                title="Select"
-                hint="The default pointer. Click to pick an element, drag a box across several, drag to move them."
-                shortcut="V"
-              >
-                <button
-                  type="button"
-                  className={`dz-btn${tool === "select" && !mode ? " is-on" : ""}`}
-                  onClick={pickSelect}
-                  aria-pressed={tool === "select" && !mode}
-                >
-                  Select
-                </button>
-              </Tooltip>
-              {MODES.filter((m) => shown(m.id)).map((m) => (
+            {!prefs.hiddenGroups.includes("modes") &&
+              MODES.filter((m) => shown(m.id)).map((m) => (
                 <Tooltip key={m.id} title={m.title} hint={m.hint} shortcut={m.key}>
                   <button
                     type="button"
@@ -1410,240 +1407,187 @@ export function Builder() {
                     onClick={() => pickMode(m.id)}
                     aria-pressed={mode === m.id}
                   >
-                    {m.label}
+                    {MODE_LABEL[m.id] ?? m.label}
                   </button>
                 </Tooltip>
               ))}
+          </div>
+          {mode === "scale" && (
+            <div className="dz-anchor">
+              <p className="dz-sub">Fixed anchor</p>
+              <div className="anchor-grid">
+                {[0, 0.5, 1].flatMap((ay) =>
+                  [0, 0.5, 1].map((ax) => (
+                    <button
+                      key={`${ax}-${ay}`}
+                      type="button"
+                      className={`anchor-dot${anchor.ax === ax && anchor.ay === ay ? " is-on" : ""}`}
+                      onClick={() => setAnchor({ ax, ay })}
+                      aria-label={`Anchor at ${ANCHOR_ROW[ay]} ${ANCHOR_COL[ax]}`}
+                      aria-pressed={anchor.ax === ax && anchor.ay === ay}
+                    />
+                  )),
+                )}
+              </div>
+              <p className="dz-note">The dot you pick stays put while the rest scales away from it.</p>
             </div>
-            {mode === "scale" && (
+          )}
+
+          <div className="dz-tabs" role="tablist" aria-label="Tool sets">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`dz-tab-${t.id}`}
+                aria-selected={railTab === t.id}
+                aria-controls="dz-tabpanel"
+                tabIndex={railTab === t.id ? 0 : -1}
+                className={railTab === t.id ? "is-on" : ""}
+                onClick={() => railStore.show(t.id)}
+                onKeyDown={onTabKey}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="dz-tabpanel" role="tabpanel" id="dz-tabpanel" aria-labelledby={`dz-tab-${railTab}`}>
+            {railTab === "draw" && (
               <>
-                <p className="dz-sub">Fixed anchor</p>
-                <div className="anchor-grid">
-                  {[0, 0.5, 1].flatMap((ay) =>
-                    [0, 0.5, 1].map((ax) => (
-                      <button
-                        key={`${ax}-${ay}`}
-                        type="button"
-                        className={`anchor-dot${anchor.ax === ax && anchor.ay === ay ? " is-on" : ""}`}
-                        onClick={() => setAnchor({ ax, ay })}
-                        aria-label={`Anchor at ${ANCHOR_ROW[ay]} ${ANCHOR_COL[ax]}`}
-                        aria-pressed={anchor.ax === ax && anchor.ay === ay}
-                      />
-                    )),
-                  )}
-                </div>
-                <p className="dz-note">The dot you pick stays put while the rest scales away from it.</p>
+                <RailGroup id="lines" title="Lines">
+                  <div className="dz-grid">{RAIL_LINES.filter(shown).map((id) => toolButton(LINE_TOOLS.find((x) => x.id === id)!))}</div>
+                </RailGroup>
+                <RailGroup id="shapes" title="Shapes · Zones">
+                  <div className="dz-grid">{RAIL_SHAPES.filter(shown).map((id) => toolButton(SHAPE_TOOLS.find((x) => x.id === id)!))}</div>
+                </RailGroup>
               </>
             )}
-          </RailGroup>
 
-          <RailGroup id="lines" title="More lines">
-            <div className="dz-grid">
-              {RAIL_LINES.filter((id) => shown(id) && !QUICK_IDS.includes(id)).map((id) => {
-                const t = LINE_TOOLS.find((x) => x.id === id)!;
-                const locked = !gateTool(tier, t.id).ok;
-                return (
-                  <Tooltip
-                    key={t.id}
-                    title={t.title}
-                    hint={locked ? `${t.hint} — unlocks with any paid plan.` : t.hint}
-                    shortcut={t.key}
-                  >
-                    <button
-                      type="button"
-                      className={`dz-btn${tool === t.id ? " is-on" : ""}${locked ? " is-locked" : ""}`}
-                      onClick={() => pickTool(t.id)}
-                      aria-label={locked ? `${t.title} — locked` : t.title}
-                      aria-pressed={tool === t.id}
-                    >
-                      {locked && <Icon name="lock" size={12} />}
-                      {RAIL_LABEL[t.id] ?? t.label}
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </RailGroup>
-
-          <RailGroup id="routes" title="Route library">
-            <RouteLibrary onPick={pickTile} armed={armed?.id ?? null} />
-          </RailGroup>
-
-          <RailGroup id="format" title="Saved play format">
-            <FormatPanel dark>
-              <div className="pf-acts">
-                <button type="button" className="dz-btn" onClick={saveFormat}>
-                  Save this play's format
-                </button>
-                <button type="button" className="dz-btn is-on" onClick={useFormat} disabled={!playFormat.format || !playFormat.parts.length}>
-                  Apply to this play
-                </button>
-              </div>
-            </FormatPanel>
-          </RailGroup>
-
-          <RailGroup id="ink" title="Ink · Weight" summary={<><i className="dz-ink" style={{ background: color }} aria-hidden="true" />{STROKE_WEIGHTS.indexOf(width) + 1 || width}px</>}>
-            <div className="dz-grid">
-              {RAIL_INKS.map((ink) => (
-                <Tooltip key={ink.color} title={`${ink.name} ink`} hint="The color of the next line you draw. To recolor a line already drawn, select it and use Details.">
-                  <button
-                    type="button"
-                    className={`dz-btn${color === ink.color ? " is-on" : ""}`}
-                    onClick={() => setColor(ink.color)}
-                    aria-pressed={color === ink.color}
-                    aria-label={`Draw in ${ink.name}`}
-                  >
-                    <i className="dz-ink" style={{ background: ink.color }} aria-hidden="true" />
-                    {ink.name}
-                  </button>
-                </Tooltip>
-              ))}
-              {STROKE_WEIGHTS.slice(0, 3).map((w, i) => (
-                <Tooltip
-                  key={w}
-                  title={`${i + 1}px line`}
-                  hint="Heavier lines read better on a wristband card; lighter lines suit install sheets."
-                >
-                  <button
-                    type="button"
-                    className={`dz-btn${width === w ? " is-on" : ""}`}
-                    onClick={() => setWidth(w)}
-                    aria-pressed={width === w}
-                    aria-label={`Line weight ${i + 1}px`}
-                  >
-                    {i + 1}px
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-          </RailGroup>
-
-          <RailGroup id="shapes" title="More shapes">
-            <div className="dz-grid">
-              {RAIL_SHAPES.filter((id) => shown(id) && !QUICK_IDS.includes(id)).map((id) => {
-                const t = SHAPE_TOOLS.find((x) => x.id === id)!;
-                const locked = !gateTool(tier, t.id).ok;
-                return (
-                  <Tooltip
-                    key={t.id}
-                    title={t.title}
-                    hint={locked ? `${t.hint} — unlocks with any paid plan.` : t.hint}
-                    shortcut={t.key}
-                  >
-                    <button
-                      type="button"
-                      className={`dz-btn${tool === t.id ? " is-on" : ""}${locked ? " is-locked" : ""}`}
-                      onClick={() => pickTool(t.id)}
-                      aria-label={locked ? `${t.title} — locked` : t.title}
-                      aria-pressed={tool === t.id}
-                    >
-                      {locked && <Icon name="lock" size={12} />}
-                      {RAIL_LABEL[t.id] ?? t.label}
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </RailGroup>
-
-          <RailGroup id="players" title="Offense · Defense">
-            <div className="dz-grid">
-              {(["offense", "defense"] as const).map((side) => (
-                <Tooltip
-                  key={side}
-                  title={side === "offense" ? "Offense players" : "Defense players"}
-                  hint={`Shows the ${side} tokens below. Tap or click one to drop it on the field, or drag it to a spot.`}
-                >
-                  <button
-                    type="button"
-                    className={`dz-btn${tray === side ? " is-on" : ""}`}
-                    onClick={() => setTray((t) => (t === side ? null : side))}
-                    aria-expanded={tray === side}
-                    aria-controls="dz-token-tray"
-                  >
-                    {side === "offense" ? "Offense" : "Defense"}
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-            {tray && (
-              <div className="dz-tray" id="dz-token-tray">
-                {(tray === "offense" ? offense : DEFENSE_TOKENS).map((t) => (
-                  <Tooltip
-                    key={t.code}
-                    title={t.title}
-                    hint={`${t.hint} Tap or click to drop it on the field, or drag it where you want it.`}
-                  >
-                    <button
-                      type="button"
-                      className="token-btn"
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-token", t.code)}
-                      onClick={() => placeToken(t)}
-                      aria-label={t.title}
-                    >
-                      <TokenGlyph preset={t} />
-                    </button>
-                  </Tooltip>
-                ))}
-              </div>
+            {railTab === "routes" && (
+              <RailGroup id="routes" title="Route library">
+                <RouteLibrary onPick={pickTile} armed={armed?.id ?? null} />
+              </RailGroup>
             )}
-          </RailGroup>
 
-          <RailGroup id="sets" title="Libraries · Layers">
-            <div className="dz-grid dz-grid-3">
-              {(["formations", "defense", "layers"] as const).map((list) => (
-                <Tooltip
-                  key={list}
-                  title={list === "formations" ? "Formation library" : list === "defense" ? "Defense library" : "Layers"}
-                  hint={
-                    list === "formations"
-                      ? "Pick 5v5, 7v7 or 11-man and a formation, and the whole offense drops in at once."
-                      : list === "defense"
-                        ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
-                        : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
-                  }
-                >
-                  <button
-                    type="button"
-                    className={`dz-btn${lists === list ? " is-on" : ""}`}
-                    onClick={() => setLists((l) => (l === list ? null : list))}
-                    aria-expanded={lists === list}
-                    aria-controls="dz-list-tray"
-                  >
-                    {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
-                    {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-            {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
-            {lists === "defense" && <DefenseLibrary onDrop={applyDefense} />}
-            {lists === "layers" && (
-              <div className="dz-list" id="dz-list-tray">
-                {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
-                {[...scene.nodes]
-                  .sort((a, b) => b.z - a.z)
-                  .map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      className={`layer-item${selection.includes(n.id) ? " is-on" : ""}`}
-                      onClick={() => setSelection([n.id])}
-                      aria-pressed={selection.includes(n.id)}
+            {railTab === "players" && (
+              <RailGroup id="players" title="Offense · Defense">
+                <div className="dz-grid">
+                  {(["offense", "defense"] as const).map((side) => (
+                    <Tooltip
+                      key={side}
+                      title={side === "offense" ? "Offense players" : "Defense players"}
+                      hint={`Shows the ${side} tokens below. Tap or click one to drop it on the field, or drag it to a spot.`}
                     >
-                      <Icon
-                        name={n.kind === "player" ? "user" : n.kind === "path" ? "arrow" : n.kind === "text" ? "text" : "rect"}
-                        size={13}
-                      />
-                      <span>{describe(n)}</span>
-                      {n.locked && <Icon name="lock" size={12} />}
-                      {n.hidden && <Icon name="eye" size={12} />}
-                    </button>
+                      <button
+                        type="button"
+                        className={`dz-btn${tray === side ? " is-on" : ""}`}
+                        onClick={() => setTray((t) => (t === side ? null : side))}
+                        aria-expanded={tray === side}
+                        aria-controls="dz-token-tray"
+                      >
+                        {side === "offense" ? "Offense" : "Defense"}
+                      </button>
+                    </Tooltip>
                   ))}
-              </div>
+                </div>
+                {tray && (
+                  <div className="dz-tray" id="dz-token-tray">
+                    {(tray === "offense" ? offense : DEFENSE_TOKENS).map((t) => (
+                      <Tooltip
+                        key={t.code}
+                        title={t.title}
+                        hint={`${t.hint} Tap or click to drop it on the field, or drag it where you want it.`}
+                      >
+                        <button
+                          type="button"
+                          className="token-btn"
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-token", t.code)}
+                          onClick={() => placeToken(t)}
+                          aria-label={t.title}
+                        >
+                          <TokenGlyph preset={t} />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
+              </RailGroup>
             )}
-          </RailGroup>
+
+            {railTab === "sets" && (
+              <>
+                <RailGroup id="sets" title="Libraries · Layers">
+                  <div className="dz-grid dz-grid-3">
+                    {(["formations", "defense", "layers"] as const).map((list) => (
+                      <Tooltip
+                        key={list}
+                        title={list === "formations" ? "Formation library" : list === "defense" ? "Defense library" : "Layers"}
+                        hint={
+                          list === "formations"
+                            ? "Pick 5v5, 7v7 or 11-man and a formation, and the whole offense drops in at once."
+                            : list === "defense"
+                              ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
+                              : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
+                        }
+                      >
+                        <button
+                          type="button"
+                          className={`dz-btn${lists === list ? " is-on" : ""}`}
+                          onClick={() => setLists((l) => (l === list ? null : list))}
+                          aria-expanded={lists === list}
+                          aria-controls="dz-list-tray"
+                        >
+                          {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
+                          {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                  {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
+                  {lists === "defense" && <DefenseLibrary onDrop={applyDefense} />}
+                  {lists === "layers" && (
+                    <div className="dz-list" id="dz-list-tray">
+                      {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
+                      {[...scene.nodes]
+                        .sort((a, b) => b.z - a.z)
+                        .map((n) => (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className={`layer-item${selection.includes(n.id) ? " is-on" : ""}`}
+                            onClick={() => setSelection([n.id])}
+                            aria-pressed={selection.includes(n.id)}
+                          >
+                            <Icon
+                              name={n.kind === "player" ? "user" : n.kind === "path" ? "arrow" : n.kind === "text" ? "text" : "rect"}
+                              size={13}
+                            />
+                            <span>{describe(n)}</span>
+                            {n.locked && <Icon name="lock" size={12} />}
+                            {n.hidden && <Icon name="eye" size={12} />}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </RailGroup>
+                <RailGroup id="format" title="Saved play format">
+                  <FormatPanel dark>
+                    <div className="pf-acts">
+                      <button type="button" className="dz-btn" onClick={saveFormat}>
+                        Save this play's format
+                      </button>
+                      <button type="button" className="dz-btn is-on" onClick={useFormat} disabled={!playFormat.format || !playFormat.parts.length}>
+                        Apply to this play
+                      </button>
+                    </div>
+                  </FormatPanel>
+                </RailGroup>
+              </>
+            )}
+          </div>
+
           <div className="dz-rail-foot">
             <span>{hiddenCount ? `${hiddenCount} hidden.` : "Too many tools?"}</span>
             <button type="button" onClick={() => setGuideOpen(true)}>
@@ -1653,6 +1597,23 @@ export function Builder() {
               How it works
             </button>
           </div>
+
+          {/* Pinned to the foot of the rail: every color, weight, dash, curve and end in one place. */}
+          <StyleCard
+            scene={scene}
+            selection={selection}
+            onScene={applyScene}
+            color={color}
+            width={width}
+            look={look}
+            onColor={setColor}
+            onWidth={setWidth}
+            onLook={changeLook}
+            onRoutes={() => {
+              railStore.show("routes");
+              setRailOpen(true);
+            }}
+          />
         </aside>
 
         <main className="builder-main" id="main" ref={mainRef}>
@@ -1742,6 +1703,7 @@ export function Builder() {
               mode={mode}
               color={color}
               width={width}
+              look={lookOverride}
               grid={grid}
               anchor={anchor}
               zoom={zoom}

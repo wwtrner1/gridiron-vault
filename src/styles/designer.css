@@ -77,8 +77,8 @@
 .dz-back:hover { color: var(--white); }
 
 /* ---- Body: rail · stage · details ---- */
-.dz-body { display: grid; flex: 1; grid-template-columns: 220px minmax(0, 1fr) 300px; min-height: 0; }
-.dz-body.is-side-closed { grid-template-columns: 220px minmax(0, 1fr); }
+.dz-body { display: grid; flex: 1; grid-template-columns: 244px minmax(0, 1fr) 300px; min-height: 0; }
+.dz-body.is-side-closed { grid-template-columns: 244px minmax(0, 1fr); }
 .dz-body.is-side-closed .builder-side { display: none; }
 
 .builder .builder-rail {
@@ -92,7 +92,8 @@
   scrollbar-width: thin;
 }
 .dz-group { display: flex; flex-direction: column; gap: 10px; }
-.dz-group h2,
+.dz-group h3,
+.dz-style-head h3,
 .builder-side .panel-head {
   margin: 0;
   font-family: var(--display);
@@ -103,19 +104,20 @@
   color: var(--panel-head);
 }
 .dz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-/* The pinned everyday tools: stay at the top of the rail while the groups below scroll. */
-.dz-quick {
+/* Modes: pinned at the top of the rail while the tabs below scroll. */
+.dz-modes {
   position: sticky;
   top: calc(-1 * var(--space-4));
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) 0;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-4) var(--space-3);
   background: var(--ink-2);
   border-bottom: 1px solid var(--ink-3);
 }
+.dz-modes .dz-btn { height: 30px; font-size: 11.5px; }
 .dz-btn {
   display: inline-flex;
   align-items: center;
@@ -215,7 +217,7 @@
 /* ---- Narrower screens: details and rail become drawers ---- */
 @media (max-width: 1180px) {
   .dz-body,
-  .dz-body.is-side-closed { grid-template-columns: 220px minmax(0, 1fr); }
+  .dz-body.is-side-closed { grid-template-columns: 244px minmax(0, 1fr); }
   .dz-body.is-side-closed .builder-side { display: block; }
   .dz-kicker, .dz-back, .dz-zoom input { display: none; }
   .dz-top { gap: 12px; }
@@ -363,32 +365,85 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 
-/* ---- Collapsible rail groups ---- */
-.builder .builder-rail { gap: 4px; }
-.dz-group { gap: 0; padding-bottom: 6px; border-bottom: 1px solid var(--ink-3); }
-.dz-group:last-child { border-bottom: 0; }
-.dz-group-toggle {
+/* ---- Rail tabs: Draw · Routes · Players · Sets ---- */
+.builder .builder-rail { gap: 12px; }
+.dz-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--ink); }
+.dz-tabs button {
+  height: 30px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--rail-text);
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.dz-tabs button:hover { color: var(--white); }
+.dz-tabs button.is-on { background: var(--ink-3); color: var(--white); box-shadow: inset 0 -2px 0 var(--cyan); }
+.dz-tabpanel { display: flex; flex: none; flex-direction: column; gap: 16px; }
+.dz-modes, .dz-tabs, .dz-rail-foot { flex: none; }
+.dz-anchor { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- Style card: pinned to the foot of the rail ---- */
+.dz-style {
+  position: sticky;
+  bottom: calc(-1 * var(--space-4));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+  max-height: 62%;
+  margin: auto calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow-y: auto;
+  border-top: 1px solid var(--ink-4);
+  background: var(--ink);
+  box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.28);
+  scrollbar-width: thin;
+}
+.dz-style-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dz-style-head h3 { color: var(--white); }
+.dz-style-target { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); text-align: right; }
+.dz-style-row { display: flex; flex-direction: column; gap: 4px; }
+.dz-style-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--panel-head); }
+.dz-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--ink-2); }
+.dz-seg button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 34px;
-  padding: 4px 0;
+  justify-content: center;
+  height: 26px;
+  padding: 0 2px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  text-align: left;
+  color: var(--tool-icon);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.dz-group-toggle > span:first-child { flex: 1; }
-.dz-group-toggle:hover { color: var(--white); }
-.dz-group-toggle svg { flex: none; transition: transform 0.15s ease; }
-.dz-group.is-open .dz-group-toggle svg { transform: rotate(180deg); }
-.dz-group-summary { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--muted-2); }
-.dz-group-body { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
-.dz-group-body[hidden] { display: none; }
-@media (prefers-reduced-motion: reduce) { .dz-group-toggle svg { transition: none; } }
+.dz-seg > span { display: grid; }
+.dz-seg button:hover { color: var(--white); background: var(--ink-3); }
+.dz-seg button.is-on { background: var(--cyan); color: var(--on-cyan); }
+.dz-seg button i { display: block; width: 70%; border-radius: 3px; background: currentColor; }
+.dz-swatches { display: flex; flex-direction: column; gap: 8px; }
+.dz-swatch-row { display: flex; flex-wrap: wrap; gap: 3px; }
+.dz-swatch-row .cp-swatch { width: 18px; height: 18px; }
+.dz-swatch-more {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px dashed var(--muted-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 13px;
+  line-height: 1;
+}
+.dz-swatch-more.is-on { border-style: solid; outline: 2px solid var(--cyan); outline-offset: 2px; }
+.dz-style-link { align-self: flex-start; padding: 0; background: none; color: var(--cyan); font-size: 12.5px; font-weight: 600; text-decoration: underline; }
+.dz-style-bold { margin-top: 2px; }
 
 /* ---- Route library (canvas: Designer · assistant, tools…) ---- */
 .rl { display: flex; flex-direction: column; gap: 8px; }
@@ -690,8 +745,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   }
   .builder .builder-rail.is-open { transform: none; visibility: visible; transition-delay: 0s; }
   .dz-sheet-head { display: flex; }
-  /* In the sheet the header is what stays pinned, so the quick tools just lead the list. */
-  .dz-quick { position: static; margin: 0 -16px; padding: 12px 16px; }
+  /* In the sheet the header is what stays pinned, so the modes just lead the list and the Style card ends it. */
+  .dz-modes { position: static; margin: 0 -16px; padding: 12px 16px; }
+  .dz-style { position: static; max-height: none; margin: 0 -16px calc(-16px - env(safe-area-inset-bottom)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .dz-zoom-btns { display: none; }
   /* The white stage hugs the field instead of filling the column. */
   .builder .builder-stage { flex: none; min-height: 0; padding: 8px; }
@@ -764,7 +820,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 @media (pointer: coarse) {
   .dz-btn { height: 44px; font-size: 13px; }
   .dz-top-btn, .dz-top-select { height: 40px; }
-  .dz-group-toggle { min-height: 44px; }
+  .dz-tabs button, .dz-modes .dz-btn { height: 44px; font-size: 13px; }
+  .dz-seg button { height: 40px; font-size: 12.5px; }
+  .dz-swatch-row .cp-swatch, .dz-swatch-more { width: 30px; height: 30px; }
   .dz-drawbar button { height: 40px; }
   .dz-drawbar kbd, .dz-kbd-only { display: none; }
   .stage-menu button { height: 44px; font-size: 15px; }
