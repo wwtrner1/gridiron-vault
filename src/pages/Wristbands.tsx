@@ -41,6 +41,8 @@ import {
   type CellShows,
   type NumberSize,
   type NumberStyle,
+  BAND_PREFS_EVENT,
+  BAND_PREFS_KEY,
   BAND_PRESETS,
 } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
@@ -93,7 +95,7 @@ type BandPrefs = {
   coachSheet: CoachSheet;
 };
 
-const PREFS_KEY = "grid1ronvault.wristbands.v1";
+const PREFS_KEY = BAND_PREFS_KEY;
 const DEFAULT_PREFS: BandPrefs = {
   grid: "4x2",
   sizeId: "flag",
@@ -168,6 +170,12 @@ export function Wristbands() {
       // Private windows can refuse storage; the settings still work for this visit.
     }
   }, [prefs]);
+
+  useEffect(() => {
+    const reload = () => setPrefs(loadPrefs());
+    window.addEventListener(BAND_PREFS_EVENT, reload);
+    return () => window.removeEventListener(BAND_PREFS_EVENT, reload);
+  }, []);
 
   const set = (patch: Partial<BandPrefs>) => setPrefs((p) => ({ ...p, ...patch }));
   // A preset shows as on while every setting it sets is still as it left it.

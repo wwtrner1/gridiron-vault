@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ColorPicker } from "./ColorPicker";
 import { Tooltip } from "./Tooltip";
 import { colorName, letterColor, normalizeHex } from "../lib/colors";
+import { BOLD_WIDTH, wristbandBold } from "../lib/bulkEdit";
 import { PALETTE, STROKE_WEIGHTS } from "../lib/types";
 import type { LineLook } from "../lib/scene";
 import type { EndCap, LineCurve, LineStyle, PathNode, PlayerNode, Scene, SceneNode, TextNode } from "../lib/types";
@@ -51,9 +52,6 @@ const TEXT_WEIGHTS = [
   { weight: 600, label: "Semi" },
   { weight: 800, label: "Heavy" },
 ];
-/** Wristband cards print the field about 4 in wide, so lines and tokens need to be at their heaviest. */
-const BOLD_WIDTH = STROKE_WEIGHTS[STROKE_WEIGHTS.length - 1];
-const BOLD_PLAYER = 44;
 
 /**
  * The Designer's one place for how things look. With nothing selected it sets
@@ -96,17 +94,8 @@ export function StyleCard({ scene, selection, onScene, color, width, look, onCol
     onScene(
       {
         ...scene,
-        nodes: scene.nodes.map((n) =>
-          !selection.includes(n.id)
-            ? n
-            : n.kind === "path"
-              ? { ...n, width: BOLD_WIDTH }
-              : n.kind === "player"
-                ? { ...n, size: Math.max(n.size, BOLD_PLAYER) }
-                : n.kind === "text"
-                  ? { ...n, weight: 800, fontSize: Math.max(n.fontSize, 24) }
-                  : n,
-        ),
+        // The same Wristband bold Griddy applies across a playbook.
+        nodes: scene.nodes.map((n) => (selection.includes(n.id) ? wristbandBold(n) : n)),
       },
       "Wristband bold",
     );

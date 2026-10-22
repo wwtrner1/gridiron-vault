@@ -12,7 +12,7 @@ import {
   type GriddyTurn,
 } from "../../src/lib/griddy.js";
 import type { AssistantRead } from "../../src/lib/assistant.js";
-import { bulkColor, LETTER, MAX_BULK_CHANGES, MAX_LOOKS, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
+import { bulkColor, cleanFilter, cleanOpenChange, LETTER, MAX_BULK_CHANGES, MAX_LOOKS, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
 import { normalizeHex } from "../../src/lib/colors.js";
 import { MAX_CALL_LINES } from "../../src/lib/griddy.js";
 import { AiError, converse, MODELS } from "./claude.js";
@@ -99,7 +99,7 @@ function toolInput(a: GriddyAction): unknown {
   if (a.tool === "bulk_edit") {
     const scope =
       a.scope.kind === "playbook" ? { scope: "playbook", playbook: a.scope.name } : a.scope.kind === "plays" ? { scope: "plays", ids: a.scope.ids } : { scope: "vault" };
-    return { ...scope, changes: a.changes };
+    return { ...scope, ...(a.filter ? { filter: a.filter } : {}), changes: a.changes };
   }
   return { ids: a.ids };
 }
@@ -182,6 +182,10 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
           const color = bulkColor(str(c.color, 30));
           return LETTER.test(letter(c.letter)) && color ? [{ op: "route_color", letter: letter(c.letter), color, ...narrow }] : [];
         }
+        if (["style", "wristband", "meta", "file"].includes(c?.op)) {
+          const open = cleanOpenChange(c);
+          return open ? [open] : [];
+        }
         if (c?.op === "mirror") return [{ op: "mirror" }];
         if (c?.op === "remove_text") return [{ op: "remove_text" }];
         if (c?.op === "clear_letters") {
@@ -210,7 +214,10 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
         if (!ids.length) return [];
         scope = { kind: "plays", ids: [...new Set(ids)] };
       }
-      return changes.length ? [{ id: u.id, tool: "bulk_edit", scope, changes }] : [];
+      // A filter Griddy sent that names nothing usable would widen the edit; drop the card instead.
+      const filter = cleanFilter(input.filter);
+      if (input.filter && typeof input.filter === "object" && Object.keys(input.filter).length && !filter) return [];
+      return changes.length ? [{ id: u.id, tool: "bulk_edit", scope, ...(filter ? { filter } : {}), changes }] : [];
     }
     if (u.name === "show_plays") {
       const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));

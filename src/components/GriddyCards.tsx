@@ -4,8 +4,8 @@ import { api } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
-import { describeChange, editScene, flips, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
-import type { BulkEdit, BulkTarget } from "../lib/bulkEdit";
+import { describeChange, editScene, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
+import type { BulkEdit, BulkFiling, BulkTarget } from "../lib/bulkEdit";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
 import type { CallSheetLine, GriddyAction, ImportItem } from "../lib/griddy";
@@ -20,6 +20,7 @@ import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
 import type { StoredPlay } from "../lib/types";
 import { useToast } from "../lib/toast";
+import { chooseBandPreset } from "../lib/wristbands";
 import { useGriddy } from "./Griddy";
 import { Icon } from "./Icon";
 import { PlayThumb } from "./PlayThumb";
@@ -397,9 +398,31 @@ async function writePlays(plays: StoredPlay[], signedIn: boolean) {
   if (!signedIn) return;
   for (const p of plays.filter((x) => x.remote)) {
     try {
-      await api.updatePlay(p.id, { scene: p.scene, name: p.name, formation: p.formation });
+      await api.updatePlay(p.id, { scene: p.scene, name: p.name, formation: p.formation, playType: p.playType, tags: p.tags });
     } catch {
       /* the local copy is already updated; it syncs on the next save */
+    }
+  }
+}
+
+/** Playbooks a bulk edit files plays in: written in this browser, and a new one made on the account too. */
+async function writeFilings(filings: BulkFiling[], signedIn: boolean, back = false) {
+  for (const f of filings) {
+    const current = store.get().playbooks.find((b) => b.id === f.book.id);
+    if (back) {
+      // Only a playbook still as the edit left it goes back; one made by the edit goes away.
+      if (!current || JSON.stringify(current.playIds) !== JSON.stringify(f.after)) continue;
+      if (f.created) store.removePlaybook(f.book.id);
+      else store.upsertPlaybook({ ...current, playIds: f.before, updatedAt: new Date().toISOString() });
+      continue;
+    }
+    store.upsertPlaybook({ ...(current ?? f.book), playIds: f.after, updatedAt: new Date().toISOString() });
+    if (f.created && signedIn) {
+      try {
+        await api.createPlaybook({ name: f.book.name, description: f.book.description, color: f.book.color, isPublic: false });
+      } catch {
+        /* the playbook is saved in this browser */
+      }
     }
   }
 }
@@ -418,7 +441,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
   const books = useStore((s) => s.playbooks);
   const live = useMemo(() => planBulkEdit(edit, plays, books, tokens), [edit, plays, books, tokens]);
   /** What was written, kept for Undo. */
-  const [applied, setApplied] = useState<BulkTarget[] | null>(null);
+  const [applied, setApplied] = useState<{ targets: BulkTarget[]; filings: BulkFiling[] } | null>(null);
   const [undone, setUndone] = useState(false);
   const [busy, setBusy] = useState(false);
   const done = outcomes[id];
@@ -426,33 +449,49 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
   const changes = edit.changes.map((c) => describeChange(c, (hex) => colorName(hex).toLowerCase()));
   const where =
     edit.scope.kind === "vault" ? "your whole Vault" : edit.scope.kind === "playbook" ? `the playbook "${edit.scope.name}"` : `${edit.scope.ids.length} picked plays`;
-  const targets = applied ?? live.targets;
+  const targets = applied?.targets ?? live.targets;
+  const filings = applied?.filings ?? live.filings;
+  const band = edit.changes.find((c) => c.op === "wristband");
+  const bandBook = edit.scope.kind === "playbook" ? books.find((b) => b.name.trim().toLowerCase() === (edit.scope as { name: string }).name.trim().toLowerCase()) : undefined;
+  // Filing touches every play in scope, even ones whose field doesn't change.
+  const count = filings.length ? Math.max(targets.length, live.inScope) : targets.length;
+  // A wristband look on plays that already have it still sets the Wristbands page.
+  const anything = targets.length > 0 || filings.length > 0 || Boolean(band);
   const players = targets.reduce((n, t) => n + t.players, 0);
   const doubled = targets.filter((t) => t.doubled.length);
   const changeLabel = `Griddy: ${changes.join(", ")}`;
 
   async function apply() {
     const list = live.targets;
-    if (!list.length) return;
+    const books = live.filings;
+    if (!list.length && !books.length && !band) return;
     setBusy(true);
     try {
       await writePlays(
         list.map((t) => t.after),
         Boolean(account),
       );
+      await writeFilings(books, Boolean(account));
+      if (band?.op === "wristband") chooseBandPreset(band.format);
       // The play open in the Designer changes on the field too, so its next save keeps the edit.
       const open = list.find((t) => t.before.id === drawer?.playId);
       if (drawer && open) {
         drawer.onEdit((field) => editScene(field, edit.changes, tokens).scene, changeLabel);
-        // A flip renames "Trips Right" to "Trips Left"; the Designer's copy of the name follows, or its next save puts it back.
-        if (flips(edit.changes)) drawer.onMeta({ name: open.after.name, formation: open.after.formation });
+        // A flip renames "Trips Right" to "Trips Left", and a category change sets the type and tags; the Designer's copy follows, or its next save puts them back.
+        drawer.onMeta({ name: open.after.name, formation: open.after.formation, playType: open.after.playType, tags: open.after.tags });
       }
-      setApplied(list);
+      setApplied({ targets: list, filings: books });
       setOutcome(
         id,
-        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players, lines or text boxes changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players, lines or text boxes changed${books.length ? `; playbooks updated: ${books.map((f) => f.book.name).join(", ")}` : ""}).${band?.op === "wristband" ? " The Wristbands page is set to that card layout." : ""}${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
       );
-      toast(`${list.length} ${list.length === 1 ? "play" : "plays"} updated.`);
+      toast(
+        list.length
+          ? `${list.length} ${list.length === 1 ? "play" : "plays"} updated.`
+          : books.length
+            ? `${books.map((f) => f.book.name).join(", ")} updated.`
+            : "Your Wristbands page is set to that card layout.",
+      );
       dance();
     } finally {
       setBusy(false);
@@ -467,15 +506,16 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       const current = new Map(store.get().plays.map((p) => [p.id, p]));
       // Compared by content: a Vault refresh can swap in an equal copy of the play.
       const same = (t: BulkTarget) => JSON.stringify(current.get(t.after.id)?.scene) === JSON.stringify(t.after.scene);
-      const back = applied.filter(same).map((t) => ({ ...t.before, updatedAt: new Date().toISOString() }));
+      const back = applied.targets.filter(same).map((t) => ({ ...t.before, updatedAt: new Date().toISOString() }));
       await writePlays(back, Boolean(account));
-      const open = applied.find((t) => t.before.id === drawer?.playId);
+      await writeFilings(applied.filings, Boolean(account), true);
+      const open = applied.targets.find((t) => t.before.id === drawer?.playId);
       if (drawer && open) {
         drawer.onEdit((field) => restorePlayers(field, open.before.scene, open.after.scene), `Undo ${changeLabel}`);
-        if (flips(edit.changes)) drawer.onMeta({ name: open.before.name, formation: open.before.formation });
+        drawer.onMeta({ name: open.before.name, formation: open.before.formation, playType: open.before.playType, tags: open.before.tags });
       }
       setUndone(true);
-      const kept = applied.length - back.length;
+      const kept = applied.targets.length - back.length;
       setOutcome(
         id,
         `The coach applied the change, then undid it: ${back.length} plays are back as they were.${kept ? ` ${kept} had been edited since and were left alone.` : ""}`,
@@ -498,13 +538,20 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       </div>
       {live.missingBook && !applied ? (
         <p className="pa-error">There's no playbook called "{live.missingBook}". Tell me which one you mean.</p>
-      ) : !targets.length ? (
+      ) : !anything ? (
         <p className="gd-done">None of the {live.inScope} plays here have anything to change.</p>
       ) : (
         <>
+          {filings.length > 0 && (
+            <p className="gd-bulk-count">
+              {filings.map((f) => `${f.book.name}${f.created ? " (new)" : ""}: ${f.before.length} → ${f.after.length} plays`).join(" · ")}
+            </p>
+          )}
+          {targets.length > 0 && (
           <p className="gd-bulk-count">
             <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays · <strong>{players}</strong> {players === 1 ? "change" : "changes"} on the field
           </p>
+          )}
           <ul className="gd-bulk-list">
             {targets.slice(0, 3).map((t) => (
               <li key={t.before.id}>
@@ -543,8 +590,14 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       {done ? (
         <div className="gd-bulk-done">
           <p className="gd-done">
-            <Icon name="check" size={14} /> {undone ? done.replace(/^The coach applied the change, then undid it: /, "Undone. ") : `Applied to ${applied?.length ?? 0} plays.`}
+            <Icon name="check" size={14} /> {undone ? done.replace(/^The coach applied the change, then undid it: /, "Undone. ") : count ? `Applied to ${count} ${count === 1 ? "play" : "plays"}.` : "Done."}
           </p>
+          {band?.op === "wristband" && !undone && (
+            <p className="gd-bulk-count">
+              Your Wristbands page is set to {band.format === "bold" ? "Wristband bold" : "Sideline 2×4"}.{" "}
+              <Link to={bandBook ? `/wristbands?source=book:${bandBook.id}` : "/wristbands"}>Print {bandBook ? bandBook.name : "wristbands"}</Link>
+            </p>
+          )}
           {applied && !undone && (
             <button type="button" className="pa-btn" onClick={() => void undo()} disabled={busy}>
               Undo this change
@@ -552,11 +605,11 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
           )}
         </div>
       ) : (
-        targets.length > 0 &&
+        anything &&
         !live.missingBook && (
           <div className="pa-acts">
             <button type="button" className="pa-btn is-primary" onClick={() => void apply()} disabled={busy}>
-              {busy ? "Applying…" : `Apply to ${targets.length} ${targets.length === 1 ? "play" : "plays"}`}
+              {busy ? "Applying…" : count ? `Apply to ${count} ${count === 1 ? "play" : "plays"}` : "Set the Wristbands card"}
             </button>
           </div>
         )

@@ -13,7 +13,7 @@
  * run fails.
  */
 import { griddy } from "../netlify/ai/griddy.ts";
-import { editScene, planBulkEdit, restorePlayers, sameColor, vaultLooks, type BulkChange, type BulkEdit } from "../src/lib/bulkEdit.ts";
+import { BOLD_PLAYER, BOLD_WIDTH, cleanOpenChange, editScene, planBulkEdit, restorePlayers, sameColor, vaultLooks, type BulkChange, type BulkEdit } from "../src/lib/bulkEdit.ts";
 import type { GriddyAction, GriddyContext, GriddyReply, GriddyRequest, GriddyTurn } from "../src/lib/griddy.ts";
 import { DEFENSE_TOKENS, OFFENSE_TOKENS } from "../src/lib/presets.ts";
 import { makeText } from "../src/lib/scene.ts";
@@ -104,6 +104,7 @@ function buildFixture() {
   const books: LocalPlaybook[] = [
     { id: "b1", name: "Red Zone", description: "", color: RED, isPublic: false, playIds: ["p4", "p9", "p16", "p20", "p10"] },
     { id: "b2", name: "Install", description: "", color: "#1e4fd8", isPublic: false, playIds: ["p3", "p7", "p15", "p19"] },
+    { id: "b3", name: "MID TN BLUE", description: "", color: ROYAL, isPublic: false, playIds: ["p5", "p6", "p8", "p11", "p12", "p13"] },
   ];
   return { plays, books };
 }
@@ -348,6 +349,86 @@ const CASES: Case[] = [
     ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, changes: [{ op: "remove_text" }] }] }],
   },
   {
+    key: "wristband-bold",
+    say: ["Make all of my MID TN Blue Plays Wristband Bold"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (!edit.changes.some((c) => c.op === "wristband" && c.format === "bold")) return fail(`changes ${JSON.stringify(edit.changes)}`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      if (plan.missingBook) return fail(`no playbook called "${plan.missingBook}"`);
+      const book = new Set(fx.books.find((b) => b.name === "MID TN BLUE")!.playIds);
+      const outside = plan.targets.filter((t) => !book.has(t.before.id));
+      if (outside.length) return fail(`changes plays outside MID TN BLUE: ${outside.map((t) => t.before.name).join("; ")}`);
+      for (const t of plan.targets)
+        for (const n of t.after.scene.nodes) {
+          if (n.kind === "path" && n.width !== BOLD_WIDTH) return fail(`a line in "${t.before.name}" is ${n.width} px, not the wristband bold ${BOLD_WIDTH}`);
+          if (n.kind === "player" && n.side !== "ball" && n.size < BOLD_PLAYER) return fail(`a player in "${t.before.name}" is still size ${n.size}`);
+        }
+      return pass(`${plan.targets.length} of ${book.size} plays; ${scopeText(edit)}`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "playbook", name: "MID TN Blue" }, changes: [{ op: "wristband", format: "bold" }] }] }],
+  },
+  {
+    key: "style-routes",
+    say: ["make Y's routes dashed and the heaviest weight"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      if (!plan.targets.length) return fail(`changes nothing (${JSON.stringify(edit.changes)})`);
+      for (const t of plan.targets) {
+        const before = new Map(t.before.scene.nodes.map((n) => [n.id, n]));
+        const ys = t.before.scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && n.label === "Y");
+        for (const n of t.after.scene.nodes) {
+          if (JSON.stringify(n) === JSON.stringify(before.get(n.id))) continue;
+          if (n.kind !== "path") return fail(`changed a ${n.kind} in "${t.before.name}"`);
+          const runsY = ys.some((y) => y.id === n.fromId || Math.hypot(y.x - n.x, y.y - n.y) < 2);
+          if (!runsY) return fail(`changed a line Y doesn't run in "${t.before.name}"`);
+          if (n.style !== "dashed" || n.width !== BOLD_WIDTH) return fail(`Y's line is ${n.style} ${n.width} px in "${t.before.name}"`);
+        }
+      }
+      return pass(`${plan.targets.length} plays`);
+    },
+    ideal: () => [
+      { text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, changes: [{ op: "style", target: "routes", where: { letter: "Y" }, set: { lineStyle: "dashed", width: 5.6 } }] }] },
+    ],
+  },
+  {
+    key: "category",
+    say: ["Mark every play in my Red Zone playbook as a run play and tag them goal line"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      const book = new Set(fx.books.find((b) => b.name === "Red Zone")!.playIds);
+      for (const t of plan.targets) {
+        if (!book.has(t.before.id)) return fail(`changes "${t.before.name}", not in Red Zone`);
+        if (t.after.playType !== "run" || !t.after.tags.includes("goal line")) return fail(`"${t.before.name}" is ${t.after.playType} [${t.after.tags.join(", ")}]`);
+        if (JSON.stringify(t.after.scene) !== JSON.stringify(t.before.scene)) return fail(`changed the field of "${t.before.name}"`);
+      }
+      return plan.targets.length ? pass(`${plan.targets.length} plays`) : fail("changes nothing");
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "playbook", name: "Red Zone" }, changes: [{ op: "meta", playType: "run", addTags: ["goal line"] }] }] }],
+  },
+  {
+    key: "move",
+    say: ["Move my Install plays into MID TN BLUE"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      const to = plan.filings.find((f) => f.book.name === "MID TN BLUE");
+      const from = plan.filings.find((f) => f.book.name === "Install");
+      const install = fx.books.find((b) => b.name === "Install")!.playIds;
+      if (!to || install.some((id) => !to.after.includes(id))) return fail(`Install plays not filed in MID TN BLUE (${JSON.stringify(edit.changes)})`);
+      if (!from || from.after.length) return { result: "asked", note: "copied rather than moved" };
+      if (plan.targets.length) return fail("changed the plays themselves");
+      return pass(`${install.length} plays moved`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "playbook", name: "Install" }, changes: [{ op: "file", playbook: "MID TN BLUE", from: "Install" }] }] }],
+  },
+  {
     key: "follow-up",
     say: ["make all of X's routes red", "actually, only the ones in my Red Zone playbook"],
     check: routeRed("Red Zone"),
@@ -374,6 +455,10 @@ function flag(name: string) {
   return i < 0 ? undefined : (process.argv[i + 1] ?? "");
 }
 
+/** JSON with keys sorted, so key order doesn't count as a difference. */
+const canon = (v: unknown): string =>
+  JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
+
 async function runCase(c: Case, fx: Fixture, dry: boolean): Promise<{ verdict: Verdict; seconds: number }> {
   const turns: GriddyTurn[] = [];
   const ideal = dry ? c.ideal(fx) : [];
@@ -383,6 +468,11 @@ async function runCase(c: Case, fx: Fixture, dry: boolean): Promise<{ verdict: V
     turns.push({ role: "coach", text });
     const body: GriddyRequest = { turns, context: context(fx), terms: [] };
     reply = dry ? ideal[i] : await griddy(body);
+    if (dry)
+      for (const a of bulk(reply))
+        for (const c of a.changes)
+          if (["style", "wristband", "meta", "file"].includes(c.op) && canon(cleanOpenChange(c as Record<string, unknown>)) !== canon(c))
+            throw new Error(`the server would change ${JSON.stringify(c)} to ${JSON.stringify(cleanOpenChange(c as Record<string, unknown>))}`);
     turns.push({ role: "griddy", text: reply.text, actions: reply.actions });
   }
   return { verdict: c.check(reply, fx), seconds: (Date.now() - start) / 1000 };

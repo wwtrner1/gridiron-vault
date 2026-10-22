@@ -488,3 +488,24 @@ export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: Ban
     },
   },
 ];
+
+/** Where the Wristbands page keeps its card settings in this browser. */
+export const BAND_PREFS_KEY = "grid1ronvault.wristbands.v1";
+
+/** Fired when something other than the Wristbands page changes its saved settings. */
+export const BAND_PREFS_EVENT = "grid1ronvault:wristband-prefs";
+
+/** Sets the Wristbands page to a one-click card layout (Griddy's wristband change); false if storage is blocked. */
+export function chooseBandPreset(id: string): boolean {
+  const preset = BAND_PRESETS.find((p) => p.id === id);
+  if (!preset) return false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(BAND_PREFS_KEY) ?? "null") ?? {};
+    localStorage.setItem(BAND_PREFS_KEY, JSON.stringify({ ...saved, ...preset.prefs }));
+    // The Wristbands page, if it's open behind Griddy's panel, picks the new layout up.
+    window.dispatchEvent(new Event(BAND_PREFS_EVENT));
+    return true;
+  } catch {
+    return false;
+  }
+}
