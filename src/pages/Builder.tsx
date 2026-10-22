@@ -33,10 +33,12 @@ import {
   type TokenPreset,
 } from "../lib/presets";
 import {
+  bendAroundPlayers,
   canReshape,
   cleanUpPaths,
   cloneNodes,
   describe,
+  extendToSideline,
   flipNodes,
   nextZ,
   reconcileConnections,
@@ -44,6 +46,7 @@ import {
   sendToBack,
   smoothPaths,
   snapPathsToPlayers,
+  stopAtLos,
   straightenPaths,
   toolLook,
   type LineLook,
@@ -645,6 +648,16 @@ export function Builder() {
     applyScene(op(scene, selection), label);
     setStatus(`${label}. Undo puts the line back the way you drew it.`);
   };
+  // Snaps for the picked lines: each says what it did, or why nothing changed.
+  const snapLines = (op: (s: Scene, ids: string[]) => { scene: Scene; count: number }, label: string, done: string, none: string) => {
+    const { scene: next, count } = op(scene, selection);
+    if (!count) {
+      setStatus(none);
+      return;
+    }
+    applyScene(next, label);
+    setStatus(`${done.replace("{n}", count === 1 ? "1 line" : `${count} lines`)} Undo puts ${count === 1 ? "it" : "them"} back.`);
+  };
   // The whole play at once: every hand-drawn line tidied the way it was drawn, or all smoothed / all straightened.
   const cleanUpLines = () => {
     const { scene: next, count } = cleanUpPaths(scene);
@@ -718,6 +731,36 @@ export function Builder() {
             ? [
                 { id: "smooth", section: "Clean up", label: "Smooth into a curve", run: () => reshape(smoothPaths, "Smoothed") },
                 { id: "straighten", section: "Clean up", label: "Straighten into clean cuts", run: () => reshape(straightenPaths, "Straightened") },
+              ]
+            : []),
+          ...(paths.some((p) => !p.closed && !p.toId)
+            ? [
+                {
+                  id: "to-sideline",
+                  section: "Snap",
+                  label: "Extend to the sideline",
+                  run: () =>
+                    snapLines(
+                      extendToSideline,
+                      "Extend to sideline",
+                      "Ran {n} on to the sideline.",
+                      "Nothing to extend: a route has to be heading toward a sideline, not straight up the field.",
+                    ),
+                },
+                {
+                  id: "stop-los",
+                  section: "Snap",
+                  label: "Stop at the line of scrimmage",
+                  run: () =>
+                    snapLines(stopAtLos, "Stop at the line", "Cut {n} off at the line of scrimmage.", "That line doesn't cross the line of scrimmage, so there's nothing to cut."),
+                },
+                {
+                  id: "bend",
+                  section: "Snap",
+                  label: "Bend around players",
+                  run: () =>
+                    snapLines(bendAroundPlayers, "Bend around players", "Bent {n} around the players in the way.", "That line doesn't run through anyone. Nothing to bend."),
+                },
               ]
             : []),
         ]

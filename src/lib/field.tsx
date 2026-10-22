@@ -1,6 +1,9 @@
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 
+/** How far in from the canvas edge each field view draws its sidelines. */
+export const fieldInset = (view: FieldView) => (view === "flag" ? 96 : 34);
+
 type Props = {
   view: FieldView;
   losY: number;
@@ -50,7 +53,7 @@ export function FieldBackground({ view, losY, lite = false, weight = 1 }: Props)
   if (gap > 0) for (let y = gap; y < CANVAS_H - 6; y += gap) lines.push(y);
 
   const numbered = view === "full" || view === "half";
-  const inset = view === "flag" ? 96 : 34;
+  const inset = fieldInset(view);
 
   return (
     <g pointerEvents="none">
