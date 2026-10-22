@@ -12,7 +12,8 @@ import {
   type GriddyTurn,
 } from "../../src/lib/griddy.js";
 import type { AssistantRead } from "../../src/lib/assistant.js";
-import { bulkColor, LETTER, MAX_BULK_CHANGES, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
+import { bulkColor, LETTER, MAX_BULK_CHANGES, MAX_LOOKS, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
+import { normalizeHex } from "../../src/lib/colors.js";
 import { MAX_CALL_LINES } from "../../src/lib/griddy.js";
 import { AiError, converse, MODELS } from "./claude.js";
 import { cleanRead } from "./reads.js";
@@ -70,12 +71,18 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       formation: str(p?.formation, 60),
       type: str(p?.type, 20),
       tags: (Array.isArray(p?.tags) ? p.tags : []).slice(0, 8).map((t) => str(t, 30)),
+      books: (Array.isArray(p?.books) ? p.books : []).slice(0, 6).map((b) => str(b, 120)),
     })),
     playbooks: (Array.isArray(c.playbooks) ? c.playbooks : []).slice(0, 60).map((b) => ({
       id: str(b?.id, 64),
       name: str(b?.name, 120),
       plays: Math.max(0, Number(b?.plays) || 0),
     })),
+    looks: (Array.isArray(c.looks) ? c.looks : []).slice(0, MAX_LOOKS).flatMap((l) => {
+      const letter = str(l?.letter, 3).trim().toUpperCase();
+      const color = normalizeHex(str(l?.color, 10));
+      return LETTER.test(letter) && color ? [{ letter, color, plays: Math.max(0, Math.min(100000, Number(l?.plays) || 0)) }] : [];
+    }),
   };
   const terms = (Array.isArray(body.terms) ? body.terms : [])
     .slice(0, 80)
@@ -163,19 +170,31 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
       // Invalid entries are dropped first, so they can't use up the cap on changes.
       const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, 40).flatMap((c): BulkChange[] => {
         const letter = (v: unknown) => str(v, 3).trim().toUpperCase();
+        // "Only the green Xs": a color that doesn't parse would widen the change to every X, so the change is dropped.
+        const only = c?.only == null || c.only === "" ? undefined : bulkColor(str(c.only, 30));
+        if (only === null) return [];
+        const narrow = only ? { only } : {};
         if (c?.op === "recolor") {
           const color = bulkColor(str(c.color, 30));
-          return LETTER.test(letter(c.letter)) && color ? [{ op: "recolor", letter: letter(c.letter), color }] : [];
+          return LETTER.test(letter(c.letter)) && color ? [{ op: "recolor", letter: letter(c.letter), color, ...narrow }] : [];
         }
         if (c?.op === "route_color") {
           const color = bulkColor(str(c.color, 30));
-          return LETTER.test(letter(c.letter)) && color ? [{ op: "route_color", letter: letter(c.letter), color }] : [];
+          return LETTER.test(letter(c.letter)) && color ? [{ op: "route_color", letter: letter(c.letter), color, ...narrow }] : [];
         }
         if (c?.op === "mirror") return [{ op: "mirror" }];
-        if (c?.op === "swap")
+        if (c?.op === "remove_text") return [{ op: "remove_text" }];
+        if (c?.op === "clear_letters") {
+          if (c.letter == null || c.letter === "") return [{ op: "clear_letters", ...narrow }];
+          return LETTER.test(letter(c.letter)) ? [{ op: "clear_letters", letter: letter(c.letter), ...narrow }] : [];
+        }
+        if (c?.op === "swap") {
+          const color = c.color == null || c.color === "" ? undefined : bulkColor(str(c.color, 30));
+          if (color === null) return [];
           return LETTER.test(letter(c.from)) && LETTER.test(letter(c.to)) && letter(c.from) !== letter(c.to)
-            ? [{ op: "swap", from: letter(c.from), to: letter(c.to) }]
+            ? [{ op: "swap", from: letter(c.from), to: letter(c.to), ...(color ? { color } : {}), ...narrow }]
             : [];
+        }
         return [];
       }).slice(0, MAX_BULK_CHANGES);
       let scope: BulkScope = { kind: "vault" };
