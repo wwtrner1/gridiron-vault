@@ -1,7 +1,7 @@
 import { ASSISTANT_TOOL, BLOCK_IDS, ROUTE_IDS } from "./assistant";
 import type { AssistantRead } from "./assistant";
-import type { BulkEdit } from "./bulkEdit";
-import { MAX_BULK_CHANGES } from "./bulkEdit";
+import type { BulkEdit, VaultLook } from "./bulkEdit";
+import { MAX_BULK_CHANGES, nearestColorName } from "./bulkEdit";
 import { BRAND_COLORS, TEAM_COLORS } from "./colors";
 import type { GameType } from "./formations";
 
@@ -15,8 +15,8 @@ import type { GameType } from "./formations";
  */
 export const GRIDDY = "Griddy";
 
-/** One play in the coach's Vault, as Griddy sees it. */
-export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; tags: string[] };
+/** One play in the coach's Vault, as Griddy sees it, with the playbooks it's filed in. */
+export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; tags: string[]; books: string[] };
 
 /** What the coach is looking at, sent with every message. */
 export type GriddyContext = {
@@ -26,6 +26,8 @@ export type GriddyContext = {
   play: { name: string; formation: string; players: string[]; lines: number } | null;
   vault: GriddyPlayRef[];
   playbooks: { id: string; name: string; plays: number }[];
+  /** Letters and the colors they wear across the whole Vault, so "the green Xs" names a real fill. */
+  looks: VaultLook[];
 };
 
 /** A play Griddy found in a dump, ready to be drawn one at a time. */
@@ -110,7 +112,7 @@ export const GRIDDY_TOOLS = [
   {
     name: "bulk_edit",
     description:
-      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, and keeps the old player's routes), recolor the routes a letter runs, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should). The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
+      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, or the color you give, and keeps the old player's routes), recolor the routes a letter runs, clear the letters off player tokens, remove the text boxes from the field, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should; names and formations swap Right and Left too). Any change to players can be narrowed with only, to players wearing that color now. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
     input_schema: {
       type: "object",
       properties: {
@@ -124,11 +126,15 @@ export const GRIDDY_TOOLS = [
           items: {
             type: "object",
             properties: {
-              op: { type: "string", enum: ["recolor", "swap", "route_color", "mirror"] },
-              letter: { type: "string", description: "recolor / route_color: the player letter, e.g. Y." },
-              color: { type: "string", description: "recolor / route_color: a 6-digit hex color, e.g. #f5d33b for yellow." },
+              op: { type: "string", enum: ["recolor", "swap", "route_color", "clear_letters", "remove_text", "mirror"] },
+              letter: { type: "string", description: "recolor / route_color: the player letter, e.g. Y. clear_letters: only this letter; leave it out to clear every player." },
+              color: { type: "string", description: "recolor / route_color: a 6-digit hex color, e.g. #f5d33b for yellow. swap: the new letter's color, only if the coach named one." },
               from: { type: "string", description: "swap: the letter to take out, e.g. S." },
               to: { type: "string", description: "swap: the letter to put in, e.g. H." },
+              only: {
+                type: "string",
+                description: "recolor / swap / route_color / clear_letters: only players wearing this color now, as hex (\"the green Xs\"). Use the color from Player looks in the context.",
+              },
             },
             required: ["op"],
           },
@@ -183,7 +189,9 @@ Tools:
 - import_plays: several plays at once (a pasted list, a call sheet, a long dictation, a file). Make one entry per play and keep the coach's words. Up to ${GRIDDY_LIMITS.importPlays} at a time; if there are more, take the first ${GRIDDY_LIMITS.importPlays} and say so.
 - show_plays: find plays in the coach's Vault. Use only ids from the Vault list in the latest context.
 - build_call_sheet: a game-day call sheet from the coach's Vault ("4 openers, 3 red zone, 2 goal line"). Pick real Vault plays that fit each situation, by formation, type and tags; say which sections you couldn't fill.
-- bulk_edit: change many saved plays at once ("make every Y yellow", "take the S out of all my plays and put in an H", "in my Red Zone playbook, swap Z for X", "make all of X's routes red"). Scope it to the playbook or plays the coach names, else the whole Vault. You don't need to find which plays have the letter; the app does. Colors as hex; palette: ${[...TEAM_COLORS, ...BRAND_COLORS].map((c) => `${c.name} ${c.hex}`).join(", ")}.
+- bulk_edit: change many saved plays at once ("make every Y yellow", "take the S out of all my plays and put in an H", "in my Red Zone playbook, swap Z for X", "make all of X's routes red", "remove the letters from my players", "take the text off my plays"). Scope it to the playbook or plays the coach names, else the whole Vault. You don't need to find which plays have the letter; the app does. Colors as hex; palette: ${[...TEAM_COLORS, ...BRAND_COLORS].map((c) => `${c.name} ${c.hex}`).join(", ")}.
+- When the coach names the color players wear now ("all green X receivers are now blue Z receivers"), set only to that color, using the hex from Player looks in the context, so other Xs stay as they are. Do the letter and its new color in one swap with color set; a separate recolor of Z would also repaint the Zs they already have.
+- "Remove the text from the players" or "blank the letters" is clear_letters (every player unless a letter is named). Text boxes on the field are remove_text. If the coach just says "remove all text" and it isn't clear which, ask.
 - Flipping (mirror) moves every play it's given to the other side; it doesn't know left from right. For "flip my Trips plays to the left", list by id (scope plays) only the plays the Vault shows on the other side now, from their name or formation ("Trips Right"), and leave out plays already on that side. If a play's name and formation don't say its side, leave it out and ask. Use the whole Vault for a mirror only when the coach asks to flip every play.
 
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
@@ -213,10 +221,16 @@ export function griddyContextText(ctx: GriddyContext, terms: GriddyRequest["term
       ? `Playbooks: ${ctx.playbooks.map((b) => `${b.name} (${b.plays})`).join("; ")}.`
       : "No playbooks yet.",
   );
+  if (ctx.looks.length)
+    lines.push(
+      `Player looks across the Vault (letter, color, plays): ${ctx.looks
+        .map((l) => `${l.letter} ${l.color}${nearestColorName(l.color) ? ` (${nearestColorName(l.color)?.toLowerCase()})` : ""} ×${l.plays}`)
+        .join("; ")}.`,
+    );
   lines.push(
     ctx.vault.length
-      ? `Vault (${ctx.vault.length} plays; id | name | formation | type | tags):\n${ctx.vault
-          .map((p) => `${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.tags.join(", ")}`)
+      ? `Vault (${ctx.vault.length} plays; id | name | formation | type | tags | playbooks):\n${ctx.vault
+          .map((p) => `${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.tags.join(", ")} | ${p.books.join(", ") || "-"}`)
           .join("\n")}`
       : "The Vault is empty.",
   );

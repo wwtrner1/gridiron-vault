@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { trustSaidLetters } from "../lib/assistant";
 import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
+import { vaultLooks } from "../lib/bulkEdit";
 import { useAuth } from "../lib/auth";
 import { useDictation } from "../lib/dictation";
 import { GRIDDY, GRIDDY_LIMITS } from "../lib/griddy";
@@ -29,6 +30,8 @@ export type GriddyDrawer = {
   onDraw: (nodes: SceneNode[], read: AssistantRead) => void;
   /** Changes the open field in place, as one undoable step (a bulk edit that includes this play). */
   onEdit: (edit: (scene: Scene) => Scene, label: string) => void;
+  /** Renames the open play (a flip turns "Trips Right" into "Trips Left"). */
+  onMeta: (patch: { name: string; formation: string }) => void;
 };
 
 type GriddyValue = {
@@ -60,15 +63,18 @@ export function useGriddy() {
   return ctx;
 }
 
-/** Plays and playbooks Griddy can search, newest first. */
-function vaultContext(): Pick<GriddyContext, "vault" | "playbooks"> {
+/** Plays and playbooks Griddy can search, newest first, and the player looks across all of them. */
+function vaultContext(): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
   const { plays, playbooks } = store.get();
+  const books = new Map<string, string[]>();
+  for (const b of playbooks) for (const id of b.playIds) books.set(id, [...(books.get(id) ?? []), b.name]);
   return {
     vault: [...plays]
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
       .slice(0, GRIDDY_LIMITS.vault)
-      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, tags: p.tags.slice(0, 8) })),
+      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6) })),
     playbooks: playbooks.map((b) => ({ id: b.id, name: b.name, plays: b.playIds.length })),
+    looks: vaultLooks(plays),
   };
 }
 
@@ -185,10 +191,11 @@ export function useGriddyDrawer(opts: {
   playId: string | null;
   onDraw: GriddyDrawer["onDraw"];
   onEdit: GriddyDrawer["onEdit"];
+  onMeta: GriddyDrawer["onMeta"];
 }) {
   const { setDrawer } = useGriddy();
-  const handlers = useRef({ onDraw: opts.onDraw, onEdit: opts.onEdit });
-  handlers.current = { onDraw: opts.onDraw, onEdit: opts.onEdit };
+  const handlers = useRef({ onDraw: opts.onDraw, onEdit: opts.onEdit, onMeta: opts.onMeta });
+  handlers.current = { onDraw: opts.onDraw, onEdit: opts.onEdit, onMeta: opts.onMeta };
   const { scene, tokens, playId } = opts;
   const { name, formation } = opts.meta;
   useEffect(() => {
@@ -201,6 +208,7 @@ export function useGriddyDrawer(opts: {
       playId,
       onDraw: (nodes, read) => handlers.current.onDraw(nodes, read),
       onEdit: (edit, label) => handlers.current.onEdit(edit, label),
+      onMeta: (patch) => handlers.current.onMeta(patch),
     });
   }, [scene, tokens, name, formation, playId, setDrawer]);
   useEffect(() => () => setDrawer(null), [setDrawer]);

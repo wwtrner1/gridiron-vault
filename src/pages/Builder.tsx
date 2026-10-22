@@ -457,6 +457,7 @@ export function Builder() {
     onDraw: drawAssistant,
     // A Griddy bulk edit that includes the open play changes the field too, so the next save keeps it.
     onEdit: (edit, label) => applyScene(edit(sceneRefValue.current), label),
+    onMeta: (patch) => setMeta((m) => ({ ...m, ...patch })),
   });
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {

@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
-import { describeChange, editScene, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
+import { describeChange, editScene, flips, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
 import type { BulkEdit, BulkTarget } from "../lib/bulkEdit";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
@@ -397,7 +397,7 @@ async function writePlays(plays: StoredPlay[], signedIn: boolean) {
   if (!signedIn) return;
   for (const p of plays.filter((x) => x.remote)) {
     try {
-      await api.updatePlay(p.id, { scene: p.scene });
+      await api.updatePlay(p.id, { scene: p.scene, name: p.name, formation: p.formation });
     } catch {
       /* the local copy is already updated; it syncs on the next save */
     }
@@ -441,12 +441,16 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
         Boolean(account),
       );
       // The play open in the Designer changes on the field too, so its next save keeps the edit.
-      if (drawer?.playId && list.some((t) => t.before.id === drawer.playId))
+      const open = list.find((t) => t.before.id === drawer?.playId);
+      if (drawer && open) {
         drawer.onEdit((field) => editScene(field, edit.changes, tokens).scene, changeLabel);
+        // A flip renames "Trips Right" to "Trips Left"; the Designer's copy of the name follows, or its next save puts it back.
+        if (flips(edit.changes)) drawer.onMeta({ name: open.after.name, formation: open.after.formation });
+      }
       setApplied(list);
       setOutcome(
         id,
-        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players or lines changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players, lines or text boxes changed).${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
       );
       toast(`${list.length} ${list.length === 1 ? "play" : "plays"} updated.`);
       dance();
@@ -466,7 +470,10 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       const back = applied.filter(same).map((t) => ({ ...t.before, updatedAt: new Date().toISOString() }));
       await writePlays(back, Boolean(account));
       const open = applied.find((t) => t.before.id === drawer?.playId);
-      if (drawer && open) drawer.onEdit((field) => restorePlayers(field, open.before.scene, open.after.scene), `Undo ${changeLabel}`);
+      if (drawer && open) {
+        drawer.onEdit((field) => restorePlayers(field, open.before.scene, open.after.scene), `Undo ${changeLabel}`);
+        if (flips(edit.changes)) drawer.onMeta({ name: open.before.name, formation: open.before.formation });
+      }
       setUndone(true);
       const kept = applied.length - back.length;
       setOutcome(
@@ -492,7 +499,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       {live.missingBook && !applied ? (
         <p className="pa-error">There's no playbook called "{live.missingBook}". Tell me which one you mean.</p>
       ) : !targets.length ? (
-        <p className="gd-done">None of the {live.inScope} plays here have a player to change.</p>
+        <p className="gd-done">None of the {live.inScope} plays here have anything to change.</p>
       ) : (
         <>
           <p className="gd-bulk-count">
@@ -514,6 +521,9 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
             <p className="gd-bulk-count">
               {live.firstReads} first-read {live.firstReads === 1 ? "route stays" : "routes stay"} cyan, so the read still stands out.
             </p>
+          )}
+          {edit.changes.some((c) => c.op === "clear_letters") && !applied && (
+            <p className="gd-bulk-count">Cleared players keep their colors and routes, but changes by letter won't find them until they're relettered.</p>
           )}
           {targets.length > 3 && (
             <details className="gd-bulk-more">

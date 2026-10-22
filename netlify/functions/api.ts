@@ -252,7 +252,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         const body = await req.json();
         const [row] = await db
           .update(plays)
-          .set({ ...sanitisePlay(body), updatedAt: new Date() })
+          .set({ ...sanitisePlayPatch(body), updatedAt: new Date() })
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)))
           .returning();
         if (!row) return fail("You can only edit your own plays.", 403);
@@ -743,6 +743,15 @@ function sanitisePlay(body: Record<string, unknown>) {
     preview: String(body.preview ?? "").slice(0, 200000),
     isPublic: Boolean(body.isPublic),
   };
+}
+
+/**
+ * Only the fields a PUT sends. A scene-only update (a Griddy bulk edit, a
+ * Vault format paint) must leave the play's name, tags and sharing alone,
+ * not reset them to the defaults a new play gets.
+ */
+function sanitisePlayPatch(body: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(sanitisePlay(body)).filter(([key]) => key in body)) as Partial<ReturnType<typeof sanitisePlay>>;
 }
 
 export const config: Config = {
