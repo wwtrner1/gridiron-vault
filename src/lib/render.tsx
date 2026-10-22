@@ -124,7 +124,61 @@ function PathGlyph({ node }: { node: PathNode }) {
         markerStart={markerUrl(node.startCap, stroke)}
         markerEnd={markerUrl(node.endCap, stroke)}
       />
+      <RouteTag node={node} color={stroke} />
     </>
+  );
+}
+
+/** Longest route tag a coach can type; longer text would cover the field. */
+export const TAG_MAX = 24;
+
+/**
+ * A route's tag, drawn in the path's own frame but turned back upright so it
+ * reads the same on a flipped or rotated route. It sits just past the end of
+ * the route, along its last leg; on a zone it sits in the middle.
+ */
+function RouteTag({ node, color }: { node: PathNode; color: string }) {
+  const text = node.tag?.trim().slice(0, TAG_MAX);
+  const pts = node.points;
+  if (!text || pts.length < 2) return null;
+  const fontSize = 13;
+  const halfW = (text.length * fontSize * 0.56) / 2 + 6;
+  const halfH = fontSize * 0.75;
+  let at = pts[pts.length - 1];
+  let ox = 0;
+  let oy = 0;
+  if (node.closed) {
+    at = { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length };
+  } else {
+    const prev = pts[pts.length - 2];
+    const a = (node.rotation * Math.PI) / 180;
+    const lx = (at.x - prev.x) * node.scaleX;
+    const ly = (at.y - prev.y) * node.scaleY;
+    const wx = lx * Math.cos(a) - ly * Math.sin(a);
+    const wy = lx * Math.sin(a) + ly * Math.cos(a);
+    const len = Math.hypot(wx, wy) || 1;
+    const ux = wx / len;
+    const uy = wy / len;
+    const gap = 10 + halfW * Math.abs(ux) + halfH * Math.abs(uy);
+    ox = ux * gap;
+    oy = uy * gap;
+  }
+  return (
+    <g transform={`translate(${at.x} ${at.y}) scale(${1 / (node.scaleX || 1)} ${1 / (node.scaleY || 1)}) rotate(${-node.rotation})`}>
+      <rect x={ox - halfW} y={oy - halfH} width={halfW * 2} height={halfH * 2} rx={4} fill="#FFFFFF" stroke={color} strokeWidth={1.4} />
+      <text
+        x={ox}
+        y={oy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={fontSize}
+        fontWeight={700}
+        fill="#10202B"
+        fontFamily="'Barlow', system-ui, sans-serif"
+      >
+        {text}
+      </text>
+    </g>
   );
 }
 

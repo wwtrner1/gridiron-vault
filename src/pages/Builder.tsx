@@ -696,6 +696,19 @@ export function Builder() {
           ...(paths.length === 1
             ? [{ id: "first-read", section: "Ends", label: "First read", on: !!paths[0].firstRead, run: () => setFirstRead(!paths[0].firstRead) }]
             : []),
+          ...(paths.length === 1
+            ? [
+                {
+                  id: "tag",
+                  section: "Ends",
+                  label: paths[0].tag ? "Edit the route tag" : "Add a route tag",
+                  run: () => {
+                    setSideOpen(true);
+                    setTimeout(() => document.getElementById("route-tag")?.focus(), 60);
+                  },
+                },
+              ]
+            : []),
           ...(paths.some((p) => !p.closed && !p.toId && !p.fromId && !p.assignOf)
             ? [{ id: "snap-player", section: "Clean up", label: "Snap to nearest player", run: snapToPlayer }]
             : []),
