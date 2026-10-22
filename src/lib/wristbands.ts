@@ -54,6 +54,9 @@ export type BandPaperId = (typeof BAND_PAPERS)[number]["id"];
 export const NUMBER_SIZES = { s: 8, m: 11, l: 15 } as const;
 export type NumberSize = keyof typeof NUMBER_SIZES;
 
+/** How each box shows its number: a dark tab at the left, or a gray strip across the top. */
+export type NumberStyle = "tab" | "band";
+
 /** Words in the header and border text that fill in per card. */
 export const BAND_TOKENS = ["{role}", "{card}", "{source}", "{count}"] as const;
 
@@ -63,6 +66,7 @@ export type BandOptions = {
   shows: CellShows;
   look: PrintLook;
   numberSize: NumberSize;
+  numberStyle: NumberStyle;
   header: { show: boolean; left: string; right: string };
   /** Text printed along the bottom border, e.g. the team name. Empty for none. */
   footer: string;
@@ -99,6 +103,9 @@ export function fillBandText(text: string, vars: { role: string; card: string; s
 export function bandChrome(opts: Pick<BandOptions, "header" | "footer">) {
   return { headH: opts.header.show ? 0.2 : 0, footH: opts.footer.trim() ? 0.16 : 0 };
 }
+
+/** Fill of the "band" number strip, also used by the preview. */
+export const BAND_GRAY: [number, number, number] = [217, 222, 227];
 
 /** Number strip at the top of each cell, in inches. */
 export const stripHeight = (size: NumberSize) => (NUMBER_SIZES[size] * 1.3) / 72;
@@ -158,18 +165,29 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
       }
       continue;
     }
-    // Number in a solid tab, name beside it, diagram filling the rest of the cell.
     doc.setFontSize(numPt);
-    const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
-    doc.setFillColor(11, 21, 36);
-    doc.rect(cx, cy, tabW, strip, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
-    if (o.shows.name) {
-      doc.setFontSize(Math.max(5.5, numPt * 0.66));
+    if (o.numberStyle === "band") {
+      // Gray strip across the top with the number centred, like most printed wristbands.
+      doc.setFillColor(...BAND_GRAY);
+      doc.rect(cx, cy, cellW, strip, "F");
+      doc.setDrawColor(150, 164, 178);
+      doc.line(cx, cy + strip, cx + cellW, cy + strip);
       doc.setTextColor(11, 21, 36);
-      const name = doc.splitTextToSize(e.name.toUpperCase(), cellW - tabW - 0.08)[0] ?? "";
-      doc.text(name, cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
+      const label = o.shows.name ? `${e.number} · ${e.name.toUpperCase()}` : e.number;
+      doc.text(doc.splitTextToSize(label, cellW - 0.08)[0] ?? e.number, cx + cellW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
+    } else {
+      // Number in a solid tab, name beside it, diagram filling the rest of the cell.
+      const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
+      doc.setFillColor(11, 21, 36);
+      doc.rect(cx, cy, tabW, strip, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
+      if (o.shows.name) {
+        doc.setFontSize(Math.max(5.5, numPt * 0.66));
+        doc.setTextColor(11, 21, 36);
+        const name = doc.splitTextToSize(e.name.toUpperCase(), cellW - tabW - 0.08)[0] ?? "";
+        doc.text(name, cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
+      }
     }
     const pad = 0.03;
     await placeDiagram(doc, e.scene, cx + pad, cy + strip + pad / 2, cellW - pad * 2, cellH - strip - pad * 1.5, {
@@ -286,3 +304,43 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
   doc.setProperties({ title: `Wristbands · ${o.source}` });
   return doc;
 }
+
+/** Card settings a preset can set in one click; anything left out stays as the coach had it. */
+export type BandPresetPrefs = {
+  grid?: string;
+  sizeId?: BandSizeId;
+  shows?: CellShows;
+  look?: PrintLook;
+  numberSize?: NumberSize;
+  numberStyle?: NumberStyle;
+  header?: BandOptions["header"];
+};
+
+export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: BandPresetPrefs }[] = [
+  {
+    id: "sideline",
+    label: "Sideline 2×4",
+    hint: "Eight plays to a card: gray number strip, solid colored dots, bold routes, no field. The classic wristband look.",
+    prefs: {
+      grid: "4x2",
+      shows: { diagram: true, name: false, numberOnly: false },
+      look: { fit: "play", weight: "auto", field: "none", dots: true, icons: 1, lines: 1, zoom: 1 },
+      numberSize: "m",
+      numberStyle: "band",
+      header: { show: false, ...defaultBandText },
+    },
+  },
+  {
+    id: "bold",
+    label: "Wristband bold",
+    hint: "Six plays to a card with extra-thick routes, big lettered players and large numbers, for players who read on the run.",
+    prefs: {
+      grid: "3x2",
+      shows: { diagram: true, name: false, numberOnly: false },
+      look: { fit: "play", weight: "auto", field: "lite", dots: false, icons: 1.3, lines: 1.5, zoom: 1 },
+      numberSize: "l",
+      numberStyle: "tab",
+      header: { show: true, ...defaultBandText },
+    },
+  },
+];

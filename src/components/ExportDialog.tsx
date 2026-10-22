@@ -46,6 +46,29 @@ const KINDS: { id: Kind; label: string }[] = [
 
 const DPI_STEPS = [96, 150, 300, 600];
 
+/** One click to a known-good print setup; everything stays editable afterwards. */
+const EXPORT_PRESETS: { id: string; label: string; hint: string; options: Partial<SheetOptions> & { size: SizeChoice } }[] = [
+  {
+    id: "bold",
+    label: "Wristband bold",
+    hint: "One play per 4.75 × 2.50 in card: zoomed in, extra-thick routes, big players. For the full 6 or 8-up card, use the Wristbands page.",
+    options: {
+      size: "wristband-lg",
+      perPage: 1,
+      includeName: true,
+      includeNotes: false,
+      transparent: false,
+      look: { fit: "play", weight: "auto", field: "lite", icons: 1.3, lines: 1.5 },
+    },
+  },
+  {
+    id: "binder",
+    label: "Install binder",
+    hint: "One play per letter page with the whole field and your coaching notes underneath.",
+    options: { size: "letter-p", perPage: 1, includeName: true, includeNotes: true, transparent: false, look: FULL_LOOK },
+  },
+];
+
 /** Small cards print zoomed in and heavier; big pages print the field as drawn. */
 const lookForSize = (w: number, h: number): PrintLook => (w < 5.5 && h < 5.5 ? CARD_LOOK : FULL_LOOK);
 
@@ -181,6 +204,25 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         ))}
       </div>
       {!vectorGate.ok && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>{vectorGate.reason}</p>}
+
+      <p className="eyebrow" id="ex-presets">One-click styles</p>
+      <div className="chip-row" style={{ marginBottom: 16 }} role="group" aria-labelledby="ex-presets">
+        {EXPORT_PRESETS.map((pre) => (
+          <Tooltip key={pre.id} title={pre.label} hint={pre.hint} side="top">
+            <button
+              type="button"
+              className="chip"
+              disabled={!gateSize(tier, pre.options.size).ok}
+              onClick={() => {
+                setKind("pdf");
+                setOptions((o) => ({ ...o, ...pre.options }));
+              }}
+            >
+              {pre.label}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
 
       <div className="ex-preview" aria-label={`Print preview, ${size.w} by ${size.h} inches`}>
         <div

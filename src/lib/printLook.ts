@@ -17,10 +17,31 @@ export type PrintLook = {
   weight: number | "auto";
   /** Field markings: everything, line of scrimmage only, or nothing. */
   field: PrintField;
+  /** Zoom on top of the framing: below 1 shows more field, above 1 crops tighter. Default 1. */
+  zoom?: number;
+  /** Player icon size on top of the weight (small 0.8, medium 1, large 1.3). Default 1. */
+  icons?: number;
+  /** Route line thickness on top of the weight (thin 0.7, medium 1, thick 1.5). Default 1. */
+  lines?: number;
+  /** Solid colored dots with no letters, like most printed wristbands. */
+  dots?: boolean;
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: 1, field: "full" };
 export const CARD_LOOK: PrintLook = { fit: "play", weight: "auto", field: "lite" };
+
+/** Playmaker-style fine tuning, shown as chips on the Wristbands page. */
+export const ZOOM_STEPS = [0.75, 1, 1.25, 1.5];
+export const ICON_STEPS: { value: number; label: string }[] = [
+  { value: 0.8, label: "Small" },
+  { value: 1, label: "Medium" },
+  { value: 1.3, label: "Large" },
+];
+export const LINE_STEPS: { value: number; label: string }[] = [
+  { value: 0.7, label: "Thin" },
+  { value: 1, label: "Medium" },
+  { value: 1.5, label: "Thick" },
+];
 
 export const WEIGHT_STEPS: (number | "auto")[] = ["auto", 1, 1.5, 2, 2.5, 3];
 
@@ -63,11 +84,11 @@ function tokenRoom(scene: Scene): number {
  * grow as far as the room between players allows. Labels follow the tokens.
  * Positions don't move.
  */
-export function boostScene(scene: Scene, line: number, token = line, fit = false): Scene {
-  if (line === 1 && token === 1) return scene;
+export function boostScene(scene: Scene, line: number, token = line, fit = false, dots = false): Scene {
+  if (line === 1 && token === 1 && !dots) return scene;
   const tokenK = fit ? Math.min(token, tokenRoom(scene)) : token;
   const nodes = scene.nodes.map((n): SceneNode => {
-    if (n.kind === "player") return { ...n, size: n.size * tokenK };
+    if (n.kind === "player") return { ...n, size: n.size * tokenK, label: dots ? "" : n.label };
     if (n.kind === "path") return { ...n, width: n.width * line };
     if (n.kind === "shape") return { ...n, width: n.width * line };
     return { ...n, fontSize: n.fontSize * Math.min(tokenK, 1.6) };
@@ -98,9 +119,22 @@ export function autoWeight(unitsAcross: number, inches: number): { line: number;
   };
 }
 
-/** Auto weights keep tokens apart; a weight the coach picks is applied as asked. */
-const weightsFor = (look: PrintLook, unitsAcross: number, inches: number) =>
-  look.weight === "auto" ? { ...autoWeight(unitsAcross, inches), fit: true } : { line: look.weight, token: look.weight, fit: false };
+/**
+ * Auto weights keep tokens apart (bigger icons included); a weight the coach
+ * picks is applied as asked. Icon size and line thickness scale on top.
+ */
+function weightsFor(look: PrintLook, unitsAcross: number, inches: number) {
+  const base = look.weight === "auto" ? { ...autoWeight(unitsAcross, inches), fit: true } : { line: look.weight, token: look.weight, fit: false };
+  return { line: base.line * (look.lines ?? 1), token: base.token * (look.icons ?? 1), fit: base.fit };
+}
+
+/** Shrink (zoom in) or grow (zoom out) a box about its centre. */
+function zoomBox(b: Box, zoom = 1): Box {
+  if (zoom === 1) return b;
+  const w = b.w / zoom;
+  const h = b.h / zoom;
+  return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+}
 
 export type Framed = { scene: Scene; box: Box; weight: number };
 
@@ -113,17 +147,17 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   const whole = toAspect({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H }, aspect);
   if (look.fit === "field") {
     const w = weightsFor(look, whole.w, wIn);
-    return { scene: boostScene(scene, w.line, w.token, w.fit), box: whole, weight: w.line };
+    return { scene: boostScene(scene, w.line, w.token, w.fit, look.dots), box: zoomBox(whole, look.zoom), weight: w.line };
   }
   const raw = playBox(scene);
-  if (!raw) return { scene, box: whole, weight: 1 };
+  if (!raw) return { scene: boostScene(scene, 1, 1, false, look.dots), box: whole, weight: 1 };
   // Weight depends on the zoom and the zoom on the (heavier) tokens, so settle it in two passes.
   let box = toAspect(pad(raw, PAD), aspect);
   const w = weightsFor(look, Math.max(box.w, MIN_FRAME_W), wIn);
-  const boosted = boostScene(scene, w.line, w.token, w.fit);
+  const boosted = boostScene(scene, w.line, w.token, w.fit, look.dots);
   box = toAspect(pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2)), aspect);
   if (box.w < MIN_FRAME_W) box = toAspect({ ...box, x: box.x + box.w / 2 - MIN_FRAME_W / 2, w: MIN_FRAME_W }, aspect);
-  return { scene: boosted, box, weight: w.line };
+  return { scene: boosted, box: zoomBox(box, look.zoom), weight: w.line };
 }
 
 const pad = (b: Box, p: number): Box => ({ x: b.x - p, y: b.y - p, w: b.w + p * 2, h: b.h + p * 2 });
