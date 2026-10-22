@@ -19,7 +19,7 @@ import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
-import { applyTile, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
+import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
 import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { GriddyComposer, useGriddyDrawer } from "../components/Griddy";
@@ -162,8 +162,14 @@ export function Builder() {
   const [meta, setMeta] = useState<PlayMeta>(() => existing ?? blankMeta);
   const [selection, setSelection] = useState<string[]>([]);
   const [tool, setTool] = useState<ToolId>("select");
-  /** A route tile loaded onto the cursor (see `pickTile`). */
-  const [armed, setArmed] = useState<Tile | null>(null);
+  /**
+   * A route tile loaded onto the cursor (see `pickTile`). `keep` holds it for
+   * several placements; `giver` is who has the ball, once a handoff or pitch
+   * has its first click.
+   */
+  const [armed, setArmed] = useState<{ tile: Tile; keep: boolean; giver: string | null } | null>(null);
+  /** A line, shape or text tool picked with Shift or a double-click stays out after each placement. */
+  const [keepTool, setKeepTool] = useState(false);
   const [mode, setMode] = useState<ModeId | null>(null);
   const [color, setColor] = useState(PALETTE[0]);
   const [width, setWidth] = useState(DEFAULT_STROKE);
@@ -504,13 +510,15 @@ export function Builder() {
     picked();
   };
 
-  const pickTool = (next: ToolId) => {
+  const pickTool = (next: ToolId, keep = false) => {
     const gate = gateTool(tier, next);
     if (!gate.ok) {
       toast(gate.reason, true);
       return;
     }
     setTool(next);
+    setKeepTool(keep);
+    if (keep) setStatus(`${RAIL_LABEL[next] ?? next} stays out so you can draw several. Press Esc or pick Select when you're done.`);
     setMode(null);
     setLookOverride({});
     picked();
@@ -675,9 +683,8 @@ export function Builder() {
     applyScene(reshapeAll(scene, how), how === "smooth" ? "Smooth all lines" : "Straighten all lines");
     setStatus(`${how === "smooth" ? "Smoothed" : "Straightened"} every line on the play. Undo puts them back.`);
   };
-  // Offensive players who can take a handoff or pitch: not the quarterback or a lineman.
-  const hasQb = scene.nodes.some((n) => n.kind === "player" && !n.hidden && n.side === "offense" && n.label.toUpperCase() === "Q");
-  const ballCarriers = hasQb ? players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !isLineman(p)) : [];
+  // Anyone can hand off or pitch: the player right-clicked has the ball, the next click is who gets it.
+  const giver = players.length === 1 ? players[0] : null;
   // Right-click (or press and hold) on something already picked: what you can do to it, grouped by kind.
   const nodeActions: MenuAction[] = [
     ...(allPaths
@@ -787,10 +794,10 @@ export function Builder() {
               setRailOpen(true);
             },
           },
-          ...(ballCarriers.length
+          ...(giver
             ? [
-                { id: "handoff", section: "Player", label: "Handoff from Q", run: () => giveTile(HANDOFF, ballCarriers.map((p) => p.id)) },
-                { id: "pitch", section: "Player", label: "Pitch from Q", run: () => giveTile(PITCH, ballCarriers.map((p) => p.id)) },
+                { id: "handoff", section: "Player", label: `Hand off from ${giver.label || "here"}`, run: () => armExchange(HANDOFF, giver.id) },
+                { id: "pitch", section: "Player", label: `Pitch from ${giver.label || "here"}`, run: () => armExchange(PITCH, giver.id) },
               ]
             : []),
           { id: "note", section: "Player", label: "Add a note", run: () => setSideOpen(true) },
@@ -857,7 +864,7 @@ export function Builder() {
     { id: "lock", label: "Lock in place", short: "Lock", run: lockSelection },
   ];
   const fieldActions: MenuAction[] = [
-    ...(armed ? [{ id: "put-away", label: `Put away ${armed.label}`, run: () => putAway() }] : []),
+    ...(armed ? [{ id: "put-away", label: `Put away ${armed.tile.label}`, run: () => putAway() }] : []),
     ...(hasClipboard() ? [{ id: "paste", label: "Paste here", run: (at?: Point) => pasteClipboard(at) }] : []),
     { id: "all", label: "Select all", run: selectAll },
     {
@@ -958,11 +965,12 @@ export function Builder() {
   const toolButton = (t: (typeof LINE_TOOLS)[number]) => {
     const locked = !gateTool(tier, t.id).ok;
     return (
-      <Tooltip key={t.id} title={t.title} hint={locked ? `${t.hint} — unlocks with any paid plan.` : t.hint} shortcut={t.key}>
+      <Tooltip key={t.id} title={t.title} hint={locked ? `${t.hint} — unlocks with any paid plan.` : `${t.hint} Double-click to draw several in a row.`} shortcut={t.key}>
         <button
           type="button"
           className={`dz-btn${tool === t.id ? " is-on" : ""}${locked ? " is-locked" : ""}`}
-          onClick={() => pickTool(t.id)}
+          onClick={(e) => pickTool(t.id, e.shiftKey)}
+          onDoubleClick={() => pickTool(t.id, true)}
           aria-label={locked ? `${t.title} — locked` : t.title}
           aria-pressed={tool === t.id}
         >
@@ -1337,58 +1345,101 @@ export function Builder() {
   };
 
   /**
-   * A route tile clicked with nobody picked is loaded onto the cursor: each
-   * click on a player gives it to him, a click on the field drops it there.
-   * It stays loaded for the next player until Esc or another tile or tool.
+   * A route tile clicked with nobody picked is loaded onto the cursor: the
+   * next click on a player gives it to him, a click on the field drops it
+   * there, and then the tile is put away. Shift-click or double-click the
+   * tile to keep it loaded for several players, until Esc or another tool.
+   * Handoff and Pitch take two clicks: who has the ball, then who gets it.
    */
   const putAway = () => {
     setArmed(null);
     setStatus("Route put away.");
   };
-  const pickTile = (tile: Tile) => {
+  const isExchange = (tile: Tile) => tile.kind === "handoff" || tile.kind === "pitch";
+  const armExchange = (tile: Tile, giverId: string, keep = false) => {
+    const from = scene.nodes.find((n) => n.id === giverId);
+    setArmed({ tile, keep, giver: giverId });
+    setTool("select");
+    setMode(null);
+    picked();
+    setStatus(`${tile.label} from ${(from?.kind === "player" && from.label) || "that player"}. Now click who gets it, or a spot on the field. Esc cancels.`);
+  };
+  const pickTile = (tile: Tile, keep = false) => {
     const targets = tileTargets(selection).filter((id) => scene.nodes.some((n) => n.id === id && n.kind === "player"));
-    if (targets.length) {
+    if (isExchange(tile)) {
+      // One player picked has the ball; otherwise the first click says who does.
+      if (targets.length === 1) return armExchange(tile, targets[0], keep);
+    } else if (targets.length) {
       setArmed(null);
       giveTile(tile, targets);
       return;
     }
-    if (armed?.id === tile.id) {
+    if (armed?.tile.id === tile.id && !keep) {
       putAway();
       return;
     }
-    setArmed(tile);
+    setArmed({ tile, keep, giver: null });
     setTool("select");
     setMode(null);
     picked();
-    setStatus(`${tile.label} loaded. Click a player to give it to him, or click the field to drop it there. Esc puts it away.`);
+    setStatus(
+      isExchange(tile)
+        ? `${tile.label} loaded. Click the player with the ball, then the one getting it. Esc puts it away.`
+        : `${tile.label} loaded. Click a player to give it to him, or click the field to drop it there.${keep ? " It stays loaded until Esc." : " Double-click the tile to place it on several players."}`,
+    );
   };
-  const stampTile = (tile: Tile, at: Point, playerId: string | null) => {
+  const stampTile = (at: Point, playerId: string | null) => {
+    if (!armed) return;
+    const { tile, keep, giver } = armed;
+    if (isExchange(tile)) {
+      if (!giver) {
+        if (!playerId) {
+          toast(`Click the player with the ball first, then the one getting the ${tile.label.toLowerCase()}.`, true);
+          return;
+        }
+        armExchange(tile, playerId, keep);
+        return;
+      }
+      const result = exchangeLine(scene, tile, giver, { playerId, at }, color, width, nextZ(scene));
+      if ("error" in result) {
+        toast(result.error, true);
+        return;
+      }
+      applyScene(result.scene, tile.label);
+      setStatus(result.message);
+      setArmed(keep ? { tile, keep, giver: null } : null);
+      return;
+    }
     if (playerId) {
-      giveTile(tile, [playerId]);
-      return;
+      if (!giveTile(tile, [playerId])) return;
+    } else {
+      const result = placeTile(scene, tile, at, color, width, nextZ(scene));
+      if ("error" in result) {
+        toast(result.error, true);
+        return;
+      }
+      applyScene(result.scene, tile.label);
+      setStatus(result.message);
     }
-    const result = placeTile(scene, tile, at, color, width, nextZ(scene));
-    if ("error" in result) {
-      toast(result.error, true);
-      return;
-    }
-    applyScene(result.scene, tile.label);
-    setStatus(result.message);
+    if (!keep) setArmed(null);
   };
   // Another tool puts a loaded route away.
   useEffect(() => {
     if (tool !== "select") setArmed(null);
+    else setKeepTool(false);
   }, [tool]);
 
+  /** Gives the tile's job to these players; false when it couldn't (the coach is told why). */
   const giveTile = (tile: Tile, playerIds: string[]) => {
     const result = applyTile(scene, tile, playerIds, color, width, nextZ(scene));
     if ("error" in result) {
       toast(result.error, true);
-      return;
+      return false;
     }
     applyScene(result.scene, tile.label);
     setStatus(result.message);
     picked();
+    return true;
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -1403,11 +1454,20 @@ export function Builder() {
         x: ((e.clientX - r.left) / r.width) * CANVAS_W,
         y: ((e.clientY - r.top) / r.height) * CANVAS_H,
       });
+      const at = { x: ((e.clientX - r.left) / r.width) * CANVAS_W, y: ((e.clientY - r.top) / r.height) * CANVAS_H };
+      if (isExchange(tile)) {
+        // Dropped on a player: he has the ball, and the next click says who gets it.
+        if (target) armExchange(tile, target.id);
+        else toast(`Drop ${tile.label} on the player with the ball, then click who gets it.`, true);
+        return;
+      }
       if (!target) {
-        stampTile(tile, {
-          x: ((e.clientX - r.left) / r.width) * CANVAS_W,
-          y: ((e.clientY - r.top) / r.height) * CANVAS_H,
-        }, null);
+        const result = placeTile(scene, tile, at, color, width, nextZ(scene));
+        if ("error" in result) toast(result.error, true);
+        else {
+          applyScene(result.scene, tile.label);
+          setStatus(result.message);
+        }
         return;
       }
       setSelection([target.id]);
@@ -1764,7 +1824,7 @@ export function Builder() {
 
             {railTab === "routes" && (
               <RailGroup id="routes" title="Route library">
-                <RouteLibrary onPick={pickTile} armed={armed?.id ?? null} />
+                <RouteLibrary onPick={pickTile} armed={armed?.tile.id ?? null} />
               </RailGroup>
             )}
 
@@ -1943,7 +2003,8 @@ export function Builder() {
                   type="button"
                   className={tool === id ? "is-on" : ""}
                   aria-pressed={tool === id}
-                  onClick={() => (id === "select" ? (setTool("select"), setMode(null)) : pickTool(id))}
+                  onClick={(e) => (id === "select" ? (setTool("select"), setMode(null)) : pickTool(id, e.shiftKey))}
+                  onDoubleClick={() => id !== "select" && pickTool(id, true)}
                 >
                   {label} <kbd>{key}</kbd>
                 </button>
@@ -1961,7 +2022,7 @@ export function Builder() {
                 </button>
               ))}
               <span className="dz-drawbar-sep" aria-hidden="true" />
-              <button type="button" className={tool === "free" ? "is-on" : ""} aria-pressed={tool === "free"} onClick={() => pickTool("free")}>
+              <button type="button" className={tool === "free" ? "is-on" : ""} aria-pressed={tool === "free"} onClick={(e) => pickTool("free", e.shiftKey)} onDoubleClick={() => pickTool("free", true)}>
                 Freehand <kbd>F</kbd>
               </button>
               <button type="button" className="dz-drawbar-exit" onClick={() => (setTool("select"), setMode(null))}>
@@ -2008,7 +2069,13 @@ export function Builder() {
               watermark={tier.watermark ? "GRIDIRONVAULT" : null}
               onScene={applyScene}
               onSelection={setSelection}
-              onToolDone={() => setTool("select")}
+              onToolDone={(placed) => {
+                // One placement and the tool goes back, unless it was picked to stay out.
+                if (placed && keepTool) return;
+                setTool("select");
+                setKeepTool(false);
+                if (placed) setStatus("Back to Select. To draw several in a row, double-click or Shift-click the tool.");
+              }}
               onStatus={setStatus}
               aids={aids}
               onPickNode={pickNode}
@@ -2022,7 +2089,7 @@ export function Builder() {
               onDraftChange={setDraftPoints}
               controlRef={canvasControl}
               underlay={underPlay?.scene ?? null}
-              stamp={armed ? { label: armed.label, place: (at, playerId) => stampTile(armed, at, playerId) } : null}
+              stamp={armed ? { label: armed.tile.label, place: stampTile } : null}
             />
           </div>
 

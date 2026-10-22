@@ -2,7 +2,7 @@ import { assignmentPath } from "./assistant";
 import type { Assignment } from "./assistant";
 import { ZONE_FILL, ZONE_STROKE } from "./defense";
 import { isLineman } from "./formations";
-import { makeShape } from "./scene";
+import { makeShape, reconcileConnections } from "./scene";
 import { baseNode, CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
 
@@ -65,12 +65,11 @@ export const MORE_TILES: Tile[] = [
 
 const ARROW = "#0B1524";
 
-/** Who's on the field: offense skill players, the quarterback, defenders. */
+/** Who's on the field: everyone, and the offense players who run routes. */
 function cast(scene: Scene) {
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
-  const qb = players.find((p) => p.side === "offense" && p.label.toUpperCase() === "Q");
   const receivers = players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !isLineman(p));
-  return { players, qb, receivers };
+  return { players, receivers };
 }
 
 function line(from: Point, to: Point, opts: Partial<PathNode>, z: number): PathNode {
@@ -101,7 +100,7 @@ export type ApplyResult = { scene: Scene; ids: string[]; message: string } | { e
  * library or a preset is replaced, so clicking another tile swaps the route.
  */
 export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: string, width: number, z: number): ApplyResult {
-  const { players, qb, receivers } = cast(scene);
+  const { players, receivers } = cast(scene);
   const chosen = players.filter((p) => playerIds.includes(p.id));
   if (!chosen.length) return { error: `Pick a player first, or drag ${tile.label} onto one.` };
   const runners = (p: PlayerNode) =>
@@ -124,15 +123,9 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
         break;
       }
       case "handoff":
-      case "pitch": {
-        if (!qb) return { error: `Add a quarterback (Q) first — the ${tile.label.toLowerCase()} starts from him.` };
-        if (qb.id === p.id) return { error: `Pick the player taking the ${tile.label.toLowerCase()}, not the quarterback.` };
-        const end = { x: p.x - (p.x - qb.x) * 0.15, y: p.y - (p.y - qb.y) * 0.15 };
-        added.push(
-          line(qb, end, { ...own, name: `${tile.label} to ${p.label || "player"}`, style: tile.kind === "pitch" ? "dashed" : "solid", endCap: tile.kind === "pitch" ? "arrow" : "none" }, zi++),
-        );
-        break;
-      }
+      case "pitch":
+        // Two players are involved, so the Designer draws these with `exchangeLine`.
+        return { error: `Click the player with the ball, then the one getting the ${tile.label.toLowerCase()}.` };
       case "rush": {
         const a: Assignment = { player: p.label, kind: "route", action: "rush", heard: "" };
         added.push({ ...assignmentPath(a, from, scene.losY, zi++), ...own, name: `${p.label || "Defender"} rush` });
@@ -182,12 +175,8 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
       return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} placed. Right-click it and pick Snap to nearest player to give it to someone.` };
     }
     case "handoff":
-    case "pitch": {
-      const { qb } = cast(scene);
-      if (!qb) return { error: `Add a quarterback (Q) first — the ${tile.label.toLowerCase()} starts from him.` };
-      const node = line(qb, at, { ...own, name: tile.label, style: tile.kind === "pitch" ? "dashed" : "solid", endCap: tile.kind === "pitch" ? "arrow" : "none" }, z);
-      return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} drawn from the quarterback.` };
-    }
+    case "pitch":
+      return { error: `Click the player with the ball first, then the one getting the ${tile.label.toLowerCase()}.` };
     case "zone": {
       const node = { ...makeShape("ellipse", at, 220, 78, ZONE_STROKE, z), name: "Zone", fill: ZONE_FILL, fillOpacity: 0.85, width: 1.6, dash: "dashed" as const };
       return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: "Zone dropped. Drag its handles to fit the area." };
@@ -195,6 +184,49 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
     case "man":
       return { error: "Man coverage goes from a defender to a receiver. Click a defender." };
   }
+}
+
+/**
+ * A handoff or pitch from any player to another player (or to a spot on the
+ * field). Nobody has to be tagged Q: the coach picks who has the ball. The
+ * line is glued to both players (`fromId`/`toId`), so it follows either one
+ * when they move, and it leaves the receiver's own route alone.
+ */
+export function exchangeLine(
+  scene: Scene,
+  tile: Tile,
+  giverId: string,
+  to: { playerId: string | null; at: Point },
+  ink: string,
+  width: number,
+  z: number,
+): ApplyResult {
+  const giver = scene.nodes.find((n): n is PlayerNode => n.id === giverId && n.kind === "player");
+  if (!giver) return { error: `That player is gone. Click who has the ball for the ${tile.label.toLowerCase()}.` };
+  if (to.playerId === giver.id) return { error: `Click a different player to take the ${tile.label.toLowerCase()}.` };
+  const target = to.playerId ? scene.nodes.find((n): n is PlayerNode => n.id === to.playerId && n.kind === "player") : null;
+  const pitch = tile.kind === "pitch";
+  const node = line(
+    giver,
+    target ?? to.at,
+    {
+      stroke: ink,
+      width,
+      name: `${tile.label} ${giver.label || "player"} to ${target ? target.label || "player" : "spot"}`,
+      style: pitch ? "dashed" : "solid",
+      endCap: pitch ? "arrow" : "none",
+      fromId: giver.id,
+      toId: target?.id ?? null,
+    },
+    z,
+  );
+  const next = reconcileConnections({ ...scene, nodes: [...scene.nodes, node] });
+  const who = (p: PlayerNode) => p.label || "the player";
+  return {
+    scene: next,
+    ids: [node.id],
+    message: `${tile.label} from ${who(giver)}${target ? ` to ${who(target)}` : ""}. It follows them when they move.`,
+  };
 }
 
 /** Why some chosen players didn't get the job, in plain words. */
