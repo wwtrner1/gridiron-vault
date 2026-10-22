@@ -95,6 +95,8 @@ type Props = {
   onDraftChange?: (points: number) => void;
   /** Lets the toolbar finish, step back or scrap the line being drawn. */
   controlRef?: React.MutableRefObject<CanvasControl | null>;
+  /** Another play drawn faded under this one ("Vs defense"), lined up on the line of scrimmage. Not clickable. */
+  underlay?: Scene | null;
 };
 
 /** `section` heads a run of items; `on` marks a current choice (true/false) so the item reads as a checkable option. */
@@ -169,6 +171,7 @@ export function PlayCanvas({
   onSignal,
   onDraftChange,
   controlRef,
+  underlay,
   stamp,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -208,7 +211,10 @@ export function PlayCanvas({
   const ordered = useMemo(() => drawOrder(scene.nodes), [scene.nodes]);
   const selected = useMemo(() => scene.nodes.filter((n) => selection.includes(n.id)), [scene.nodes, selection]);
   const selBox = useMemo(() => selectionBox(scene, selection), [scene, selection]);
-  const markerColors = useMemo(() => [...strokeColors(scene.nodes), color, SEL], [scene.nodes, color]);
+  const markerColors = useMemo(
+    () => [...strokeColors(scene.nodes), ...(underlay ? strokeColors(underlay.nodes) : []), color, SEL],
+    [scene.nodes, underlay, color],
+  );
 
   const say = useCallback((text: string) => onStatus?.(text), [onStatus]);
 
@@ -1118,6 +1124,14 @@ export function PlayCanvas({
             ))}
             {Array.from({ length: Math.floor(CANVAS_H / grid) }, (_, i) => (
               <line key={`gy${i}`} x1={0} x2={CANVAS_W} y1={(i + 1) * grid} y2={(i + 1) * grid} stroke="#C8D8E4" strokeWidth={0.5} />
+            ))}
+          </g>
+        )}
+
+        {underlay && (
+          <g pointerEvents="none" opacity={0.36} transform={`translate(0 ${scene.losY - underlay.losY})`} aria-hidden="true">
+            {drawOrder(underlay.nodes).map((node) => (
+              <NodeLayer key={`under-${node.id}`} node={node} />
             ))}
           </g>
         )}
