@@ -1,8 +1,65 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
-import { CANVAS_W } from "./types";
-import type { PathNode, PlayerNode, Scene, SceneNode, StoredPlay } from "./types";
+import { CANVAS_W, STROKE_WEIGHTS } from "./types";
+import type { EndCap, LineCurve, LineStyle, PathNode, PlayerNode, PlayerShape, PlayMeta, Scene, SceneNode, StoredPlay } from "./types";
+
+/** Which players, lines or text a style change reaches; everything left out matches. */
+export type StyleWhere = {
+  /** Players with this letter; for lines, the lines those players run. */
+  letter?: string;
+  /** The color it wears now: a player's fill, a line's or text's color. */
+  color?: string;
+  /** Players only: offense or defense. */
+  side?: "offense" | "defense";
+  /** Lines only: solid, dashed, dotted or motion now. */
+  lineStyle?: LineStyle;
+};
+
+/**
+ * Any look a coach can set in the Designer's Style card. Players: fill,
+ * letterColor, size, shape, label, outline. Lines: color, width, lineStyle,
+ * curve, endCap. Text: color, fontSize, weight.
+ */
+export type StyleSet = {
+  fill?: string;
+  letterColor?: string;
+  size?: number;
+  shape?: PlayerShape;
+  label?: string;
+  outline?: "solid" | "dash" | "none";
+  color?: string;
+  width?: number;
+  lineStyle?: LineStyle;
+  curve?: LineCurve;
+  endCap?: EndCap;
+  fontSize?: number;
+  weight?: number;
+};
+
+export type StyleTarget = "players" | "routes" | "text";
+
+/** One-click wristband looks. On the play: Wristband bold is the Designer's button; Sideline 2×4 thickens the routes. */
+export const WRISTBAND_FORMATS = ["bold", "sideline"] as const;
+export type WristbandFormat = (typeof WRISTBAND_FORMATS)[number];
+
+export const PLAY_TYPES = ["pass", "run", "defense", "special"] as const;
+
+/** Wristband cards print the field about 4 in wide, so lines and tokens need to be at their heaviest. */
+export const BOLD_WIDTH = STROKE_WEIGHTS[STROKE_WEIGHTS.length - 1];
+export const BOLD_PLAYER = 44;
+
+/** The Designer's Wristband bold on one node: heaviest lines, bigger players, heavy text. */
+export function wristbandBold(n: SceneNode): SceneNode {
+  if (n.kind === "path") return n.width === BOLD_WIDTH ? n : { ...n, width: BOLD_WIDTH };
+  if (n.kind === "player") return n.side === "ball" || n.size >= BOLD_PLAYER ? n : { ...n, size: BOLD_PLAYER };
+  if (n.kind === "text") return n.weight === 800 && n.fontSize >= 24 ? n : { ...n, weight: 800, fontSize: Math.max(n.fontSize, 24) };
+  return n;
+}
+
+/** Limits a style change is held to, so a typo can't make a 400-pixel player. */
+export const STYLE_LIMITS = { size: [20, 72], width: [1, 8], fontSize: [10, 64], weight: [300, 900] } as const;
+const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, v));
 
 /**
  * Bulk changes Griddy can make across many plays at once: recolor every
@@ -25,11 +82,22 @@ export type BulkChange =
   /** Every text box on the field is removed. */
   | { op: "remove_text" }
   /** The whole play flipped left to right across the middle of the field ("run it to the other side"). */
-  | { op: "mirror" };
+  | { op: "mirror" }
+  /** Any look on players, lines or text ("make every route 5 px dashed", "players bigger", "text white"). */
+  | { op: "style"; target: StyleTarget; where?: StyleWhere; set: StyleSet }
+  /** A one-click wristband look on every play ("make my MID TN Blue plays Wristband bold"). */
+  | { op: "wristband"; format: WristbandFormat }
+  /** The play's category (type) and tags. */
+  | { op: "meta"; playType?: PlayMeta["playType"]; addTags?: string[]; removeTags?: string[] }
+  /** The plays are filed in a playbook (made if it doesn't exist), and taken out of `from` when moving. */
+  | { op: "file"; playbook: string; from?: string };
 
 export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] };
 
-export type BulkEdit = { scope: BulkScope; changes: BulkChange[] };
+/** Narrows the scope to one category of play: a type, a tag, a formation. */
+export type BulkFilter = { playType?: PlayMeta["playType"]; tag?: string; formation?: string };
+
+export type BulkEdit = { scope: BulkScope; filter?: BulkFilter; changes: BulkChange[] };
 
 /** Most changes one card carries. */
 export const MAX_BULK_CHANGES = 6;
@@ -121,6 +189,35 @@ function changePlayer(p: PlayerNode, change: PlayerChange, tokens: TokenPreset[]
   return fill ? { ...swapped, fill, stroke: fill, textColor: letterColor(fill) } : swapped;
 }
 
+function stylePlayer(p: PlayerNode, where: StyleWhere, set: StyleSet): PlayerNode | null {
+  if (p.side === "ball") return null;
+  if (where.letter && (p.side !== "offense" || up(p.label) !== up(where.letter))) return null;
+  if (where.side && p.side !== where.side) return null;
+  if (where.color && !sameColor(p.fill, where.color)) return null;
+  const next = { ...p };
+  const fill = set.fill ? bulkColor(set.fill) : null;
+  if (fill) Object.assign(next, { fill, stroke: fill, textColor: letterColor(fill) });
+  const text = set.letterColor ? bulkColor(set.letterColor) : null;
+  if (text) next.textColor = text;
+  if (set.size != null) next.size = clamp(set.size, STYLE_LIMITS.size);
+  if (set.shape) next.shape = set.shape;
+  if (set.label != null) next.label = up(set.label).slice(0, 3);
+  if (set.outline) next.outlineStyle = set.outline;
+  return JSON.stringify(next) === JSON.stringify(p) ? null : next;
+}
+
+function styleLine(n: PathNode, set: StyleSet): PathNode {
+  const next = { ...n };
+  const stroke = set.color ? bulkColor(set.color) : null;
+  // A first read always draws in FIRST_READ, so its color is left alone.
+  if (stroke && !n.firstRead) next.stroke = stroke;
+  if (set.width != null) next.width = clamp(set.width, STYLE_LIMITS.width);
+  if (set.lineStyle) next.style = set.lineStyle;
+  if (set.curve) next.curve = set.curve;
+  if (set.endCap) next.endCap = set.endCap;
+  return next;
+}
+
 /** The player a line belongs to: the one it's glued to, else the one standing where it starts. */
 function runnerOf(path: PathNode, players: PlayerNode[]): PlayerNode | undefined {
   return players.find((p) => p.id === path.fromId) ?? players.find((p) => Math.hypot(p.x - path.x, p.y - path.y) < 2);
@@ -156,6 +253,57 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
     if (change.op === "mirror") {
       nodes = nodes.map(mirrorNode);
       nodes.forEach((n) => n.kind === "player" && touched.add(n.id));
+      continue;
+    }
+    if (change.op === "meta" || change.op === "file") continue;
+    if (change.op === "wristband") {
+      nodes = nodes.map((n) => {
+        const next = change.format === "bold" ? wristbandBold(n) : n.kind === "path" && n.width < STROKE_WEIGHTS[2] ? { ...n, width: STROKE_WEIGHTS[2] } : n;
+        if (next !== n) touched.add(n.id);
+        return next;
+      });
+      continue;
+    }
+    if (change.op === "style") {
+      const where = change.where ?? {};
+      if (change.target === "players") {
+        nodes = nodes.map((n) => {
+          const next = n.kind === "player" ? stylePlayer(n, where, change.set) : null;
+          if (!next) return n;
+          touched.add(n.id);
+          return next;
+        });
+      } else if (change.target === "routes") {
+        const runners = where.letter
+          ? nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "offense" && up(n.label) === up(where.letter!))
+          : null;
+        nodes = nodes.map((n) => {
+          // Closed paths are zones, not lines anyone runs.
+          if (n.kind !== "path" || n.closed) return n;
+          if (runners && !runnerOf(n, runners)) return n;
+          if (where.color && !sameColor(n.stroke, where.color)) return n;
+          if (where.lineStyle && n.style !== where.lineStyle) return n;
+          const next = styleLine(n, change.set);
+          if (change.set.color && n.firstRead) firstReads.add(n.id);
+          if (JSON.stringify(next) === JSON.stringify(n)) return n;
+          touched.add(n.id);
+          return next;
+        });
+      } else {
+        nodes = nodes.map((n) => {
+          if (n.kind !== "text" || (where.color && !sameColor(n.color, where.color))) return n;
+          const color = change.set.color ? bulkColor(change.set.color) : null;
+          const next = {
+            ...n,
+            ...(color ? { color } : {}),
+            ...(change.set.fontSize != null ? { fontSize: clamp(change.set.fontSize, STYLE_LIMITS.fontSize) } : {}),
+            ...(change.set.weight != null ? { weight: clamp(change.set.weight, STYLE_LIMITS.weight) } : {}),
+          };
+          if (JSON.stringify(next) === JSON.stringify(n)) return n;
+          touched.add(n.id);
+          return next;
+        });
+      }
       continue;
     }
     if (change.op === "remove_text") {
@@ -195,8 +343,13 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
 
 export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
 
+/** A playbook a bulk edit files plays in (or takes them out of): its play ids before and after. */
+export type BulkFiling = { book: LocalPlaybook; before: string[]; after: string[]; created: boolean };
+
 export type BulkPlan = {
   targets: BulkTarget[];
+  /** Playbooks whose plays change ("move them to Red Zone"). */
+  filings: BulkFiling[];
   /** Plays in scope, changed or not. */
   inScope: number;
   /** A playbook the coach named that doesn't exist. */
@@ -217,6 +370,43 @@ export function swapSides(text: string): string {
 /** Whether a list of changes leaves plays flipped (two flips cancel out). */
 export const flips = (changes: BulkChange[]) => changes.filter((c) => c.op === "mirror").length % 2 === 1;
 
+/** A play's new type and tags, or null when the changes leave them as they are. */
+function metaOf(p: StoredPlay, changes: BulkChange[]): Pick<StoredPlay, "playType" | "tags"> | null {
+  let { playType, tags } = p;
+  for (const c of changes) {
+    if (c.op !== "meta") continue;
+    if (c.playType) playType = c.playType;
+    const drop = new Set((c.removeTags ?? []).map((t) => t.trim().toLowerCase()));
+    tags = tags.filter((t) => !drop.has(t.trim().toLowerCase()));
+    for (const t of c.addTags ?? []) if (t.trim() && !tags.some((x) => x.toLowerCase() === t.trim().toLowerCase())) tags = [...tags, t.trim()];
+  }
+  return playType === p.playType && JSON.stringify(tags) === JSON.stringify(p.tags) ? null : { playType, tags: tags.slice(0, 12) };
+}
+
+const bookNamed = (books: LocalPlaybook[], name: string) => books.find((b) => b.name.trim().toLowerCase() === name.trim().toLowerCase());
+
+/** Playbooks the scoped plays are filed in or moved out of. A playbook that doesn't exist yet is made. */
+function fileBooks(changes: BulkChange[], plays: StoredPlay[], books: LocalPlaybook[]): BulkFiling[] {
+  const ids = plays.map((p) => p.id);
+  const out = new Map<string, BulkFiling>();
+  const get = (name: string, make: boolean) => {
+    const found = bookNamed(books, name) ?? [...out.values()].find((f) => f.book.name.toLowerCase() === name.trim().toLowerCase())?.book;
+    if (!found && !make) return null;
+    const book = found ?? { id: `book-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, name: name.trim(), description: "Filed by Griddy.", color: "#16C8E8", isPublic: false, playIds: [] };
+    const f = out.get(book.id) ?? { book, before: book.playIds, after: book.playIds, created: !found };
+    out.set(book.id, f);
+    return f;
+  };
+  for (const c of changes) {
+    if (c.op !== "file") continue;
+    const to = get(c.playbook, true)!;
+    to.after = [...to.after.filter((id) => !ids.includes(id)), ...ids];
+    const from = c.from ? get(c.from, false) : null;
+    if (from && from !== to) from.after = from.after.filter((id) => !ids.includes(id));
+  }
+  return [...out.values()].filter((f) => JSON.stringify(f.before) !== JSON.stringify(f.after));
+}
+
 /** Which plays a bulk edit changes, and what each looks like afterwards. */
 export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPlaybook[], tokens: TokenPreset[]): BulkPlan {
   let scoped = plays;
@@ -231,12 +421,23 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     const ids = new Set(edit.scope.ids);
     scoped = plays.filter((p) => ids.has(p.id));
   }
+  const f = edit.filter;
+  if (f) {
+    const lower = (v: string) => v.trim().toLowerCase();
+    scoped = scoped.filter(
+      (p) =>
+        (!f.playType || p.playType === f.playType) &&
+        (!f.tag || p.tags.some((t) => lower(t) === lower(f.tag!))) &&
+        (!f.formation || lower(p.formation) === lower(f.formation)),
+    );
+  }
   const now = new Date().toISOString();
   let firstReads = 0;
   const targets = scoped.flatMap((p): BulkTarget[] => {
     const { scene, players, firstReads: reads } = editScene(p.scene, edit.changes, tokens);
     firstReads += reads;
-    if (!players) return [];
+    const meta = metaOf(p, edit.changes);
+    if (!players && !meta) return [];
     // A swap onto a letter the play already has leaves two of them; say so rather than guess which to move.
     const letters = scene.nodes.flatMap((n) => (n.kind === "player" && n.side === "offense" && n.label ? [up(n.label)] : []));
     const doubled = [...new Set(letters.filter((l, i) => letters.indexOf(l) !== i))].filter((l) =>
@@ -244,9 +445,9 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     );
     // A flipped play's name and formation follow it to the other side.
     const sides = flips(edit.changes) ? { name: swapSides(p.name), formation: swapSides(p.formation) } : {};
-    return [{ before: p, after: { ...p, ...sides, scene, updatedAt: now }, players, doubled }];
+    return [{ before: p, after: { ...p, ...meta, ...sides, scene, updatedAt: now }, players, doubled }];
   });
-  return { targets, inScope: scoped.length, missingBook, firstReads };
+  return { targets, filings: fileBooks(edit.changes, scoped, books), inScope: scoped.length, missingBook, firstReads };
 }
 
 /** "Y → yellow", "Green X → Z (royal blue)", "Clear letters", for the card and for Griddy. */
@@ -254,6 +455,41 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   const name = (hex: string) => colorLabel(bulkColor(hex) ?? hex);
   const who = (letter: string, only?: string) => (only ? `${name(only).replace(/^./, (ch) => ch.toUpperCase())} ${up(letter)}` : up(letter));
   if (c.op === "mirror") return "Flip left ↔ right";
+  if (c.op === "wristband") return c.format === "bold" ? "Wristband bold" : "Sideline 2×4";
+  if (c.op === "file") return c.from ? `Move from ${c.from} to ${c.playbook}` : `File in ${c.playbook}`;
+  if (c.op === "meta")
+    return [
+      c.playType && `Type → ${c.playType}`,
+      c.addTags?.length && `Tag ${c.addTags.join(", ")}`,
+      c.removeTags?.length && `Untag ${c.removeTags.join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  if (c.op === "style") {
+    const w = c.where ?? {};
+    const whom =
+      [w.color && name(w.color), w.lineStyle, w.side, w.letter && (c.target === "routes" ? `${up(w.letter)}'s` : up(w.letter))].filter(Boolean).join(" ") || "All";
+    const noun = c.target === "routes" ? "routes" : c.target === "text" ? "text" : w.letter ? "" : "players";
+    const s = c.set;
+    const what = [
+      s.fill && name(s.fill),
+      c.target !== "players" && s.color && name(s.color),
+      s.letterColor && `${name(s.letterColor)} letters`,
+      s.size != null && `size ${s.size}`,
+      s.shape,
+      s.label != null && (s.label ? `letter ${up(s.label)}` : "no letter"),
+      s.outline && `${s.outline} outline`,
+      s.width != null && `${s.width} px`,
+      s.lineStyle,
+      s.curve,
+      s.endCap && `${s.endCap} end`,
+      s.fontSize != null && `${s.fontSize} pt`,
+      s.weight != null && `weight ${s.weight}`,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    return `${whom} ${noun}`.replace(/\s+/g, " ").trim().replace(/^./, (ch) => ch.toUpperCase()) + ` → ${what}`;
+  }
   if (c.op === "remove_text") return "Remove text boxes";
   if (c.op === "clear_letters") return c.letter ? `Clear ${who(c.letter, c.only)}'s letter` : c.only ? `Clear letters on ${name(c.only)} players` : "Clear every letter";
   if (c.op === "route_color") return `${who(c.letter, c.only)}'s routes → ${name(c.color)}`;
@@ -261,8 +497,16 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   return `${who(c.from, c.only)} → ${up(c.to)}${c.color ? ` (${name(c.color)})` : ""}`;
 }
 
-type Look = Pick<PlayerNode, "label" | "fill" | "stroke" | "textColor" | "shape">;
-const look = (p: PlayerNode): Look => ({ label: p.label, fill: p.fill, stroke: p.stroke, textColor: p.textColor, shape: p.shape });
+type Look = Pick<PlayerNode, "label" | "fill" | "stroke" | "textColor" | "shape" | "size" | "outlineStyle">;
+const look = (p: PlayerNode): Look => ({
+  label: p.label,
+  fill: p.fill,
+  stroke: p.stroke,
+  textColor: p.textColor,
+  shape: p.shape,
+  size: p.size,
+  outlineStyle: p.outlineStyle,
+});
 const sameLook = (a: Look, b: Look) => (Object.keys(a) as (keyof Look)[]).every((k) => a[k] === b[k]);
 
 /**
@@ -299,4 +543,106 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
       ...removed,
     ],
   };
+}
+
+const SHAPES: PlayerShape[] = ["circle", "square", "triangle", "diamond", "cross"];
+const LINE_STYLES: LineStyle[] = ["solid", "dashed", "dotted", "motion"];
+const CURVES: LineCurve[] = ["straight", "spline", "bezier"];
+const END_CAPS: EndCap[] = ["none", "arrow", "tee", "dot", "chevron"];
+const OUTLINES = ["solid", "dash", "none"] as const;
+
+const pick = <T extends string>(v: unknown, list: readonly T[]): T | undefined => (list.includes(v as T) ? (v as T) : undefined);
+const num = (v: unknown) => (v == null || v === "" || !Number.isFinite(Number(v)) ? undefined : Number(v));
+const limit = (v: unknown, range: readonly [number, number]) => {
+  const n = num(v);
+  return n === undefined ? undefined : clamp(n, range);
+};
+const text = (v: unknown, max: number) => (v == null ? "" : String(v).slice(0, max).trim());
+
+/**
+ * One of the open-ended changes (style, wristband, meta, file) as Griddy sent
+ * it, checked: unknown values are dropped, and a filter that doesn't parse
+ * drops the change rather than widening it. Null when nothing usable is left.
+ */
+export function cleanOpenChange(c: Record<string, unknown>): BulkChange | null {
+  if (c.op === "wristband") {
+    const format = pick(c.format, WRISTBAND_FORMATS);
+    return format ? { op: "wristband", format } : null;
+  }
+  if (c.op === "meta") {
+    const tags = (v: unknown) => (Array.isArray(v) ? v.map((t) => text(t, 30)).filter(Boolean).slice(0, 8) : []);
+    const playType = pick(c.playType, PLAY_TYPES);
+    const addTags = tags(c.addTags);
+    const removeTags = tags(c.removeTags);
+    if (!playType && !addTags.length && !removeTags.length) return null;
+    return { op: "meta", ...(playType ? { playType } : {}), ...(addTags.length ? { addTags } : {}), ...(removeTags.length ? { removeTags } : {}) };
+  }
+  if (c.op === "file") {
+    const playbook = text(c.playbook, 120);
+    const from = text(c.from, 120);
+    return playbook ? { op: "file", playbook, ...(from && from.toLowerCase() !== playbook.toLowerCase() ? { from } : {}) } : null;
+  }
+  if (c.op !== "style") return null;
+  const target = pick(c.target, ["players", "routes", "text"] as const);
+  if (!target) return null;
+  const w = (c.where ?? {}) as Record<string, unknown>;
+  const where: StyleWhere = {};
+  if (w.letter != null && w.letter !== "") {
+    const letter = text(w.letter, 3).toUpperCase();
+    if (!LETTER.test(letter)) return null;
+    where.letter = letter;
+  }
+  if (w.color != null && w.color !== "") {
+    const color = bulkColor(text(w.color, 30));
+    if (!color) return null;
+    where.color = color;
+  }
+  if (w.side != null && w.side !== "") {
+    const side = pick(w.side, ["offense", "defense"] as const);
+    if (!side) return null;
+    where.side = side;
+  }
+  if (w.lineStyle != null && w.lineStyle !== "") {
+    const lineStyle = pick(w.lineStyle, LINE_STYLES);
+    if (!lineStyle) return null;
+    where.lineStyle = lineStyle;
+  }
+  const s = (c.set ?? {}) as Record<string, unknown>;
+  const color = (v: unknown) => (v == null || v === "" ? undefined : (bulkColor(text(v, 30)) ?? undefined));
+  const set: StyleSet = {};
+  if (target === "players") {
+    set.fill = color(s.fill);
+    set.letterColor = color(s.letterColor);
+    set.size = limit(s.size, STYLE_LIMITS.size);
+    set.shape = pick(s.shape, SHAPES);
+    if (s.label != null) {
+      const label = text(s.label, 3).toUpperCase();
+      if (label === "" || LETTER.test(label)) set.label = label;
+    }
+    set.outline = pick(s.outline, OUTLINES);
+  } else if (target === "routes") {
+    set.color = color(s.color);
+    set.width = limit(s.width, STYLE_LIMITS.width);
+    set.lineStyle = pick(s.lineStyle, LINE_STYLES);
+    set.curve = pick(s.curve, CURVES);
+    set.endCap = pick(s.endCap, END_CAPS);
+  } else {
+    set.color = color(s.color);
+    set.fontSize = limit(s.fontSize, STYLE_LIMITS.fontSize);
+    set.weight = limit(s.weight, STYLE_LIMITS.weight);
+  }
+  const kept = Object.fromEntries(Object.entries(set).filter(([, v]) => v !== undefined)) as StyleSet;
+  if (!Object.keys(kept).length) return null;
+  return { op: "style", target, ...(Object.keys(where).length ? { where } : {}), set: kept };
+}
+
+/** A category filter as Griddy sent it; null when it names nothing usable. */
+export function cleanFilter(f: unknown): BulkFilter | null {
+  if (!f || typeof f !== "object") return null;
+  const r = f as Record<string, unknown>;
+  const playType = pick(r.playType, PLAY_TYPES);
+  const tag = text(r.tag, 30);
+  const formation = text(r.formation, 60);
+  const out: BulkFilter = { ...(playType ? { playType } : {}), ...(tag ? { tag } : {}), ...(formation ? { formation } : {}) };
+  return Object.keys(out).length ? out : null;
 }

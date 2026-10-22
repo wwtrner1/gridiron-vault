@@ -15,7 +15,7 @@ import type { TokenPreset } from "../lib/presets";
 import { store } from "../lib/store";
 import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
-import type { Scene, SceneNode } from "../lib/types";
+import type { PlayMeta, Scene, SceneNode } from "../lib/types";
 import { GriddyActionCard } from "./GriddyCards";
 import { GriddyMascot } from "./GriddyMascot";
 import { Icon } from "./Icon";
@@ -30,8 +30,8 @@ export type GriddyDrawer = {
   onDraw: (nodes: SceneNode[], read: AssistantRead) => void;
   /** Changes the open field in place, as one undoable step (a bulk edit that includes this play). */
   onEdit: (edit: (scene: Scene) => Scene, label: string) => void;
-  /** Renames the open play (a flip turns "Trips Right" into "Trips Left"). */
-  onMeta: (patch: { name: string; formation: string }) => void;
+  /** Renames or recategorizes the open play (a flip turns "Trips Right" into "Trips Left"). */
+  onMeta: (patch: Partial<Pick<PlayMeta, "name" | "formation" | "playType" | "tags">>) => void;
 };
 
 type GriddyValue = {
