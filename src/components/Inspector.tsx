@@ -5,7 +5,8 @@ import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
 import { PlayerPresets } from "./PlayerPresets";
 import { FIELD_VIEWS } from "../lib/field";
-import { alignNodes, describe, distributeNodes, flipNodes, nextZ } from "../lib/scene";
+import { knownPersonnel, personnelGroups } from "../lib/personnel";
+import { alignNodes, describe, distributeNodes, flipNodes, nextZ, sendToBack } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
 import { FORMATIONS, ROUTE_TREE, uid } from "../lib/types";
 
@@ -19,9 +20,14 @@ type Props = {
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
+const CUSTOM = "__custom";
 
 export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection }: Props) {
   const [tagDraft, setTagDraft] = useState("");
+  // Personnel is picked from the list; "Custom…" (or a saved value the list doesn't have) opens a text box.
+  const [customPersonnel, setCustomPersonnel] = useState(false);
+  const knownChoice = knownPersonnel(meta.personnel);
+  const personnelChoice = customPersonnel || (meta.personnel.trim() && !knownChoice) ? CUSTOM : (knownChoice ?? "");
   const selected = useMemo(() => scene.nodes.filter((n) => selection.includes(n.id)), [scene.nodes, selection]);
   const one = selected.length === 1 ? selected[0] : null;
 
@@ -99,15 +105,42 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             ))}
           </div>
         </div>
-        <label className="field">
-          <span>Personnel</span>
-          <input
-            className="input"
-            value={meta.personnel}
-            placeholder="5-on-5, no rush"
-            onChange={(e) => onMeta({ personnel: e.target.value })}
-          />
-        </label>
+        <div className="field">
+          <span id="play-personnel-label">Personnel</span>
+          <select
+            className="select"
+            aria-labelledby="play-personnel-label"
+            value={personnelChoice}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCustomPersonnel(v === CUSTOM);
+              onMeta({ personnel: v === CUSTOM ? (knownChoice ? "" : meta.personnel) : v });
+            }}
+          >
+            <option value="">Pick one</option>
+            {personnelGroups(meta.playType).map((g) => (
+              <optgroup key={g.id} label={g.label}>
+                {g.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            <option value={CUSTOM}>Custom…</option>
+          </select>
+          {personnelChoice === CUSTOM && (
+            <input
+              className="input"
+              style={{ marginTop: 6 }}
+              value={meta.personnel}
+              aria-label="Custom personnel"
+              placeholder="Type your own grouping"
+              autoFocus={customPersonnel}
+              onChange={(e) => onMeta({ personnel: e.target.value })}
+            />
+          )}
+        </div>
         <label className="field">
           <span>Coaching notes</span>
           <textarea
@@ -340,7 +373,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             >
               <Icon name="front" size={12} /> To front
             </button>
-            <button type="button" className="chip" onClick={() => patch({ z: -1 } as Partial<SceneNode>, "Send to back")}>
+            <button type="button" className="chip" onClick={() => onScene(sendToBack(scene, selection), "Send to back")}>
               <Icon name="back" size={12} /> To back
             </button>
             <button

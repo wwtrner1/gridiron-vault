@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
@@ -34,11 +34,14 @@ import {
 } from "../lib/presets";
 import {
   canReshape,
+  cleanUpPaths,
   cloneNodes,
   describe,
   flipNodes,
   nextZ,
   reconcileConnections,
+  reshapeAll,
+  sendToBack,
   smoothPaths,
   snapPathsToPlayers,
   straightenPaths,
@@ -141,6 +144,8 @@ export function Builder() {
   const { account } = useAuth();
   const tier = useTier();
   const plays = useStore((s) => s.plays);
+  const playbooks = useStore((s) => s.playbooks);
+  const [params] = useSearchParams();
   const offense = usePositionTokens();
 
   const existing = useMemo(() => plays.find((p) => p.id === id) ?? null, [plays, id]);
@@ -637,6 +642,21 @@ export function Builder() {
     applyScene(op(scene, selection), label);
     setStatus(`${label}. Undo puts the line back the way you drew it.`);
   };
+  // The whole play at once: every hand-drawn line tidied the way it was drawn, or all smoothed / all straightened.
+  const cleanUpLines = () => {
+    const { scene: next, count } = cleanUpPaths(scene);
+    if (!count) {
+      setStatus("Every line on this play is already clean.");
+      return;
+    }
+    applyScene(next, "Clean up lines");
+    setStatus(`Cleaned up ${count} ${count === 1 ? "line" : "lines"}: curves smoothed, routes cut sharp. Undo puts them back.`);
+  };
+  const hasLines = canReshape(scene, scene.nodes.map((n) => n.id));
+  const reshapeEvery = (how: "smooth" | "straight") => {
+    applyScene(reshapeAll(scene, how), how === "smooth" ? "Smooth all lines" : "Straighten all lines");
+    setStatus(`${how === "smooth" ? "Smoothed" : "Straightened"} every line on the play. Undo puts them back.`);
+  };
   // Offensive players who can take a handoff or pitch: not the quarterback or a lineman.
   const hasQb = scene.nodes.some((n) => n.kind === "player" && !n.hidden && n.side === "offense" && n.label.toUpperCase() === "Q");
   const ballCarriers = hasQb ? players.filter((p) => p.side === "offense" && p.label && p.label.toUpperCase() !== "Q" && !isLineman(p)) : [];
@@ -720,6 +740,7 @@ export function Builder() {
     { id: "duplicate", section: "Edit", label: "Duplicate", run: duplicateSelection },
     ...groupActions.map((g) => ({ ...g, section: "Edit" })),
     { id: "front", section: "Edit", label: "Bring to front", run: bringToFront },
+    { id: "back", section: "Edit", label: "Send to back", run: () => applyScene(sendToBack(scene, selection), "Send to back") },
     { id: "flip", section: "Edit", label: "Flip left/right", run: () => applyScene(flipNodes(scene, selection, "x"), "Flip") },
     { id: "lock", section: "Edit", label: "Lock in place", run: lockSelection },
     { id: "details", section: "Edit", label: "Edit details", run: () => setSideOpen(true) },
@@ -746,6 +767,13 @@ export function Builder() {
         setStatus("Drag a box around what you want to select. Tap Select when you're done.");
       },
     },
+    ...(hasLines
+      ? [
+          { id: "clean-all", label: "Clean up all lines", run: cleanUpLines },
+          { id: "smooth-all", label: "Smooth all lines", run: () => reshapeEvery("smooth") },
+          { id: "straight-all", label: "Straighten all lines", run: () => reshapeEvery("straight") },
+        ]
+      : []),
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
   ];
 
@@ -926,6 +954,11 @@ export function Builder() {
       }
       if (meta_) return;
 
+      if (e.key === "[" || e.key === "]" || e.key === "PageUp" || e.key === "PageDown") {
+        e.preventDefault();
+        void goPlayRef.current(e.key === "[" || e.key === "PageUp" ? -1 : 1);
+        return;
+      }
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         deleteSelection();
@@ -975,10 +1008,10 @@ export function Builder() {
 
   /* ------------------------------------------------------------------- save */
 
-  async function save() {
+  async function save(): Promise<boolean> {
     if (!meta.name.trim()) {
       toast("Give the play a name first — that is what you will search for later.", true);
-      return;
+      return false;
     }
     const isNew = !existing;
     if (isNew) {
@@ -986,7 +1019,7 @@ export function Builder() {
       if (!gate.ok) {
         toast(gate.reason, true);
         navigate("/pricing");
-        return;
+        return false;
       }
     }
     setSaving(true);
@@ -1036,7 +1069,39 @@ export function Builder() {
     } finally {
       setSaving(false);
     }
+    return true;
   }
+
+  /*
+   * Previous / next play: steps through the playbook the coach opened this
+   * play from (?book=), else the first playbook it's in, else the whole Vault
+   * A to Z. Unsaved changes are saved first so nothing is lost on the way.
+   */
+  const lineup = useMemo(() => {
+    if (!existing) return null;
+    const book =
+      playbooks.find((b) => b.id === params.get("book") && b.playIds.includes(existing.id)) ??
+      playbooks.find((b) => b.playIds.includes(existing.id));
+    const ids = book
+      ? book.playIds.filter((pid) => plays.some((p) => p.id === pid))
+      : [...plays].sort((a, b) => a.name.localeCompare(b.name)).map((p) => p.id);
+    const at = ids.indexOf(existing.id);
+    return at < 0 || ids.length < 2 ? null : { book, ids, at };
+  }, [existing, playbooks, plays, params]);
+  const stepName = (step: 1 | -1) => {
+    if (!lineup) return "";
+    const n = lineup.ids.length;
+    return plays.find((p) => p.id === lineup.ids[(lineup.at + step + n) % n])?.name ?? "";
+  };
+  const goPlay = async (step: 1 | -1) => {
+    if (!lineup || saving) return;
+    if (dirty && !(await save())) return;
+    const n = lineup.ids.length;
+    const next = lineup.ids[(lineup.at + step + n) % n];
+    navigate(`/build/${next}${lineup.book ? `?book=${lineup.book.id}` : ""}`);
+  };
+  const goPlayRef = useRef(goPlay);
+  goPlayRef.current = goPlay;
 
   /* ----------------------------------------------------------------- render */
 
@@ -1189,6 +1254,23 @@ export function Builder() {
         </Link>
         <span className="dz-kicker">Play designer</span>
         <span className="dz-name">{meta.name.trim() || "Untitled play"}</span>
+        {lineup && (
+          <div className="dz-step" role="group" aria-label={`Plays in ${lineup.book ? lineup.book.name : "your Vault"}`}>
+            <Tooltip title="Previous play" hint={`Opens ${stepName(-1)}. Unsaved changes are saved first.`} shortcut="[" side="bottom">
+              <button type="button" className="dz-top-btn dz-step-btn" onClick={() => void goPlay(-1)} disabled={saving} aria-label={`Previous play: ${stepName(-1)}`}>
+                <Icon name="prev" size={15} />
+              </button>
+            </Tooltip>
+            <span className="dz-step-count">
+              {lineup.at + 1} / {lineup.ids.length}
+            </span>
+            <Tooltip title="Next play" hint={`Opens ${stepName(1)}. Unsaved changes are saved first.`} shortcut="]" side="bottom">
+              <button type="button" className="dz-top-btn dz-step-btn" onClick={() => void goPlay(1)} disabled={saving} aria-label={`Next play: ${stepName(1)}`}>
+                <Icon name="next" size={15} />
+              </button>
+            </Tooltip>
+          </div>
+        )}
 
         <div className="dz-top-actions">
           <Tooltip title="Undo" hint="Steps back through everything you have drawn this session." shortcut="⌘Z" side="bottom">
@@ -1211,6 +1293,16 @@ export function Builder() {
               aria-pressed={grid > 0}
             >
               {grid ? "Grid on" : "Grid off"}
+            </button>
+          </Tooltip>
+          <Tooltip
+            title="Clean up lines"
+            hint="Tidies every hand-drawn line on the play at once: curves come out smooth and routes get sharp, straight cuts. Undo puts them back."
+            side="bottom"
+          >
+            <button type="button" className="dz-top-btn dz-wide" onClick={cleanUpLines} disabled={!hasLines}>
+              <span className="dz-btn-icon"><Icon name="sparkle" size={15} /></span>
+              <span className="dz-btn-word">Clean up</span>
             </button>
           </Tooltip>
           <Tooltip title="Field" hint="How much field the play is drawn on: full, half, red zone and more. Exports and wristbands use the same view." side="bottom">
@@ -1782,6 +1874,7 @@ export function Builder() {
             </button>
           </div>
           <Inspector
+            key={id ?? "new"}
             scene={scene}
             selection={selection}
             meta={meta}

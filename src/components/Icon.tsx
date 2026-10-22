@@ -35,6 +35,8 @@ const PATHS: Record<string, string> = {
   save: "M4 4h12l4 4v12H4zM8 4v6h7V4M8 20v-6h8v6",
   plus: "M12 5v14M5 12h14",
   chevron: "M8 10l4 4 4-4",
+  prev: "M15 6l-6 6 6 6",
+  next: "M9 6l6 6-6 6",
   search: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3",
   folder: "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z",
   table: "M3 5h18v14H3zM3 10h18M9 10v9M15 10v9",
