@@ -83,8 +83,10 @@ export function PrintDiagram({
   const framed =
     look && widthIn && heightIn
       ? frameScene(scene, look, widthIn, heightIn)
-      : { scene, box: { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H }, weight: 1 };
-  const { box, weight } = framed;
+      : { scene, box: { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H }, weight: 1, ptPerUnit: undefined };
+  const { box, weight, ptPerUnit } = framed;
+  // White token rings and route casings; left off a transparent export, where they'd show as white.
+  const print = !!ptPerUnit && !transparent;
   const ordered = drawOrder(framed.scene.nodes);
   const field = look?.field ?? "full";
   const cx = box.x + box.w / 2;
@@ -101,10 +103,10 @@ export function PrintDiagram({
       {standalone && <style>{`text { font-family: ${FONT_STACK}; }`}</style>}
       <MarkerDefs colors={strokeColors(ordered)} />
       {transparent || field === "none" ? null : (
-        <FieldBackground view={scene.view} losY={scene.losY} lite={field === "lite"} weight={weight} />
+        <FieldBackground view={scene.view} losY={scene.losY} lite={field === "lite"} weight={weight} ptPerUnit={ptPerUnit} />
       )}
       {ordered.map((n) => (
-        <NodeLayer key={n.id} node={n} />
+        <NodeLayer key={n.id} node={n} print={print} />
       ))}
       {watermark ? (
         <g transform={`rotate(-22 ${cx} ${cy})`} opacity={0.12}>
