@@ -175,8 +175,18 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
       return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} placed. Right-click it and pick Snap to nearest player to give it to someone.` };
     }
     case "handoff":
-    case "pitch":
-      return { error: `Click the player with the ball first, then the one getting the ${tile.label.toLowerCase()}.` };
+    case "pitch": {
+      // Just the mark, where the coach clicked: a pitch goes out and back toward the near sideline.
+      const pitch = tile.kind === "pitch";
+      const out = at.x < CANVAS_W / 2 ? -1 : 1;
+      const end = pitch ? { x: at.x + out * 120, y: at.y + 30 } : { x: at.x + out * 56, y: at.y };
+      const node = line(at, end, { ...own, name: tile.label, style: pitch ? "dashed" : "solid", endCap: pitch ? "arrow" : "none" }, z);
+      return {
+        scene: { ...scene, nodes: [...scene.nodes, node] },
+        ids: [node.id],
+        message: `${tile.label} drawn. Drag it into place, or drag its ends to the players.`,
+      };
+    }
     case "zone": {
       const node = { ...makeShape("ellipse", at, 220, 78, ZONE_STROKE, z), name: "Zone", fill: ZONE_FILL, fillOpacity: 0.85, width: 1.6, dash: "dashed" as const };
       return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: "Zone dropped. Drag its handles to fit the area." };
