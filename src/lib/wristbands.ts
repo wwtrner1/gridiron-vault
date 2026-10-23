@@ -242,7 +242,8 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
       doc.line(cx, cy + strip, cx + cellW, cy + strip);
       doc.setTextColor(11, 21, 36);
       const label = o.shows.name ? `${e.number} · ${e.name.toUpperCase()}` : e.number;
-      doc.text(doc.splitTextToSize(label, cellW - 0.08)[0] ?? e.number, cx + cellW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
+      fitSize(doc, label, cellW - 0.08, numPt, numPt * 0.7);
+      doc.text(fitText(doc, label, cellW - 0.08), cx + cellW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
     } else {
       // Number in a solid tab, name beside it, diagram filling the rest of the cell.
       const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
@@ -251,10 +252,12 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
       doc.setTextColor(255, 255, 255);
       doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
       if (o.shows.name) {
-        doc.setFontSize(Math.max(5.5, numPt * 0.66));
+        const name = e.name.toUpperCase();
+        const room = cellW - tabW - 0.08;
+        // Shrink a long name before cutting it, and cut with an ellipsis, never mid-phrase at a dash.
+        fitSize(doc, name, room, Math.max(5.5, numPt * 0.66), 5);
         doc.setTextColor(11, 21, 36);
-        const name = doc.splitTextToSize(e.name.toUpperCase(), cellW - tabW - 0.08)[0] ?? "";
-        doc.text(name, cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
+        doc.text(fitText(doc, name, room), cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
       }
     }
     const pad = 0.03;
@@ -359,6 +362,13 @@ function drawCallList(doc: jsPDF, rows: CallSheetRow[], source: string) {
     doc.setLineWidth(0.01);
     doc.rect(0.4, top - 0.27, 7.7, 0.27 + Math.min(perPage, rows.length - p * perPage) * LIST_ROW);
   }
+}
+
+/** Set the largest font size from `max` down to `min` points at which the text fits the width. */
+function fitSize(doc: jsPDF, text: string, width: number, max: number, min: number) {
+  let size = max;
+  doc.setFontSize(size);
+  while (size > min && doc.getTextWidth(text) > width) doc.setFontSize((size = Math.max(min, size - 0.5)));
 }
 
 /** Trim text with an ellipsis to fit a width at the current font. */

@@ -75,6 +75,8 @@ export type PathNode = NodeCommon & {
   assignOf?: string;
   /** Short label that rides at the end of the route ("Post", "12 yds", "Hot"); a zone shows it in the middle. */
   tag?: string;
+  /** Print only: how much the tag grows so it stays readable on a small card. Never saved. */
+  tagScale?: number;
 };
 
 export type ShapeNode = NodeCommon & {

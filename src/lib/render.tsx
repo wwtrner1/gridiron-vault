@@ -61,7 +61,15 @@ export function drawOrder<T extends { kind: string; z: number }>(nodes: T[]): T[
 const markerUrl = (cap: string, color: string) =>
   cap === "none" ? undefined : `url(#${cap}-${color.replace(/[^a-zA-Z0-9]/g, "")})`;
 
-function PlayerGlyph({ node }: { node: PlayerNode }) {
+/**
+ * Print only: a white ring around each token, so stacked and bunched players
+ * stay separate shapes on a small card. Drawn as a fat white outline of the
+ * same shape, under the token.
+ */
+const RING = "#FFFFFF";
+const ringWidth = (size: number) => 2.4 + size * 0.18;
+
+function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolean }) {
   const r = node.size / 2;
   const outline = node.outlineStyle ?? "solid";
   // A pre-snap ghost: hollow, dashed and faded, in the player's own color.
@@ -74,9 +82,15 @@ function PlayerGlyph({ node }: { node: PlayerNode }) {
         strokeWidth: 2.4,
         strokeDasharray: outline === "dash" ? "5 4" : undefined,
       };
+  const ring = print && !ghost && node.shape !== "cross" ? { fill: RING, stroke: RING, strokeWidth: ringWidth(node.size) } : null;
   return (
     <g opacity={ghost ? 0.75 : undefined}>
       {node.shade && node.shade !== "transparent" && <circle cx={0} cy={0} r={r * 1.6} fill={node.shade} stroke="none" />}
+      {ring && node.shape === "circle" && <circle cx={0} cy={0} r={r} {...ring} />}
+      {ring && node.shape === "square" && <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...ring} />}
+      {ring && node.shape === "diamond" && <polygon points={`0,${-r} ${r},0 0,${r} ${-r},0`} {...ring} />}
+      {ring && node.shape === "triangle" && <polygon points={`0,${-r} ${r * 0.92},${r * 0.75} ${-r * 0.92},${r * 0.75}`} {...ring} />}
+      {ring && node.shape === "ball" && <ellipse cx={0} cy={0} rx={r} ry={r * 0.62} {...ring} />}
       {node.shape === "circle" && <circle cx={0} cy={0} r={r} {...common} />}
       {node.shape === "square" && <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...common} />}
       {node.shape === "diamond" && <polygon points={`0,${-r} ${r},0 0,${r} ${-r},0`} {...common} />}
@@ -108,7 +122,10 @@ function PlayerGlyph({ node }: { node: PlayerNode }) {
   );
 }
 
-function PathGlyph({ node }: { node: PathNode }) {
+/** Print only: white casing each side of a route, so crossing routes and a route along the line of scrimmage stay apart. */
+const casingWidth = (width: number) => width * 2.2;
+
+function PathGlyph({ node, print = false }: { node: PathNode; print?: boolean }) {
   const d = node.style === "motion" ? motionPath(node.points) : pathData(node);
   if (!d) return null;
   const stroke = lineColor(node);
@@ -116,6 +133,9 @@ function PathGlyph({ node }: { node: PathNode }) {
     <>
       {node.closed && node.fill !== "none" && (
         <path d={pathData({ ...node, closed: true })} fill={node.fill} fillOpacity={node.fillOpacity} stroke="none" />
+      )}
+      {print && !node.closed && (
+        <path d={d} fill="none" stroke={RING} strokeWidth={casingWidth(node.width)} strokeLinecap="round" strokeLinejoin="round" />
       )}
       <path
         d={d}
@@ -135,6 +155,8 @@ function PathGlyph({ node }: { node: PathNode }) {
 
 /** Longest route tag a coach can type; longer text would cover the field. */
 export const TAG_MAX = 24;
+/** Route tag type size, in canvas units, before any print boost. */
+export const TAG_SIZE = 13;
 
 /**
  * A route's tag, drawn in the path's own frame but turned back upright so it
@@ -145,7 +167,7 @@ function RouteTag({ node, color }: { node: PathNode; color: string }) {
   const text = node.tag?.trim().slice(0, TAG_MAX);
   const pts = node.points;
   if (!text || pts.length < 2) return null;
-  const fontSize = 13;
+  const fontSize = TAG_SIZE * (node.tagScale ?? 1);
   const halfW = (text.length * fontSize * 0.56) / 2 + 6;
   const halfH = fontSize * 0.75;
   let at = pts[pts.length - 1];
@@ -169,7 +191,16 @@ function RouteTag({ node, color }: { node: PathNode; color: string }) {
   }
   return (
     <g transform={`translate(${at.x} ${at.y}) scale(${1 / (node.scaleX || 1)} ${1 / (node.scaleY || 1)}) rotate(${-node.rotation})`}>
-      <rect x={ox - halfW} y={oy - halfH} width={halfW * 2} height={halfH * 2} rx={4} fill="#FFFFFF" stroke={color} strokeWidth={1.4} />
+      <rect
+        x={ox - halfW}
+        y={oy - halfH}
+        width={halfW * 2}
+        height={halfH * 2}
+        rx={4 * (node.tagScale ?? 1)}
+        fill="#FFFFFF"
+        stroke={color}
+        strokeWidth={1.4 * (node.tagScale ?? 1)}
+      />
       <text
         x={ox}
         y={oy}
@@ -232,25 +263,27 @@ function TextGlyph({ node }: { node: TextNode }) {
   );
 }
 
-export function NodeGlyph({ node }: { node: SceneNode }) {
+/** `print` adds the white token rings and route casings that keep a small printed diagram readable. */
+export function NodeGlyph({ node, print = false }: { node: SceneNode; print?: boolean }) {
   if (node.hidden) return null;
-  if (node.kind === "player") return <PlayerGlyph node={node} />;
-  if (node.kind === "path") return <PathGlyph node={node} />;
+  if (node.kind === "player") return <PlayerGlyph node={node} print={print} />;
+  if (node.kind === "path") return <PathGlyph node={node} print={print} />;
   if (node.kind === "shape") return <ShapeGlyph node={node} />;
   return <TextGlyph node={node} />;
 }
 
 export function NodeLayer({
   node,
+  print,
   children,
   ...rest
-}: { node: SceneNode; children?: React.ReactNode } & React.SVGProps<SVGGElement>) {
+}: { node: SceneNode; print?: boolean; children?: React.ReactNode } & React.SVGProps<SVGGElement>) {
   return (
     <g
       transform={`translate(${node.x} ${node.y}) rotate(${node.rotation}) scale(${node.scaleX} ${node.scaleY})`}
       {...rest}
     >
-      <NodeGlyph node={node} />
+      <NodeGlyph node={node} print={print} />
       {children}
     </g>
   );
