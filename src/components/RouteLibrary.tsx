@@ -22,7 +22,7 @@ const elevenMan = () => {
   }
 };
 
-function TileButton({ tile, onPick, armed }: { tile: Tile; onPick: (t: Tile, keep: boolean) => void; armed: boolean }) {
+function TileButton({ tile, onPick, armed }: { tile: Tile; onPick: (t: Tile) => void; armed: boolean }) {
   return (
     <button
       type="button"
@@ -30,8 +30,8 @@ function TileButton({ tile, onPick, armed }: { tile: Tile; onPick: (t: Tile, kee
       aria-pressed={armed}
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-route", tile.id)}
-      onClick={(e) => onPick(tile, e.shiftKey)}
-      onDoubleClick={() => onPick(tile, true)}
+      // A double-click loads the tile once; its second click doesn't put it away again.
+      onClick={(e) => e.detail < 2 && onPick(tile)}
       aria-label={`${tile.num ? `${tile.num} ` : ""}${tile.label}${tile.side === "defense" ? " (defenders)" : ""}`}
     >
       <svg viewBox="0 0 56 44" aria-hidden="true">
@@ -52,7 +52,7 @@ function TileButton({ tile, onPick, armed }: { tile: Tile; onPick: (t: Tile, kee
  * click a tile, drag a tile onto a player, or click a tile with nobody picked
  * to load it (`armed`) and then click players or the field to place it.
  */
-export function RouteLibrary({ onPick, armed }: { onPick: (tile: Tile, keep: boolean) => void; armed: string | null }) {
+export function RouteLibrary({ onPick, armed }: { onPick: (tile: Tile) => void; armed: string | null }) {
   const [set, setSet] = useState<"tree" | "five">(() => (read(SET_KEY) === "five" ? "five" : "tree"));
   const choose = (s: "tree" | "five") => {
     setSet(s);
@@ -91,7 +91,7 @@ export function RouteLibrary({ onPick, armed }: { onPick: (tile: Tile, keep: boo
         ))}
       </div>
       <p className="dz-note">
-        Click a tile, then a player or the field to place it once. Double-click (or Shift-click) a tile to place it on several. Or pick players first, or drag a tile onto one.
+        Click a tile, then a player or the field to place it. Or pick players first, or drag a tile onto one. To repeat a route, right-click it and copy and paste.
         {blocking ? "" : " Block shows when the Formation library is set to 11-man — flag leagues don't block."}
       </p>
     </div>
