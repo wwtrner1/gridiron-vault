@@ -59,6 +59,7 @@ import { store, useStore } from "../lib/store";
 import { overlayStore, useOverlay } from "../lib/overlay";
 import { editScene, swapSides } from "../lib/bulkEdit";
 import { savePlays } from "../lib/griddyVault";
+import { loadRules, saveRules, type RuleLines } from "../lib/rules";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -174,6 +175,9 @@ export function Builder() {
   const [lookOverride, setLookOverride] = useState<LineLook>({});
   const look = { ...toolLook(tool), ...lookOverride };
   const [grid, setGrid] = useState(0);
+  // The league's rule lines (rush line, no-run zone), remembered per browser.
+  const [rules, setRulesState] = useState(loadRules);
+  const setRules = (next: RuleLines) => (saveRules(next), setRulesState(next));
   // Route depths on the canvas, remembered per browser.
   const [depths, setDepths] = useState(() => {
     try {
@@ -2080,6 +2084,7 @@ export function Builder() {
               look={lookOverride}
               grid={grid}
               depths={depths}
+              rules={rules}
               anchor={anchor}
               zoom={zoom}
               watermark={tier.watermark ? "GRIDIRONVAULT" : null}
@@ -2177,6 +2182,8 @@ export function Builder() {
             onMeta={(patch) => (setMeta((m) => ({ ...m, ...patch })), setDirty(true))}
             onScene={applyScene}
             onSelection={setSelection}
+            rules={rules}
+            onRules={setRules}
           />
         </aside>
       </div>
