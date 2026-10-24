@@ -65,6 +65,7 @@ import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateSave, gateTool } from "../lib/plan";
 import { useToast } from "../lib/toast";
+import { copyStyle, pasteStyle, styleClip } from "../lib/styleCopy";
 import { useCaptureGuard } from "../lib/guard";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
@@ -588,6 +589,31 @@ export function Builder() {
     setStatus(`Copied ${source.length === 1 ? describe(source[0]) : `${source.length} elements`}. Paste here or on another play with Ctrl+V.`);
   };
 
+  const copyLook = () => {
+    const only = scene.nodes.find((n) => n.id === selection[0]);
+    if (selection.length !== 1 || !only) {
+      setStatus("Pick one player, line, shape or text to copy its style.");
+      return;
+    }
+    copyStyle(only);
+    setStatus(`Copied the style of ${describe(only)}. Pick others of the same kind and press Ctrl+Alt+V.`);
+  };
+
+  const pasteLook = () => {
+    const clip = styleClip();
+    if (!clip) {
+      setStatus("No style copied yet. Pick one element and press Ctrl+Alt+C first.");
+      return;
+    }
+    const done = pasteStyle(scene.nodes, selection, clip);
+    if (!done.changed) {
+      setStatus(`That style is for ${clip.kind === "text" ? "text" : `${clip.kind}s`}. Pick one or more to paste it on.`);
+      return;
+    }
+    applyScene({ ...scene, nodes: done.nodes }, "Paste style");
+    setStatus(`Pasted the style on ${done.changed === 1 ? "1 element" : `${done.changed} elements`}.`);
+  };
+
   const cutSelection = () => {
     if (!selection.length) return;
     copySelection();
@@ -863,6 +889,8 @@ export function Builder() {
     { id: "copy", section: "Edit", label: "Copy", run: copySelection },
     { id: "cut", section: "Edit", label: "Cut", run: cutSelection },
     { id: "duplicate", section: "Edit", label: "Duplicate", run: duplicateSelection },
+    ...(selection.length === 1 ? [{ id: "copy-style", section: "Edit", label: "Copy style", run: copyLook }] : []),
+    ...(styleClip() ? [{ id: "paste-style", section: "Edit", label: "Paste style", run: pasteLook }] : []),
     ...groupActions.map((g) => ({ ...g, section: "Edit" })),
     { id: "front", section: "Edit", label: "Bring to front", run: bringToFront },
     { id: "back", section: "Edit", label: "Send to back", run: () => applyScene(sendToBack(scene, selection), "Send to back") },
@@ -1051,6 +1079,16 @@ export function Builder() {
       if (meta_ && e.key.toLowerCase() === "d") {
         e.preventDefault();
         duplicateSelection();
+        return;
+      }
+      if (meta_ && e.altKey && e.code === "KeyC") {
+        e.preventDefault();
+        copyLook();
+        return;
+      }
+      if (meta_ && e.altKey && e.code === "KeyV") {
+        e.preventDefault();
+        pasteLook();
         return;
       }
       if (meta_ && e.key.toLowerCase() === "c" && selection.length) {

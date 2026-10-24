@@ -85,6 +85,9 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 ### Practice planner
 - `/practice` (`pages/Practice.tsx`, `lib/practice.ts`): one script per browser (`grid1ronvault.practice.v1`) of timed periods, each with Vault plays (single or a whole playbook). "Print script" and "Print scout cards" (one diagram card per play, two per row) render only while printing, then return to the editor. Global print CSS now sets `.shell` to block so printed pages use the full paper width.
 
+### Copy style
+- `lib/styleCopy.ts`: Ctrl+Alt+C copies one element's look (colors, weight, size; never labels, points, first read or tags), Ctrl+Alt+V (or "Paste style" in the right-click menu) puts it on every selected element of the same kind and skips locked ones. The copied style is kept in `grid1ronvault.styleclip.v1`.
+
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.
