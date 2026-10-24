@@ -26,6 +26,8 @@ export type PrintLook = {
   lines?: number;
   /** Solid colored dots with no letters, like most printed wristbands. */
   dots?: boolean;
+  /** Yards past the line of scrimmage at each route break. Default off. */
+  depths?: boolean;
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: "auto", field: "full" };

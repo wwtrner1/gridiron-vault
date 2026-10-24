@@ -174,6 +174,23 @@ export function Builder() {
   const [lookOverride, setLookOverride] = useState<LineLook>({});
   const look = { ...toolLook(tool), ...lookOverride };
   const [grid, setGrid] = useState(0);
+  // Route depths on the canvas, remembered per browser.
+  const [depths, setDepths] = useState(() => {
+    try {
+      return localStorage.getItem("grid1ronvault.depths.v1") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleDepths = () =>
+    setDepths((d) => {
+      try {
+        localStorage.setItem("grid1ronvault.depths.v1", d ? "0" : "1");
+      } catch {
+        /* storage blocked — the choice still holds this session */
+      }
+      return !d;
+    });
   const [anchor, setAnchor] = useState({ ax: 0.5, ay: 0.5 });
   const [zoom, setZoom] = useState(0.86);
   // The field fits the stage (phone, iPad, laptop) until the coach picks a zoom himself.
@@ -1538,6 +1555,11 @@ export function Builder() {
               {grid ? "Grid on" : "Grid off"}
             </button>
           </Tooltip>
+          <Tooltip title="Route depths" hint="Shows how many yards past the line of scrimmage each route breaks, worked out from the drawing. Drag a route and the number follows." side="bottom">
+            <button type="button" className={`dz-top-btn dz-wide${depths ? " is-on" : ""}`} onClick={toggleDepths} aria-pressed={depths}>
+              Depths
+            </button>
+          </Tooltip>
           <Tooltip
             title="Clean up lines"
             hint="Tidies every hand-drawn line on the play at once: curves come out smooth and routes get sharp, straight cuts. Undo puts them back."
@@ -1656,6 +1678,9 @@ export function Builder() {
                   </button>
                   <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
                     Export · print · wristband
+                  </button>
+                  <button type="button" role="menuitemcheckbox" aria-checked={depths} className="is-wide-dup" onClick={toggleDepths}>
+                    Route depths: {depths ? "on" : "off"}
                   </button>
                   <button type="button" role="menuitemcheckbox" aria-checked={grid > 0} className="is-wide-dup" onClick={() => setGrid((g) => (g ? 0 : 20))}>
                     Snap to grid: {grid ? "on" : "off"}
@@ -2054,6 +2079,7 @@ export function Builder() {
               width={width}
               look={lookOverride}
               grid={grid}
+              depths={depths}
               anchor={anchor}
               zoom={zoom}
               watermark={tier.watermark ? "GRIDIRONVAULT" : null}

@@ -534,6 +534,10 @@ export function Wristbands() {
                 <input type="checkbox" checked={!!prefs.look.dots} onChange={(e) => setLook({ dots: e.target.checked })} />
                 Solid dots, no letters
               </label>
+              <label className="switch">
+                <input type="checkbox" checked={!!prefs.look.depths} onChange={(e) => setLook({ depths: e.target.checked })} />
+                Yards at each route break
+              </label>
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-shows">

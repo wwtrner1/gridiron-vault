@@ -1,4 +1,5 @@
-import type { PathNode, PlayerNode, SceneNode, ShapeNode, TextNode } from "./types";
+import type { PathNode, PlayerNode, Scene, SceneNode, ShapeNode, TextNode } from "./types";
+import { depthLabel, routeDepths } from "./depth";
 import { FIRST_READ } from "./types";
 import { dashFor, motionPath, pathData, polygonPoints } from "./geometry";
 
@@ -291,3 +292,27 @@ export function NodeLayer({
 
 export const strokeColors = (nodes: SceneNode[]) =>
   nodes.filter((n): n is PathNode => n.kind === "path").map(lineColor);
+
+/**
+ * Yards past the line of scrimmage at each route's break, drawn as a small
+ * pill on the outside of the turn. `scale` grows it on small print cards.
+ */
+export function DepthLayer({ scene, scale = 1 }: { scene: Scene; scale?: number }) {
+  const marks = routeDepths(scene);
+  if (!marks.length) return null;
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      {marks.map((m, i) => {
+        const l = depthLabel(m, scale);
+        return (
+          <g key={`${m.pathId}-${i}`}>
+            <rect x={l.x - l.halfW} y={l.y - l.halfH} width={l.halfW * 2} height={l.halfH * 2} rx={3 * scale} fill="#FFFFFF" fillOpacity={0.92} stroke="#5B7085" strokeWidth={0.8 * scale} />
+            <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fontSize={l.size} fontWeight={700} fill="#10202B" fontFamily="'IBM Plex Mono', ui-monospace, monospace">
+              {m.yards}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
