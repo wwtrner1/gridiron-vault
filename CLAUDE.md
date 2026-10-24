@@ -79,6 +79,9 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 ### Game Day
 - `/game/:id` (`pages/GameDay.tsx`, `lib/gameDay.ts`) reads a Season Grid on a phone at the sideline: situation chips come from the grid's own Down/Distance/Hash values (a blank cell means "any"), a tap shows the linked play big, "Call it" logs it, and Worked/Stopped marks feed per-call tallies. The log is per device (`grid1ronvault.game.v1`, last 200 calls per grid) and the screen is kept awake with the Wake Lock API where the browser has it. No Shell and no Griddy launcher on this route; styles are the `.gd-*` block in `team.css`.
 
+### Roster
+- `lib/roster.ts` keeps letter → player name and jersey number in `grid1ronvault.roster.v1` (this browser only). The Assignments page edits it ("Roster: who wears each letter"), titles each position sheet with the name, and "Print every player" renders one offensive sheet per page (`.asg-sheet`) then prints.
+
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.

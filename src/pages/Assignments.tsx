@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
 import { useStore } from "../lib/store";
 import { assignmentsFor, lettersIn } from "../lib/assignments";
+import { loadRoster, saveRoster, who, type Roster } from "../lib/roster";
 import "../styles/assignments.css";
 
 /**
@@ -31,6 +32,28 @@ export function Assignments() {
   const letter = letters.find((l) => l.letter === asked)?.letter ?? letters.find((l) => l.side === "offense")?.letter ?? letters[0]?.letter ?? "";
   const jobs = useMemo(() => (letter ? assignmentsFor(source, letter) : []), [source, letter]);
   const sourceName = book ? book.name : "the whole Vault";
+  const [roster, setRoster] = useState<Roster>(loadRoster);
+  const [everyone, setEveryone] = useState(false);
+  const offense = useMemo(() => letters.filter((l) => l.side === "offense"), [letters]);
+  const named = (l: string) => who(roster, l);
+
+  const setSlot = (l: string, patch: Partial<Roster[string]>) => {
+    const next = { ...roster, [l]: { ...(roster[l] ?? { name: "", number: "" }), ...patch } };
+    setRoster(next);
+    saveRoster(next);
+  };
+
+  // Print every offensive player's sheet, one per page, then go back to the one-player view.
+  useEffect(() => {
+    if (!everyone) return;
+    const done = () => setEveryone(false);
+    window.addEventListener("afterprint", done, { once: true });
+    const t = window.setTimeout(() => window.print(), 150);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("afterprint", done);
+    };
+  }, [everyone]);
 
   const choose = (next: { book?: string; player?: string }) => {
     const p = new URLSearchParams(params);
@@ -46,9 +69,14 @@ export function Assignments() {
     <Shell
       title="Assignments"
       actions={
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()} disabled={!jobs.length}>
-          <Icon name="print" size={15} /> Print this sheet
-        </button>
+        <>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEveryone(true)} disabled={!offense.length}>
+            <Icon name="print" size={15} /> Print every player
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()} disabled={!jobs.length}>
+            <Icon name="print" size={15} /> Print this sheet
+          </button>
+        </>
       }
     >
       <div className="page-head asg-head">
@@ -89,8 +117,39 @@ export function Assignments() {
         </div>
       </div>
 
+      {offense.length > 0 && (
+        <details className="asg-roster">
+          <summary>Roster: who wears each letter</summary>
+          <p>Names and numbers stay on this device and print on each player's sheet.</p>
+          <div className="asg-slots">
+            {offense.map((l) => (
+              <div key={l.letter} className="asg-slot">
+                <b>{l.letter}</b>
+                <input
+                  className="input"
+                  aria-label={`Player at ${l.letter}`}
+                  placeholder="Player name"
+                  maxLength={40}
+                  value={roster[l.letter]?.name ?? ""}
+                  onChange={(e) => setSlot(l.letter, { name: e.target.value })}
+                />
+                <input
+                  className="input"
+                  aria-label={`Jersey number for ${l.letter}`}
+                  placeholder="#"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={roster[l.letter]?.number ?? ""}
+                  onChange={(e) => setSlot(l.letter, { number: e.target.value.replace(/\D/g, "") })}
+                />
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       <h3 className="asg-title">
-        {letter ? `${letter} in ${sourceName}` : sourceName} <span className="pill">{jobs.length} {jobs.length === 1 ? "play" : "plays"}</span>
+        {letter ? `${named(letter) ? `${named(letter)} · ` : ""}${letter} in ${sourceName}` : sourceName} <span className="pill">{jobs.length} {jobs.length === 1 ? "play" : "plays"}</span>
       </h3>
 
       {!letters.length ? (
@@ -101,6 +160,23 @@ export function Assignments() {
             Open the Designer
           </Link>
         </div>
+      ) : everyone ? (
+        offense.map((l) => (
+          <section key={l.letter} className="asg-sheet">
+            <h3 className="asg-title">{named(l.letter) ? `${named(l.letter)} · ` : ""}{l.letter} in {sourceName}</h3>
+            <div className="asg-grid">
+              {assignmentsFor(source, l.letter).map(({ play, lines, scene }) => (
+                <div key={play.id} className="asg-card">
+                  <PlayThumb scene={scene} label={`${l.letter} on ${play.name}`} />
+                  <span className="asg-name">{play.name}</span>
+                  <span className="asg-job">
+                    {lines.map((x) => x.tag?.trim()).filter(Boolean).join(" · ") || (lines.length ? `${lines.length} ${lines.length === 1 ? "line" : "lines"}` : "No route drawn")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))
       ) : (
         <div className="asg-grid">
           {jobs.map(({ play, lines, scene }) => {
