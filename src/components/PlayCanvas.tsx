@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground } from "../lib/field";
-import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { noteShowsOnHover } from "../lib/notes";
 import {
   boxesOverlap,
@@ -62,6 +62,8 @@ type Props = {
   /** The Style card's dash, curve and end for the next line, on top of the tool's own look. */
   look?: LineLook;
   grid: number;
+  /** Show the yards past the line of scrimmage at each route break. */
+  depths?: boolean;
   anchor: Anchor;
   zoom: number;
   watermark?: string | null;
@@ -154,6 +156,7 @@ export function PlayCanvas({
   width,
   look,
   grid,
+  depths,
   anchor,
   zoom,
   watermark,
@@ -1154,6 +1157,8 @@ export function PlayCanvas({
             {node.kind === "player" && noteShowsOnHover(node) && <title>{`${node.label || node.name}: ${node.note}`}</title>}
           </NodeLayer>
         ))}
+
+        {depths && <DepthLayer scene={scene} />}
 
         {/* Players: a grab area bigger than the token (about 18px on screen, but never far past the token so neighbours stay separate)
             and a ring on hover, so a coach can see what they are about to move. */}

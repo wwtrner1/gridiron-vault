@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { jsPDF } from "jspdf";
 import { FieldBackground } from "./field";
-import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
+import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
+import { DEPTH_SIZE } from "./depth";
 import { playerNoteLines } from "./notes";
 import { FULL_LOOK, frameScene, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
@@ -116,6 +117,9 @@ export function PrintDiagram({
       {ordered.map((n) => (
         <NodeLayer key={n.id} node={n} print={print} />
       ))}
+      {look?.depths && !transparent ? (
+        <DepthLayer scene={framed.scene} scale={ptPerUnit ? Math.min(4, Math.max(1, 5.5 / (DEPTH_SIZE * ptPerUnit))) : 1} />
+      ) : null}
       {watermark ? (
         <g transform={`rotate(-22 ${cx} ${cy})`} opacity={0.12}>
           <text
