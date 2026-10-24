@@ -29,6 +29,7 @@ import {
   sendCode,
   SMS_PER_DAY,
 } from "../security/phone.js";
+import { isOwner } from "../security/owner.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -51,17 +52,20 @@ const json = (body: unknown, status = 200) =>
 
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
-type Session = { id: string; email: string; name: string };
+/** `owner` is the All-Access Master account: decided server-side by netlify/security/owner.ts, never by anything the browser sends. */
+type Session = { id: string; email: string; name: string; owner: boolean };
 
 async function session(): Promise<Session | null> {
   try {
     const user = await getUser();
     if (!user) return null;
     const meta = (user.userMetadata ?? {}) as Record<string, string>;
+    const email = user.email ?? "";
     return {
       id: user.id,
-      email: user.email ?? "",
-      name: user.name || meta.full_name || (user.email ?? "").split("@")[0] || "Coach",
+      email,
+      name: user.name || meta.full_name || email.split("@")[0] || "Coach",
+      owner: isOwner({ email, confirmed: Boolean(user.confirmedAt) }),
     };
   } catch {
     return null;
@@ -71,8 +75,10 @@ async function session(): Promise<Session | null> {
 async function ensureProfile(user: Session) {
   await db
     .insert(profiles)
-    .values({ id: user.id, email: user.email, displayName: user.name })
+    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : "beta" })
     .onConflictDoNothing();
+  // The owner's row follows the owner list, so the plan on file matches what the server enforces.
+  if (user.owner) await db.update(profiles).set({ plan: "master" }).where(and(eq(profiles.id, user.id), ne(profiles.plan, "master")));
 }
 
 const DEVICE_COOKIE = "gv_device";
@@ -111,7 +117,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return json({ user: null });
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
-      return json({ user: me, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
+      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
     }
 
     /* ---------------------------------------------------------- phone --- */
@@ -437,6 +443,7 @@ const monthStart = () => {
 
 /** The coach's plan as the server knows it (profiles.plan). The browser's copy is only for display. */
 async function planOf(me: Session): Promise<Tier> {
+  if (me.owner) return TIERS.master;
   const [row] = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, me.id));
   return tierFor(row?.plan);
 }
@@ -468,8 +475,9 @@ async function monthlyAi(me: Session, kind: AiKind) {
  */
 async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);
+  if (me.owner) return fail("Your account is All-Access Master. It doesn't switch plans.", 403);
   const id = String(body.plan ?? "") as TierId;
-  if (!(id in TIERS)) return fail("That isn't one of our plans.");
+  if (!(id in TIERS) || id === "master") return fail("That isn't one of our plans.");
   await db.update(profiles).set({ plan: id }).where(eq(profiles.id, me.id));
   return json({ plan: id });
 }
@@ -505,6 +513,7 @@ const DAILY_AI = { assistant: 60, import: 200, photo: 15, texts: SMS_PER_DAY } a
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
+  // The owner still gets counted (the admin usage view reads these rows) but is never cut off.
   const day = new Date().toISOString().slice(0, 10);
   const [row] = await db
     .insert(aiUsage)
@@ -514,7 +523,7 @@ async function spend(me: Session, kind: keyof typeof DAILY_AI) {
       set: { count: sql`${aiUsage.count} + 1`, updatedAt: new Date() },
     })
     .returning({ count: aiUsage.count });
-  return (row?.count ?? 0) <= DAILY_AI[kind];
+  return me.owner || (row?.count ?? 0) <= DAILY_AI[kind];
 }
 
 /** Gives back a call that never happened (e.g. Twilio refused to send). */

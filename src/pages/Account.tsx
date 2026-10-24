@@ -131,7 +131,7 @@ export function Account() {
         <section className="card">
           <div className="card-head">
             <h3>Your plan</h3>
-            <span className={`pill${tier.id === "beta" ? " pill-cyan" : ""}`}>{tier.name}</span>
+            <span className={`pill${tier.id === "beta" || tier.id === "master" ? " pill-cyan" : ""}`}>{tier.name}</span>
           </div>
           <p>{tier.blurb}</p>
           <dl className="acct-facts">
@@ -149,13 +149,16 @@ export function Account() {
             </div>
             <div>
               <dt>Whiteboard photo reviews</dt>
-              <dd>{tier.photoReviews} per month</dd>
+              <dd>{tier.id === "master" ? "Unlimited" : `${tier.photoReviews} per month`}</dd>
             </div>
             <div>
               <dt>Griddy requests</dt>
-              <dd>{tier.assistantCalls} per month</dd>
+              <dd>{tier.id === "master" ? "Unlimited" : `${tier.assistantCalls} per month`}</dd>
             </div>
           </dl>
+          {tier.id === "master" ? (
+            <small className="hint">This is the owner account. It has no plan to switch and no limits to run into.</small>
+          ) : (
           <div className="field">
             <span id="switch-plan">
               Switch plan <span className="pill pill-amber">Beta</span>
@@ -185,6 +188,7 @@ export function Account() {
               Beta plans are set by hand while we are testing. Billing takes over when beta ends.
             </small>
           </div>
+          )}
         </section>
 
         <section className="card">
@@ -194,7 +198,7 @@ export function Account() {
               <div className="meter-top">
                 <Link to={u.to}>{u.label}</Link>
                 <b>
-                  {u.used} <small>of {u.limit}</small>
+                  {u.used} <small>{tier.id === "master" ? "· no limit" : `of ${u.limit}`}</small>
                 </b>
               </div>
               <div
