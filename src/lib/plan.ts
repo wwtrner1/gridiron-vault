@@ -6,7 +6,7 @@
  * the tier is read from the workspace so beta coaches can be upgraded by hand.
  */
 
-export type TierId = "beta" | "free" | "solo" | "crew" | "program";
+export type TierId = "master" | "beta" | "free" | "solo" | "crew" | "program";
 
 export type Tier = {
   id: TierId;
@@ -42,6 +42,27 @@ export type Tier = {
 };
 
 export const TIERS: Record<TierId, Tier> = {
+  // Not a plan anyone can pick or buy: the server gives it to the owner list (netlify/security/owner.ts).
+  master: {
+    id: "master",
+    name: "All-Access Master",
+    blurb: "The owner account. Every tool on, no plan limits.",
+    price: "—",
+    cadence: "owner",
+    seats: "Owner",
+    playLimit: 1_000_000,
+    gridLimit: 1_000_000,
+    copyLimit: 1_000_000,
+    sizes: "all",
+    maxDpi: 600,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    photoReviews: 1_000_000,
+    assistantCalls: 1_000_000,
+    perks: ["Every tool and export", "No Vault, Griddy or photo limits", "Owner admin console"],
+  },
   beta: {
     id: "beta",
     name: "Beta Coach",
