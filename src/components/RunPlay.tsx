@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
-import { ballAt, buildTimeline, isFilmLink, linkAt, positionsAt } from "../lib/runPlay";
+import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positionsAt } from "../lib/runPlay";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
 import { Icon } from "./Icon";
@@ -255,8 +255,25 @@ export function RunPlay({
             </p>
           )}
           {scene.film?.link && !linkError && (
+            <label className="rp-link">
+              <span>The snap happens at (m:ss)</span>
+              <input
+                className="input"
+                key={snapAt}
+                inputMode="numeric"
+                placeholder="1:23"
+                defaultValue={snapAt ? clock(snapAt) : ""}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  const secs = v ? parseClock(v) : 0;
+                  if (secs !== null) onFilm({ ...scene.film, snapAt: secs || undefined });
+                }}
+              />
+            </label>
+          )}
+          {scene.film?.link && !linkError && (
             <a className="rp-open" href={linkAt(scene.film.link, snapAt)} target="_blank" rel="noopener noreferrer">
-              Open the film{snapAt ? ` at the snap (${snapAt.toFixed(1)} s)` : ""} ↗
+              Open the film{snapAt ? ` at the snap (${clock(snapAt)})` : ""} ↗
             </a>
           )}
         </div>
