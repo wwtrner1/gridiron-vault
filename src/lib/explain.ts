@@ -51,8 +51,8 @@ function sentence(scene: Scene, who: PlayerNode, line: PathNode, sign: 1 | -1): 
   const nearLeft = who.x < CANVAS_W / 2;
   const toward = !after ? "" : Math.abs(after.x) < 0.25 ? "back toward the quarterback" : left === nearLeft ? "to the sideline" : "to the middle";
   const side = !after || Math.abs(after.x) < 0.25 ? "" : left ? " (left)" : " (right)";
-  const where = depth >= 1 ? `${depth} yards` : "the line";
-  return `${letter} runs ${where}${name}, then breaks ${toward}${side}.`;
+  if (depth < 1) return `${letter} breaks ${toward}${side} behind the line${name}.`;
+  return `${letter} runs ${depth} yards${name}, then breaks ${toward}${side}.`;
 }
 
 /** Talking points for a play, one line per player, quarterback first and the first read called out. */
