@@ -5,6 +5,7 @@ import { Tooltip } from "./Tooltip";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { useStore } from "../lib/store";
+import { useOwner } from "../lib/owner";
 
 type Props = {
   title: string;
@@ -78,11 +79,14 @@ const ACCOUNT_NAV: NavItem[] = [
   { to: "/help", icon: "help", label: "Help & feedback", hint: "Get help, report a problem or tell us what to improve." },
 ];
 
+const ADMIN_NAV: NavItem = { to: "/admin", icon: "lock", label: "Admin", hint: "Owner console: users, visitors and account recovery." };
+
 export function Shell({ title, actions, children }: Props) {
   const { account, signOut } = useAuth();
   const tier = useTier();
   const [open, setOpen] = useState(false);
   const plays = useStore((s) => s.plays);
+  const owner = useOwner();
 
   return (
     <div className="shell">
@@ -124,7 +128,7 @@ export function Shell({ title, actions, children }: Props) {
 
         <nav className="rail-group" aria-labelledby="rail-account">
           <p id="rail-account">Account</p>
-          {ACCOUNT_NAV.map((item) => (
+          {(owner ? [...ACCOUNT_NAV, ADMIN_NAV] : ACCOUNT_NAV).map((item) => (
             <RailLink key={item.to} item={item} onNavigate={() => setOpen(false)} />
           ))}
         </nav>

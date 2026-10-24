@@ -1,0 +1,42 @@
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { Shell } from "../components/Shell";
+import { useOwner } from "../lib/owner";
+import { AuditTab } from "./admin/AuditTab";
+import { UsersTab, useAdminUsers } from "./admin/UsersTab";
+import "../styles/admin.css";
+
+const TABS = [
+  { id: "users", label: "Users" },
+  { id: "watch", label: "Watch list" },
+  { id: "audit", label: "Audit log" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+
+/** Owner-only console. The page only hides itself; every /api/admin call is checked on the server. */
+export function Admin() {
+  const owner = useOwner();
+  const [tab, setTab] = useState<TabId>("users");
+  const data = useAdminUsers();
+  const [, setOpenId] = useState("");
+
+  if (owner === false) return <Navigate to="/account" replace />;
+  if (owner === null) return <Shell title="Admin"><p className="hint">Checking your access…</p></Shell>;
+
+  return (
+    <Shell title="Admin">
+      <div className="adm">
+        <div className="chip-row" role="tablist" aria-label="Admin sections">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? " is-on" : ""}`} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {tab === "users" && <UsersTab {...data} onOpen={setOpenId} />}
+        {tab === "watch" && <UsersTab {...data} watch onOpen={setOpenId} />}
+        {tab === "audit" && <AuditTab />}
+      </div>
+    </Shell>
+  );
+}

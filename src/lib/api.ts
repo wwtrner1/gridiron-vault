@@ -110,6 +110,16 @@ export const api = {
 
   updateSheet: (id: string, body: unknown) =>
     request<{ sheet: RemoteSheet }>(`call-sheets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  /** Owner console. The server answers 404 to anyone who isn't on the owner list. */
+  admin: <T,>(path: string, init?: RequestInit) => request<T>(`admin/${path}`, init),
+
+  /** The owner's CSV of every signup, as a file the browser can save. */
+  adminUsersCsv: async () => {
+    const res = await fetch("/api/admin/users.csv", { credentials: "include", headers: { "X-Device": deviceId() } });
+    if (!res.ok) throw new Error("The export didn't download. Try again in a minute.");
+    return res.blob();
+  },
 };
 
 export type Playbook = {

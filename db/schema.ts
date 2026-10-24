@@ -22,7 +22,41 @@ export const profiles = pgTable("profiles", {
   /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
   plan: text().notNull().default("beta"),
   createdAt: timestamp("created_at").defaultNow(),
+  /** Last time the app talked to the server as this coach (throttled to every few minutes). */
+  lastActiveAt: timestamp("last_active_at"),
 });
+
+/**
+ * One row per account that deleted itself, so the owner's signup history and the
+ * free-plan abuse checks survive deletion. Only fingerprints of the phone are
+ * kept, never the number, and no plays.
+ */
+export const accountLedger = pgTable("account_ledger", {
+  userId: text("user_id").primaryKey(),
+  email: text().notNull(),
+  name: text().notNull().default(""),
+  /** SHA-256 of the verified phone number, or "" when there was none. */
+  phoneHash: text("phone_hash").notNull().default(""),
+  lastPlan: text("last_plan").notNull().default(""),
+  playCount: integer("play_count").notNull().default(0),
+  signedUpAt: timestamp("signed_up_at"),
+  deletedAt: timestamp("deleted_at").defaultNow(),
+});
+
+/** Everything the owner does in /admin: who, what, to whom. Append-only. */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    actorId: text("actor_id").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    action: text().notNull(),
+    targetId: text("target_id").notNull().default(""),
+    detail: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    at: timestamp().defaultNow(),
+  },
+  (t) => [index("audit_log_at_idx").on(t.at)],
+);
 
 /**
  * Devices a coach has confirmed with a code to his phone. A sign-in from
