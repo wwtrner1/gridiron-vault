@@ -35,6 +35,11 @@ export const WATCH = {
   devices: 4,
   /** Days a verified phone may be missing before the account is flagged. */
   noPhoneDays: 3,
+  /** Accounts confirmed on one device within `deviceWindowDays` (the launch plan's repeat-trial signal). */
+  accountsPerDevice: 3,
+  deviceWindowDays: 7,
+  /** Griddy messages on the day the account was made (someone burning a fresh trial). */
+  griddyFirstDay: 20,
 } as const;
 
 export type UserRow = {
@@ -59,6 +64,10 @@ export type UserRow = {
   devices: number;
   /** Accounts that have used this phone number, current and deleted. */
   phoneSignups: number;
+  /** Most accounts confirmed on any one of this coach's devices in the last WATCH.deviceWindowDays days. */
+  devicePeers: number;
+  /** Griddy messages on the day the account was made. */
+  griddyFirstDay: number;
   flags: string[];
 };
 
@@ -84,7 +93,7 @@ const count = (n: unknown) => Number(n ?? 0);
 export async function userRows(): Promise<{ users: UserRow[]; identity: boolean }> {
   const day = (n: number) => new Date(Date.now() - n * 86400_000);
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const [ident, profs, ledger, playN, devN, aiM, aiPeak, expN, exp24] = await Promise.all([
+  const [ident, profs, ledger, playN, devN, aiM, aiPeak, expN, exp24, devRows, aiDays] = await Promise.all([
     identityUsers(),
     db.select().from(profiles),
     db.select().from(accountLedger),
@@ -106,6 +115,11 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       .from(events)
       .where(and(eq(events.name, "play_exported"), gte(events.at, day(1))))
       .groupBy(events.ownerId),
+    db.select({ id: trustedDevices.ownerId, hash: trustedDevices.deviceHash, at: trustedDevices.createdAt }).from(trustedDevices),
+    db
+      .select({ id: aiUsage.ownerId, day: aiUsage.day, n: aiUsage.count })
+      .from(aiUsage)
+      .where(and(eq(aiUsage.kind, "assistant"), gte(aiUsage.day, day(60).toISOString().slice(0, 10)))),
   ]);
 
   const by = (rows: { id: string; n: unknown }[]) => new Map(rows.map((r) => [r.id, count(r.n)]));
@@ -115,6 +129,17 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
   const phoneUse = new Map<string, number>();
   for (const l of ledger) if (l.phoneHash) phoneUse.set(l.phoneHash, (phoneUse.get(l.phoneHash) ?? 0) + 1);
   for (const p of profs) if (p.phone) phoneUse.set(sha(p.phone), (phoneUse.get(sha(p.phone)) ?? 0) + 1);
+
+  // Accounts per device, counting only confirmations inside the window, so a family laptop used over a season isn't flagged.
+  const recent = day(WATCH.deviceWindowDays);
+  const onDevice = new Map<string, Set<string>>();
+  for (const d of devRows) {
+    if (!d.at || new Date(d.at) < recent) continue;
+    if (!onDevice.has(d.hash)) onDevice.set(d.hash, new Set());
+    onDevice.get(d.hash)!.add(d.id);
+  }
+  const peers = (id: string) => Math.max(0, ...devRows.filter((d) => d.id === id).map((d) => onDevice.get(d.hash)?.size ?? 0));
+  const griddyOn = new Map(aiDays.map((r) => [`${r.id}|${r.day}`, count(r.n)]));
 
   const profile = new Map(profs.map((p) => [p.id, p]));
   const ids = new Set<string>([...profs.map((p) => p.id), ...(ident ?? []).map((u) => u.id)]);
@@ -146,9 +171,15 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       exports24h: exp24_.get(id) ?? 0,
       devices: dev_.get(id) ?? 0,
       phoneSignups: p?.phone ? phoneUse.get(sha(p.phone)) ?? 1 : 0,
+      devicePeers: peers(id),
+      griddyFirstDay: signedUpAt ? griddyOn.get(`${id}|${signedUpAt.slice(0, 10)}`) ?? 0 : 0,
       flags: [],
     };
+    // The owner's own testing never raises a flag.
+    if (p?.plan === "master") return row;
     const f = row.flags;
+    if (row.devicePeers >= WATCH.accountsPerDevice) f.push(`${row.devicePeers} accounts on one device this week`);
+    if (row.griddyFirstDay >= WATCH.griddyFirstDay) f.push("Heavy Griddy use on day one");
     if (row.phoneSignups > 1) f.push("Phone used by more than one account");
     if (row.devices >= WATCH.devices) f.push("Many devices");
     if (row.griddyPeakDay >= WATCH.griddyDay) f.push("Near the daily Griddy cap");
@@ -162,7 +193,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
     users.push({
       id: l.userId, email: l.email, name: l.name, signedUpAt: iso(l.signedUpAt), confirmed: true, provider: "", lastSignInAt: null,
       lastActiveAt: null, plan: l.lastPlan, phone: "none", deleted: true, deletedAt: iso(l.deletedAt), plays: l.playCount,
-      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0,
+      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0,
       phoneSignups: l.phoneHash ? phoneUse.get(l.phoneHash) ?? 1 : 0, flags: [],
     });
   }
@@ -183,7 +214,7 @@ export function usersCsv(users: UserRow[]) {
     ["Sign-in method", (u) => u.provider], ["Last sign-in", (u) => u.lastSignInAt], ["Last active", (u) => u.lastActiveAt], ["Plan", (u) => u.plan],
     ["Phone", (u) => u.phone], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : "active")], ["Plays", (u) => u.plays],
     ["Griddy this month", (u) => u.griddyMonth], ["Photo reviews this month", (u) => u.photosMonth], ["Exports", (u) => u.exports],
-    ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],
+    ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Accounts on one device (7 days)", (u) => u.devicePeers], ["Griddy on signup day", (u) => u.griddyFirstDay], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],
   ];
   return [cols.map(([h]) => cell(h)).join(","), ...users.map((u) => cols.map(([, f]) => cell(f(u))).join(","))].join("\r\n");
 }
