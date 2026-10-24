@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
-import { CARD_LOOK, FULL_LOOK, type PrintLook } from "./printLook";
+import { CARD_LOOK, FULL_LOOK, lettersFit, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
 
 /**
@@ -36,15 +36,22 @@ export const BAND_GRIDS: BandGrid[] = [
 export const gridKey = (g: BandGrid) => `${g.cols}x${g.rows}`;
 
 /**
- * Printed card sizes. The NFL FLAG card (4.5 × 2.02 in) is the default; the
- * large card fits wristband windows of 4.75 × 2.50 in. "Custom" takes the
- * coach's own window size.
+ * Printed card sizes: the insert window of the wristbands coaches actually
+ * buy. Window sizes come from each maker's product listing (measured inside
+ * the clear window); "Custom" takes the coach's own measurement. Ids are
+ * saved in the browser, so never rename one.
  */
 export const BAND_SIZES = [
   { id: "flag", label: "NFL FLAG", w: 4.5, h: 2.02, note: "Fits the standard NFL FLAG wristband window." },
-  { id: "large", label: "Large", w: 4.75, h: 2.5, note: "Fits a 4.75 × 2.50 in wristband window." },
-  { id: "index", label: "Index", w: 5, h: 3, note: "A 5 × 3 in card for a large window or the sideline." },
-  { id: "custom", label: "Custom", w: 4.5, h: 2.5, note: "Measure the inside of your wristband window and type it in." },
+  { id: "large", label: "Teen / 3-window", w: 4.75, h: 2.5, note: "Fits a 4.75 × 2.50 in window: Football Play Card Teen and most 3-window teen bands." },
+  { id: "fpc-youth", label: "Youth 3-window", w: 3.75, h: 2.25, note: "Fits a 3.75 × 2.25 in youth window (Football Play Card Youth). Best at 4 to 6 plays a card." },
+  { id: "youth-wide", label: "Youth wide", w: 4.5, h: 2.25, note: "Fits a 4.50 × 2.25 in youth insert, the common youth 3-window size." },
+  { id: "small", label: "Small", w: 4, h: 2.5, note: "Fits the 4 × 2.5 in insert of small 4.75 in multi-window bands." },
+  { id: "varsity", label: "Varsity", w: 4.75, h: 2.75, note: "Fits a 4.75 × 2.75 in varsity insert." },
+  { id: "pro-athletics", label: "4.5 × 2.75", w: 4.5, h: 2.75, note: "Fits a 4.50 × 2.75 in window (Pro Athletics 3-compartment bands)." },
+  { id: "index", label: "Adult single / Index", w: 5, h: 3, note: "A 5 × 3 in card: Champro adult single window, an index card, or the sideline." },
+  { id: "fpc-adult", label: "Adult 3-window", w: 5.25, h: 3.25, note: "Fits a 5.25 × 3.25 in adult window (Football Play Card Adult). Room for 12 to 20 plays." },
+  { id: "custom", label: "Custom", w: 4.5, h: 2.5, note: "Measure the inside of your wristband window, edge to edge, and type it in." },
 ] as const;
 export type BandSizeId = (typeof BAND_SIZES)[number]["id"];
 export const BAND_CUSTOM_LIMITS = { min: 1.5, max: 8 };
@@ -64,11 +71,12 @@ export type BandPaperId = (typeof BAND_PAPERS)[number]["id"];
  * the first digits the card and the last the box (card A 11–18, card B 21–28),
  * so the call tells the quarterback which panel to look at.
  */
-export type BandNumbering = { mode: "source" | "order" | "card"; start: number };
+export type BandNumbering = { mode: "source" | "order" | "card" | "spot"; start: number };
 export const NUMBERING_MODES = [
   { id: "source", label: "Keep my numbers", hint: "The Season Grid's # column, or the playbook order." },
   { id: "order", label: "1, 2, 3 in print order", hint: "Counts up from the start number as the boxes sit on the cards." },
   { id: "card", label: "By card", hint: "Card A is 11, 12, 13…, card B is 21, 22, 23…, so the first digit names the panel." },
+  { id: "spot", label: "A1, A2, B1…", hint: "The card letter, then the box: call \"B3\" and the player looks at card B, third box." },
 ] as const;
 export const DEFAULT_NUMBERING: BandNumbering = { mode: "source", start: 1 };
 
@@ -77,6 +85,7 @@ export function numberEntries(entries: BandEntry[], n: BandNumbering, perCard: n
   if (n.mode === "source") return entries;
   const start = Math.max(0, Math.floor(n.start) || 0);
   if (n.mode === "order") return entries.map((e, i) => ({ ...e, number: String(start + i) }));
+  if (n.mode === "spot") return entries.map((e, i) => ({ ...e, number: cardSpot(i, perCard) }));
   // Ten per card while the box number stays one digit, a hundred once a card holds ten or more.
   const step = perCard < 10 ? 10 : 100;
   const first = Math.max(1, start);
@@ -260,14 +269,50 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
         doc.text(fitText(doc, name, room), cx + tabW + 0.04, cy + strip / 2, { baseline: "middle" });
       }
     }
-    const pad = 0.03;
-    await placeDiagram(doc, e.scene, cx + pad, cy + strip + pad / 2, cellW - pad * 2, cellH - strip - pad * 1.5, {
+    const art = diagramBox(o);
+    await placeDiagram(doc, e.scene, cx + DIAGRAM_PAD, cy + strip + DIAGRAM_PAD / 2, art.w, art.h, {
       look: o.look,
       watermark: o.watermark,
       vector: o.vector,
       dpi: o.dpi,
     });
   }
+}
+
+/** Gap between a box's border and its diagram, in inches. */
+const DIAGRAM_PAD = 0.03;
+
+/** The diagram's printed size inside one box, in inches. Shared by the cards and the fit check. */
+export function diagramBox(o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize">) {
+  const { headH, footH } = bandChrome(o);
+  const cellW = o.card.w / o.grid.cols;
+  const cellH = (o.card.h - headH - footH) / o.grid.rows;
+  return { w: cellW - DIAGRAM_PAD * 2, h: cellH - stripHeight(o.numberSize) - DIAGRAM_PAD * 1.5 };
+}
+
+/** Numbers of the boxes whose diagram is too small to keep its player letters, for a warning before printing. */
+export function tightBoxes(entries: BandEntry[], o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize" | "look" | "shows">): string[] {
+  if (!o.shows.diagram || o.shows.numberOnly) return [];
+  const art = diagramBox(o);
+  return entries.filter((e) => e.scene && !lettersFit(e.scene, o.look, art.w, art.h)).map((e) => e.number);
+}
+
+/**
+ * A 1-inch bar and a reminder in the page margin. If the bar doesn't measure
+ * an inch, the printer scaled the page and the cards won't fit the window.
+ */
+function scaleCheck(doc: jsPDF, paperW: number, paperH: number) {
+  const x = 0.4;
+  const y = paperH - 0.22;
+  doc.setDrawColor(11, 21, 36);
+  doc.setLineWidth(0.012);
+  doc.line(x, y, x + 1, y);
+  for (const t of [0, 0.5, 1]) doc.line(x + t, y - (t === 0.5 ? 0.04 : 0.07), x + t, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(60, 72, 90);
+  doc.text("1 in", x + 1.06, y + 0.02);
+  doc.text("Print at Actual size (100%). If this bar isn't 1 inch, turn off \"Fit to page\" and print again.", x + 1.32, y + 0.02);
 }
 
 /** Short corner ticks just outside a card, so it can be trimmed without a printed border. */
@@ -400,6 +445,7 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
         if (!first) doc.addPage([paper.w, paper.h], orient);
         first = false;
         slot = 0;
+        if (o.paper !== "card") scaleCheck(doc, paper.w, paper.h);
       }
       const { x, y } = slots[slot];
       const vars = { role, card: cardLetter(c), source: o.source, count: cards[c].length };

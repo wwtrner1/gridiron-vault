@@ -18,6 +18,7 @@ import {
   BAND_GRIDS,
   BAND_PAPERS,
   BAND_SIZES,
+  tightBoxes,
   callSheetRows,
   cardsPerPage,
   COACH_SHEETS,
@@ -244,6 +245,7 @@ export function Wristbands() {
     dpi: cappedDpi(tier, 600),
     vector,
   };
+  const tight = tightBoxes(entries, options);
   const printed = cards * (prefs.copies.qb + prefs.copies.center);
   const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
@@ -373,7 +375,7 @@ export function Wristbands() {
                   </button>
                 ))}
               </div>
-              {prefs.numbering.mode !== "source" && (
+              {prefs.numbering.mode !== "source" && prefs.numbering.mode !== "spot" && (
                 <label className="wb-sub">
                   {prefs.numbering.mode === "card" ? "First card starts at" : "Start at"}
                   <input
@@ -400,19 +402,18 @@ export function Wristbands() {
 
             <div className="wb-field" role="group" aria-labelledby="wb-card-size">
               <span id="wb-card-size">Card size</span>
-              <div className="chip-row">
+              <select
+                className="select"
+                aria-labelledby="wb-card-size"
+                value={prefs.sizeId}
+                onChange={(e) => set({ sizeId: e.target.value as BandSizeId })}
+              >
                 {BAND_SIZES.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className={`chip${prefs.sizeId === b.id ? " is-on" : ""}`}
-                    aria-pressed={prefs.sizeId === b.id}
-                    onClick={() => set({ sizeId: b.id })}
-                  >
-                    {b.id === "custom" ? "Custom" : `${b.w} × ${b.h.toFixed(2)}`}
-                  </button>
+                  <option key={b.id} value={b.id}>
+                    {b.id === "custom" ? "Custom: type my window size" : `${b.label} · ${b.w.toFixed(2)} × ${b.h.toFixed(2)} in`}
+                  </option>
                 ))}
-              </div>
+              </select>
               {preset.id === "custom" && (
                 <div className="wb-dims">
                   <label>
@@ -466,6 +467,13 @@ export function Wristbands() {
                 Each box prints {(card.w / grid.cols).toFixed(2)} × {((card.h - (prefs.header.show ? 0.2 : 0) - (prefs.footer.trim() ? 0.16 : 0)) / grid.rows).toFixed(2)} in.
                 {card.w / grid.cols < 1.2 && " That's tight for a diagram; fewer plays per card prints bigger."}
               </p>
+              {tight.length > 0 && (
+                <p className="wb-warn" role="status">
+                  {tight.length === 1 ? `Box ${tight[0]} is` : `Boxes ${tight.slice(0, 6).join(", ")}${tight.length > 6 ? "…" : ""} are`} too
+                  small to letter the players, so {tight.length === 1 ? "it prints" : "they print"} as colored dots. Pick fewer plays per card or a
+                  bigger card to keep the letters.
+                </p>
+              )}
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-look">
