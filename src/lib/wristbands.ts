@@ -491,7 +491,7 @@ export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: Ban
     prefs: {
       grid: "3x2",
       shows: { diagram: true, name: false, numberOnly: false },
-      look: { fit: "play", weight: "auto", field: "lite", dots: false, icons: 1.3, lines: 1.5, zoom: 1 },
+      look: { fit: "play", weight: "auto", field: "yards", dots: false, icons: 1.3, lines: 1.5, zoom: 1 },
       numberSize: "l",
       numberStyle: "tab",
       header: { show: true, ...defaultBandText },

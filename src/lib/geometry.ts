@@ -41,8 +41,10 @@ export function localBox(node: SceneNode): Box {
     }
     case "path": {
       if (!node.points.length) return { x: 0, y: 0, w: 0, h: 0 };
-      const xs = node.points.map((p) => p.x);
-      const ys = node.points.map((p) => p.y);
+      // A curve stays inside its control points, so they bound it; the points alone cut off a bulge.
+      const hull = curveHull(node);
+      const xs = hull.map((p) => p.x);
+      const ys = hull.map((p) => p.y);
       const x = Math.min(...xs);
       const y = Math.min(...ys);
       return { x, y, w: Math.max(1, Math.max(...xs) - x), h: Math.max(1, Math.max(...ys) - y) };
@@ -96,6 +98,32 @@ export function straightPath(pts: Point[], closed = false): string {
   if (!pts.length) return "";
   const d = pts.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
   return closed ? `${d} Z` : d;
+}
+
+/** The points a path's curve can reach: its own points plus every bezier control point it draws with. */
+export function curveHull(node: PathNode): Point[] {
+  const pts = node.points;
+  if (pts.length < 2 || node.curve === "straight" || (node.curve === "spline" && pts.length < 3)) return pts;
+  const out = [...pts];
+  if (node.curve === "bezier") {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const ha = node.handles[i] ?? { x: (b.x - a.x) / 3, y: (b.y - a.y) / 3 };
+      const hb = node.handles[i + 1] ?? { x: (a.x - b.x) / 3, y: (a.y - b.y) / 3 };
+      out.push({ x: a.x + ha.x, y: a.y + ha.y }, { x: b.x + hb.x, y: b.y + hb.y });
+    }
+    return out;
+  }
+  // Same control points smoothPath draws through.
+  const p = node.closed ? [pts[pts.length - 1], ...pts, pts[0], pts[1]] : [pts[0], ...pts, pts[pts.length - 1]];
+  for (let i = 1; i < p.length - 2; i++) {
+    out.push(
+      { x: p[i].x + (p[i + 1].x - p[i - 1].x) / 6, y: p[i].y + (p[i + 1].y - p[i - 1].y) / 6 },
+      { x: p[i + 1].x - (p[i + 2].x - p[i].x) / 6, y: p[i + 1].y - (p[i + 2].y - p[i].y) / 6 },
+    );
+  }
+  return out;
 }
 
 /** Cubic path using per-point control handles (the bezier node tool). */

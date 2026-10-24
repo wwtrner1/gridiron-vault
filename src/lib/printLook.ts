@@ -1,5 +1,5 @@
 import type { Box } from "./geometry";
-import { unionBox, worldBox } from "./geometry";
+import { toWorld, unionBox, worldBox } from "./geometry";
 import type { Scene, SceneNode } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 import { TAG_SIZE } from "./render";
@@ -10,13 +10,13 @@ import { TAG_SIZE } from "./render";
  * every line, token and letter made heavier, or it prints as hairlines.
  */
 export type PrintFit = "field" | "play";
-export type PrintField = "full" | "lite" | "none";
+export type PrintField = "full" | "yards" | "lite" | "none";
 export type PrintLook = {
   /** Whole field, or cropped to the players and routes. */
   fit: PrintFit;
   /** Multiplier for line, token and text sizes. "auto" picks one from the printed size. */
   weight: number | "auto";
-  /** Field markings: everything, line of scrimmage only, or nothing. */
+  /** Field markings: everything, yard lines with distances, line of scrimmage only, or nothing. */
   field: PrintField;
   /** Zoom on top of the framing: below 1 shows more field, above 1 crops tighter. Default 1. */
   zoom?: number;
@@ -29,7 +29,7 @@ export type PrintLook = {
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: "auto", field: "full" };
-export const CARD_LOOK: PrintLook = { fit: "play", weight: "auto", field: "lite" };
+export const CARD_LOOK: PrintLook = { fit: "play", weight: "auto", field: "yards" };
 
 /** Playmaker-style fine tuning, shown as chips on the Wristbands page. */
 export const ZOOM_STEPS = [0.75, 1, 1.25, 1.5];
@@ -52,6 +52,7 @@ export const FIT_OPTIONS: { id: PrintFit; label: string; hint: string }[] = [
 ];
 
 export const FIELD_OPTIONS: { id: PrintField; label: string }[] = [
+  { id: "yards", label: "Yard lines with distances" },
   { id: "lite", label: "Line of scrimmage only" },
   { id: "full", label: "Full field markings" },
   { id: "none", label: "No field" },
@@ -135,7 +136,28 @@ export function boostScene(scene: Scene, b: Boost): Scene {
 
 /** Bounds of everything visible in the play, or null for an empty scene. */
 export function playBox(scene: Scene): Box | null {
-  return unionBox(scene.nodes.filter((n) => !n.hidden).map(worldBox));
+  return unionBox(scene.nodes.filter((n) => !n.hidden).flatMap((n) => [worldBox(n), ...tagBox(n)]));
+}
+
+/** Room for a route tag, which rides just past the end of its route. */
+function tagBox(n: SceneNode): Box[] {
+  if (n.kind !== "path" || !n.tag?.trim() || n.points.length < 2) return [];
+  const end = toWorld(n, n.points[n.points.length - 1]);
+  const size = TAG_SIZE * (n.tagScale ?? 1);
+  const reach = n.tag.trim().length * size * 0.56 + size + 12;
+  return [{ x: end.x - reach, y: end.y - reach, w: reach * 2, h: reach * 2 }];
+}
+
+/**
+ * Zoom never cuts the play off: zooming in only crops empty field. The
+ * zoomed box slides over the play, and grows back if the play is still wider.
+ */
+function keepPlay(box: Box, play: Box | null, aspect: number): Box {
+  if (!play) return box;
+  const slide = (lo: number, len: number, pLo: number, pLen: number) =>
+    pLen >= len ? pLo + pLen / 2 - len / 2 : Math.min(Math.max(lo, pLo + pLen - len), pLo);
+  const moved = { ...box, x: slide(box.x, box.w, play.x, play.w), y: slide(box.y, box.h, play.y, play.h) };
+  return play.w <= box.w && play.h <= box.h ? moved : toAspect(unionBox([moved, play])!, aspect);
 }
 
 /** Grow a box about its centre until it has the given width / height ratio. */
@@ -192,8 +214,10 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   const ppu = (b: Box) => (wIn * 72) / b.w;
   if (look.fit === "field") {
     const w = weightsFor(look, whole.w, wIn);
-    const box = zoomBox(whole, look.zoom);
-    return { scene: boostScene(scene, w), box, weight: w.line, ptPerUnit: ppu(box) };
+    const boosted = boostScene(scene, w);
+    const play = playBox(boosted);
+    const box = keepPlay(zoomBox(whole, look.zoom), play && pad(play, PAD * Math.min(w.line, 2)), aspect);
+    return { scene: boosted, box, weight: w.line, ptPerUnit: ppu(box) };
   }
   const raw = playBox(scene);
   if (!raw) return { scene: boostScene(scene, { line: 1, token: 1, dots: look.dots }), box: whole, weight: 1, ptPerUnit: ppu(whole) };
@@ -201,9 +225,10 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   let box = toAspect(pad(raw, PAD), aspect);
   const w = weightsFor(look, Math.max(box.w, MIN_FRAME_W), wIn);
   const boosted = boostScene(scene, w);
-  box = toAspect(pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2)), aspect);
+  const play = pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2));
+  box = toAspect(play, aspect);
   if (box.w < MIN_FRAME_W) box = toAspect({ ...box, x: box.x + box.w / 2 - MIN_FRAME_W / 2, w: MIN_FRAME_W }, aspect);
-  box = zoomBox(box, look.zoom);
+  box = keepPlay(zoomBox(box, look.zoom), play, aspect);
   return { scene: boosted, box, weight: w.line, ptPerUnit: ppu(box) };
 }
 
