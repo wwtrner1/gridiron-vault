@@ -367,6 +367,10 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
             ))}
           </select>
         </label>
+        <label className="switch">
+          <input type="checkbox" checked={!!look.rules} onChange={(e) => setLook({ rules: e.target.checked })} />
+          League rush line and no-run zone
+        </label>
       </div>
 
       {kind === "pdf" && (

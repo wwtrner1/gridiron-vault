@@ -538,6 +538,10 @@ export function Wristbands() {
                 <input type="checkbox" checked={!!prefs.look.depths} onChange={(e) => setLook({ depths: e.target.checked })} />
                 Yards at each route break
               </label>
+              <label className="switch">
+                <input type="checkbox" checked={!!prefs.look.rules} onChange={(e) => setLook({ rules: e.target.checked })} />
+                League rush line and no-run zone
+              </label>
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-shows">
