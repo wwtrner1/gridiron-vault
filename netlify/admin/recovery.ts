@@ -184,7 +184,7 @@ export async function restoreItem(actor: Actor, trashId: string, toUserId?: stri
 
 /** Support fix: set a coach's plan (never to master, which comes only from the owner list). */
 export async function setUserPlan(actor: Actor, uid: string, plan: string) {
-  if (plan === "master" || !(plan in TIERS)) return { error: "That isn't a plan a coach can be on.", status: 400 };
+  if (plan === "master" || plan === "trial" || !(plan in TIERS)) return { error: "That isn't a plan a coach can be on.", status: 400 };
   const before = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, uid));
   if (!before[0]) return { error: "That coach has no profile yet.", status: 404 };
   await db.update(profiles).set({ plan: plan as TierId }).where(eq(profiles.id, uid));

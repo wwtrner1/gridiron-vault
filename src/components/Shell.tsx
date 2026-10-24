@@ -3,7 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { useAuth } from "../lib/auth";
-import { useTier } from "../lib/tier";
+import { useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
 
@@ -84,6 +84,7 @@ const ADMIN_NAV: NavItem = { to: "/admin", icon: "lock", label: "Admin", hint: "
 export function Shell({ title, actions, children }: Props) {
   const { account, signOut } = useAuth();
   const tier = useTier();
+  const trialDays = useTrialDays();
   const [open, setOpen] = useState(false);
   const plays = useStore((s) => s.plays);
   const owner = useOwner();
@@ -141,6 +142,17 @@ export function Shell({ title, actions, children }: Props) {
               </p>
               <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
                 Unlock the full kit
+              </Link>
+            </div>
+          )}
+          {tier.id === "trial" && trialDays !== null && (
+            <div className="rail-plan">
+              <span className="pill pill-cyan">Trial</span>
+              <p style={{ marginTop: 8 }}>
+                {trialDays === 0 ? "Your Head Coach trial ends today." : `${trialDays} day${trialDays === 1 ? "" : "s"} left of Head Coach.`} Your plays stay after it ends.
+              </p>
+              <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
+                Keep Head Coach
               </Link>
             </div>
           )}

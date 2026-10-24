@@ -26,7 +26,7 @@ export function PhoneGate() {
       const res = await api.me();
       setSec(res.security ?? null);
       // The one /me call after sign-in also brings the account's plan.
-      void syncPlan(res.plan);
+      void syncPlan(res.plan, res.trialEndsAt);
     } catch {
       /* the next API call will ask again */
     }
