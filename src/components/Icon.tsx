@@ -1,5 +1,6 @@
 const PATHS: Record<string, string> = {
   cursor: "M5 3l13 8-5.6 1.4L10.3 19z",
+  play: "M7 4l13 8-13 8z",
   multiselect: "M3 3h6M3 3v6M21 3h-6M21 3v6M3 21h6M3 21v-6M21 21h-6M21 21v-6M8 8h8v8H8z",
   duplicate: "M8 3h10a2 2 0 012 2v10M4 8h10a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2v-9a2 2 0 012-2z",
   through: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z",

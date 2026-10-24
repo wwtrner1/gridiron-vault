@@ -76,6 +76,9 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - `lib/rules.ts` holds coach-editable rule distances (`RuleLines`: rush line yards, no-run zone yards; presets such as NFL FLAG 5-on-5), saved in `grid1ronvault.rules.v1`. `RuleLinesLayer` (`lib/field.tsx`) draws them over the field in the Designer only (not yet in prints); the no-run zone shades from the goal line, so it shows on Red zone and Flag views. Distances are editable on purpose: leagues and federations differ, so don't hard-code a rulebook as fact.
 - `lib/explain.ts` (`explainPlay`) turns a scene into plain-language talking points per player; the Inspector's "Write the talking points for me" appends them to Coaching notes.
 
+### Game Day
+- `/game/:id` (`pages/GameDay.tsx`, `lib/gameDay.ts`) reads a Season Grid on a phone at the sideline: situation chips come from the grid's own Down/Distance/Hash values (a blank cell means "any"), a tap shows the linked play big, "Call it" logs it, and Worked/Stopped marks feed per-call tallies. The log is per device (`grid1ronvault.game.v1`, last 200 calls per grid) and the screen is kept awake with the Wake Lock API where the browser has it. No Shell and no Griddy launcher on this route; styles are the `.gd-*` block in `team.css`.
+
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.

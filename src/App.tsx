@@ -21,6 +21,7 @@ import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
 import { Assignments } from "./pages/Assignments";
+import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
 import { notePage } from "./lib/lastPage";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
@@ -43,6 +44,7 @@ const TITLES: Record<string, string> = {
   "/upload": "Upload plays — GridIronVault",
   "/assignments": "Assignments — GridIronVault",
   "/team": "Your playbook — GridIronVault",
+  "/game": "Game Day — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -64,6 +66,7 @@ const NAMES: Record<string, string> = {
   "/upload": "Upload plays",
   "/assignments": "Assignments",
   "/team": "Player playbook",
+  "/game": "Game Day",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -77,7 +80,7 @@ function RouteChrome() {
   const [spoken, setSpoken] = useState("");
   useEffect(() => {
     notePage(pathname);
-    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname;
+    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/game") ? "/game" : pathname;
     document.title = TITLES[key] ?? "GridIronVault";
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
@@ -117,6 +120,8 @@ export function App() {
         <Route path="/upload" element={<Upload />} />
         <Route path="/assignments" element={<Assignments />} />
         <Route path="/team/:token" element={<Team />} />
+        <Route path="/game" element={<GameDay />} />
+        <Route path="/game/:id" element={<GameDay />} />
         {Object.keys(COMING_SOON).map((p) => (
           <Route key={p} path={p} element={<ComingSoon path={p} />} />
         ))}
