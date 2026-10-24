@@ -233,3 +233,14 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
 }
 
 const pad = (b: Box, p: number): Box => ({ x: b.x - p, y: b.y - p, w: b.w + p * 2, h: b.h + p * 2 });
+
+/**
+ * False when a play, printed `wIn` × `hIn` inches, has to drop its player
+ * letters (auto weight turns tokens too small to letter into plain dots), so
+ * the Wristbands page can warn before the coach prints. Always true for the dots look.
+ */
+export function lettersFit(scene: Scene, look: PrintLook, wIn: number, hIn: number): boolean {
+  if (look.dots) return true;
+  const printed = frameScene(scene, look, wIn, hIn).scene.nodes;
+  return scene.nodes.every((n, i) => n.kind !== "player" || !n.label || n.hidden || (printed[i]?.kind === "player" && !!printed[i].label));
+}
