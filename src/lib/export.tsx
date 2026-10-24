@@ -103,7 +103,15 @@ export function PrintDiagram({
       {standalone && <style>{`text { font-family: ${FONT_STACK}; }`}</style>}
       <MarkerDefs colors={strokeColors(ordered)} />
       {transparent || field === "none" ? null : (
-        <FieldBackground view={scene.view} losY={scene.losY} lite={field === "lite"} weight={weight} ptPerUnit={ptPerUnit} />
+        <FieldBackground
+          view={scene.view}
+          losY={scene.losY}
+          lite={field === "lite"}
+          yards={field === "yards"}
+          weight={weight}
+          ptPerUnit={ptPerUnit}
+          frame={ptPerUnit ? box : undefined}
+        />
       )}
       {ordered.map((n) => (
         <NodeLayer key={n.id} node={n} print={print} />
@@ -197,6 +205,8 @@ const forPdf = (svg: string) =>
   svg
     .replace(/font-family="[^"]*"/g, 'font-family="helvetica"')
     .replace(/font-family:[^;}]*/g, "font-family: helvetica")
+    // Helvetica comes in normal and bold only; any other weight would fall back to Times.
+    .replace(/font-weight="(\d+)"/g, (_, w) => `font-weight="${Number(w) >= 600 ? "bold" : "normal"}"`)
     .replace(/<text([^>]*?)font-size="([\d.]+)"([^>]*?)dominant-baseline="central"/g, (_, a, size, b) => `<text${a}font-size="${size}"${b}dy="${Number(size) * 0.35}"`)
     .replace(/<text([^>]*?)dominant-baseline="central"([^>]*?)font-size="([\d.]+)"/g, (_, a, b, size) => `<text${a}dy="${Number(size) * 0.35}"${b}font-size="${size}"`);
 

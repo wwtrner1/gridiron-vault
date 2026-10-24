@@ -58,7 +58,7 @@ const EXPORT_PRESETS: { id: string; label: string; hint: string; options: Partia
       includeName: true,
       includeNotes: false,
       transparent: false,
-      look: { fit: "play", weight: "auto", field: "lite", icons: 1.3, lines: 1.5 },
+      look: { fit: "play", weight: "auto", field: "yards", icons: 1.3, lines: 1.5 },
     },
   },
   {

@@ -1,3 +1,4 @@
+import type { Box } from "./geometry";
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 
@@ -9,14 +10,18 @@ type Props = {
   losY: number;
   /** Print cards: white ground and the line of scrimmage only. */
   lite?: boolean;
+  /** Print cards: white ground, the line of scrimmage and 5-yard lines with their distances. */
+  yards?: boolean;
   /** Print line weight, so the line of scrimmage keeps up with heavier routes. */
   weight?: number;
   /**
    * Print only: points per canvas unit on paper. Markings too small to read at
-   * that size (yard numbers, hash marks, labels) are left off, and the lines
-   * that stay are kept heavy enough to print.
+   * that size (hash marks, labels) are left off, distances grow to a readable
+   * size, and the lines that stay are kept heavy enough to print.
    */
   ptPerUnit?: number;
+  /** Print only: the part of the canvas that prints, so distances sit at its edges. */
+  frame?: Box;
 };
 
 /** Smallest field lettering worth printing, and the thinnest chalk line, in points. */
@@ -32,6 +37,8 @@ const BAND = "#F5F8FA"; // --paper
 const CHALK = "#CBDAE4";
 const CHALK_SOFT = "#E4ECF1";
 const NUMBERS = "#8FA6BB"; // --muted-2
+/** Distances on paper print darker than on screen, so a small number still reads. */
+const NUMBERS_PRINT = "#5B7085";
 const NAVY = "#0B1524"; // --ink
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
@@ -43,20 +50,83 @@ const SPACING: Record<FieldView, number> = {
   flag: 60,
   blank: 0,
 };
+/** Canvas units per yard in a view (0 for the whiteboard), for distance read-outs. */
+export const unitsPerYard = (view: FieldView) => SPACING[view] / 5;
 
-export function FieldBackground({ view, losY, lite = false, weight = 1, ptPerUnit }: Props) {
+/** Top of the playing field: the goal line on views with an end zone, else the sideline box. */
+const fieldTop = (view: FieldView) => (view === "redzone" || view === "flag" ? 82 : 14);
+
+export type YardLine = { y: number; yards: number };
+
+/**
+ * Yard lines every 5 yards, counted out from the line of scrimmage both ways,
+ * so the number on each one is how deep a route goes. Pure, for the field and the tests of it.
+ */
+export function yardLines(view: FieldView, losY: number, top = fieldTop(view), bottom = CANVAS_H - 14): YardLine[] {
+  const gap = SPACING[view];
+  if (!gap) return [];
+  const out: YardLine[] = [];
+  for (let k = 1; losY - k * gap > top + 4; k++) out.unshift({ y: losY - k * gap, yards: k * 5 });
+  for (let k = 1; losY + k * gap < bottom - 4; k++) out.push({ y: losY + k * gap, yards: k * 5 });
+  return out;
+}
+
+/**
+ * Which yard lines carry their distance at a label size: every line when the
+ * numbers fit between them, every other (10, 20 …) when they don't, none when even that crowds.
+ */
+function labelled(lines: YardLine[], gap: number, size: number, frame?: Box): YardLine[] {
+  // A number the printed frame would cut in half is left off.
+  const whole = frame ? lines.filter((l) => l.y - size * 1.1 > frame.y && l.y < frame.y + frame.h) : lines;
+  if (size <= gap * 0.7) return whole;
+  if (size <= gap * 1.4) return whole.filter((l) => l.yards % 10 === 0);
+  return [];
+}
+
+export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame }: Props) {
   // On paper: does lettering of this size read, and how wide must a line be to print.
   const reads = (size: number) => !ptPerUnit || size * ptPerUnit >= MIN_LABEL_PT;
   const atLeast = (width: number, pt: number) => (ptPerUnit ? Math.max(width, pt / ptPerUnit) : width);
-  if (lite) {
+  const chalk = (w: number) => atLeast(w, MIN_CHALK_PT);
+  const gap = SPACING[view];
+  // Distances: 15 units on screen, grown on paper to MIN_LABEL_PT, at most a 5-yard gap tall.
+  const numSize = atLeast(15, MIN_LABEL_PT);
+  const numFill = ptPerUnit ? NUMBERS_PRINT : NUMBERS;
+  const distance = (l: YardLine, x: number, anchor: "start" | "end") => (
+    <text
+      key={`n-${l.y}-${anchor}`}
+      x={x}
+      y={l.y - numSize * 0.3}
+      fontSize={numSize}
+      fill={numFill}
+      fontWeight={600}
+      fontFamily={MONO}
+      textAnchor={anchor}
+    >
+      {l.yards}
+    </text>
+  );
+
+  if (lite || yards) {
     // Half the route weight, so the line of scrimmage sits behind the play instead of competing with it.
     const los = atLeast(1.3 * weight, MIN_LOS_PT);
+    const left = frame ? frame.x : -CANVAS_W;
+    const right = frame ? frame.x + frame.w : CANVAS_W * 2;
+    const lines = yards ? yardLines(view === "blank" ? "half" : view, losY, (frame?.y ?? 0) - gap, (frame ? frame.y + frame.h : CANVAS_H) + gap) : [];
+    const edge = numSize * 0.35;
     return (
       <g pointerEvents="none">
         <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={TURF} />
+        {lines.map((l) => (
+          <line key={l.y} x1={left} x2={right} y1={l.y} y2={l.y} stroke={CHALK} strokeWidth={chalk(1.6 * Math.min(weight, 2))} />
+        ))}
+        {labelled(lines, SPACING[view === "blank" ? "half" : view], numSize, frame).flatMap((l) => [
+          distance(l, left + edge, "start"),
+          distance(l, right - edge, "end"),
+        ])}
         <line
-          x1={-CANVAS_W}
-          x2={CANVAS_W * 2}
+          x1={left}
+          x2={right}
           y1={losY}
           y2={losY}
           stroke={ptPerUnit ? LOS_PRINT : NAVY}
@@ -67,14 +137,22 @@ export function FieldBackground({ view, losY, lite = false, weight = 1, ptPerUni
       </g>
     );
   }
-  const gap = SPACING[view];
-  const lines: number[] = [];
-  if (gap > 0) for (let y = gap; y < CANVAS_H - 6; y += gap) lines.push(y);
 
-  const numbered = (view === "full" || view === "half") && reads(15);
-  const hashes = reads(15);
   const inset = fieldInset(view);
-  const chalk = (w: number) => atLeast(w, MIN_CHALK_PT);
+  const top = fieldTop(view);
+  const lines = yardLines(view, losY, top);
+  const hashes = reads(15);
+  // Distances sit just inside the sidelines, or inside the printed frame when it crops them.
+  const numLeft = Math.max(inset, frame?.x ?? -Infinity) + 10 + (frame ? 0 : 22);
+  const numRight = Math.min(CANVAS_W - inset, frame ? frame.x + frame.w : Infinity) - 10 - (frame ? 0 : 22);
+  // Mow bands alternate every 5 yards out from the line of scrimmage, so they line up with the yard lines.
+  const bands: { y: number; h: number }[] = [];
+  if (gap > 0)
+    for (let y = losY, k = 0; y > top; y -= gap, k++)
+      if (k % 2 === 0) bands.push({ y: Math.max(top, y - gap), h: Math.min(gap, y - top) });
+  if (gap > 0)
+    for (let y = losY + gap, k = 1; y < CANVAS_H - 14; y += gap, k++)
+      if (k % 2 === 0) bands.push({ y, h: Math.min(gap, CANVAS_H - 14 - y) });
 
   return (
     <g pointerEvents="none">
@@ -82,11 +160,9 @@ export function FieldBackground({ view, losY, lite = false, weight = 1, ptPerUni
       {view !== "blank" && (
         <>
           {/* Alternating mow bands, very light so ink stays readable */}
-          {lines.map((y, i) =>
-            i % 2 === 0 ? (
-              <rect key={`band-${y}`} x={inset} y={y} width={CANVAS_W - inset * 2} height={gap} fill={BAND} />
-            ) : null,
-          )}
+          {bands.map((b) => (
+            <rect key={`band-${b.y}`} x={inset} y={b.y} width={CANVAS_W - inset * 2} height={b.h} fill={BAND} />
+          ))}
 
           {/* Sideline box */}
           <rect
@@ -105,60 +181,34 @@ export function FieldBackground({ view, losY, lite = false, weight = 1, ptPerUni
               <rect x={inset} y={14} width={CANVAS_W - inset * 2} height={68} fill="#EDF5F9" />
               <line x1={inset} x2={CANVAS_W - inset} y1={82} y2={82} stroke={CHALK} strokeWidth={chalk(3)} />
               {reads(19) && (
-              <text
-                x={CANVAS_W / 2}
-                y={54}
-                textAnchor="middle"
-                fontSize={19}
-                fill={NUMBERS}
-                fontWeight={800}
-                letterSpacing="7"
-              >
-                END ZONE
-              </text>
+                <text x={CANVAS_W / 2} y={54} textAnchor="middle" fontSize={19} fill={NUMBERS} fontWeight={800} letterSpacing="7">
+                  END ZONE
+                </text>
               )}
             </>
           )}
 
-          {/* Yard lines */}
-          {lines.map((y, i) => (
-            <g key={y}>
-              <line
-                x1={inset}
-                x2={CANVAS_W - inset}
-                y1={y}
-                y2={y}
-                stroke={i % 2 ? CHALK_SOFT : CHALK}
-                strokeWidth={chalk(i % 2 ? 1.2 : 2)}
-              />
-              {numbered && i % 2 === 1 && (
-                <>
-                  <text x={inset + 32} y={y - 7} fontSize={15} fill={NUMBERS} fontWeight={600} fontFamily={MONO} letterSpacing="1">
-                    {Math.min(50, (i + 1) * 5)}
-                  </text>
-                  <text
-                    x={CANVAS_W - inset - 32}
-                    y={y - 7}
-                    fontSize={15}
-                    fill={NUMBERS}
-                    fontWeight={600}
-                    fontFamily={MONO}
-                    letterSpacing="1"
-                    textAnchor="end"
-                  >
-                    {Math.min(50, (i + 1) * 5)}
-                  </text>
-                </>
-              )}
-            </g>
+          {/* Yard lines every 5 yards from the line of scrimmage, each marked with its distance */}
+          {lines.map((l) => (
+            <line
+              key={l.y}
+              x1={inset}
+              x2={CANVAS_W - inset}
+              y1={l.y}
+              y2={l.y}
+              stroke={l.yards % 10 ? CHALK_SOFT : CHALK}
+              strokeWidth={chalk(l.yards % 10 ? 1.2 : 2)}
+            />
           ))}
+          {labelled(lines, gap, numSize, frame).flatMap((l) => [distance(l, numLeft, "start"), distance(l, numRight, "end")])}
 
           {/* Hash marks */}
-          {hashes && lines.flatMap((y) =>
-            [CANVAS_W * 0.36, CANVAS_W * 0.64].map((x) => (
-              <line key={`${y}-${x}`} x1={x - 10} x2={x + 10} y1={y} y2={y} stroke={CHALK} strokeWidth={1.8} />
-            )),
-          )}
+          {hashes &&
+            lines.flatMap((l) =>
+              [CANVAS_W * 0.36, CANVAS_W * 0.64].map((x) => (
+                <line key={`${l.y}-${x}`} x1={x - 10} x2={x + 10} y1={l.y} y2={l.y} stroke={CHALK} strokeWidth={1.8} />
+              )),
+            )}
         </>
       )}
 
