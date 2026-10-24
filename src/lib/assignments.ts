@@ -6,7 +6,7 @@ const OWN_REACH = 26;
 const FADE = "#C9D3DB";
 
 /** One letter's job on one play: the play, the player, and his routes and blocks. */
-export type Assignment = { play: StoredPlay; player: PlayerNode; lines: PathNode[]; scene: Scene };
+export type Assignment<P extends { scene: Scene } = StoredPlay> = { play: P; player: PlayerNode; lines: PathNode[]; scene: Scene };
 
 const visiblePlayers = (scene: Scene) =>
   scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && !!n.label.trim());
@@ -23,7 +23,7 @@ export function linesOf(scene: Scene, player: PlayerNode): PathNode[] {
 }
 
 /** Every letter that appears in these plays, offense first, then A to Z. */
-export function lettersIn(plays: StoredPlay[]): { letter: string; side: PlayerNode["side"]; plays: number }[] {
+export function lettersIn(plays: { scene: Scene }[]): { letter: string; side: PlayerNode["side"]; plays: number }[] {
   const seen = new Map<string, { letter: string; side: PlayerNode["side"]; plays: number }>();
   for (const p of plays) {
     const here = new Set<string>();
@@ -53,9 +53,9 @@ function spotlight(scene: Scene, player: PlayerNode, lines: PathNode[]): Scene {
 }
 
 /** What `letter` does on each play, in playbook order; plays without him are left out. */
-export function assignmentsFor(plays: StoredPlay[], letter: string): Assignment[] {
+export function assignmentsFor<P extends { scene: Scene }>(plays: P[], letter: string): Assignment<P>[] {
   const want = letter.trim().toUpperCase();
-  const out: Assignment[] = [];
+  const out: Assignment<P>[] = [];
   for (const play of plays) {
     const player = visiblePlayers(play.scene).find((n) => n.label.trim().toUpperCase() === want);
     if (!player) continue;
