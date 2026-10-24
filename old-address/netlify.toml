@@ -1,6 +1,6 @@
 # The old address, gridi1ronvault.netlify.app: a separate Netlify project built
 # from this folder (base directory "old-address"). It only forwards visitors to
-# gridiron-vault.netlify.app, carrying any plays saved in their browser.
+# gridiron-vault.com, carrying any plays saved in their browser.
 [build]
   publish = "."
   command = ""
