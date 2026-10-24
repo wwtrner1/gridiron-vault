@@ -21,6 +21,7 @@ import { Wristbands } from "./pages/Wristbands";
 import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
 import { Assignments } from "./pages/Assignments";
+import { Practice } from "./pages/Practice";
 import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
 import { notePage } from "./lib/lastPage";
@@ -45,6 +46,7 @@ const TITLES: Record<string, string> = {
   "/assignments": "Assignments — GridIronVault",
   "/team": "Your playbook — GridIronVault",
   "/game": "Game Day — GridIronVault",
+  "/practice": "Practice — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -67,6 +69,7 @@ const NAMES: Record<string, string> = {
   "/assignments": "Assignments",
   "/team": "Player playbook",
   "/game": "Game Day",
+  "/practice": "Practice",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -120,6 +123,7 @@ export function App() {
         <Route path="/upload" element={<Upload />} />
         <Route path="/assignments" element={<Assignments />} />
         <Route path="/team/:token" element={<Team />} />
+        <Route path="/practice" element={<Practice />} />
         <Route path="/game" element={<GameDay />} />
         <Route path="/game/:id" element={<GameDay />} />
         {Object.keys(COMING_SOON).map((p) => (
