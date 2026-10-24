@@ -1,9 +1,10 @@
 import type { Config } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, gt, gte, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
+  accountLedger,
   aiUsage,
   callSheets,
   events,
@@ -30,6 +31,9 @@ import {
   SMS_PER_DAY,
 } from "../security/phone.js";
 import { isOwner } from "../security/owner.js";
+import { recordVisit, visitorStats } from "../admin/visits.js";
+import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
+import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -45,6 +49,8 @@ import {
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
 import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
 
+/** Identity user ids are UUIDs today; accept any safe id so a different provider format doesn't lock the owner out. */
+const UUID_OR_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const json = (body: unknown, status = 200) =>
@@ -79,6 +85,11 @@ async function ensureProfile(user: Session) {
     .onConflictDoNothing();
   // The owner's row follows the owner list, so the plan on file matches what the server enforces.
   if (user.owner) await db.update(profiles).set({ plan: "master" }).where(and(eq(profiles.id, user.id), ne(profiles.plan, "master")));
+  // "Last active" for the owner's user list: touched at most every five minutes.
+  await db
+    .update(profiles)
+    .set({ lastActiveAt: new Date() })
+    .where(and(eq(profiles.id, user.id), or(sql`${profiles.lastActiveAt} is null`, lt(profiles.lastActiveAt, new Date(Date.now() - 300_000)))));
 }
 
 const DEVICE_COOKIE = "gv_device";
@@ -134,11 +145,32 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
       return await sendScore(id, await req.json().catch(() => ({})));
 
+    // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
+    if (resource === "visit") {
+      if (req.method === "POST" && !me?.owner)
+        await recordVisit({
+          raw: await req.text().catch(() => ""),
+          deviceId,
+          ua: req.headers.get("user-agent") ?? "",
+          host: url.hostname,
+          signedIn: Boolean(me),
+        }).catch(() => undefined);
+      return new Response(null, { status: 204 });
+    }
+
     // Every other signed-in request: a verified phone, from a device confirmed with a code.
     if (me && phoneRequired()) {
       const sec = await securityOf(me, deviceId);
       if (!sec.verified) return json({ error: "Add your mobile number to keep using your account.", code: "phone_required" }, 403);
       if (!sec.trusted) return json({ error: "Confirm this device with the code we text you.", code: "device_unverified" }, 403);
+    }
+
+    /* ---------------------------------------------------------- admin --- */
+    // The owner's console. Anyone else gets the same answer as for an address that doesn't exist.
+    if (resource === "admin") {
+      if (!me?.owner) return fail("That address is not part of the playbook API.", 404);
+      await ensureProfile(me);
+      return await adminRoute(me, req, parts.slice(1));
     }
 
     /* --------------------------------------------------------- events --- */
@@ -276,6 +308,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
 
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(plays).where(and(eq(plays.id, id), eq(plays.ownerId, me.id))) : [];
+        if (old) await keepInTrash(me.id, "play", old);
         await db
           .delete(plays)
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)));
@@ -365,6 +399,11 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
 
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(playbooks).where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id))) : [];
+        if (old) {
+          const members = await db.select({ playId: playbookPlays.playId }).from(playbookPlays).where(eq(playbookPlays.playbookId, old.id)).orderBy(playbookPlays.sortOrder);
+          await keepInTrash(me.id, "playbook", old, { playIds: members.map((m) => m.playId) });
+        }
         await db
           .delete(playbooks)
           .where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id)));
@@ -417,6 +456,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         return json({ sheet: row });
       }
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(callSheets).where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id))) : [];
+        if (old) await keepInTrash(me.id, "call_sheet", old);
         await db
           .delete(callSheets)
           .where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id)));
@@ -432,6 +473,48 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     return json({ error: "The playbook service could not complete that request.", detail }, 500);
   }
 };
+
+/* ---------------------------------------------------------- admin --- */
+
+async function adminRoute(me: Session, req: Request, path: string[]) {
+  const [id, uid, tail] = path;
+  const body = req.method === "POST" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
+  if (id === "users" && uid && UUID_OR_ID.test(uid)) {
+    if (req.method === "GET" && !tail) return json(await userDetail(me, uid));
+    if (req.method === "GET" && tail === "export") return json(await userExport(me, uid));
+    if (req.method === "POST" && tail === "plan") {
+      const r = await setUserPlan(me, uid, String(body.plan ?? ""));
+      return r.error ? fail(r.error, r.status ?? 400) : json(r);
+    }
+  }
+  if (id === "trash" && uid && UUID.test(uid) && tail === "restore" && req.method === "POST") {
+    const to = body.toUserId ? String(body.toUserId) : undefined;
+    if (to && !UUID_OR_ID.test(to)) return fail("That isn't a coach id.");
+    const r = await restoreItem(me, uid, to);
+    return r.error ? fail(r.error, r.status ?? 400) : json(r);
+  }
+  if (req.method === "GET" && id === "users") {
+    const { users, identity } = await userRows();
+    return json({ users, identity });
+  }
+  if (req.method === "GET" && id === "users.csv") {
+    const { users } = await userRows();
+    await audit(me, "export_users_csv", "", { rows: users.length });
+    return new Response(usersCsv(users), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="gridironvault-users-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+  if (req.method === "GET" && id === "visitors") {
+    const days = [7, 30, 90].includes(Number(new URL(req.url).searchParams.get("days"))) ? Number(new URL(req.url).searchParams.get("days")) : 30;
+    return json(await visitorStats(days));
+  }
+  if (req.method === "GET" && id === "audit") return json({ entries: await recentAudit() });
+  return fail("That address is not part of the playbook API.", 404);
+}
 
 /* ---------------------------------------------------------- plans --- */
 
@@ -737,7 +820,22 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
 
   // One transaction: if any delete fails, none of them happen, so a coach is
   // never left with a profile and sign-in but no plays.
+  const [prof] = await db.select().from(profiles).where(eq(profiles.id, me.id));
+  const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, me.id));
   await db.transaction(async (tx) => {
+    // The owner's signup history keeps a fingerprint of the account, never the plays or the phone number itself.
+    await tx
+      .insert(accountLedger)
+      .values({
+        userId: me.id,
+        email: me.email,
+        name: me.name,
+        phoneHash: prof?.phone ? sha(prof.phone) : "",
+        lastPlan: prof?.plan ?? "",
+        playCount: have?.n ?? 0,
+        signedUpAt: prof?.createdAt ?? null,
+      })
+      .onConflictDoNothing();
     await tx.delete(plays).where(eq(plays.ownerId, me.id));
     await tx.delete(playSaves).where(eq(playSaves.userId, me.id));
     await tx.delete(playbooks).where(eq(playbooks.ownerId, me.id));

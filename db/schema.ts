@@ -22,7 +22,41 @@ export const profiles = pgTable("profiles", {
   /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
   plan: text().notNull().default("beta"),
   createdAt: timestamp("created_at").defaultNow(),
+  /** Last time the app talked to the server as this coach (throttled to every few minutes). */
+  lastActiveAt: timestamp("last_active_at"),
 });
+
+/**
+ * One row per account that deleted itself, so the owner's signup history and the
+ * free-plan abuse checks survive deletion. Only fingerprints of the phone are
+ * kept, never the number, and no plays.
+ */
+export const accountLedger = pgTable("account_ledger", {
+  userId: text("user_id").primaryKey(),
+  email: text().notNull(),
+  name: text().notNull().default(""),
+  /** SHA-256 of the verified phone number, or "" when there was none. */
+  phoneHash: text("phone_hash").notNull().default(""),
+  lastPlan: text("last_plan").notNull().default(""),
+  playCount: integer("play_count").notNull().default(0),
+  signedUpAt: timestamp("signed_up_at"),
+  deletedAt: timestamp("deleted_at").defaultNow(),
+});
+
+/** Everything the owner does in /admin: who, what, to whom. Append-only. */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    actorId: text("actor_id").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    action: text().notNull(),
+    targetId: text("target_id").notNull().default(""),
+    detail: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    at: timestamp().defaultNow(),
+  },
+  (t) => [index("audit_log_at_idx").on(t.at)],
+);
 
 /**
  * Devices a coach has confirmed with a code to his phone. A sign-in from
@@ -194,4 +228,50 @@ export const quizResults = pgTable(
     at: timestamp().defaultNow(),
   },
   (t) => [index("quiz_results_share_idx").on(t.shareId)],
+);
+
+/**
+ * One row per visit (a browser tab's session), for the owner's visitor counts and
+ * time on site. No IP address, no cookie and no user id: `visitor` is a hash of the
+ * browser's random id and the day, so it can't follow anyone from one day to the next.
+ */
+export const visits = pgTable(
+  "visits",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    sid: text().notNull(),
+    day: text().notNull(), // YYYY-MM-DD, UTC
+    visitor: text().notNull(),
+    signedIn: boolean("signed_in").notNull().default(false),
+    landing: text().notNull().default("/"),
+    referrer: text().notNull().default(""), // host only
+    device: text().notNull().default("desktop"),
+    pages: integer().notNull().default(1),
+    /** Seconds the page was visible, summed from heartbeats. */
+    seconds: integer().notNull().default(0),
+    startedAt: timestamp("started_at").defaultNow(),
+    lastBeatAt: timestamp("last_beat_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("visits_sid_idx").on(t.sid), index("visits_day_idx").on(t.day)],
+);
+
+/**
+ * A copy of every play, playbook or Season Grid a coach deletes, kept for 30 days
+ * so the owner can put it back if it was deleted by mistake. Account deletion
+ * does not use this: it removes the coach's work for good.
+ */
+export const trash = pgTable(
+  "trash",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    kind: text().notNull(), // "play" | "playbook" | "call_sheet"
+    originalId: text("original_id").notNull(),
+    name: text().notNull().default(""),
+    /** The whole row, plus `playIds` for a playbook's members. */
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
+    deletedAt: timestamp("deleted_at").defaultNow(),
+    restoredAt: timestamp("restored_at"),
+  },
+  (t) => [index("trash_owner_idx").on(t.ownerId)],
 );

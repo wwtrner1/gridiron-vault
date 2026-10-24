@@ -70,6 +70,20 @@ export function Privacy() {
           read, and stored on our side only as a one-way fingerprint, so we can recognise up to five devices you've confirmed.
         </li>
         <li>
+          <b>Recently deleted work:</b> a play, playbook or Season Grid you delete is kept for 30 days so it can be put back if
+          it was a mistake, then removed. Deleting your account removes your work at once.
+        </li>
+        <li>
+          <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
+          from, your device type and how many seconds the page was in view. We keep no IP address and set no cookie for this,
+          and the visitor count uses a code that changes every day, so we can't follow you from one day to the next. If your
+          browser sends Do Not Track or Global Privacy Control, nothing is sent.
+        </li>
+        <li>
+          <b>Sign-up record:</b> when you delete your account we keep your email, sign-up date and a one-way fingerprint of
+          your phone number (not the number, and none of your plays), so one person can't open an endless run of free accounts.
+        </li>
+        <li>
           <b>Your work:</b> plays, playbooks and Season Grids you save to your account.
         </li>
         <li>
