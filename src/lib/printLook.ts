@@ -28,6 +28,8 @@ export type PrintLook = {
   dots?: boolean;
   /** Yards past the line of scrimmage at each route break. Default off. */
   depths?: boolean;
+  /** The coach's league rule lines (rush line, no-run zone) from Rules in the Designer. Default off. */
+  rules?: boolean;
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: "auto", field: "full" };

@@ -47,6 +47,12 @@ const PLAYBOOK_NAV: NavItem[] = [
     hint: "Your live call sheet. Sort it, paint it, print it.",
   },
   {
+    to: "/practice",
+    icon: "board",
+    label: "Practice",
+    hint: "Build tonight's practice script and print scout cards for the plays you'll rep.",
+  },
+  {
     to: "/wristbands",
     icon: "wristband",
     label: "Wristbands",

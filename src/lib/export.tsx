@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { jsPDF } from "jspdf";
-import { FieldBackground } from "./field";
+import { FieldBackground, RuleLinesLayer } from "./field";
+import { loadRules } from "./rules";
 import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
 import { DEPTH_SIZE } from "./depth";
 import { playerNoteLines } from "./notes";
@@ -119,6 +120,15 @@ export function PrintDiagram({
       ))}
       {look?.depths && !transparent ? (
         <DepthLayer scene={framed.scene} scale={ptPerUnit ? Math.min(4, Math.max(1, 5.5 / (DEPTH_SIZE * ptPerUnit))) : 1} />
+      ) : null}
+      {look?.rules && !transparent ? (
+        <RuleLinesLayer
+          view={scene.view}
+          losY={scene.losY}
+          rush={loadRules().rush}
+          noRun={loadRules().noRun}
+          scale={ptPerUnit ? Math.min(4, Math.max(1, 5.5 / (11 * ptPerUnit))) : 1}
+        />
       ) : null}
       {watermark ? (
         <g transform={`rotate(-22 ${cx} ${cy})`} opacity={0.12}>

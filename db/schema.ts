@@ -158,3 +158,40 @@ export const events = pgTable(
   },
   (t) => [index("events_owner_idx").on(t.ownerId)],
 );
+
+/**
+ * A playbook handed to players: a frozen copy of its plays behind an
+ * unguessable link, so a player needs no account. `source` is the coach's own
+ * playbook id (it can be a browser-only id), so any device finds its link.
+ */
+export const playbookShares = pgTable(
+  "playbook_shares",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    token: text().notNull(),
+    source: text().notNull().default(""),
+    name: text().notNull(),
+    snapshot: jsonb().$type<unknown>().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("playbook_shares_token_idx").on(t.token), index("playbook_shares_owner_idx").on(t.ownerId)],
+);
+
+/** Griddy Quiz scores players send back to the coach who shared the playbook. */
+export const quizResults = pgTable(
+  "quiz_results",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    shareId: uuid("share_id")
+      .notNull()
+      .references(() => playbookShares.id, { onDelete: "cascade" }),
+    playerName: text("player_name").notNull().default(""),
+    letter: text().notNull().default(""),
+    score: integer().notNull(),
+    total: integer().notNull(),
+    at: timestamp().defaultNow(),
+  },
+  (t) => [index("quiz_results_share_idx").on(t.shareId)],
+);

@@ -6,6 +6,7 @@ import { App } from "./App";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/griddy.css";
+import "./styles/team.css";
 // Catch the browser's install prompt early, whichever page the coach lands on.
 import "./lib/install";
 

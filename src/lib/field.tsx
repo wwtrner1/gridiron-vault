@@ -241,3 +241,45 @@ export const FIELD_VIEWS: { id: FieldView; label: string; hint: string }[] = [
   { id: "flag", label: "Flag 30×70", hint: "NFL FLAG 5-on-5 field proportions with both end zones marked." },
   { id: "blank", label: "Whiteboard", hint: "No markings at all — install drawings, blocking rules and teaching diagrams." },
 ];
+
+const RULE_RUSH = "#C0792B";
+const RULE_ZONE = "#D24B3E";
+const RULE_MONO = "'IBM Plex Mono', ui-monospace, monospace";
+
+/**
+ * A league's rule lines over the field: the rush line a set number of yards
+ * behind the line of scrimmage (offense side), and the no-run zone counted back
+ * from the goal line on the views that show an end zone.
+ */
+export function RuleLinesLayer({ view, losY, rush, noRun, scale = 1 }: { view: FieldView; losY: number; rush: number; noRun: number; scale?: number }) {
+  const perYard = unitsPerYard(view);
+  if (!perYard) return null;
+  const inset = fieldInset(view);
+  const x1 = inset;
+  const x2 = CANVAS_W - inset;
+  const rushY = losY + rush * perYard;
+  const hasEndZone = view === "redzone" || view === "flag";
+  const goal = 82;
+  const zoneBottom = goal + noRun * perYard;
+  return (
+    <g pointerEvents="none">
+      {hasEndZone && noRun > 0 && zoneBottom < losY && (
+        <>
+          <rect x={x1} y={goal} width={x2 - x1} height={zoneBottom - goal} fill={RULE_ZONE} fillOpacity={0.1} />
+          <line x1={x1} x2={x2} y1={zoneBottom} y2={zoneBottom} stroke={RULE_ZONE} strokeWidth={1.6 * scale} strokeDasharray="6 5" />
+          <text x={CANVAS_W * 0.3} y={zoneBottom - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_ZONE} fontFamily={RULE_MONO} letterSpacing="1">
+            NO-RUN ZONE · {noRun} YDS
+          </text>
+        </>
+      )}
+      {rush > 0 && rushY < CANVAS_H - 14 && (
+        <>
+          <line x1={x1} x2={x2} y1={rushY} y2={rushY} stroke={RULE_RUSH} strokeWidth={1.8 * scale} strokeDasharray="3 5" />
+          <text x={CANVAS_W * 0.7} y={rushY - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_RUSH} fontFamily={RULE_MONO} letterSpacing="1" textAnchor="end">
+            RUSH LINE · {rush} YDS
+          </text>
+        </>
+      )}
+    </g>
+  );
+}

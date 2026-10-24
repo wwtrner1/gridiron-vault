@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FieldBackground } from "../lib/field";
+import { FieldBackground, RuleLinesLayer } from "../lib/field";
+import type { RuleLines } from "../lib/rules";
 import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { noteShowsOnHover } from "../lib/notes";
 import {
@@ -64,6 +65,8 @@ type Props = {
   grid: number;
   /** Show the yards past the line of scrimmage at each route break. */
   depths?: boolean;
+  /** The league's rule lines drawn over the field. */
+  rules?: RuleLines;
   anchor: Anchor;
   zoom: number;
   watermark?: string | null;
@@ -157,6 +160,7 @@ export function PlayCanvas({
   look,
   grid,
   depths,
+  rules,
   anchor,
   zoom,
   watermark,
@@ -1112,6 +1116,7 @@ export function PlayCanvas({
       >
         <MarkerDefs colors={markerColors} />
         <FieldBackground view={scene.view} losY={scene.losY} />
+        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} />}
 
         <rect
           x={0}

@@ -1,0 +1,31 @@
+.pr-top { display: grid; grid-template-columns: minmax(200px, 1fr) 160px auto; gap: 14px; align-items: end; margin-bottom: 12px; }
+.pr-total { margin: 0 0 8px; font-weight: 700; }
+.pr-period { display: grid; gap: 8px; margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--white); }
+.pr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pr-title { flex: 1 1 200px; font-weight: 700; }
+.pr-min { display: flex; align-items: center; gap: 6px; }
+.pr-min input { width: 76px; }
+.pr-plays { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-plays li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 14px; }
+.pr-plays button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--border-2); cursor: pointer; font-size: 16px; line-height: 1; }
+.pr-add { display: flex; flex-wrap: wrap; gap: 8px; }
+.pr-add .select { flex: 1 1 200px; }
+.pr-hint { color: var(--muted); }
+.pr-out { display: none; }
+@media (max-width: 700px) { .pr-top { grid-template-columns: 1fr; } }
+@media print {
+  .pr-edit, .shell .page-head { display: none; }
+  .pr-out { display: block; color: #000; }
+  .pr-sheet h1 { margin: 0 0 4px; font-size: 26px; }
+  .pr-sheet h2 { margin: 16px 0 4px; font-size: 18px; display: flex; justify-content: space-between; border-bottom: 1px solid #999; }
+  .pr-sheet h2 span { font-weight: 400; }
+  .pr-sheet ol { margin: 4px 0 0 20px; }
+  .pr-note { margin: 2px 0; font-style: italic; }
+  .pr-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pr-card { margin: 0; break-inside: avoid; border: 1px solid #999; padding: 8px; }
+  .pr-card figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .pr-card figcaption span { text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+  .pr-card figcaption b { font-size: 18px; }
+  .pr-card svg { width: 100%; height: auto; }
+  .pr-card p { margin: 4px 0 0; font-size: 12px; }
+}

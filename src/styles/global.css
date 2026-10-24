@@ -510,6 +510,7 @@ footer.mkt a:hover { color: var(--cyan); }
 @media (min-width: 1181px) { .only-mid { display: none; } }
 @media print {
   .rail, .topbar, .builder-rail, .builder-side, .builder-bar, .bulk-bar, .mkt-nav { display: none !important; }
+  .shell { display: block; }
   body { background: var(--white); }
 }
 /* ==========================================================================

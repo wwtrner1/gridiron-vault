@@ -103,3 +103,14 @@ export function linkAt(link: string, seconds: number): string {
 }
 
 export const isFilmLink = (s: string) => /^https:\/\/([a-z0-9-]+\.)*(hudl\.com|youtube\.com|youtu\.be)\//i.test(s.trim());
+
+/** "1:23", "83" or "83s" as seconds; null when it isn't a time. */
+export function parseClock(text: string): number | null {
+  const t = text.trim().replace(/s$/i, "");
+  const m = /^(?:(\d{1,3}):)?(\d{1,2}(?:\.\d)?)$/.exec(t) ?? (/^(\d{1,5}(?:\.\d)?)$/.test(t) ? [t, undefined, t] : null);
+  if (!m) return null;
+  return (m[1] ? Number(m[1]) * 60 : 0) + Number(m[2]);
+}
+
+/** Seconds as "m:ss". */
+export const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;

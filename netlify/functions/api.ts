@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
+import { randomBytes } from "node:crypto";
 import { and, desc, eq, gt, gte, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
@@ -7,10 +8,12 @@ import {
   callSheets,
   events,
   playbookPlays,
+  playbookShares,
   playbooks,
   plays,
   playSaves,
   profiles,
+  quizResults,
   trustedDevices,
 } from "../../db/schema.js";
 import {
@@ -28,8 +31,9 @@ import {
 } from "../security/phone.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
-import { gateAi, gateGrid, gateSave, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
+import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
+import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
   assistantSystem,
@@ -117,6 +121,12 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       await ensureProfile(me);
       return await phoneRoute(me, deviceId, id, await req.json().catch(() => ({})));
     }
+
+    /* ----------------------------------------------- player links (public) --- */
+    // A player opens a link and sends back a quiz score with no account, so these come before the sign-in checks.
+    if (resource === "shares" && id && SHARE_TOKEN.test(id) && action !== "results" && req.method === "GET") return await openShare(id);
+    if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
+      return await sendScore(id, await req.json().catch(() => ({})));
 
     // Every other signed-in request: a verified phone, from a device confirmed with a code.
     if (me && phoneRequired()) {
@@ -265,6 +275,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)));
         return json({ ok: true });
       }
+    }
+
+    /* ------------------------------------------------ player links (coach) --- */
+    if (resource === "shares") {
+      if (!me) return fail("Sign in to share a playbook with your players.", 401);
+      await ensureProfile(me);
+      return await shareRoute(me, req.method, id, action, req);
     }
 
     /* ------------------------------------------------------ playbooks --- */
@@ -615,6 +632,93 @@ type Security = { required: boolean; verified: boolean; trusted: boolean; phone:
  * the profile and phone number, then the sign-in itself. Images and video are
  * never stored on the server, so there is nothing else to remove.
  */
+/* ------------------------------------------------------- player links --- */
+
+const SHARE_TOKEN = /^[A-Za-z0-9_-]{16,40}$/;
+const newToken = () => randomBytes(16).toString("base64url");
+
+/** What a player gets: the frozen playbook and nothing about the coach. */
+async function openShare(token: string) {
+  const [row] = await db.select().from(playbookShares).where(eq(playbookShares.token, token));
+  if (!row) return fail("This link isn't active any more. Ask your coach for a new one.", 404);
+  const snap = row.snapshot as Snapshot;
+  return json({ share: { name: snap.name, plays: snap.plays, updatedAt: row.updatedAt } });
+}
+
+/** A player's quiz score. Anyone with the link may send one; the numbers are checked, the oldest are dropped. */
+async function sendScore(token: string, body: Record<string, unknown>) {
+  const [share] = await db.select({ id: playbookShares.id }).from(playbookShares).where(eq(playbookShares.token, token));
+  if (!share) return fail("This link isn't active any more. Ask your coach for a new one.", 404);
+  const total = Math.trunc(Number(body.total));
+  const score = Math.trunc(Number(body.score));
+  const letter = String(body.letter ?? "").trim().toUpperCase();
+  if (!(total >= 1 && total <= 30) || !(score >= 0 && score <= total) || !/^[A-Z0-9]{1,3}$/.test(letter)) return fail("That score couldn't be sent.");
+  const playerName = String(body.name ?? "").trim().slice(0, SHARE_LIMITS.playerName);
+  await db.insert(quizResults).values({ shareId: share.id, playerName, letter, score, total });
+  await db.execute(sql`delete from quiz_results where share_id = ${share.id} and id not in (select id from quiz_results where share_id = ${share.id} order by at desc limit ${SHARE_LIMITS.results})`);
+  return json({ ok: true }, 201);
+}
+
+async function shareRoute(me: Session, method: string, token: string | undefined, action: string | undefined, req: Request) {
+  if (method === "GET" && !token) {
+    const rows = await db
+      .select({
+        token: playbookShares.token,
+        source: playbookShares.source,
+        name: playbookShares.name,
+        snapshot: playbookShares.snapshot,
+        updatedAt: playbookShares.updatedAt,
+        results: sql<number>`(select count(*)::int from quiz_results r where r.share_id = ${playbookShares.id})`,
+      })
+      .from(playbookShares)
+      .where(eq(playbookShares.ownerId, me.id))
+      .orderBy(desc(playbookShares.updatedAt));
+    return json({ shares: rows.map((r) => ({ token: r.token, source: r.source, name: r.name, plays: (r.snapshot as Snapshot).plays.length, updatedAt: r.updatedAt, results: r.results })) });
+  }
+
+  if (method === "POST" && !token) {
+    const gate = gateShare(await planOf(me));
+    if (!gate.ok) return planFail(gate);
+    const body = await req.json().catch(() => ({}));
+    const snap = cleanSnapshot(body.snapshot);
+    if (typeof snap === "string") return fail(snap);
+    const source = String(body.source ?? "").slice(0, 80);
+    // One link per playbook: sharing it again refreshes the plays and keeps the address printed on cards.
+    if (source) {
+      const [mine] = await db.select({ id: playbookShares.id, token: playbookShares.token }).from(playbookShares).where(and(eq(playbookShares.ownerId, me.id), eq(playbookShares.source, source)));
+      if (mine) {
+        await db.update(playbookShares).set({ name: snap.name, snapshot: snap, updatedAt: new Date() }).where(eq(playbookShares.id, mine.id));
+        return json({ token: mine.token });
+      }
+    }
+    const [mineCount] = await db.select({ n: sql<number>`count(*)::int` }).from(playbookShares).where(eq(playbookShares.ownerId, me.id));
+    if ((mineCount?.n ?? 0) >= 40) return fail("You have 40 player links. Stop sharing one you no longer use, then try again.", 403);
+    const created = newToken();
+    await db.insert(playbookShares).values({ ownerId: me.id, token: created, source, name: snap.name, snapshot: snap });
+    return json({ token: created }, 201);
+  }
+
+  if (!token || !SHARE_TOKEN.test(token)) return fail("That link isn't one of yours.", 404);
+  const [row] = await db.select().from(playbookShares).where(and(eq(playbookShares.token, token), eq(playbookShares.ownerId, me.id)));
+  if (!row) return fail("That link isn't one of yours.", 404);
+
+  if (method === "GET" && action === "results") {
+    const rows = await db.select().from(quizResults).where(eq(quizResults.shareId, row.id)).orderBy(desc(quizResults.at)).limit(SHARE_LIMITS.results);
+    return json({ results: rows.map((r) => ({ id: r.id, playerName: r.playerName, letter: r.letter, score: r.score, total: r.total, at: r.at })) });
+  }
+  if (method === "PUT") {
+    const snap = cleanSnapshot((await req.json().catch(() => ({}))).snapshot);
+    if (typeof snap === "string") return fail(snap);
+    await db.update(playbookShares).set({ name: snap.name, snapshot: snap, updatedAt: new Date() }).where(eq(playbookShares.id, row.id));
+    return json({ token });
+  }
+  if (method === "DELETE") {
+    await db.delete(playbookShares).where(eq(playbookShares.id, row.id));
+    return json({ ok: true });
+  }
+  return fail("That address is not part of the playbook API.", 404);
+}
+
 async function deleteAccount(me: Session, deviceId: string, body: Record<string, unknown>) {
   const typed = String(body.confirm ?? "").trim().toLowerCase();
   if (!typed || typed !== me.email.toLowerCase()) return fail("Type your account email exactly to confirm.");
@@ -628,6 +732,7 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(plays).where(eq(plays.ownerId, me.id));
     await tx.delete(playSaves).where(eq(playSaves.userId, me.id));
     await tx.delete(playbooks).where(eq(playbooks.ownerId, me.id));
+    await tx.delete(playbookShares).where(eq(playbookShares.ownerId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));

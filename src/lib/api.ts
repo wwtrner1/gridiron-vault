@@ -3,6 +3,7 @@ import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
 import type { PhotoRead, PhotoRequest } from "./photo";
 import type { GriddyReply, GriddyRequest } from "./griddy";
+import type { QuizScore, ShareInfo, Snapshot } from "./share";
 
 export type ApiPlay = {
   id: string;
@@ -88,6 +89,19 @@ export const api = {
 
   createPlaybook: (body: Partial<Playbook>) =>
     request<{ playbook: Playbook }>("playbooks", { method: "POST", body: JSON.stringify(body) }),
+
+  /** Player links: a coach's shared playbooks, one link per playbook. */
+  listShares: () => request<{ shares: ShareInfo[] }>("shares"),
+  shareBook: (source: string, snapshot: Snapshot) =>
+    request<{ token: string }>("shares", { method: "POST", body: JSON.stringify({ source, snapshot }) }),
+  stopShare: (token: string) => request<{ ok: true }>(`shares/${token}`, { method: "DELETE" }),
+  shareScores: (token: string) => request<{ results: QuizScore[] }>(`shares/${token}/results`),
+
+  /** What a player opens: no account, no sign-in. */
+  openShare: (token: string) =>
+    request<{ share: { name: string; plays: Snapshot["plays"]; updatedAt: string } }>(`shares/${token}`),
+  sendScore: (token: string, body: { name: string; letter: string; score: number; total: number }) =>
+    request<{ ok: true }>(`shares/${token}/results`, { method: "POST", body: JSON.stringify(body) }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
 
