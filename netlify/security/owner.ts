@@ -18,3 +18,6 @@ const owners = () =>
 export function isOwner(user: { email: string; confirmed: boolean } | null | undefined): boolean {
   return Boolean(user?.confirmed && owners().has(user.email.trim().toLowerCase()));
 }
+
+/** True when the address is on the owner list, before any confirmation check. */
+export const onOwnerList = (email: string) => owners().has(email.trim().toLowerCase());

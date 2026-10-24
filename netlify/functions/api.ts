@@ -30,7 +30,7 @@ import {
   sendCode,
   SMS_PER_DAY,
 } from "../security/phone.js";
-import { isOwner } from "../security/owner.js";
+import { isOwner, onOwnerList } from "../security/owner.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
@@ -59,7 +59,7 @@ const json = (body: unknown, status = 200) =>
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
 /** `owner` is the All-Access Master account: decided server-side by netlify/security/owner.ts, never by anything the browser sends. */
-type Session = { id: string; email: string; name: string; owner: boolean };
+type Session = { id: string; email: string; name: string; owner: boolean; /** Why an address on the owner list was not accepted (shown only to that signed-in person). */ ownerHint?: string };
 
 async function session(): Promise<Session | null> {
   try {
@@ -67,11 +67,25 @@ async function session(): Promise<Session | null> {
     if (!user) return null;
     const meta = (user.userMetadata ?? {}) as Record<string, string>;
     const email = user.email ?? "";
+    // getUser() falls back to the sign-in token's claims when it can't reach Identity, and the claims carry no
+    // "confirmed" stamp. For the owner's address only, ask Identity directly before deciding.
+    let confirmed = Boolean(user.confirmedAt);
+    let ownerHint: string | undefined;
+    if (!confirmed && onOwnerList(email)) {
+      try {
+        confirmed = Boolean((await admin.getUser(user.id)).confirmedAt);
+        if (!confirmed) ownerHint = "Identity says this email is not confirmed.";
+      } catch (e) {
+        ownerHint = "Identity could not be asked whether this email is confirmed.";
+        console.error("owner check", e);
+      }
+    }
     return {
       id: user.id,
       email,
       name: user.name || meta.full_name || email.split("@")[0] || "Coach",
-      owner: isOwner({ email, confirmed: Boolean(user.confirmedAt) }),
+      owner: isOwner({ email, confirmed }),
+      ownerHint,
     };
   } catch {
     return null;
@@ -128,7 +142,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return json({ user: null });
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
-      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
+      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, ownerHint: me.owner ? undefined : me.ownerHint, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
     }
 
     /* ---------------------------------------------------------- phone --- */
