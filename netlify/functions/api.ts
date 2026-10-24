@@ -32,6 +32,7 @@ import {
 } from "../security/phone.js";
 import { isOwner } from "../security/owner.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
+import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
@@ -48,6 +49,8 @@ import {
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
 import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
 
+/** Identity user ids are UUIDs today; accept any safe id so a different provider format doesn't lock the owner out. */
+const UUID_OR_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const json = (body: unknown, status = 200) =>
@@ -167,7 +170,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     if (resource === "admin") {
       if (!me?.owner) return fail("That address is not part of the playbook API.", 404);
       await ensureProfile(me);
-      return await adminRoute(me, req, id, action);
+      return await adminRoute(me, req, parts.slice(1));
     }
 
     /* --------------------------------------------------------- events --- */
@@ -305,6 +308,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
 
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(plays).where(and(eq(plays.id, id), eq(plays.ownerId, me.id))) : [];
+        if (old) await keepInTrash(me.id, "play", old);
         await db
           .delete(plays)
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)));
@@ -394,6 +399,11 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
 
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(playbooks).where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id))) : [];
+        if (old) {
+          const members = await db.select({ playId: playbookPlays.playId }).from(playbookPlays).where(eq(playbookPlays.playbookId, old.id)).orderBy(playbookPlays.sortOrder);
+          await keepInTrash(me.id, "playbook", old, { playIds: members.map((m) => m.playId) });
+        }
         await db
           .delete(playbooks)
           .where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id)));
@@ -446,6 +456,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         return json({ sheet: row });
       }
       if (req.method === "DELETE" && id) {
+        const [old] = UUID.test(id) ? await db.select().from(callSheets).where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id))) : [];
+        if (old) await keepInTrash(me.id, "call_sheet", old);
         await db
           .delete(callSheets)
           .where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id)));
@@ -464,7 +476,23 @@ async function route(req: Request, deviceId: string): Promise<Response> {
 
 /* ---------------------------------------------------------- admin --- */
 
-async function adminRoute(me: Session, req: Request, id: string | undefined, _action: string | undefined) {
+async function adminRoute(me: Session, req: Request, path: string[]) {
+  const [id, uid, tail] = path;
+  const body = req.method === "POST" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
+  if (id === "users" && uid && UUID_OR_ID.test(uid)) {
+    if (req.method === "GET" && !tail) return json(await userDetail(me, uid));
+    if (req.method === "GET" && tail === "export") return json(await userExport(me, uid));
+    if (req.method === "POST" && tail === "plan") {
+      const r = await setUserPlan(me, uid, String(body.plan ?? ""));
+      return r.error ? fail(r.error, r.status ?? 400) : json(r);
+    }
+  }
+  if (id === "trash" && uid && UUID.test(uid) && tail === "restore" && req.method === "POST") {
+    const to = body.toUserId ? String(body.toUserId) : undefined;
+    if (to && !UUID_OR_ID.test(to)) return fail("That isn't a coach id.");
+    const r = await restoreItem(me, uid, to);
+    return r.error ? fail(r.error, r.status ?? 400) : json(r);
+  }
   if (req.method === "GET" && id === "users") {
     const { users, identity } = await userRows();
     return json({ users, identity });

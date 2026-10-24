@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { useOwner } from "../lib/owner";
 import { AuditTab } from "./admin/AuditTab";
+import { UserDetail } from "./admin/UserDetail";
 import { VisitorsTab } from "./admin/VisitorsTab";
 import { UsersTab, useAdminUsers } from "./admin/UsersTab";
 import "../styles/admin.css";
@@ -11,6 +12,7 @@ const TABS = [
   { id: "users", label: "Users" },
   { id: "visitors", label: "Visitors" },
   { id: "watch", label: "Watch list" },
+  { id: "recovery", label: "Account recovery" },
   { id: "audit", label: "Audit log" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -20,7 +22,11 @@ export function Admin() {
   const owner = useOwner();
   const [tab, setTab] = useState<TabId>("users");
   const data = useAdminUsers();
-  const [, setOpenId] = useState("");
+  const [openId, setOpenId] = useState("");
+  const open = (id: string) => {
+    setOpenId(id);
+    setTab("recovery");
+  };
 
   if (owner === false) return <Navigate to="/account" replace />;
   if (owner === null) return <Shell title="Admin"><p className="hint">Checking your access…</p></Shell>;
@@ -35,9 +41,15 @@ export function Admin() {
             </button>
           ))}
         </div>
-        {tab === "users" && <UsersTab {...data} onOpen={setOpenId} />}
+        {tab === "users" && <UsersTab {...data} onOpen={open} />}
         {tab === "visitors" && <VisitorsTab />}
-        {tab === "watch" && <UsersTab {...data} watch onOpen={setOpenId} />}
+        {tab === "watch" && <UsersTab {...data} watch onOpen={open} />}
+        {tab === "recovery" &&
+          (openId ? (
+            <UserDetail id={openId} onBack={() => setTab("users")} />
+          ) : (
+            <p className="hint">Open a coach from the Users tab to see their plays and playbooks, restore something they deleted, or download all their data.</p>
+          ))}
         {tab === "audit" && <AuditTab />}
       </div>
     </Shell>

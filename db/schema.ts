@@ -254,3 +254,24 @@ export const visits = pgTable(
   },
   (t) => [uniqueIndex("visits_sid_idx").on(t.sid), index("visits_day_idx").on(t.day)],
 );
+
+/**
+ * A copy of every play, playbook or Season Grid a coach deletes, kept for 30 days
+ * so the owner can put it back if it was deleted by mistake. Account deletion
+ * does not use this: it removes the coach's work for good.
+ */
+export const trash = pgTable(
+  "trash",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    kind: text().notNull(), // "play" | "playbook" | "call_sheet"
+    originalId: text("original_id").notNull(),
+    name: text().notNull().default(""),
+    /** The whole row, plus `playIds` for a playbook's members. */
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
+    deletedAt: timestamp("deleted_at").defaultNow(),
+    restoredAt: timestamp("restored_at"),
+  },
+  (t) => [index("trash_owner_idx").on(t.ownerId)],
+);
