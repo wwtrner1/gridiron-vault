@@ -229,3 +229,28 @@ export const quizResults = pgTable(
   },
   (t) => [index("quiz_results_share_idx").on(t.shareId)],
 );
+
+/**
+ * One row per visit (a browser tab's session), for the owner's visitor counts and
+ * time on site. No IP address, no cookie and no user id: `visitor` is a hash of the
+ * browser's random id and the day, so it can't follow anyone from one day to the next.
+ */
+export const visits = pgTable(
+  "visits",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    sid: text().notNull(),
+    day: text().notNull(), // YYYY-MM-DD, UTC
+    visitor: text().notNull(),
+    signedIn: boolean("signed_in").notNull().default(false),
+    landing: text().notNull().default("/"),
+    referrer: text().notNull().default(""), // host only
+    device: text().notNull().default("desktop"),
+    pages: integer().notNull().default(1),
+    /** Seconds the page was visible, summed from heartbeats. */
+    seconds: integer().notNull().default(0),
+    startedAt: timestamp("started_at").defaultNow(),
+    lastBeatAt: timestamp("last_beat_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("visits_sid_idx").on(t.sid), index("visits_day_idx").on(t.day)],
+);

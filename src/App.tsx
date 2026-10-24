@@ -26,6 +26,7 @@ import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
 import { Admin } from "./pages/Admin";
 import { notePage } from "./lib/lastPage";
+import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 
 const TITLES: Record<string, string> = {
@@ -84,6 +85,7 @@ const NAMES: Record<string, string> = {
 function RouteChrome() {
   const { pathname } = useLocation();
   const [spoken, setSpoken] = useState("");
+  useVisitCounter();
   useEffect(() => {
     notePage(pathname);
     const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/game") ? "/game" : pathname;

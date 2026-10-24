@@ -31,6 +31,7 @@ import {
   SMS_PER_DAY,
 } from "../security/phone.js";
 import { isOwner } from "../security/owner.js";
+import { recordVisit, visitorStats } from "../admin/visits.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
@@ -140,6 +141,19 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action !== "results" && req.method === "GET") return await openShare(id);
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
       return await sendScore(id, await req.json().catch(() => ({})));
+
+    // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
+    if (resource === "visit") {
+      if (req.method === "POST" && !me?.owner)
+        await recordVisit({
+          raw: await req.text().catch(() => ""),
+          deviceId,
+          ua: req.headers.get("user-agent") ?? "",
+          host: url.hostname,
+          signedIn: Boolean(me),
+        }).catch(() => undefined);
+      return new Response(null, { status: 204 });
+    }
 
     // Every other signed-in request: a verified phone, from a device confirmed with a code.
     if (me && phoneRequired()) {
@@ -465,6 +479,10 @@ async function adminRoute(me: Session, req: Request, id: string | undefined, _ac
         "Cache-Control": "no-store",
       },
     });
+  }
+  if (req.method === "GET" && id === "visitors") {
+    const days = [7, 30, 90].includes(Number(new URL(req.url).searchParams.get("days"))) ? Number(new URL(req.url).searchParams.get("days")) : 30;
+    return json(await visitorStats(days));
   }
   if (req.method === "GET" && id === "audit") return json({ entries: await recentAudit() });
   return fail("That address is not part of the playbook API.", 404);

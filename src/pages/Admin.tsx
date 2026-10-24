@@ -3,11 +3,13 @@ import { Navigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { useOwner } from "../lib/owner";
 import { AuditTab } from "./admin/AuditTab";
+import { VisitorsTab } from "./admin/VisitorsTab";
 import { UsersTab, useAdminUsers } from "./admin/UsersTab";
 import "../styles/admin.css";
 
 const TABS = [
   { id: "users", label: "Users" },
+  { id: "visitors", label: "Visitors" },
   { id: "watch", label: "Watch list" },
   { id: "audit", label: "Audit log" },
 ] as const;
@@ -34,6 +36,7 @@ export function Admin() {
           ))}
         </div>
         {tab === "users" && <UsersTab {...data} onOpen={setOpenId} />}
+        {tab === "visitors" && <VisitorsTab />}
         {tab === "watch" && <UsersTab {...data} watch onOpen={setOpenId} />}
         {tab === "audit" && <AuditTab />}
       </div>
