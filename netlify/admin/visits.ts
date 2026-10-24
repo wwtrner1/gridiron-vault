@@ -134,14 +134,18 @@ export async function visitorStats(days: number) {
       signedInSessions: num(t?.signedIn),
       pagesPerVisit: Math.round(num(t?.pages) * 10) / 10,
     },
-    perDay: perDay.map((d) => ({
-      day: d.day,
-      visitors: num(d.visitors),
-      sessions: num(d.sessions),
-      avgSeconds: Math.round(num(d.avgSeconds)),
-      bounced: num(d.bounced),
-      signups: signupBy.get(d.day) ?? 0,
-    })),
+    // Every day in the range, so a day with signups but no visits (or the reverse) still shows.
+    perDay: Array.from({ length: days }, (_, i) => new Date(Date.now() - (days - 1 - i) * 86400_000).toISOString().slice(0, 10)).map((day) => {
+      const d = perDay.find((r) => r.day === day);
+      return {
+        day,
+        visitors: num(d?.visitors),
+        sessions: num(d?.sessions),
+        avgSeconds: Math.round(num(d?.avgSeconds)),
+        bounced: num(d?.bounced),
+        signups: signupBy.get(day) ?? 0,
+      };
+    }),
     landing: landing.map((r) => ({ name: r.k, n: num(r.n) })),
     referrers: referrers.map((r) => ({ name: r.k, n: num(r.n) })),
     devices: devices.map((r) => ({ name: r.k, n: num(r.n) })),

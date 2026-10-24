@@ -9,10 +9,11 @@ import { useAuth } from "./auth";
 const known = new Map<string, boolean>();
 
 export function useOwner(): boolean | null {
-  const { account } = useAuth();
-  const [owner, setOwner] = useState<boolean | null>(account ? known.get(account.id) ?? null : false);
+  const { account, status } = useAuth();
+  const [owner, setOwner] = useState<boolean | null>(account ? known.get(account.id) ?? null : null);
   useEffect(() => {
-    if (!account) return setOwner(false);
+    // Until sign-in has been looked up, we don't know yet: /admin must not bounce the owner on a fresh load.
+    if (!account) return setOwner(status === "loading" ? null : false);
     const cached = known.get(account.id);
     if (cached !== undefined) return setOwner(cached);
     let live = true;
@@ -26,6 +27,6 @@ export function useOwner(): boolean | null {
     return () => {
       live = false;
     };
-  }, [account]);
+  }, [account, status]);
   return owner;
 }
