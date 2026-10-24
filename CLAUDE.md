@@ -2,9 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Names and addresses
+
+- Canonical domain: **https://gridiron-vault.com** (Netlify DNS; www redirects to the apex). Use it for every absolute URL (Open Graph, Identity email templates, redirects). `gridiron-vault.netlify.app` only forwards to it.
+- Repo slug: **wwtrner1/gridiron-vault**.
+- Brand spelling: **GridIronVault** (capital I).
+- Saved plays live in `localStorage`, which belongs to one origin. `public/handoff.js` (loaded first from `index.html`) and `old-address/move.js` forward plays from the older addresses to the apex in `#carry=…`, and `src/components/CarryOver.tsx` merges them (newer wins; never `gotrue.*`).
+
 ## What this is
 
-GridIronVault (capital I — the brand changed from "Grid1ronVault" in October 2026; lowercase ids such as `grid1ronvault.*` localStorage keys, drag types and the `gridi1ronvault` site and repo names keep the old spelling so nothing breaks) — a flag football playbook studio. Logos live in `public/brand/` (icon, horizontal and stacked lockups, shield); app icons and favicons are PNGs rendered from the icon. Coaches draw plays on an SVG canvas, organise them into playbooks, plan games in a spreadsheet-style Season Grid, and export PNG/PDF/wristband cards. Vite + React 19 SPA, a single Netlify Function as the API, Netlify Database (Postgres) via Drizzle, Netlify Identity for auth. Deployed on Netlify. (Formerly "NextPlay"/"Snapline" — those names still appear in localStorage keys; don't rename the keys or existing users lose their data.)
+GridIronVault (capital I — the brand changed from "Grid1ronVault" in October 2026; lowercase ids such as `grid1ronvault.*` localStorage keys, drag types and the old `gridi1ronvault` address keep the old spelling so nothing breaks) — a flag football playbook studio. Logos live in `public/brand/` (icon, horizontal and stacked lockups, shield); app icons and favicons are PNGs rendered from the icon. Coaches draw plays on an SVG canvas, organise them into playbooks, plan games in a spreadsheet-style Season Grid, and export PNG/PDF/wristband cards. Vite + React 19 SPA, a single Netlify Function as the API, Netlify Database (Postgres) via Drizzle, Netlify Identity for auth. Deployed on Netlify. (Formerly "NextPlay"/"Snapline" — those names still appear in localStorage keys; don't rename the keys or existing users lose their data.)
 
 ## Commands
 

@@ -10,7 +10,12 @@ import "./styles/team.css";
 // Catch the browser's install prompt early, whichever page the coach lands on.
 import "./lib/install";
 
-createRoot(document.getElementById("root")!).render(
+// On the old netlify.app address public/handoff.js is packing this browser's plays and forwarding to
+// gridiron-vault.com; the app stays asleep there so it can't write over what is being carried.
+const handingOff = (window as unknown as { __g1vHandoff?: boolean }).__g1vHandoff === true;
+
+if (!handingOff) {
+  createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
@@ -18,7 +23,8 @@ createRoot(document.getElementById("root")!).render(
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
-);
+  );
+}
 
 // Installable app: the service worker makes it open fast and work with a weak signal (public/sw.js).
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
