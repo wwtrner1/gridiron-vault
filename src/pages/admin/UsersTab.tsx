@@ -6,7 +6,7 @@ export type AdminUser = {
   id: string; email: string; name: string; signedUpAt: string | null; confirmed: boolean; provider: string;
   lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none";
   deleted: boolean; deletedAt: string | null; plays: number; griddyMonth: number; griddyPeakDay: number;
-  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; flags: string[];
+  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; flags: string[];
 };
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -99,7 +99,7 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 <td>{u.plays}</td>
                 <td>{u.griddyMonth}{u.griddyPeakDay > 0 && <small>peak {u.griddyPeakDay}/day</small>}</td>
                 <td>{u.exports}{u.exports24h > 0 && <small>{u.exports24h} today</small>}</td>
-                <td>{u.devices}</td>
+                <td>{u.devices}{u.devicePeers > 1 && <small>{u.devicePeers} accounts on one device</small>}</td>
                 <td>{u.flags.map((f) => <span key={f} className="pill pill-amber">{f}</span>)}</td>
               </tr>
             ))}
