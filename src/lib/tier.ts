@@ -49,6 +49,27 @@ export function useTier(): Tier {
   return tierFor(id);
 }
 
+/** Whether the server can take payments yet (Stripe set up). Until it can, plan buttons keep their beta behaviour. */
+let billingOpen = false;
+const billingListeners = new Set<() => void>();
+export const useBilling = () =>
+  useSyncExternalStore(
+    (l) => (billingListeners.add(l), () => billingListeners.delete(l)),
+    () => billingOpen,
+    () => false,
+  );
+export function setBilling(on: boolean) {
+  if (on === billingOpen) return;
+  billingOpen = on;
+  billingListeners.forEach((l) => l());
+}
+
+/** Off to Stripe's page for an offer ("solo_month", "season", …), or Stripe's portal when none is named. */
+export async function goToBilling(offer?: string) {
+  const { url } = offer ? await api.checkout(offer) : await api.billingPortal();
+  window.location.assign(url);
+}
+
 /** Set once this browser has handed its plan choice to the account. */
 const SYNCED = "nextplay.tier.synced.v1";
 

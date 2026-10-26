@@ -8,7 +8,7 @@ import { DevicesCard } from "../components/DevicesCard";
 import { InstallCard } from "../components/InstallCard";
 import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS, TIERS, type TierId } from "../lib/plan";
-import { choosePlan, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
 import { store, useStore } from "../lib/store";
 import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
@@ -24,6 +24,7 @@ const EVENT_LABELS: Record<string, string> = {
 export function Account() {
   const { account, signOut, available } = useAuth();
   const tier = useTier();
+  const billing = useBilling();
   const toast = useToast();
   const navigate = useNavigate();
   const plays = useStore((s) => s.plays);
@@ -158,6 +159,29 @@ export function Account() {
           </dl>
           {tier.id === "master" ? (
             <small className="hint">This is the owner account. It has no plan to switch and no limits to run into.</small>
+          ) : billing ? (
+            <div className="field">
+              <span>Billing</span>
+              <div className="chip-row">
+                <Link className="btn btn-ghost" to="/pricing">
+                  See plans
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={async () => {
+                    try {
+                      await goToBilling();
+                    } catch (e) {
+                      toast(e instanceof Error ? e.message : "Stripe didn't open. Try again in a minute.", true);
+                    }
+                  }}
+                >
+                  Manage billing
+                </button>
+              </div>
+              <small className="hint">Cancel, change your card or download receipts on Stripe's page. You keep your plan until the period you paid for ends.</small>
+            </div>
           ) : (
           <div className="field">
             <span id="switch-plan">
