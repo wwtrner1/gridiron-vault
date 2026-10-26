@@ -1689,7 +1689,7 @@ export function Builder() {
               <Icon name="upload" size={14} /> Upload
             </Link>
           </Tooltip>
-          <Tooltip title="More tools" hint="Coming soon: Griddy, libraries and route tree on one page. Everything on it is already in the tool panel here." side="bottom">
+          <Tooltip title="More tools" hint="Griddy, the libraries, the route tree and Saved play format on one page." side="bottom">
             <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
               More tools
             </Link>
