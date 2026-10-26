@@ -204,7 +204,7 @@ export const GRIDDY_TOOLS = [
   {
     name: "build_call_sheet",
     description:
-      "Lay out a game-day call sheet (a Season Grid) from plays in the coach's Vault, one row per play, grouped by situation if the coach asked. The coach reviews the list and creates the grid; nothing is saved until they do.",
+      "Lay out a game-day call sheet from plays in the coach's Vault, one row per play, grouped by situation if the coach asked. The coach reviews the list and creates the grid; nothing is saved until they do.",
     input_schema: {
       type: "object",
       properties: {

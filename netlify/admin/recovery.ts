@@ -15,7 +15,7 @@ import {
 import { TIERS, type TierId } from "../../src/lib/plan.js";
 import { audit, type Actor } from "./admin.js";
 
-/** How long a deleted play, playbook or Season Grid can be put back. */
+/** How long a deleted play, playbook or Call Sheet can be put back. */
 export const TRASH_DAYS = 30;
 
 type Kind = "play" | "playbook" | "call_sheet";
@@ -167,7 +167,7 @@ export async function restoreItem(actor: Actor, trashId: string, toUserId?: stri
         .values({
           ...(await free(callSheets) ? { id: item.originalId } : {}),
           ownerId: owner,
-          name: String(row.name ?? "Restored Season Grid"),
+          name: String(row.name ?? "Restored Call Sheet"),
           columns: row.columns ?? [],
           rows: row.rows ?? [],
           createdAt: when(row.createdAt),

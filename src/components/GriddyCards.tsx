@@ -621,7 +621,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
 
 /**
  * A game-day call sheet Griddy laid out from the Vault. The coach can drop
- * rows and rename it; "Create the grid" makes a Season Grid with every row
+ * rows and rename it; "Create the call sheet" makes a Call Sheet with every row
  * linked to its play, so it prints on wristbands like any other grid.
  */
 function CallSheetCard({ id, name: suggested, lines }: { id: string; name: string; lines: CallSheetLine[] }) {
@@ -655,11 +655,11 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
           const res = await api.createSheet({ name: sheet.name, columns: sheet.columns, rows: sheet.rows });
           store.upsertSheet({ ...sheet, remoteId: res.sheet.id });
         } catch (e) {
-          toast(e instanceof Error ? e.message : "The grid is saved in this browser. It syncs the next time you save it.", true);
+          toast(e instanceof Error ? e.message : "The call sheet is saved in this browser. It syncs the next time you save it.", true);
         }
       }
-      setOutcome(id, `The coach created the Season Grid "${sheet.name}" with ${rows.length} plays.`);
-      toast(`${sheet.name} is ready in Season Grid.`);
+      setOutcome(id, `The coach created the Call Sheet "${sheet.name}" with ${rows.length} plays.`);
+      toast(`${sheet.name} is ready in your Call Sheet.`);
       dance();
     } finally {
       setBusy(false);
@@ -706,13 +706,13 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
               navigate("/grid");
             }}
           >
-            Open Season Grid
+            Open Call Sheet
           </button>
         </div>
       ) : (
         <div className="pa-acts">
           <button type="button" className="pa-btn is-primary" onClick={() => void create()} disabled={busy || !rows.length}>
-            {busy ? "Creating…" : "Create the grid"}
+            {busy ? "Creating…" : "Create the call sheet"}
           </button>
         </div>
       )}

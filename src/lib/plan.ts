@@ -18,7 +18,7 @@ export type Tier = {
   featured?: boolean;
   /** Plays a coach may keep in their Vault. */
   playLimit: number;
-  /** Season Grids they may keep. */
+  /** Call Sheets they may keep. */
   gridLimit: number;
   /** Public Vault plays they may copy into their own Vault each month. */
   copyLimit: number;
@@ -125,7 +125,7 @@ export const TIERS: Record<TierId, Tier> = {
     assistantCalls: 5,
     perks: [
       "8 plays in your Vault",
-      "1 Season Grid",
+      "1 Call Sheet",
       "Wristband + letter export, watermarked",
       "5 Griddy messages a month",
       "5 starter plays from the public Vault",
@@ -246,7 +246,7 @@ export function gateGrid(tier: Tier, currentGrids: number): Gate {
   if (currentGrids < tier.gridLimit) return { ok: true };
   return {
     ok: false,
-    reason: `${tier.name} includes ${tier.gridLimit} Season Grid${tier.gridLimit === 1 ? "" : "s"}. Move up a plan to run a grid per opponent.`,
+    reason: `${tier.name} includes ${tier.gridLimit} Call Sheet${tier.gridLimit === 1 ? "" : "s"}. Move up a plan to run a grid per opponent.`,
     cta: "See plans",
   };
 }

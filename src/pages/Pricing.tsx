@@ -20,8 +20,8 @@ const COMPARE: {
     read: (t) => t.playLimit.toLocaleString(),
   },
   {
-    label: "Season Grids",
-    hint: "Separate call sheets — one per season, one per level.",
+    label: "Call Sheets",
+    hint: "One for each opponent, season or level.",
     read: (t) => String(t.gridLimit),
   },
   {
@@ -76,7 +76,7 @@ const FAQ = [
   },
   {
     q: "Is there a free plan after beta?",
-    a: "Yes. Sideline stays free: eight plays, one Season Grid, and watermarked wristband and letter printing so you can keep using it.",
+    a: "Yes. Sideline stays free: eight plays, one Call Sheet, and watermarked wristband and letter printing so you can keep using it.",
   },
   {
     q: "Can I cancel?",

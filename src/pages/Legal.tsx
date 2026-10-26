@@ -70,7 +70,7 @@ export function Privacy() {
           read, and stored on our side only as a one-way fingerprint, so we can recognise up to five devices you've confirmed.
         </li>
         <li>
-          <b>Recently deleted work:</b> a play, playbook or Season Grid you delete is kept for 30 days so it can be put back if
+          <b>Recently deleted work:</b> a play, playbook or Call Sheet you delete is kept for 30 days so it can be put back if
           it was a mistake, then removed. Deleting your account removes your work at once.
         </li>
         <li>
@@ -84,7 +84,7 @@ export function Privacy() {
           your phone number and of your email (not the number, and none of your plays), so one person can't open an endless run of free trials.
         </li>
         <li>
-          <b>Your work:</b> plays, playbooks and Season Grids you save to your account.
+          <b>Your work:</b> plays, playbooks and Call Sheets you save to your account.
         </li>
         <li>
           <b>What you send to Griddy:</b> your messages, any file of plays you attach, a whiteboard photo, and — so Griddy can
@@ -100,7 +100,7 @@ export function Privacy() {
       </ul>
       <p>
         Some things never leave your browser: plays you make before signing in, your activity counts on Your account, and
-        the Season Grid's autocomplete memory.
+        the Call Sheet's autocomplete memory.
       </p>
 
       <h2>Who helps us run GridIronVault</h2>
@@ -131,7 +131,7 @@ export function Privacy() {
         </li>
         <li>
           <b>Delete everything</b> from Your account → Delete my account. It removes your sign-in, phone number, devices,
-          and every play, playbook and Season Grid saved to your account.
+          and every play, playbook and Call Sheet saved to your account.
         </li>
         <li>
           <b>Forget a device</b> from Your account → Devices.

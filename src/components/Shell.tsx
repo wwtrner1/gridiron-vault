@@ -44,8 +44,8 @@ const PLAYBOOK_NAV: NavItem[] = [
   {
     to: "/grid",
     icon: "table",
-    label: "Season Grid",
-    hint: "Your live call sheet. Sort it, paint it, print it.",
+    label: "Call Sheet",
+    hint: "Your game plan. Sort it, paint it, collapse it, print it.",
   },
   {
     to: "/practice",
@@ -57,7 +57,7 @@ const PLAYBOOK_NAV: NavItem[] = [
     to: "/wristbands",
     icon: "wristband",
     label: "Wristbands",
-    hint: "Print quarterback wristband cards from your Season Grid or a playbook.",
+    hint: "Print quarterback wristband cards from your Call Sheet or a playbook.",
   },
   {
     to: "/starters",

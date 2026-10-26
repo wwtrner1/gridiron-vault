@@ -3,9 +3,9 @@ import type { StoredPlay } from "./types";
 import { uid } from "./types";
 
 /**
- * Season Grid sheets: the default layout, and a grid built from Vault plays
+ * Call Sheet sheets: the default layout, and a grid built from Vault plays
  * (what Griddy's call sheets use). Shared so a grid Griddy builds is the
- * same as one made on the Season Grid page.
+ * same as one made on the Call Sheet page.
  */
 export const DEFAULT_HEADERS = ["#", "Play Name", "Group", "Run", "Pass", "Down", "Distance", "Hash", "YL", "Route", "Position"];
 
@@ -18,7 +18,9 @@ export const blankRow = (columns: SheetColumn[], index: number): SheetRow => ({
   playId: null,
 });
 
-export function freshSheet(name = "Season Grid"): SheetDoc {
+export const DEFAULT_SHEET_NAME = "Call Sheet";
+
+export function freshSheet(name = DEFAULT_SHEET_NAME): SheetDoc {
   const columns = DEFAULT_HEADERS.map(newColumn);
   return {
     id: uid("sheet"),

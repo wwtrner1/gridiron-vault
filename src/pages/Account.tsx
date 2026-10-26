@@ -66,7 +66,7 @@ export function Account() {
   // Vault limit is the real ceiling and there is no separate meter for them.
   const usage = [
     { label: "Plays in your Vault", used: plays.length, limit: tier.playLimit, to: "/vault" },
-    { label: "Season Grids", used: sheets.length, limit: tier.gridLimit, to: "/grid" },
+    { label: "Call Sheets", used: sheets.length, limit: tier.gridLimit, to: "/grid" },
   ];
 
   return (
@@ -260,7 +260,7 @@ export function Account() {
         <section className="card">
           <h3>Your data</h3>
           <p>
-            Plays, playbooks and Season Grids live in this browser first and sync to your account when you
+            Plays, playbooks and Call Sheets live in this browser first and sync to your account when you
             are signed in.
           </p>
           <div className="acct-tools">
@@ -282,7 +282,7 @@ export function Account() {
                 <Icon name="download" size={14} /> Download a backup
               </button>
             </Tooltip>
-            <Tooltip title="Forget autocomplete" hint="Clears the shorthand the Season Grid learned from you. Your rows stay." side="top">
+            <Tooltip title="Forget autocomplete" hint="Clears the shorthand the Call Sheet learned from you. Your rows stay." side="top">
               <button
                 type="button"
                 className="btn btn-quiet btn-sm"
@@ -323,7 +323,7 @@ export function Account() {
         >
           <p>
             This permanently deletes your sign-in, your phone number and devices, and every play, playbook and
-            Season Grid saved to your account — on every device. It cannot be undone.
+            Call Sheet saved to your account — on every device. It cannot be undone.
           </p>
           <p className="hint">Want a copy first? Close this and use Download a backup under Your data.</p>
           <label className="field">
@@ -372,7 +372,7 @@ export function Account() {
           <p>
             This removes {plays.length} {plays.length === 1 ? "play" : "plays"}, {books.length}{" "}
             {books.length === 1 ? "playbook" : "playbooks"} and {sheets.length}{" "}
-            {sheets.length === 1 ? "Season Grid" : "Season Grids"} from this browser.
+            {sheets.length === 1 ? "Call Sheet" : "Call Sheets"} from this browser.
           </p>
           <p>
             {account
