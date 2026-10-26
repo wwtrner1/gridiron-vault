@@ -70,6 +70,7 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       name: str(p?.name, 120),
       formation: str(p?.formation, 60),
       type: str(p?.type, 20),
+      field: str(p?.field, 12),
       tags: (Array.isArray(p?.tags) ? p.tags : []).slice(0, 8).map((t) => str(t, 30)),
       books: (Array.isArray(p?.books) ? p.books : []).slice(0, 6).map((b) => str(b, 120)),
       routes: str(p?.routes, 160),
@@ -196,7 +197,7 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
           });
           return names.length ? [{ op: "rename" as const, names }] : [];
         }
-        if (["style", "wristband", "meta", "file"].includes(c?.op)) {
+        if (["style", "wristband", "field", "meta", "file"].includes(c?.op)) {
           const open = cleanOpenChange(c);
           return open ? [open] : [];
         }

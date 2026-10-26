@@ -2,7 +2,7 @@ import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
-import type { EndCap, LineCurve, LineStyle, PathNode, PlayerNode, PlayerShape, PlayMeta, Scene, SceneNode, StoredPlay } from "./types";
+import type { EndCap, FieldView, LineCurve, LineStyle, PathNode, PlayerNode, PlayerShape, PlayMeta, Scene, SceneNode, StoredPlay } from "./types";
 
 /** Which players, lines or text a style change reaches; everything left out matches. */
 export type StyleWhere = {
@@ -44,6 +44,9 @@ export const WRISTBAND_FORMATS = ["bold", "sideline"] as const;
 export type WristbandFormat = (typeof WRISTBAND_FORMATS)[number];
 
 export const PLAY_TYPES = ["pass", "run", "defense", "special"] as const;
+/** The Designer's fields, with the names the coach sees there (kept here so the function needn't load the field drawing code). */
+export const FIELD_LABELS: Record<FieldView, string> = { half: "Half field", full: "Full field", redzone: "Red zone", flag: "Flag 30×70", blank: "Whiteboard" };
+export const FIELD_IDS = Object.keys(FIELD_LABELS) as FieldView[];
 
 /** Wristband cards print the field about 4 in wide, so lines and tokens need to be at their heaviest. */
 export const BOLD_WIDTH = STROKE_WEIGHTS[STROKE_WEIGHTS.length - 1];
@@ -87,6 +90,8 @@ export type BulkChange =
   | { op: "style"; target: StyleTarget; where?: StyleWhere; set: StyleSet }
   /** A one-click wristband look on every play ("make my MID TN Blue plays Wristband bold"). */
   | { op: "wristband"; format: WristbandFormat }
+  /** The field the play is drawn on (full, half, red zone, flag 30×70, whiteboard); the drawing itself stays put. */
+  | { op: "field"; view: FieldView }
   /** The play's category (type) and tags. */
   | { op: "meta"; playType?: PlayMeta["playType"]; addTags?: string[]; removeTags?: string[] }
   /** The plays are filed in a playbook (made if it doesn't exist), and taken out of `from` when moving. */
@@ -97,7 +102,7 @@ export type BulkChange =
 export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] };
 
 /** Narrows the scope to one category of play: a type, a tag, a formation. */
-export type BulkFilter = { playType?: PlayMeta["playType"]; tag?: string; formation?: string };
+export type BulkFilter = { playType?: PlayMeta["playType"]; tag?: string; formation?: string; field?: FieldView };
 
 export type BulkEdit = { scope: BulkScope; filter?: BulkFilter; changes: BulkChange[] };
 
@@ -251,10 +256,15 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
   const touched = new Set<string>();
   const firstReads = new Set<string>();
   let nodes = scene.nodes;
+  let view = scene.view;
   for (const change of changes) {
     if (change.op === "mirror") {
       nodes = nodes.map(mirrorNode);
       nodes.forEach((n) => n.kind === "player" && touched.add(n.id));
+      continue;
+    }
+    if (change.op === "field") {
+      view = change.view;
       continue;
     }
     if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
@@ -340,7 +350,8 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       return next;
     });
   }
-  return { scene: touched.size ? { ...scene, nodes } : scene, players: touched.size, firstReads: firstReads.size };
+  const changed = touched.size > 0;
+  return { scene: changed || view !== scene.view ? { ...scene, ...(changed ? { nodes } : {}), view } : scene, players: touched.size, firstReads: firstReads.size };
 }
 
 export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
@@ -444,7 +455,8 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
       (p) =>
         (!f.playType || p.playType === f.playType) &&
         (!f.tag || p.tags.some((t) => lower(t) === lower(f.tag!))) &&
-        (!f.formation || lower(p.formation) === lower(f.formation)),
+        (!f.formation || lower(p.formation) === lower(f.formation)) &&
+        (!f.field || p.scene.view === f.field),
     );
   }
   const now = new Date().toISOString();
@@ -454,7 +466,8 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     firstReads += reads;
     const meta = metaOf(p, edit.changes);
     const renamed = renamedAs(p, edit.changes);
-    if (!players && !meta && !renamed) return [];
+    const fieldChanged = scene.view !== p.scene.view;
+    if (!players && !meta && !renamed && !fieldChanged) return [];
     // A swap onto a letter the play already has leaves two of them; say so rather than guess which to move.
     const letters = scene.nodes.flatMap((n) => (n.kind === "player" && n.side === "offense" && n.label ? [up(n.label)] : []));
     const doubled = [...new Set(letters.filter((l, i) => letters.indexOf(l) !== i))].filter((l) =>
@@ -462,7 +475,7 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     );
     // A flipped play's name and formation follow it to the other side.
     const sides = flips(edit.changes) ? { name: swapSides(p.name), formation: swapSides(p.formation) } : {};
-    return [{ before: p, after: { ...p, ...meta, ...sides, ...renamed, scene, updatedAt: now }, players, doubled }];
+    return [{ before: p, after: { ...p, ...meta, ...sides, ...renamed, fieldView: scene.view, scene, updatedAt: now }, players, doubled }];
   });
   return { targets, filings: fileBooks(edit.changes, scoped, books), inScope: scoped.length, missingBook, firstReads };
 }
@@ -472,6 +485,7 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   const name = (hex: string) => colorLabel(bulkColor(hex) ?? hex);
   const who = (letter: string, only?: string) => (only ? `${name(only).replace(/^./, (ch) => ch.toUpperCase())} ${up(letter)}` : up(letter));
   if (c.op === "mirror") return "Flip left ↔ right";
+  if (c.op === "field") return `Field → ${FIELD_LABELS[c.view]}`;
   if (c.op === "wristband") return c.format === "bold" ? "Wristband bold" : "Sideline 2×4";
   if (c.op === "rename") return `Rename ${c.names.length} ${c.names.length === 1 ? "play" : "plays"}`;
   if (c.op === "file") return c.from ? `Move from ${c.from} to ${c.playbook}` : `File in ${c.playbook}`;
@@ -587,6 +601,10 @@ export function cleanOpenChange(c: Record<string, unknown>): BulkChange | null {
     const format = pick(c.format, WRISTBAND_FORMATS);
     return format ? { op: "wristband", format } : null;
   }
+  if (c.op === "field") {
+    const view = pick(c.view, FIELD_IDS);
+    return view ? { op: "field", view } : null;
+  }
   if (c.op === "meta") {
     const tags = (v: unknown) => (Array.isArray(v) ? v.map((t) => text(t, 30)).filter(Boolean).slice(0, 8) : []);
     const playType = pick(c.playType, PLAY_TYPES);
@@ -661,6 +679,7 @@ export function cleanFilter(f: unknown): BulkFilter | null {
   const playType = pick(r.playType, PLAY_TYPES);
   const tag = text(r.tag, 30);
   const formation = text(r.formation, 60);
-  const out: BulkFilter = { ...(playType ? { playType } : {}), ...(tag ? { tag } : {}), ...(formation ? { formation } : {}) };
+  const field = pick(r.field, FIELD_IDS);
+  const out: BulkFilter = { ...(playType ? { playType } : {}), ...(tag ? { tag } : {}), ...(formation ? { formation } : {}), ...(field ? { field } : {}) };
   return Object.keys(out).length ? out : null;
 }

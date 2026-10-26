@@ -398,7 +398,7 @@ async function writePlays(plays: StoredPlay[], signedIn: boolean) {
   if (!signedIn) return;
   for (const p of plays.filter((x) => x.remote)) {
     try {
-      await api.updatePlay(p.id, { scene: p.scene, name: p.name, formation: p.formation, playType: p.playType, tags: p.tags });
+      await api.updatePlay(p.id, { scene: p.scene, fieldView: p.scene.view, name: p.name, formation: p.formation, playType: p.playType, tags: p.tags });
     } catch {
       /* the local copy is already updated; it syncs on the next save */
     }

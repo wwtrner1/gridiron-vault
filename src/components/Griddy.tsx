@@ -75,7 +75,7 @@ function vaultContext(withRoutes: boolean): Pick<GriddyContext, "vault" | "playb
     vault: [...plays]
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
       .slice(0, GRIDDY_LIMITS.vault)
-      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(withRoutes ? { routes: routeSummary(p.scene).slice(0, 140) } : {}) })),
+      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, field: p.scene.view, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(withRoutes ? { routes: routeSummary(p.scene).slice(0, 140) } : {}) })),
     playbooks: playbooks.map((b) => ({ id: b.id, name: b.name, plays: b.playIds.length })),
     looks: vaultLooks(plays),
   };
