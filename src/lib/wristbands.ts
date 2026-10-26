@@ -569,6 +569,37 @@ export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: Ban
   },
 ];
 
+/** Boxes this big keep player letters and bold routes, in inches. */
+const ROOMY_BOX = { w: 1.15, h: 0.75 };
+
+/**
+ * The layout that reads best on a card of this size: the most plays a card can
+ * hold while every box stays roomy (letters and bold routes), else the most
+ * that stay readable (Sideline's solid dots), else the biggest boxes the card
+ * allows. Pure, so the Wristbands page can offer it and tests can pin it down.
+ */
+export function bestLayout(card: { w: number; h: number }): { grid: string; prefs: BandPresetPrefs; why: string } {
+  const at = (g: BandGrid) => diagramBox({ card, grid: g, header: { show: true, ...defaultBandText }, footer: "", numberSize: "m" });
+  // Fewer than four plays a card is a poor wristband, so a card that only manages that falls through to the denser dot layout.
+  const multi = BAND_GRIDS.filter((g) => g.cols * g.rows >= 4);
+  const densest = (ok: (a: { w: number; h: number }) => boolean) =>
+    multi.filter((g) => ok(at(g))).sort((a, b) => b.cols * b.rows - a.cols * a.rows)[0];
+  const roomy = densest((a) => a.w >= ROOMY_BOX.w && a.h >= ROOMY_BOX.h);
+  const bold = BAND_PRESETS.find((p) => p.id === "bold")!.prefs;
+  const side = BAND_PRESETS.find((p) => p.id === "sideline")!.prefs;
+  if (roomy) {
+    const n = roomy.cols * roomy.rows;
+    return { grid: gridKey(roomy), prefs: { ...bold, grid: gridKey(roomy) }, why: `${n} plays a card with lettered players and bold routes` };
+  }
+  const readable = densest((a) => a.w >= READABLE_BOX.w && a.h >= READABLE_BOX.h);
+  if (readable) {
+    const n = readable.cols * readable.rows;
+    return { grid: gridKey(readable), prefs: { ...side, grid: gridKey(readable) }, why: `${n} plays a card as solid dots, the most that stay readable on this card` };
+  }
+  const biggest = [...BAND_GRIDS].sort((a, b) => at(b).w * at(b).h - at(a).w * at(a).h)[0];
+  return { grid: gridKey(biggest), prefs: { ...side, grid: gridKey(biggest) }, why: "this card is small; one play to a box is as big as it gets" };
+}
+
 /** Where the Wristbands page keeps its card settings in this browser. */
 export const BAND_PREFS_KEY = "grid1ronvault.wristbands.v1";
 
