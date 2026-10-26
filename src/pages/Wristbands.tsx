@@ -19,6 +19,7 @@ import {
   BAND_PAPERS,
   BAND_SIZES,
   tightBoxes,
+  boxCheck,
   callSheetRows,
   cardsPerPage,
   COACH_SHEETS,
@@ -246,6 +247,7 @@ export function Wristbands() {
     vector,
   };
   const tight = tightBoxes(entries, options);
+  const boxes = boxCheck(options);
   const printed = cards * (prefs.copies.qb + prefs.copies.center);
   const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
@@ -467,6 +469,23 @@ export function Wristbands() {
                 Each box prints {(card.w / grid.cols).toFixed(2)} × {((card.h - (prefs.header.show ? 0.2 : 0) - (prefs.footer.trim() ? 0.16 : 0)) / grid.rows).toFixed(2)} in.
                 {card.w / grid.cols < 1.2 && " That's tight for a diagram; fewer plays per card prints bigger."}
               </p>
+              {!boxes.readable && (
+                <p className="wb-warn" role="status">
+                  Each diagram gets {boxes.art.w.toFixed(2)} × {boxes.art.h.toFixed(2)} in, too small to draw a play clearly. Drawings are scaled down
+                  with the box, but a box this short stays crowded.{" "}
+                  {boxes.better ? (
+                    <>
+                      {boxes.better.cols}×{boxes.better.rows} gives {boxes.better.art.w.toFixed(2)} × {boxes.better.art.h.toFixed(2)} in and{" "}
+                      {boxes.better.cols * boxes.better.rows} plays a card.{" "}
+                      <button type="button" className="link" onClick={() => set({ grid: gridKey(boxes.better!) })}>
+                        Use {boxes.better.cols}×{boxes.better.rows}
+                      </button>
+                    </>
+                  ) : (
+                    "Pick a bigger card size to fit more plays."
+                  )}
+                </p>
+              )}
               {tight.length > 0 && (
                 <p className="wb-warn" role="status">
                   {tight.length === 1 ? `Box ${tight[0]} is` : `Boxes ${tight.slice(0, 6).join(", ")}${tight.length > 6 ? "…" : ""} are`} too

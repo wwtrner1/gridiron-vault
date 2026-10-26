@@ -171,3 +171,4 @@
 .wb-sheet-table tr.is-dupe td { background: var(--red-bg); color: var(--red-fg); }
 .wb-sheet-num { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
 .wb-sheet-spot { font-weight: 600; }
+.wb-warn .link { color: inherit; font-weight: 700; }

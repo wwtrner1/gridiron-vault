@@ -65,6 +65,22 @@ export const FIELD_OPTIONS: { id: PrintField; label: string }[] = [
 /** Smallest stroke and token we let reach paper, in points and inches. */
 const MIN_ROUTE_PT = 1.6;
 const MIN_TOKEN_IN = 0.17;
+/**
+ * A box only so tall can only carry so big a token or line: tokens take at most
+ * this share of the diagram's height, and routes this share in points, so a short
+ * wristband box scales the whole drawing down together instead of printing
+ * full-size tokens over a squashed field.
+ */
+const TOKEN_SHARE_OF_HEIGHT = 0.2;
+const FLOOR_SHARE_OF_HEIGHT = 0.16;
+/** Smallest token, and smallest crowded-set token, a very short box scales down to, in inches. */
+const SHORT_TOKEN_IN = 0.07;
+const SHORT_FLOOR_IN = 0.06;
+const ROUTE_SHARE_OF_HEIGHT = 0.045;
+/** Thinnest a route may be drawn, however short the box. */
+const THIN_ROUTE_PT = 1.1;
+/** Tokens never shrink below this multiple of their drawn size, so they stay shapes you can tell apart. */
+const MIN_TOKEN_SHRINK = 0.4;
 /** Crowded sets (bunch, stack) may print smaller than MIN_TOKEN_IN, but never below this. */
 const FLOOR_TOKEN_IN = 0.09;
 /** Below this a token's letter can't be read, so an auto-weighted token prints as a plain colored dot. */
@@ -76,6 +92,8 @@ const BASE_TOKEN = 36;
 const MAX_AUTO_LINE = 6;
 const MAX_AUTO_TOKEN = 8;
 const MAX_TEXT = 4;
+/** Printed tokens get a white ring, so closest pairs may overlap this little. */
+const TOKEN_OVERLAP = 1.1;
 /** Never zoom tighter than this many canvas units across. */
 const MIN_FRAME_W = 300;
 const PAD = 26;
@@ -95,7 +113,7 @@ function tokenRoom(scene: Scene): number {
       const d = Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, (a.size + b.size) / 2);
       if (d >= 1) closest = Math.min(closest, d);
     }
-  return Math.max(1, closest * 1.25);
+  return Math.max(1, closest * TOKEN_OVERLAP);
 }
 
 export type Boost = {
@@ -140,7 +158,21 @@ export function boostScene(scene: Scene, b: Boost): Scene {
 
 /** Bounds of everything visible in the play, or null for an empty scene. */
 export function playBox(scene: Scene): Box | null {
-  return unionBox(scene.nodes.filter((n) => !n.hidden).flatMap((n) => [worldBox(n), ...tagBox(n)]));
+  const all = unionBox(scene.nodes.filter((n) => !n.hidden).flatMap((n) => [worldBox(n), ...tagBox(n)]));
+  return all && onCanvas(all);
+}
+
+/**
+ * Only the canvas is ever drawn, so anything dragged off it (a stray note, a route
+ * pulled past the edge) must not shrink the whole play to fit: that is what made
+ * tokens and lines print huge against a tiny field. Null when nothing is left on it.
+ */
+function onCanvas(b: Box): Box | null {
+  const x = Math.max(b.x, 0);
+  const y = Math.max(b.y, 0);
+  const w = Math.min(b.x + b.w, CANVAS_W) - x;
+  const h = Math.min(b.y + b.h, CANVAS_H) - y;
+  return w > 0 && h > 0 ? { x, y, w, h } : null;
 }
 
 /** Room for a route tag, which rides just past the end of its route. */
@@ -173,13 +205,21 @@ function toAspect(b: Box, aspect: number): Box {
 }
 
 /** Line and token weights that keep a play readable when `unitsAcross` prints `inches` wide. */
-export function autoWeight(unitsAcross: number, inches: number): { line: number; token: number; floor: number } {
+export function autoWeight(
+  unitsAcross: number,
+  inches: number,
+  heightIn = Infinity,
+): { line: number; token: number; floor: number } {
   const ptPerUnit = (inches * 72) / unitsAcross;
-  const clamp = (v: number, max: number) => Math.min(max, Math.max(1, v));
+  // What the box can carry: full size in a tall box, scaled down with the box when it is short.
+  const tokenIn = Math.min(MIN_TOKEN_IN, Math.max(SHORT_TOKEN_IN, heightIn * TOKEN_SHARE_OF_HEIGHT));
+  const floorIn = Math.min(FLOOR_TOKEN_IN, Math.max(SHORT_FLOOR_IN, heightIn * FLOOR_SHARE_OF_HEIGHT));
+  const routePt = Math.min(MIN_ROUTE_PT, Math.max(THIN_ROUTE_PT, heightIn * 72 * ROUTE_SHARE_OF_HEIGHT));
+  const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
   return {
-    line: clamp(MIN_ROUTE_PT / (BASE_ROUTE * ptPerUnit), MAX_AUTO_LINE),
-    token: clamp((MIN_TOKEN_IN * 72) / (BASE_TOKEN * ptPerUnit), MAX_AUTO_TOKEN),
-    floor: clamp((FLOOR_TOKEN_IN * 72) / (BASE_TOKEN * ptPerUnit), MAX_AUTO_TOKEN),
+    line: clamp(routePt / (BASE_ROUTE * ptPerUnit), 1, MAX_AUTO_LINE),
+    token: clamp((tokenIn * 72) / (BASE_TOKEN * ptPerUnit), MIN_TOKEN_SHRINK, MAX_AUTO_TOKEN),
+    floor: clamp((floorIn * 72) / (BASE_TOKEN * ptPerUnit), MIN_TOKEN_SHRINK, MAX_AUTO_TOKEN),
   };
 }
 
@@ -188,12 +228,12 @@ export function autoWeight(unitsAcross: number, inches: number): { line: number;
  * print smaller than FLOOR_TOKEN_IN; a weight the coach picks is applied as
  * asked. Icon size and line thickness scale on top.
  */
-function weightsFor(look: PrintLook, unitsAcross: number, inches: number): Boost {
+function weightsFor(look: PrintLook, unitsAcross: number, inches: number, heightIn: number): Boost {
   const ptPerUnit = (inches * 72) / unitsAcross;
   const icons = look.icons ?? 1;
   const lines = look.lines ?? 1;
   if (look.weight !== "auto") return { line: look.weight * lines, token: look.weight * icons, dots: look.dots, ptPerUnit };
-  const auto = autoWeight(unitsAcross, inches);
+  const auto = autoWeight(unitsAcross, inches, heightIn);
   return { line: auto.line * lines, token: auto.token * icons, floor: auto.floor * icons, fit: true, dots: look.dots, ptPerUnit };
 }
 
@@ -217,7 +257,7 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   const whole = toAspect({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H }, aspect);
   const ppu = (b: Box) => (wIn * 72) / b.w;
   if (look.fit === "field") {
-    const w = weightsFor(look, whole.w, wIn);
+    const w = weightsFor(look, whole.w, wIn, hIn);
     const boosted = boostScene(scene, w);
     const play = playBox(boosted);
     const box = keepPlay(zoomBox(whole, look.zoom), play && pad(play, PAD * Math.min(w.line, 2)), aspect);
@@ -227,7 +267,7 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   if (!raw) return { scene: boostScene(scene, { line: 1, token: 1, dots: look.dots }), box: whole, weight: 1, ptPerUnit: ppu(whole) };
   // Weight depends on the zoom and the zoom on the (heavier) tokens, so settle it in two passes.
   let box = toAspect(pad(raw, PAD), aspect);
-  const w = weightsFor(look, Math.max(box.w, MIN_FRAME_W), wIn);
+  const w = weightsFor(look, Math.max(box.w, MIN_FRAME_W), wIn, hIn);
   const boosted = boostScene(scene, w);
   const play = pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2));
   box = toAspect(play, aspect);
