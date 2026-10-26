@@ -46,6 +46,7 @@ import {
   BAND_PREFS_EVENT,
   BAND_PREFS_KEY,
   BAND_PRESETS,
+  bestLayout,
 } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
 import "../styles/wristbands.css";
@@ -225,6 +226,8 @@ export function Wristbands() {
   const preset = BAND_SIZES.find((b) => b.id === prefs.sizeId) ?? BAND_SIZES[0];
   const clampIn = (v: number) => Math.min(BAND_CUSTOM_LIMITS.max, Math.max(BAND_CUSTOM_LIMITS.min, v || BAND_CUSTOM_LIMITS.min));
   const card = preset.id === "custom" ? { w: clampIn(prefs.custom.w), h: clampIn(prefs.custom.h) } : { w: preset.w, h: preset.h };
+  const best = bestLayout(card);
+  const bestOn = (Object.keys(best.prefs) as (keyof typeof best.prefs)[]).every((k) => JSON.stringify(prefs[k]) === JSON.stringify(best.prefs[k]));
   const gate = gateSheets(tier);
   const vector = gateVector(tier).ok;
 
@@ -329,8 +332,19 @@ export function Wristbands() {
                     {pre.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  className={`chip${bestOn ? " is-on" : ""}`}
+                  aria-pressed={bestOn}
+                  title={best.why}
+                  onClick={() => set(best.prefs)}
+                >
+                  Best for this card
+                </button>
               </div>
-              <p className="wb-note">Pick a style, then fine-tune anything below. Your card size stays as it is.</p>
+              <p className="wb-note">
+                Pick a style, then fine-tune anything below. Your card size stays as it is. Best for this card: {best.why}.
+              </p>
             </div>
 
             <label className="wb-field">
