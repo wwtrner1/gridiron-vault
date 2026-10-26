@@ -538,6 +538,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
           })
           .where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id)))
           .returning();
+        if (!row) return fail("That call sheet isn't in your account.", 404);
         return json({ sheet: row });
       }
       if (req.method === "DELETE" && id) {

@@ -143,6 +143,23 @@ export const store = {
     const rest = state.sheets.filter((s) => s.id !== sheet.id);
     commit({ ...state, sheets: [sheet, ...rest] });
   },
+  /** Change a call sheet without marking it edited (used by sync, which is not the coach editing). */
+  patchSheet(id: string, patch: Partial<SheetDoc>) {
+    commit({ ...state, sheets: state.sheets.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+  },
+  /** Call sheets pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
+  mergeRemoteSheets(remote: SheetDoc[]) {
+    const sheets = [...state.sheets];
+    for (const r of remote) {
+      const at = sheets.findIndex((s) => s.remoteId === r.remoteId || s.id === r.remoteId);
+      if (at < 0) {
+        sheets.push(r);
+        continue;
+      }
+      if (new Date(r.updatedAt) > new Date(sheets[at].updatedAt)) sheets[at] = { ...r, id: sheets[at].id };
+    }
+    commit({ ...state, sheets });
+  },
   removeSheet(id: string) {
     commit({ ...state, sheets: state.sheets.filter((s) => s.id !== id) });
   },

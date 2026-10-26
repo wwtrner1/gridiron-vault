@@ -114,6 +114,8 @@ export const api = {
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
 
+  deleteSheet: (id: string) => request<{ ok: true }>(`call-sheets/${id}`, { method: "DELETE" }),
+
   createSheet: (body: unknown) =>
     request<{ sheet: RemoteSheet }>("call-sheets", { method: "POST", body: JSON.stringify(body) }),
 
