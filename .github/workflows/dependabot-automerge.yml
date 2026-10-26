@@ -1,0 +1,53 @@
+name: Dependabot auto-merge
+
+# Merges Dependabot patch and minor updates once every other check passes.
+# Major version bumps and anything with a failing check are left open for review.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    timeout-minutes: 30
+    steps:
+      - name: Read Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Leave major updates for review
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        run: echo "Major update (${{ steps.meta.outputs.dependency-names }}). Leaving open for manual review."
+
+      - name: Wait for checks, then merge
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          sleep 45
+          for i in $(seq 1 50); do
+            checks=$(gh pr checks "$PR_URL" --json name,bucket --jq '[.[] | select(.name != "automerge")]' || true)
+            total=$(echo "${checks:-[]}" | jq 'length')
+            pending=$(echo "${checks:-[]}" | jq '[.[] | select(.bucket == "pending")] | length')
+            failed=$(echo "${checks:-[]}" | jq '[.[] | select(.bucket == "fail" or .bucket == "cancel")] | length')
+            if [ "$failed" -gt 0 ]; then
+              echo "A check failed. Leaving this PR open for review."
+              exit 0
+            fi
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
+              gh pr merge "$PR_URL" --merge --delete-branch
+              exit 0
+            fi
+            echo "Waiting on $pending of $total checks..."
+            sleep 30
+          done
+          echo "Timed out waiting for checks. Leaving this PR open."
