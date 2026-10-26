@@ -1,5 +1,5 @@
 /**
- * Column-aware autocomplete for the Season Grid.
+ * Column-aware autocomplete for the Call Sheet.
  *
  * Headers are never fixed — a coach can rename a column to anything. So the
  * dictionary is keyed by the header text the coach typed, and it learns from

@@ -6,7 +6,7 @@ import { useStore } from "../lib/store";
 import { uid } from "../lib/types";
 
 /**
- * Game Day: the Season Grid on a phone or tablet at the sideline. Tap the
+ * Game Day: the Call Sheet on a phone or tablet at the sideline. Tap the
  * down, distance and hash, see the calls that fit, tap one to see the
  * diagram big, call it, and mark whether it worked. Everything stays on this
  * device, and the screen is kept awake while it's open.
@@ -75,7 +75,7 @@ export function GameDay() {
           <h1>Game Day</h1>
         </header>
         <p className="gd-empty">
-          Game Day reads your Season Grid. <Link to="/grid">Open the Season Grid</Link>, add the calls, then come back here on game day.
+          Game Day reads your Call Sheet. <Link to="/grid">Open the Call Sheet</Link>, add the calls, then come back here on game day.
         </p>
       </main>
     );

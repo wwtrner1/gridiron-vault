@@ -10,7 +10,7 @@ const AREAS = [
   "Griddy (coaching assistant)",
   "Upload plays",
   "The Vault",
-  "Season Grid / call sheet",
+  "Call Sheet",
   "Wristbands & printing",
   "Something else",
 ];

@@ -51,7 +51,7 @@ import "../styles/wristbands.css";
 
 type Source = { id: string; label: string; entries: BandEntry[] };
 
-/** A Season Grid's calls in order, numbered by its "#" column. */
+/** A Call Sheet's calls in order, numbered by its "#" column. */
 function gridEntries(sheet: SheetDoc, plays: StoredPlay[]): BandEntry[] {
   const numCol = sheet.columns.find((c) => c.label.trim() === "#");
   const nameCol = sheet.columns.find((c) => /play/i.test(c.label));
@@ -126,7 +126,7 @@ function loadPrefs(): BandPrefs {
 /**
  * Wristbands · print builder, from the Grid1ron Design canvas: pick the
  * plays, set the card up, drag the calls into order, print. Numbers match the
- * Season Grid.
+ * Call Sheet.
  */
 export function Wristbands() {
   const plays = useStore((s) => s.plays);
@@ -138,7 +138,7 @@ export function Wristbands() {
 
   const sources = useMemo<Source[]>(
     () => [
-      ...sheets.map((s) => ({ id: `grid:${s.id}`, label: `Season Grid · ${s.name}`, entries: gridEntries(s, plays) })),
+      ...sheets.map((s) => ({ id: `grid:${s.id}`, label: `Call Sheet · ${s.name}`, entries: gridEntries(s, plays) })),
       ...playbooks.map((b) => ({
         id: `book:${b.id}`,
         label: `Playbook · ${b.name}`,
@@ -151,7 +151,7 @@ export function Wristbands() {
     [sheets, playbooks, plays],
   );
 
-  // "Wristbands" on a Season Grid opens straight onto that grid.
+  // "Wristbands" on a Call Sheet opens straight onto that grid.
   const [params] = useSearchParams();
   const [sourceId, setSourceId] = useState<string>(() => {
     const asked = params.get("source");
@@ -280,7 +280,7 @@ export function Wristbands() {
       title="Wristbands"
       actions={
         <Link to="/grid" className="btn btn-ghost btn-sm">
-          <Icon name="table" size={15} /> Season Grid
+          <Icon name="table" size={15} /> Call Sheet
         </Link>
       }
     >
@@ -290,7 +290,7 @@ export function Wristbands() {
             <p className="eyebrow">Print</p>
             <h2>Wristbands</h2>
             <p className="wb-lede">
-              Pick the plays, set up the card, then drag the calls into order. Numbers match your Season Grid so the call from
+              Pick the plays, set up the card, then drag the calls into order. Numbers match your Call Sheet so the call from
               the sideline is the box on the wrist.
             </p>
           </div>
@@ -395,7 +395,7 @@ export function Wristbands() {
               {dupes.length > 0 && (
                 <p className="wb-warn" role="alert">
                   {dupes.length === 1 ? `Number ${dupes[0]} is` : `Numbers ${dupes.slice(0, 5).join(", ")}${dupes.length > 5 ? "…" : ""} are`} on
-                  more than one box. Fix the # column in your Season Grid, or pick "1, 2, 3 in print order" or "By card".
+                  more than one box. Fix the # column in your Call Sheet, or pick "1, 2, 3 in print order" or "By card".
                 </p>
               )}
             </div>
@@ -681,11 +681,11 @@ export function Wristbands() {
                 <h3>No plays to print yet</h3>
                 <p>
                   {sources.length === 0
-                    ? "Build a Season Grid or a playbook, or pick plays by hand from your Vault."
+                    ? "Build a Call Sheet or a playbook, or pick plays by hand from your Vault."
                     : "This source has no calls with a play name. Pick another, or pick plays by hand."}
                 </p>
                 <Link to="/grid" className="btn btn-ghost">
-                  Open the Season Grid
+                  Open the Call Sheet
                 </Link>
               </div>
             ) : (

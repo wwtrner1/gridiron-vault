@@ -41,7 +41,7 @@ const FOOTER_COLUMNS: { id: string; title: string; links: [to: string, label: st
   {
     id: "foot-product",
     title: "Product",
-    links: [["/build", "Designer"], ["/grid", "Season Grid"], ["/vault", "The Vault"], ["/playbooks", "Playbooks"]],
+    links: [["/build", "Designer"], ["/grid", "Call Sheet"], ["/vault", "The Vault"], ["/playbooks", "Playbooks"]],
   },
   {
     id: "foot-learn",

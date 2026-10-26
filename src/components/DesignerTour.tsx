@@ -139,8 +139,8 @@ const SLIDES: Slide[] = [
   },
   {
     title: "Save it, then print it",
-    touch: "Save play keeps it in your Vault. Season Grid lines up your call sheet (type a play's name and its diagram comes along), and Wristbands prints the cards.",
-    mouse: "Save play keeps it in your Vault. Season Grid lines up your call sheet (type a play's name and its diagram comes along), and Wristbands prints the cards.",
+    touch: "Save play keeps it in your Vault. Call Sheet lines up your game plan (type a play's name and its diagram comes along), and Wristbands prints the cards.",
+    mouse: "Save play keeps it in your Vault. Call Sheet lines up your game plan (type a play's name and its diagram comes along), and Wristbands prints the cards.",
     art: (
       <svg viewBox="0 0 320 180" className="tour-art" aria-hidden="true">
         <rect width="320" height="180" rx="10" fill="#0b1524" />

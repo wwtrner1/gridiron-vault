@@ -6,7 +6,7 @@ import type { Scene, StoredPlay } from "./types";
 
 /**
  * Wristband cards from the Grid1ron Design canvas (Wristbands · print
- * builder): numbered cells that match the Season Grid, laid out in a grid on
+ * builder): numbered cells that match the Call Sheet, laid out in a grid on
  * each card, printed as quarterback and center cards plus a coach sheet.
  */
 export type BandEntry = {
@@ -66,14 +66,14 @@ export const BAND_PAPERS = [
 export type BandPaperId = (typeof BAND_PAPERS)[number]["id"];
 
 /**
- * How calls are numbered. "source" keeps the Season Grid's # column (or the
+ * How calls are numbered. "source" keeps the Call Sheet's # column (or the
  * playbook order); "order" counts up from `start` in print order; "card" makes
  * the first digits the card and the last the box (card A 11–18, card B 21–28),
  * so the call tells the quarterback which panel to look at.
  */
 export type BandNumbering = { mode: "source" | "order" | "card" | "spot"; start: number };
 export const NUMBERING_MODES = [
-  { id: "source", label: "Keep my numbers", hint: "The Season Grid's # column, or the playbook order." },
+  { id: "source", label: "Keep my numbers", hint: "The Call Sheet's # column, or the playbook order." },
   { id: "order", label: "1, 2, 3 in print order", hint: "Counts up from the start number as the boxes sit on the cards." },
   { id: "card", label: "By card", hint: "Card A is 11, 12, 13…, card B is 21, 22, 23…, so the first digit names the panel." },
   { id: "spot", label: "A1, A2, B1…", hint: "The card letter, then the box: call \"B3\" and the player looks at card B, third box." },

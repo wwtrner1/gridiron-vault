@@ -1,7 +1,7 @@
 import type { SheetDoc, SheetRow } from "./store";
 
 /**
- * Game Day: the Season Grid read from the sideline. Which calls fit the
+ * Game Day: the Call Sheet read from the sideline. Which calls fit the
  * situation, what's been called, and what is working. Pure, so the page and
  * any print share one answer.
  */

@@ -14,7 +14,9 @@ import { gateGrid } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { uid } from "../lib/types";
-import { blankRow, freshSheet, newColumn } from "../lib/sheet";
+import { DEFAULT_SHEET_NAME, blankRow, freshSheet, newColumn } from "../lib/sheet";
+import { useSheetView } from "../lib/sheetView";
+import { useGriddy } from "../components/Griddy";
 
 
 // Strong enough to tell apart at a glance on the sideline and on a printout, still
@@ -70,6 +72,8 @@ export function SeasonGrid() {
   const [hints, setHints] = useState<string[]>([]);
   const [hintIndex, setHintIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const { setOpen: openGriddy, prefill } = useGriddy();
   const cellRef = useRef<HTMLInputElement | null>(null);
   const [linkQuery, setLinkQuery] = useState("");
   const linkable = useMemo(() => {
@@ -92,6 +96,14 @@ export function SeasonGrid() {
 
   const sheet = useMemo(() => sheets.find((s) => s.id === activeId) ?? sheets[0] ?? null, [sheets, activeId]);
 
+  const { view, change: changeView, toggle: toggleView } = useSheetView(sheet?.id);
+
+  // The grid was called "Season Grid" before it became the Call Sheet; keep a coach's own names.
+  useEffect(() => {
+    if (sheet && sheet.name === "Season Grid") store.upsertSheet({ ...sheet, name: DEFAULT_SHEET_NAME });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet?.id]);
+
   const update = (patch: Partial<SheetDoc>) => {
     if (!sheet) return;
     store.upsertSheet({ ...sheet, ...patch, updatedAt: new Date().toISOString() });
@@ -99,9 +111,16 @@ export function SeasonGrid() {
 
   const rows = useMemo(() => {
     if (!sheet) return [];
-    if (!sortBy) return sheet.rows;
+    const q = query.trim().toLowerCase();
+    const numberCol = sheet.columns.find((c) => c.label === "#")?.id;
+    const kept = sheet.rows.filter((r) => {
+      const values = Object.entries(r.cells).filter(([id]) => id !== numberCol).map(([, v]) => v);
+      if (view.hideEmpty && !values.some((v) => v.trim())) return false;
+      return !q || values.some((v) => v.toLowerCase().includes(q));
+    });
+    if (!sortBy) return kept;
     const col = sortBy.col;
-    return [...sheet.rows].sort((a, b) => {
+    return [...kept].sort((a, b) => {
       const av = a.cells[col] ?? "";
       const bv = b.cells[col] ?? "";
       const an = Number(av);
@@ -109,15 +128,15 @@ export function SeasonGrid() {
       if (av && bv && !Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * sortBy.dir;
       return av.localeCompare(bv) * sortBy.dir;
     });
-  }, [sheet, sortBy]);
+  }, [sheet, sortBy, query, view.hideEmpty]);
 
   if (!sheet) {
     return (
-      <Shell title="Season Grid">
+      <Shell title="Call Sheet">
         <div className="page">
           <div className="empty">
             <Icon name="table" size={44} />
-            <h2>Setting up your grid</h2>
+            <h2>Setting up your call sheet</h2>
             <p>One moment.</p>
           </div>
         </div>
@@ -186,6 +205,50 @@ export function SeasonGrid() {
 
   const removeRow = (id: string) => update({ rows: sheet.rows.filter((r) => r.id !== id) });
 
+  const numberCol = sheet.columns.find((c) => c.label === "#")?.id;
+
+  /** A copy of a row right under it (same play, same paint); its # is left blank until Renumber. */
+  const duplicateRow = (rowId: string) => {
+    const at = sheet.rows.findIndex((r) => r.id === rowId);
+    if (at < 0) return;
+    const src = sheet.rows[at];
+    const copy: SheetRow = { ...src, id: uid("row"), cells: { ...src.cells }, colors: { ...src.colors } };
+    if (numberCol) copy.cells[numberCol] = "";
+    const next = [...sheet.rows];
+    next.splice(at + 1, 0, copy);
+    update({ rows: next });
+    toast("Row copied below. Renumber puts the # column back in order.");
+  };
+
+  const insertRowBelow = (rowId: string) => {
+    const at = sheet.rows.findIndex((r) => r.id === rowId);
+    if (at < 0) return;
+    const blank = blankRow(sheet.columns, at);
+    if (numberCol) blank.cells[numberCol] = "";
+    const next = [...sheet.rows];
+    next.splice(at + 1, 0, blank);
+    update({ rows: next });
+  };
+
+  /** Numbers the # column 1, 2, 3 in the coach's order, so wristband numbers follow the sheet. */
+  const renumber = () => {
+    if (!numberCol) {
+      toast("This sheet has no # column to number.", true);
+      return;
+    }
+    update({ rows: sheet.rows.map((r, i) => ({ ...r, cells: { ...r.cells, [numberCol]: String(i + 1) } })) });
+    toast(`Numbered ${sheet.rows.length} rows in your order.`);
+  };
+
+  const askGriddy = () => {
+    prefill("Build a call sheet for Saturday: 4 openers, 3 red zone, 2 goal line");
+    openGriddy(true);
+  };
+
+  const folded = view.cols.filter((id) => sheet.columns.some((c) => c.id === id)).length + view.rows.filter((id) => sheet.rows.some((r) => r.id === id)).length;
+  const rowSummary = (row: SheetRow) =>
+    sheet.columns.map((c) => (row.cells[c.id] ?? "").trim()).filter(Boolean).join(" · ") || "Empty row";
+
   const moveColumn = (from: number, to: number) => {
     const next = [...sheet.columns];
     const [item] = next.splice(from, 1);
@@ -240,7 +303,7 @@ export function SeasonGrid() {
 
   async function syncUp() {
     if (!account) {
-      toast("Sign in and your grid follows you to any device.", true);
+      toast("Sign in and your call sheet follows you to any device.", true);
       return;
     }
     setSaving(true);
@@ -248,9 +311,9 @@ export function SeasonGrid() {
       const payload = { name: sheet.name, columns: sheet.columns, rows: sheet.rows };
       const res = sheet.remoteId ? await api.updateSheet(sheet.remoteId, payload) : await api.createSheet(payload);
       update({ remoteId: res.sheet.id });
-      toast("Grid saved to your account.");
+      toast("Call sheet saved to your account.");
     } catch (error) {
-      toast(error instanceof Error ? error.message : "The grid did not reach the cloud. It is safe in this browser.", true);
+      toast(error instanceof Error ? error.message : "The call sheet did not reach the cloud. It is safe in this browser.", true);
     } finally {
       setSaving(false);
     }
@@ -263,7 +326,7 @@ export function SeasonGrid() {
       navigate("/pricing");
       return;
     }
-    const sheetDoc = freshSheet(`Grid ${sheets.length + 1}`);
+    const sheetDoc = freshSheet(`${DEFAULT_SHEET_NAME} ${sheets.length + 1}`);
     store.upsertSheet(sheetDoc);
     setActiveId(sheetDoc.id);
   };
@@ -272,10 +335,10 @@ export function SeasonGrid() {
 
   return (
     <Shell
-      title="Season Grid"
+      title="Call Sheet"
       actions={
         <>
-          <Tooltip title="Print the grid" hint="Prints exactly what you see, landscape, with the paint colours intact." side="bottom">
+          <Tooltip title="Print the call sheet" hint="Prints what you see, landscape, with the paint colours intact. Minimized rows and columns stay off the page." side="bottom">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.print()}>
               <Icon name="print" size={15} /> Print
             </button>
@@ -295,10 +358,10 @@ export function SeasonGrid() {
             </Link>
           </Tooltip>
           <button type="button" className="btn btn-ghost btn-sm" onClick={newGrid}>
-            <Icon name="plus" size={15} /> New grid
+            <Icon name="plus" size={15} /> New sheet
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={syncUp} disabled={saving}>
-            <Icon name="save" size={15} /> {saving ? "Saving…" : "Save grid"}
+            <Icon name="save" size={15} /> {saving ? "Saving…" : "Save sheet"}
           </button>
         </>
       }
@@ -306,21 +369,21 @@ export function SeasonGrid() {
       <div className="page">
         <div className="page-head">
           <div>
-            <p className="eyebrow">Playcaller's table</p>
+            <p className="eyebrow">Game plan</p>
             <input
               className="input"
               style={{ fontFamily: "var(--display)", fontSize: 26, fontWeight: 700, height: 42, border: "none", padding: 0, background: "none", width: 340 }}
               value={sheet.name}
               onChange={(e) => update({ name: e.target.value })}
-              aria-label="Grid name"
+              aria-label="Call sheet name"
             />
             <p className="hint" style={{ margin: 0 }}>
-              {sheet.rows.length} rows · {sheet.columns.length} columns. Rename any header, drag it anywhere, and type whatever your
-              system calls it.
+              {sheet.rows.length} rows · {sheet.columns.length} columns. Rename any header, drag it anywhere, minimize what you don't need
+              on the field, and type whatever your system calls it.
             </p>
           </div>
           {sheets.length > 1 && (
-            <select className="select" style={{ width: 180 }} value={sheet.id} onChange={(e) => setActiveId(e.target.value)} aria-label="Switch grid">
+            <select className="select" style={{ width: 180 }} value={sheet.id} onChange={(e) => setActiveId(e.target.value)} aria-label="Switch call sheet">
               {sheets.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -360,6 +423,39 @@ export function SeasonGrid() {
             ))}
           </div>
           <span style={{ marginLeft: "auto" }} />
+          <input
+            className="input sheet-find"
+            type="search"
+            placeholder="Find a play or call"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Find in this call sheet"
+          />
+          <Tooltip title="Compact rows" hint="Tighter rows so more of the sheet fits on screen." side="bottom">
+            <button type="button" className={`btn btn-sm ${view.compact ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ compact: !view.compact })} aria-pressed={view.compact}>
+              Compact
+            </button>
+          </Tooltip>
+          <Tooltip title="Hide empty rows" hint="Hides rows with nothing typed in them. They are still there; turn this off to see them." side="bottom">
+            <button type="button" className={`btn btn-sm ${view.hideEmpty ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ hideEmpty: !view.hideEmpty })} aria-pressed={view.hideEmpty}>
+              Hide empty
+            </button>
+          </Tooltip>
+          <Tooltip title="Minimize every row" hint="Folds each row down to one line. Click a row to open it again." side="bottom">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => changeView({ rows: view.rows.length >= sheet.rows.length ? [] : sheet.rows.map((r) => r.id) })}>
+              {view.rows.length >= sheet.rows.length ? "Open all rows" : "Minimize rows"}
+            </button>
+          </Tooltip>
+          <Tooltip title="Renumber" hint="Numbers the # column 1, 2, 3 in your order, so wristband numbers match." side="bottom">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={renumber}>
+              Renumber
+            </button>
+          </Tooltip>
+          <Tooltip title="Ask Griddy" hint="Griddy builds a call sheet from your Vault by situation. You review it before anything is saved." side="bottom">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={askGriddy}>
+              <Icon name="sparkle" size={14} /> Ask Griddy
+            </button>
+          </Tooltip>
           <button type="button" className="btn btn-ghost btn-sm" onClick={addColumn}>
             <Icon name="plus" size={14} /> Add column
           </button>
@@ -372,9 +468,23 @@ export function SeasonGrid() {
             </button>
           )}
         </div>
+        {(folded > 0 || query || view.hideEmpty) && (
+          <p className="hint sheet-status" role="status">
+            Showing {rows.length} of {sheet.rows.length} rows
+            {view.cols.length > 0 && ` · ${view.cols.length} column${view.cols.length === 1 ? "" : "s"} minimized`}
+            {view.rows.length > 0 && ` · ${view.rows.length} row${view.rows.length === 1 ? "" : "s"} minimized`}.{" "}
+            <button
+              type="button"
+              className="link"
+              onClick={() => (setQuery(""), changeView({ cols: [], rows: [], hideEmpty: false }))}
+            >
+              Show everything
+            </button>
+          </p>
+        )}
 
         <div className="grid-wrap">
-          <table className="sheet">
+          <table className={`sheet${view.compact ? " is-compact" : ""}`}>
             <caption className="sr-only">
               {sheet.name} — {sheet.rows.length} rows across {sheet.columns.length} columns. Every header can be renamed, reordered and
               sorted.
@@ -384,7 +494,16 @@ export function SeasonGrid() {
                 <th scope="col" style={{ width: 34 }}>
                   <span className="sr-only">Row order</span>
                 </th>
-                {sheet.columns.map((col, index) => (
+                {sheet.columns.map((col, index) =>
+                  view.cols.includes(col.id) ? (
+                    <th key={col.id} scope="col" className="col-min">
+                      <Tooltip title={`Show ${col.label || "column"}`} hint="Opens this column again." side="bottom">
+                        <button type="button" onClick={() => toggleView("cols", col.id)} aria-label={`Show ${col.label || "column"}`}>
+                          <span>{col.label || "Column"}</span>
+                        </button>
+                      </Tooltip>
+                    </th>
+                  ) : (
                   <th
                     key={col.id}
                     scope="col"
@@ -444,21 +563,47 @@ export function SeasonGrid() {
                           <Icon name="sort" size={13} />
                         </button>
                       </Tooltip>
-                      <Tooltip title="Remove column" hint="Deletes this column from the grid. The rest of your data stays." side="bottom">
+                      <Tooltip title="Minimize column" hint="Folds this column down to a thin strip for more room. Nothing is deleted." side="bottom">
+                        <button type="button" className="th-sort" onClick={() => toggleView("cols", col.id)} aria-label={`Minimize ${col.label}`}>
+                          <span aria-hidden="true">–</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip title="Remove column" hint="Deletes this column from the call sheet. The rest of your data stays." side="bottom">
                         <button type="button" className="th-sort" onClick={() => removeColumn(col.id)} aria-label={`Remove ${col.label}`}>
                           <Icon name="close" size={12} />
                         </button>
                       </Tooltip>
                     </div>
                   </th>
-                ))}
+                  ),
+                )}
                 <th scope="col" style={{ width: 40 }}>
                   <span className="sr-only">Row tools</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => (
+              {rows.map((row, rowIndex) =>
+                view.rows.includes(row.id) ? (
+                  <tr key={row.id} className="row-min">
+                    <th scope="row" className="row-grip">
+                      <span aria-hidden="true">⠿</span>
+                      <span className="sr-only">Row {rowIndex + 1}</span>
+                    </th>
+                    <td colSpan={sheet.columns.length}>
+                      <button type="button" className="row-min-open" onClick={() => toggleView("rows", row.id)} aria-label={`Open row ${rowIndex + 1}: ${rowSummary(row)}`}>
+                        <span aria-hidden="true">▸</span> {rowSummary(row)}
+                      </button>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {row.playId && (
+                        <button type="button" className="th-sort" onClick={() => navigate(`/build/${row.playId}`)} aria-label="Open linked play">
+                          <Icon name="board" size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
                 <tr
                   key={row.id}
                   className={dropRow === rowIndex ? "is-drop" : ""}
@@ -492,6 +637,9 @@ export function SeasonGrid() {
                   {sheet.columns.map((col) => {
                     const value = row.cells[col.id] ?? "";
                     const fill = paintHex(row.colors[col.id]);
+                    if (view.cols.includes(col.id)) {
+                      return <td key={col.id} className="col-min" style={{ background: fill || undefined }} title={value || undefined} />;
+                    }
                     const isFocus = focus?.row === row.id && focus?.col === col.id;
                     return (
                       <td key={col.id} style={{ background: fill || undefined, position: "relative" }}>
@@ -580,7 +728,8 @@ export function SeasonGrid() {
                       </td>
                     );
                   })}
-                  <td style={{ textAlign: "center" }}>
+                  <td className="row-tools-cell">
+                   <div className="row-tools">
                     {row.playId ? (
                       <Tooltip title="Open the diagram" hint="This row is linked to a saved play. Opens it in the designer." side="top">
                         <button type="button" className="th-sort" onClick={() => navigate(`/build/${row.playId}`)} aria-label="Open linked play">
@@ -613,12 +762,29 @@ export function SeasonGrid() {
                     >
                       ▼
                     </button>
+                    <Tooltip title="Minimize row" hint="Folds this row to one line. Click it to open it again." side="top">
+                      <button type="button" className="th-sort" onClick={() => toggleView("rows", row.id)} aria-label={`Minimize row ${rowIndex + 1}`}>
+                        <span aria-hidden="true">–</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip title="Copy row" hint="Puts a copy right below, with the same play and paint." side="top">
+                      <button type="button" className="th-sort" onClick={() => duplicateRow(row.id)} aria-label={`Copy row ${rowIndex + 1}`}>
+                        <Icon name="copy" size={13} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip title="Add a row below" hint="Opens a blank row right under this one." side="top">
+                      <button type="button" className="th-sort" onClick={() => insertRowBelow(row.id)} aria-label={`Add a row below row ${rowIndex + 1}`}>
+                        <Icon name="plus" size={13} />
+                      </button>
+                    </Tooltip>
                     <button type="button" className="th-sort" onClick={() => removeRow(row.id)} aria-label="Remove row">
                       <Icon name="close" size={12} />
                     </button>
+                   </div>
                   </td>
                 </tr>
-              ))}
+                ),
+              )}
             </tbody>
           </table>
         </div>
@@ -637,7 +803,7 @@ export function SeasonGrid() {
             Clear all paint
           </button>
           <p className="hint" style={{ margin: "6px 0 0 auto", maxWidth: 460, textAlign: "right" }}>
-            Type freely — the grid learns what you enter in each column and offers it back next time. Tab accepts a suggestion. Type
+            Type freely — the call sheet learns what you enter in each column and offers it back next time. Tab accepts a suggestion. Type
             the name of a play in your Vault and the row links to its diagram, ready for wristbands.
           </p>
         </div>

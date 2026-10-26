@@ -217,7 +217,7 @@ export function Vault() {
       actions={
         <>
           <Link to="/grid" className="btn btn-ghost btn-sm">
-            <Icon name="table" size={15} /> Season Grid
+            <Icon name="table" size={15} /> Call Sheet
           </Link>
           <Link to="/build" className="btn btn-primary btn-sm">
             <Icon name="plus" size={15} /> Draft a play
