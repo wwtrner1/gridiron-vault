@@ -6,7 +6,7 @@
  * the tier is read from the workspace so beta coaches can be upgraded by hand.
  */
 
-export type TierId = "master" | "beta" | "free" | "solo" | "crew" | "program";
+export type TierId = "master" | "beta" | "trial" | "free" | "solo" | "crew" | "program";
 
 export type Tier = {
   id: TierId;
@@ -83,12 +83,34 @@ export const TIERS: Record<TierId, Tier> = {
     assistantCalls: 300,
     perks: ["Every tool on", "Full export and print", "Founding-coach pricing: Head Coach at $9 a month for life"],
   },
+  // Not on the pricing page: the server starts it for a new coach (netlify/security/trial.ts) and drops them to Sideline after TRIAL_DAYS.
+  trial: {
+    id: "trial",
+    name: "Head Coach trial",
+    blurb: "Every Head Coach tool for 14 days. No card.",
+    price: "Free",
+    cadence: "for 14 days",
+    seats: "1 coach",
+    playLimit: 400,
+    gridLimit: 25,
+    copyLimit: 200,
+    sizes: "all",
+    maxDpi: 300,
+    watermark: false,
+    sheets: true,
+    share: true,
+    lockedTools: [],
+    // The real cost of a trial is Griddy, so it gets a taste, not a month's allowance.
+    photoReviews: 5,
+    assistantCalls: 40,
+    perks: ["Every tool and export for 14 days", "Your plays stay when the trial ends", "Then Sideline, free, or Head Coach"],
+  },
   free: {
     id: "free",
     name: "Sideline",
-    blurb: "Draw plays, keep a short stack, print a test card.",
+    blurb: "Draw plays, keep a short stack, print a watermarked card.",
     price: "$0",
-    cadence: "forever",
+    cadence: "free, limited",
     seats: "1 coach",
     playLimit: 8,
     gridLimit: 1,
@@ -99,12 +121,13 @@ export const TIERS: Record<TierId, Tier> = {
     sheets: false,
     share: false,
     lockedTools: ["pen", "polygon", "zone", "motion", "connect"],
-    photoReviews: 3,
-    assistantCalls: 20,
+    photoReviews: 0,
+    assistantCalls: 5,
     perks: [
       "8 plays in your Vault",
       "1 Season Grid",
       "Wristband + letter export, watermarked",
+      "5 Griddy messages a month",
       "5 starter plays from the public Vault",
     ],
   },
@@ -187,6 +210,9 @@ export const TIERS: Record<TierId, Tier> = {
   },
 };
 
+/** Days of full Head Coach a new coach gets, once per person. */
+export const TRIAL_DAYS = 14;
+
 export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
 
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
@@ -267,6 +293,7 @@ export type AiKind = "assistant" | "photo";
 export function gateAi(tier: Tier, kind: AiKind, usedThisMonth: number): Gate {
   const limit = kind === "photo" ? tier.photoReviews : tier.assistantCalls;
   if (usedThisMonth < limit) return { ok: true };
+  if (limit === 0) return { ok: false, reason: `Whiteboard photo reviews come with Head Coach. ${tier.name} can still draw and print.`, cta: "See plans" };
   const what = kind === "photo" ? "whiteboard photo reviews" : "Griddy requests";
   return {
     ok: false,

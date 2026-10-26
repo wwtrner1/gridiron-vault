@@ -133,6 +133,11 @@ export function Pricing() {
                   only changes which features are switched on in this browser, and nothing is charged. Beta coaches keep founding
                   rates.
                 </>
+              ) : tier.id === "trial" ? (
+                <>
+                  You are on the <b>Head Coach trial</b> — every tool is on and your plays stay when it ends. After that you keep
+                  Sideline, free. Head Coach plans open soon, so nothing is charged yet.
+                </>
               ) : (
                 <>Billing is not live yet. Picking a plan below only changes which features are switched on in this browser — nothing is charged.</>
               )}

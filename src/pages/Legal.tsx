@@ -81,7 +81,7 @@ export function Privacy() {
         </li>
         <li>
           <b>Sign-up record:</b> when you delete your account we keep your email, sign-up date and a one-way fingerprint of
-          your phone number (not the number, and none of your plays), so one person can't open an endless run of free accounts.
+          your phone number and of your email (not the number, and none of your plays), so one person can't open an endless run of free trials.
         </li>
         <li>
           <b>Your work:</b> plays, playbooks and Season Grids you save to your account.

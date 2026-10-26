@@ -35,6 +35,15 @@ export const tierStore = {
   },
 };
 
+/** When the Head Coach trial ends (from the server), or null off a trial. Display only; the server enforces it. */
+let trialEnds: number | null = null;
+
+/** Whole days left on the trial, rounded up; null when not on one. */
+export function useTrialDays(): number | null {
+  useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "beta" as TierId);
+  return trialEnds === null ? null : Math.max(0, Math.ceil((trialEnds - Date.now()) / 86_400_000));
+}
+
 export function useTier(): Tier {
   const id = useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "beta" as TierId);
   return tierFor(id);
@@ -48,8 +57,9 @@ const SYNCED = "nextplay.tier.synced.v1";
  * this browser before the server kept plans is handed up, so nobody drops to
  * the default limits when the server starts enforcing them.
  */
-export async function syncPlan(serverPlan: string | undefined) {
+export async function syncPlan(serverPlan: string | undefined, trialEndsAt?: string) {
   if (!serverPlan || !(serverPlan in TIERS)) return;
+  trialEnds = serverPlan === "trial" && trialEndsAt ? Date.parse(trialEndsAt) : null;
   let synced = false;
   try {
     synced = localStorage.getItem(SYNCED) === "1";
@@ -66,6 +76,7 @@ export async function syncPlan(serverPlan: string | undefined) {
     }
   }
   if (serverPlan !== current) tierStore.set(serverPlan as TierId);
+  else tierStore.set(current); // same plan: still tell the screen the trial days changed
 }
 
 /** The Account and Pricing plan pickers: the account first when signed in, so the server's limits match. */

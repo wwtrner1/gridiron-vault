@@ -60,7 +60,7 @@ export const api = {
   photo: (body: PhotoRequest) =>
     request<{ read: PhotoRead }>("ai/photo", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; plan?: string; security?: Security }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; plan?: string; trialEndsAt?: string; security?: Security }>("me"),
 
   /** During beta a coach picks their own plan; the server enforces it. */
   setPlan: (plan: string) => request<{ plan: string }>("me/plan", { method: "PUT", body: JSON.stringify({ plan }) }),

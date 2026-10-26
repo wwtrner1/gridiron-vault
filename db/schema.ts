@@ -24,6 +24,21 @@ export const profiles = pgTable("profiles", {
   createdAt: timestamp("created_at").defaultNow(),
   /** Last time the app talked to the server as this coach (throttled to every few minutes). */
   lastActiveAt: timestamp("last_active_at"),
+  /** End of the 14-day Head Coach trial. Set only while plan is "trial"; the server drops the coach to Sideline after it. */
+  trialEndsAt: timestamp("trial_ends_at"),
+});
+
+/**
+ * One row per person who has been given a trial: a fingerprint of their email
+ * (variants folded together) and, once verified, of their phone. Kept after the
+ * account is deleted, so deleting and signing up again doesn't start another.
+ * Fingerprints only: never the address or number.
+ */
+export const trialClaims = pgTable("trial_claims", {
+  keyHash: text("key_hash").primaryKey(),
+  kind: text().notNull(), // "email" | "phone"
+  userId: text("user_id").notNull(),
+  claimedAt: timestamp("claimed_at").defaultNow(),
 });
 
 /**

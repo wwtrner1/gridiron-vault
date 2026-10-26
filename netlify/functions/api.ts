@@ -15,6 +15,7 @@ import {
   playSaves,
   profiles,
   quizResults,
+  trialClaims,
   trustedDevices,
 } from "../../db/schema.js";
 import {
@@ -31,12 +32,13 @@ import {
   SMS_PER_DAY,
 } from "../security/phone.js";
 import { isOwner, onOwnerList } from "../security/owner.js";
+import { emailKey, isDisposable, isInternetNumber, phoneKey, trialsOn } from "../security/trial.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
-import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
+import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
@@ -93,10 +95,13 @@ async function session(): Promise<Session | null> {
 }
 
 async function ensureProfile(user: Session) {
-  await db
+  // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
+  const created = await db
     .insert(profiles)
-    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : "beta" })
-    .onConflictDoNothing();
+    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : trialsOn() ? "free" : "beta" })
+    .onConflictDoNothing()
+    .returning({ id: profiles.id });
+  if (created.length && !user.owner && trialsOn()) await startTrial(user);
   // The owner's row follows the owner list, so the plan on file matches what the server enforces.
   if (user.owner) await db.update(profiles).set({ plan: "master" }).where(and(eq(profiles.id, user.id), ne(profiles.plan, "master")));
   // "Last active" for the owner's user list: touched at most every five minutes.
@@ -104,6 +109,42 @@ async function ensureProfile(user: Session) {
     .update(profiles)
     .set({ lastActiveAt: new Date() })
     .where(and(eq(profiles.id, user.id), or(sql`${profiles.lastActiveAt} is null`, lt(profiles.lastActiveAt, new Date(Date.now() - 300_000)))));
+}
+
+/**
+ * The 14-day Head Coach trial, once per person. It starts only when this email (with +tags and Gmail dots
+ * folded) has never had one, including from an account since deleted, and is not a throwaway inbox. A coach
+ * who is refused simply stays on Sideline. The phone check in verifiedPhone() can still take it back.
+ */
+async function startTrial(user: Session) {
+  const key = emailKey(user.email);
+  if (!key || isDisposable(user.email)) return;
+  const [claimed] = await db.select({ userId: trialClaims.userId }).from(trialClaims).where(eq(trialClaims.keyHash, key));
+  if (claimed && claimed.userId !== user.id) return;
+  const [before] = await db.select({ id: accountLedger.userId }).from(accountLedger).where(sql`lower(${accountLedger.email}) = ${user.email.toLowerCase()}`);
+  if (before) return;
+  await db.insert(trialClaims).values({ keyHash: key, kind: "email", userId: user.id }).onConflictDoNothing();
+  await db
+    .update(profiles)
+    .set({ plan: "trial", trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000) })
+    .where(and(eq(profiles.id, user.id), eq(profiles.plan, "free")));
+}
+
+/**
+ * Called when a coach's phone is confirmed. A number already tied to another person's trial (or to a deleted
+ * account), or an internet-only number, ends this coach's trial: they stay on Sideline with everything they made.
+ */
+async function verifiedPhone(me: Session, phone: string) {
+  const [row] = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, me.id));
+  if (row?.plan !== "trial") return;
+  const key = phoneKey(phone);
+  const [claimed] = await db.select({ userId: trialClaims.userId }).from(trialClaims).where(eq(trialClaims.keyHash, key));
+  const [deleted] = await db.select({ id: accountLedger.userId }).from(accountLedger).where(and(eq(accountLedger.phoneHash, sha(phone)), ne(accountLedger.userId, me.id)));
+  if ((claimed && claimed.userId !== me.id) || deleted || (await isInternetNumber(phone))) {
+    await db.update(profiles).set({ plan: "free", trialEndsAt: null }).where(and(eq(profiles.id, me.id), eq(profiles.plan, "trial")));
+    return;
+  }
+  await db.insert(trialClaims).values({ keyHash: key, kind: "phone", userId: me.id }).onConflictDoNothing();
 }
 
 const DEVICE_COOKIE = "gv_device";
@@ -142,7 +183,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return json({ user: null });
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
-      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, ownerHint: me.owner ? undefined : me.ownerHint, plan: (await planOf(me)).id, security: await securityOf(me, deviceId) });
+      const state = await planState(me);
+      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, ownerHint: me.owner ? undefined : me.ownerHint, plan: state.tier.id, trialEndsAt: state.trialEndsAt?.toISOString(), security: await securityOf(me, deviceId) });
     }
 
     /* ---------------------------------------------------------- phone --- */
@@ -540,9 +582,19 @@ const monthStart = () => {
 
 /** The coach's plan as the server knows it (profiles.plan). The browser's copy is only for display. */
 async function planOf(me: Session): Promise<Tier> {
-  if (me.owner) return TIERS.master;
-  const [row] = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, me.id));
-  return tierFor(row?.plan);
+  return (await planState(me)).tier;
+}
+
+/** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
+async function planState(me: Session): Promise<{ tier: Tier; trialEndsAt: Date | null }> {
+  if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
+  const [row] = await db.select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt }).from(profiles).where(eq(profiles.id, me.id));
+  if (row?.plan === "trial") {
+    if (row.trialEndsAt && row.trialEndsAt.getTime() > Date.now()) return { tier: TIERS.trial, trialEndsAt: row.trialEndsAt };
+    await db.update(profiles).set({ plan: "free", trialEndsAt: null }).where(and(eq(profiles.id, me.id), eq(profiles.plan, "trial")));
+    return { tier: TIERS.free, trialEndsAt: null };
+  }
+  return { tier: tierFor(row?.plan), trialEndsAt: null };
 }
 
 const planFail = (gate: Extract<Gate, { ok: false }>) => json({ error: gate.reason, code: "plan_limit", cta: gate.cta }, 403);
@@ -574,7 +626,9 @@ async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);
   if (me.owner) return fail("Your account is All-Access Master. It doesn't switch plans.", 403);
   const id = String(body.plan ?? "") as TierId;
-  if (!(id in TIERS) || id === "master") return fail("That isn't one of our plans.");
+  if (!(id in TIERS) || id === "master" || id === "trial") return fail("That isn't one of our plans.");
+  // With trials on, paid plans open with billing; until then a coach can only step down to Sideline.
+  if (trialsOn() && id !== "free") return fail("Head Coach plans open soon. Your trial and your plays are safe until then.", 403);
   await db.update(profiles).set({ plan: id }).where(eq(profiles.id, me.id));
   return json({ plan: id });
 }
@@ -930,6 +984,7 @@ async function phoneRoute(me: Session, deviceId: string, action: string | undefi
     }
     if (!(await checkCode(phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
     await db.update(profiles).set({ phone, phoneVerifiedAt: new Date() }).where(eq(profiles.id, me.id));
+    await verifiedPhone(me, phone);
     await trustDevice(me, deviceId, label);
     return json({ security: await securityOf(me, deviceId) });
   }
