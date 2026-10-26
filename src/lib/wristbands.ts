@@ -290,6 +290,30 @@ export function diagramBox(o: Pick<BandOptions, "card" | "grid" | "header" | "fo
   return { w: cellW - DIAGRAM_PAD * 2, h: cellH - stripHeight(o.numberSize) - DIAGRAM_PAD * 1.5 };
 }
 
+/** A diagram reads on a wristband from about this tall and this wide, in inches. */
+export const READABLE_BOX = { w: 1.0, h: 0.55 };
+
+/**
+ * Whether each box is big enough for a diagram to read, and when it is not, the
+ * densest grid on this card whose boxes are (null when no grid on the card fits,
+ * so a bigger card is the only fix). Scaling a drawing down cannot save a box that
+ * is too short, so the Wristbands page tells the coach before they print.
+ */
+export function boxCheck(o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize">): {
+  art: { w: number; h: number };
+  readable: boolean;
+  better: (BandGrid & { art: { w: number; h: number } }) | null;
+} {
+  const art = diagramBox(o);
+  const readable = art.w >= READABLE_BOX.w && art.h >= READABLE_BOX.h;
+  if (readable) return { art, readable, better: null };
+  const fits = BAND_GRIDS.map((g) => ({ ...g, art: diagramBox({ ...o, grid: g }) })).filter(
+    (g) => g.art.w >= READABLE_BOX.w && g.art.h >= READABLE_BOX.h,
+  );
+  fits.sort((a, b) => b.cols * b.rows - a.cols * a.rows);
+  return { art, readable, better: fits[0] ?? null };
+}
+
 /** Numbers of the boxes whose diagram is too small to keep its player letters, for a warning before printing. */
 export function tightBoxes(entries: BandEntry[], o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize" | "look" | "shows">): string[] {
   if (!o.shows.diagram || o.shows.numberOnly) return [];
