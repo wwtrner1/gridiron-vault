@@ -90,7 +90,9 @@ export type BulkChange =
   /** The play's category (type) and tags. */
   | { op: "meta"; playType?: PlayMeta["playType"]; addTags?: string[]; removeTags?: string[] }
   /** The plays are filed in a playbook (made if it doesn't exist), and taken out of `from` when moving. */
-  | { op: "file"; playbook: string; from?: string };
+  | { op: "file"; playbook: string; from?: string }
+  /** New names (and formations) for particular plays, chosen by Griddy from what their diagrams show. */
+  | { op: "rename"; names: { id: string; name: string; formation?: string }[] };
 
 export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] };
 
@@ -255,7 +257,7 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       nodes.forEach((n) => n.kind === "player" && touched.add(n.id));
       continue;
     }
-    if (change.op === "meta" || change.op === "file") continue;
+    if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
     if (change.op === "wristband") {
       nodes = nodes.map((n) => {
         const next = change.format === "bold" ? wristbandBold(n) : n.kind === "path" && n.width < STROKE_WEIGHTS[2] ? { ...n, width: STROKE_WEIGHTS[2] } : n;
@@ -383,6 +385,20 @@ function metaOf(p: StoredPlay, changes: BulkChange[]): Pick<StoredPlay, "playTyp
   return playType === p.playType && JSON.stringify(tags) === JSON.stringify(p.tags) ? null : { playType, tags: tags.slice(0, 12) };
 }
 
+/** A play's new name and formation from a rename, or null when it keeps both. */
+function renamedAs(p: StoredPlay, changes: BulkChange[]): Pick<StoredPlay, "name" | "formation"> | null {
+  let name = p.name;
+  let formation = p.formation;
+  for (const c of changes) {
+    if (c.op !== "rename") continue;
+    const hit = c.names.find((n) => n.id === p.id);
+    if (!hit) continue;
+    name = hit.name;
+    if (hit.formation) formation = hit.formation;
+  }
+  return name === p.name && formation === p.formation ? null : { name, formation };
+}
+
 const bookNamed = (books: LocalPlaybook[], name: string) => books.find((b) => b.name.trim().toLowerCase() === name.trim().toLowerCase());
 
 /** Playbooks the scoped plays are filed in or moved out of. A playbook that doesn't exist yet is made. */
@@ -437,7 +453,8 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     const { scene, players, firstReads: reads } = editScene(p.scene, edit.changes, tokens);
     firstReads += reads;
     const meta = metaOf(p, edit.changes);
-    if (!players && !meta) return [];
+    const renamed = renamedAs(p, edit.changes);
+    if (!players && !meta && !renamed) return [];
     // A swap onto a letter the play already has leaves two of them; say so rather than guess which to move.
     const letters = scene.nodes.flatMap((n) => (n.kind === "player" && n.side === "offense" && n.label ? [up(n.label)] : []));
     const doubled = [...new Set(letters.filter((l, i) => letters.indexOf(l) !== i))].filter((l) =>
@@ -445,7 +462,7 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     );
     // A flipped play's name and formation follow it to the other side.
     const sides = flips(edit.changes) ? { name: swapSides(p.name), formation: swapSides(p.formation) } : {};
-    return [{ before: p, after: { ...p, ...meta, ...sides, scene, updatedAt: now }, players, doubled }];
+    return [{ before: p, after: { ...p, ...meta, ...sides, ...renamed, scene, updatedAt: now }, players, doubled }];
   });
   return { targets, filings: fileBooks(edit.changes, scoped, books), inScope: scoped.length, missingBook, firstReads };
 }
@@ -456,6 +473,7 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   const who = (letter: string, only?: string) => (only ? `${name(only).replace(/^./, (ch) => ch.toUpperCase())} ${up(letter)}` : up(letter));
   if (c.op === "mirror") return "Flip left ↔ right";
   if (c.op === "wristband") return c.format === "bold" ? "Wristband bold" : "Sideline 2×4";
+  if (c.op === "rename") return `Rename ${c.names.length} ${c.names.length === 1 ? "play" : "plays"}`;
   if (c.op === "file") return c.from ? `Move from ${c.from} to ${c.playbook}` : `File in ${c.playbook}`;
   if (c.op === "meta")
     return [

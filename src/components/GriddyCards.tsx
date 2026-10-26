@@ -498,7 +498,8 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       // Only plays still exactly as the bulk edit left them go back; anything edited since is kept.
       const current = new Map(store.get().plays.map((p) => [p.id, p]));
       // Compared by content: a Vault refresh can swap in an equal copy of the play.
-      const same = (t: BulkTarget) => JSON.stringify(current.get(t.after.id)?.scene) === JSON.stringify(t.after.scene);
+      const same = (t: BulkTarget) =>
+        JSON.stringify(current.get(t.after.id)?.scene) === JSON.stringify(t.after.scene) && current.get(t.after.id)?.name === t.after.name;
       const back = applied.targets.filter(same).map((t) => ({ ...t.before, updatedAt: new Date().toISOString() }));
       await writePlays(back, Boolean(account));
       await writeFilings(applied.filings, Boolean(account), true);
@@ -542,18 +543,25 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
           )}
           {targets.length > 0 && (
           <p className="gd-bulk-count">
-            <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays · <strong>{players}</strong> {players === 1 ? "change" : "changes"} on the field
+            <strong>{targets.length}</strong> of {applied ? targets.length : live.inScope} plays
+            {players > 0 && (
+              <>
+                {" "}· <strong>{players}</strong> {players === 1 ? "change" : "changes"} on the field
+              </>
+            )}
           </p>
           )}
           <ul className="gd-bulk-list">
             {targets.slice(0, 3).map((t) => (
               <li key={t.before.id}>
-                <span className="gd-bulk-name">{t.before.name}</span>
+                <span className="gd-bulk-name">{t.after.name !== t.before.name ? `${t.before.name} → ${t.after.name}` : t.before.name}</span>
+                {t.players > 0 && (
                 <span className="gd-bulk-pair">
                   <PlayThumb scene={t.before.scene} label={`${t.before.name} before`} />
                   <Icon name="chevron" size={14} aria-hidden="true" />
                   <PlayThumb scene={t.after.scene} label={`${t.before.name} after`} />
                 </span>
+                )}
               </li>
             ))}
           </ul>
@@ -568,7 +576,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
           {targets.length > 3 && (
             <details className="gd-bulk-more">
               <summary>And {targets.length - 3} more</summary>
-              <p>{targets.slice(3).map((t) => t.before.name).join(" · ")}</p>
+              <p>{targets.slice(3).map((t) => (t.after.name !== t.before.name ? `${t.before.name} → ${t.after.name}` : t.before.name)).join(" · ")}</p>
             </details>
           )}
           {doubled.length > 0 && (

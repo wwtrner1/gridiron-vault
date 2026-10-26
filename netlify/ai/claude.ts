@@ -43,6 +43,8 @@ function plain(error: unknown): never {
   if (error instanceof Anthropic.APIError) {
     console.error("Claude API", error.status, error.message.slice(0, 500));
     if (error.status === 529) throw new AiError(BUSY, 503);
+    // A rejected or expired key is ours to fix, not the coach's to retry: say so instead of "couldn't read that".
+    if (error.status === 401 || error.status === 403) throw new AiError("Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later.", 503);
     throw new AiError(MISREAD);
   }
   console.error("Claude API unreachable", error);

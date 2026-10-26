@@ -16,7 +16,7 @@ import type { GameType } from "./formations";
 export const GRIDDY = "Griddy";
 
 /** One play in the coach's Vault, as Griddy sees it, with the playbooks it's filed in. */
-export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; tags: string[]; books: string[] };
+export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; tags: string[]; books: string[]; routes?: string };
 
 /** What the coach is looking at, sent with every message. */
 export type GriddyContext = {
@@ -112,7 +112,7 @@ export const GRIDDY_TOOLS = [
   {
     name: "bulk_edit",
     description:
-      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, or the color you give, and keeps the old player's routes), recolor the routes a letter runs, clear the letters off player tokens, remove the text boxes from the field, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should; names and formations swap Right and Left too). Any change to players can be narrowed with only, to players wearing that color now. style sets any look the Designer can (player fill, letter color, size, shape, letter, outline; line color, weight, dash, curve, line end; text color, size, weight) on the players, lines or text that match where. wristband applies a one-click wristband look; meta changes the play's type and tags; file adds the plays to a playbook or moves them between playbooks. filter narrows any scope to one category of play. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
+      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, or the color you give, and keeps the old player's routes), recolor the routes a letter runs, clear the letters off player tokens, remove the text boxes from the field, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should; names and formations swap Right and Left too). Any change to players can be narrowed with only, to players wearing that color now. style sets any look the Designer can (player fill, letter color, size, shape, letter, outline; line color, weight, dash, curve, line end; text color, size, weight) on the players, lines or text that match where. rename gives plays new names (and formations) you chose after reading what each diagram shows; wristband applies a one-click wristband look; meta changes the play's type and tags; file adds the plays to a playbook or moves them between playbooks. filter narrows any scope to one category of play. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
     input_schema: {
       type: "object",
       properties: {
@@ -135,7 +135,7 @@ export const GRIDDY_TOOLS = [
           items: {
             type: "object",
             properties: {
-              op: { type: "string", enum: ["style", "wristband", "recolor", "swap", "route_color", "clear_letters", "remove_text", "mirror", "meta", "file"] },
+              op: { type: "string", enum: ["style", "wristband", "recolor", "swap", "route_color", "clear_letters", "remove_text", "mirror", "meta", "file", "rename"] },
               target: { type: "string", enum: ["players", "routes", "text"], description: "style: what to restyle. routes means every line (routes, blocks, motion)." },
               where: {
                 type: "object",
@@ -170,6 +170,20 @@ export const GRIDDY_TOOLS = [
               playType: { type: "string", enum: ["pass", "run", "defense", "special"], description: "meta: the new category." },
               addTags: { type: "array", items: { type: "string" }, description: "meta: tags to add." },
               removeTags: { type: "array", items: { type: "string" }, description: "meta: tags to take off." },
+              names: {
+                type: "array",
+                maxItems: GRIDDY_LIMITS.vault,
+                description: "rename: one entry per play to rename, by its row number n in the Vault list. Leave out plays whose name already fits.",
+                items: {
+                  type: "object",
+                  properties: {
+                    n: { type: "integer", description: "The play's row number in the Vault list." },
+                    name: { type: "string", description: "The new play name, short: formation and the key concept, e.g. 'Trips Right — Bubble'." },
+                    formation: { type: "string", description: "Only if the formation label is wrong or missing, the formation the diagram shows." },
+                  },
+                  required: ["n", "name"],
+                },
+              },
               playbook: { type: "string", description: "file: the playbook to put the plays in; made if it doesn't exist." },
               letter: { type: "string", description: "recolor / route_color: the player letter, e.g. Y. clear_letters: only this letter; leave it out to clear every player." },
               color: { type: "string", description: "recolor / route_color: a 6-digit hex color, e.g. #f5d33b for yellow. swap: the new letter's color, only if the coach named one." },
@@ -238,6 +252,7 @@ Tools:
 - "Remove the text from the players" or "blank the letters" is clear_letters (every player unless a letter is named). Text boxes on the field are remove_text. If the coach just says "remove all text" and it isn't clear which, ask.
 - Every look in the Designer can be changed in bulk with style: player fill, letter color, size, shape, letter and outline; line color, weight, dash, curve and line end; text color, size and weight. Never tell the coach a style, size, line or color change can't be done; build the style change. "Make the routes thicker" is width 5.6; "bigger players" is size 44; "dashed routes for Y" is where letter Y, set lineStyle dashed.
 - "Wristband bold", "make them readable on a wristband" or "Sideline 2×4" is wristband with that format, on the playbook or plays named ("make all my MID TN Blue plays Wristband bold": scope playbook, the playbook's name exactly as in the context). The card also sets the Wristbands page to that card layout.
+- Renaming: "rename my plays to match the diagrams", "name these plays properly" is rename. The Vault list then has a routes-drawn column (for example "X go · Y corner 10 · H block"; numbers are yards). Name each play from its formation and what the routes do, in the style the coach's own plays already use (keep Right/Left, "Trips", "Bunch", "Spread"; use the route names: go, slant, corner, post, out, in, curl, comeback, flat, drag). Send the whole batch in one rename change using row numbers n, and only plays whose name doesn't already fit. If a routes column is empty for a play, leave that play out. Never rename from guesswork: a play with no routes drawn keeps its name.
 - A play's category is its type (pass, run, defense, special) and tags: use meta. "Move these to my Red Zone playbook" is file (with from when they leave another playbook). To act on one category ("all my run plays"), use filter.
 - Flipping (mirror) moves every play it's given to the other side; it doesn't know left from right. For "flip my Trips plays to the left", list by id (scope plays) only the plays the Vault shows on the other side now, from their name or formation ("Trips Right"), and leave out plays already on that side. If a play's name and formation don't say its side, leave it out and ask. Use the whole Vault for a mirror only when the coach asks to flip every play.
 
@@ -246,6 +261,7 @@ Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually
 Route tree: 1 flat, 2 slant, 3 comeback, 4 curl, 5 out, 6 dig, 7 corner, 8 post, 9 go. Other routes: ${ROUTE_IDS.join(", ")}. Blocks: ${BLOCK_IDS.join(", ")}.
 
 Rules:
+- When a request doesn't match a tool exactly, use the closest tool or do it in steps, and say what you did. Don't answer "I can't" when a tool gets most of the way there; the coach confirms every change on a card anyway.
 - Only give jobs to players the call names; don't invent assignments for the rest.
 - Mark firstRead on at most one route, and only when the coach names the read.
 - The coach's own terms (in the context) win over general football meaning.
@@ -276,8 +292,8 @@ export function griddyContextText(ctx: GriddyContext, terms: GriddyRequest["term
     );
   lines.push(
     ctx.vault.length
-      ? `Vault (${ctx.vault.length} plays; id | name | formation | type | tags | playbooks):\n${ctx.vault
-          .map((p) => `${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.tags.join(", ")} | ${p.books.join(", ") || "-"}`)
+      ? `Vault (${ctx.vault.length} plays; n | id | name | formation | type | tags | playbooks${ctx.vault.some((p) => p.routes) ? " | routes drawn" : ""}):\n${ctx.vault
+          .map((p, i) => `${i + 1} | ${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.tags.join(", ")} | ${p.books.join(", ") || "-"}${ctx.vault.some((q) => q.routes) ? ` | ${p.routes || "-"}` : ""}`)
           .join("\n")}`
       : "The Vault is empty.",
   );

@@ -5,6 +5,7 @@ import { trustSaidLetters } from "../lib/assistant";
 import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
 import { vaultLooks } from "../lib/bulkEdit";
+import { routeSummary } from "../lib/explain";
 import { useAuth } from "../lib/auth";
 import { useDictation } from "../lib/dictation";
 import { GRIDDY, GRIDDY_LIMITS } from "../lib/griddy";
@@ -63,8 +64,10 @@ export function useGriddy() {
   return ctx;
 }
 
+const NEEDS_ROUTES = /\b(renam|name|label|diagram|route|describe|identify|called)\w*/i;
+
 /** Plays and playbooks Griddy can search, newest first, and the player looks across all of them. */
-function vaultContext(): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
+function vaultContext(withRoutes: boolean): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
   const { plays, playbooks } = store.get();
   const books = new Map<string, string[]>();
   for (const b of playbooks) for (const id of b.playIds) books.set(id, [...(books.get(id) ?? []), b.name]);
@@ -72,7 +75,7 @@ function vaultContext(): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
     vault: [...plays]
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
       .slice(0, GRIDDY_LIMITS.vault)
-      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6) })),
+      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(withRoutes ? { routes: routeSummary(p.scene).slice(0, 140) } : {}) })),
     playbooks: playbooks.map((b) => ({ id: b.id, name: b.name, plays: b.playIds.length })),
     looks: vaultLooks(plays),
   };
@@ -137,7 +140,8 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
             page: document.title.split(" — ")[0] || "GridIronVault",
             game: currentGame(),
             play: d?.play ?? null,
-            ...vaultContext(),
+            // What each diagram draws goes along only while the coach is talking about names or routes (it costs tokens).
+            ...vaultContext(turnsNow.slice(-6).some((t) => t.role === "coach" && NEEDS_ROUTES.test(t.text))),
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
         });
