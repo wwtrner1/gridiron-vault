@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
@@ -8,7 +8,7 @@ import { DevicesCard } from "../components/DevicesCard";
 import { InstallCard } from "../components/InstallCard";
 import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS, TIERS, type TierId } from "../lib/plan";
-import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, setBilling, syncPlan, useBilling, useTier } from "../lib/tier";
 import { store, useStore } from "../lib/store";
 import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
@@ -35,6 +35,35 @@ export function Account() {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [params] = useSearchParams();
+  const paid = params.get("billing") === "success";
+
+  // Back from Stripe: the plan is set by Stripe's webhook a moment after the payment, so ask until it lands.
+  useEffect(() => {
+    if (!paid || !account) return;
+    let alive = true;
+    const first = tier.id;
+    (async () => {
+      for (let i = 0; i < 10 && alive; i++) {
+        try {
+          const me = await api.me();
+          setBilling(Boolean(me.billing));
+          if (me.plan && me.plan !== first) {
+            void syncPlan(me.plan, me.trialEndsAt);
+            toast(`You're on ${TIERS[me.plan as TierId]?.name ?? "your new plan"}. Thanks for backing the playbook.`);
+            return;
+          }
+        } catch {
+          /* ask again */
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paid, account?.id]);
 
   const deleteAccount = async () => {
     setBusy(true);

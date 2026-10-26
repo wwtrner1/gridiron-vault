@@ -51,6 +51,8 @@ export async function startCheckout(me: Who, offer: string): Promise<{ url: stri
   if (row?.sub && offer !== "season") return { error: "You already have a plan. Use Manage billing to change or cancel it." };
   const session = await stripe().checkout.sessions.create({
     mode: offer === "season" ? "payment" : "subscription",
+    // A one-time payment makes no customer on its own; without one the portal and later renewals can't find this coach.
+    ...(offer === "season" && !row?.customer ? { customer_creation: "always" as const } : {}),
     line_items: [{ price, quantity: 1 }],
     client_reference_id: me.id,
     ...(row?.customer ? { customer: row.customer } : { customer_email: me.email }),
