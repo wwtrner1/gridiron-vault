@@ -4,7 +4,7 @@ import type { FormatPart } from "../lib/playFormat";
 
 /**
  * The saved play format, from the Grid1ron Design canvas: where it came
- * from, and which parts carry over (Colors, Token fills, Letters, Line
+ * from, and which parts carry over (Colors, Player fills, Letters, Line
  * style, Field). Each screen adds its own actions underneath.
  */
 export function FormatPanel({ dark = false, children }: { dark?: boolean; children?: ReactNode }) {

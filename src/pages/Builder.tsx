@@ -126,6 +126,8 @@ const wideScreen = () => typeof window !== "undefined" && window.matchMedia("(mi
 const sheetScreen = () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
 
 const ZOOM_MIN = 0.25;
+/** Auto-fit grows the field only when there is at least this much more room (see the fit effect). */
+const AUTOFIT_GROW_SLACK = 0.02;
 const ZOOM_MAX = 3;
 
 /** Whether the tools sheet stays up after a pick, remembered per browser. */
@@ -212,7 +214,10 @@ export function Builder() {
       // Width only: the stage grows with the field, so its height would chase the zoom.
       const z = (el.clientWidth - pad) / CANVAS_W;
       fitZoom.current = Math.max(ZOOM_MIN, Math.min(1.4, Math.floor(z * 100) / 100));
-      if (autoFit) setZoom(fitZoom.current);
+      // A scrollbar showing up narrows the stage a little, which shrinks the field, which
+      // hides the scrollbar and widens the stage again. Growing by a hair is not worth
+      // that loop, so only shrink exactly and grow once the room is clearly there.
+      if (autoFit) setZoom((now) => (fitZoom.current > now && fitZoom.current - now <= AUTOFIT_GROW_SLACK ? now : fitZoom.current));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -866,7 +871,7 @@ export function Builder() {
                       if (!ghostId) return;
                       applyScene(next, "Pre-snap spot");
                       setSelection([ghostId]);
-                      setStatus(`Drag the faded ${players[0].label || "token"} to where he lines up before the snap. The dotted line follows.`);
+                      setStatus(`Drag the faded ${players[0].label || "player"} to where he lines up before the snap. The dotted line follows.`);
                     },
                   },
                 ]
@@ -1587,7 +1592,7 @@ export function Builder() {
               <span className="dz-btn-word">Redo</span>
             </button>
           </Tooltip>
-          <Tooltip title="Snap to grid" hint="Locks every drop point to a grid so tokens and routes line up exactly." side="bottom">
+          <Tooltip title="Snap to grid" hint="Locks every drop point to a grid so players and routes line up exactly." side="bottom">
             <button
               type="button"
               className={`dz-top-btn dz-wide${grid ? " is-on" : ""}`}
@@ -1893,7 +1898,7 @@ export function Builder() {
                     <Tooltip
                       key={side}
                       title={side === "offense" ? "Offense players" : "Defense players"}
-                      hint={`Shows the ${side} tokens below. Tap or click one to drop it on the field, or drag it to a spot.`}
+                      hint={`Shows the ${side} players below. Tap or click one to drop it on the field, or drag it to a spot.`}
                     >
                       <button
                         type="button"

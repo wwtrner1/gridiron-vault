@@ -85,7 +85,7 @@ export const LINE_TOOLS: ToolDef[] = [
   { id: "motion", icon: "motion", label: "Motion", title: "Wavy motion line", hint: "Draws a sine wave along your clicks. Use it for pre-snap motion and jet sweeps.", key: "4" },
   { id: "arc", icon: "pen", label: "3-point arc", title: "3-point arc", hint: "Click where the route starts, a point it curves through, then where it ends. Good for wheels, swings and fades.", key: "A" },
   { id: "free", icon: "pencil", label: "Freehand", title: "Free-style line", hint: "Press and drag to draw exactly what your hand traces. The stroke is smoothed when you release.", key: "5" },
-  { id: "connect", icon: "connect", label: "Auto-connect", title: "Auto-connect line", hint: "Click one player then another and the line snaps cleanly between the two tokens and follows them when they move.", key: "6" },
+  { id: "connect", icon: "connect", label: "Auto-connect", title: "Auto-connect line", hint: "Click one player then another and the line snaps cleanly between the two players and follows them when they move.", key: "6" },
   { id: "pen", icon: "pen", label: "Bezier pen", title: "Bezier node pen", hint: "Click to place nodes, then drag the round handles afterwards to curve each segment exactly.", key: "7" },
   { id: "pivot", icon: "pivot", label: "Pivot point", title: "Pivot point", hint: "Drops a marker that becomes the rotation centre for whatever you select next.", key: "8" },
 ];
