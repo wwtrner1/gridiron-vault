@@ -11,8 +11,8 @@ export type FormatPart = "colors" | "fills" | "letters" | "lines" | "field";
 
 export const FORMAT_PARTS: { id: FormatPart; label: string; hint: string }[] = [
   { id: "colors", label: "Colors", hint: "Each player's route color." },
-  { id: "fills", label: "Token fills", hint: "Fill, outline, shape and shade of each position." },
-  { id: "letters", label: "Letters", hint: "Letter color and token size." },
+  { id: "fills", label: "Player fills", hint: "Fill, outline, shape and shade of each position." },
+  { id: "letters", label: "Letters", hint: "Letter color and player size." },
   { id: "lines", label: "Line style", hint: "Line weight, solid or dashed, and line ends." },
   { id: "field", label: "Field", hint: "Field view and where the line of scrimmage sits." },
 ];

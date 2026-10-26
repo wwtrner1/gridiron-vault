@@ -152,7 +152,7 @@
   padding: 20px 28px;
   background: var(--ink);
 }
-.builder .builder-main { overflow-y: auto; }
+.builder .builder-main { overflow-y: auto; scrollbar-gutter: stable; }
 .builder .builder-stage {
   flex: 1 0 auto;
   min-height: 360px;

@@ -477,12 +477,12 @@ export function PlayCanvas({
 
     if (tool === "connect") {
       if (node.kind !== "player") {
-        say("Auto-connect joins two player tokens. Click a token to start.");
+        say("Auto-connect joins two players. Click a player to start.");
         return;
       }
       if (!connectFrom) {
         setConnectFrom(node.id);
-        say(`Started at ${node.name || node.label}. Click the second token to join them.`);
+        say(`Started at ${node.name || node.label}. Click the second player to join them.`);
         return;
       }
       if (connectFrom === node.id) {
@@ -497,7 +497,7 @@ export function PlayCanvas({
       onScene(reconcileConnections({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, link] }), "Auto-connect");
       onSelection([link.id]);
       setConnectFrom(null);
-      say("Connected. Move either token and the line follows.");
+      say("Connected. Move either player and the line follows.");
       onToolDone(true);
       return;
     }

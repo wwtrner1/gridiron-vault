@@ -273,7 +273,7 @@ export function gateTool(tier: Tier, toolId: string): Gate {
   if (!tier.lockedTools.includes(toolId)) return { ok: true };
   return {
     ok: false,
-    reason: "Freehand, polygon, zones, motion and auto-connect come with Head Coach. Lines, shapes and tokens stay free.",
+    reason: "Freehand, polygon, zones, motion and auto-connect come with Head Coach. Lines, shapes and players stay free.",
     cta: "Unlock the full kit",
   };
 }

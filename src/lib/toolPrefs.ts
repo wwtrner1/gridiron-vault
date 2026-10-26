@@ -20,7 +20,7 @@ export const GROUP_GUIDE: { id: RailId; title: string; text: string }[] = [
   { id: "routes", title: "Route library", text: "Ready-made routes. Pick a player, then tap a route and it's drawn from that player." },
   { id: "format", title: "Saved play format", text: "Save how this play looks (colors, line weights) and give the same look to other plays." },
   { id: "shapes", title: "Shapes · Zones", text: "Zones, boxes, circles and text labels for coverage areas and notes." },
-  { id: "players", title: "Offense · Defense", text: "Single player tokens to drop on the field." },
+  { id: "players", title: "Offense · Defense", text: "Single players to drop on the field." },
   { id: "sets", title: "Libraries · Layers", text: "Whole formations and defenses in one tap, and the list of everything on the field." },
 ];
 
