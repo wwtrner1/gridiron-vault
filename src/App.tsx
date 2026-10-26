@@ -29,6 +29,7 @@ import { Admin } from "./pages/Admin";
 import { notePage } from "./lib/lastPage";
 import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
+import { Tools } from "./pages/Tools";
 
 const TITLES: Record<string, string> = {
   "/": "GridIronVault — Flag Football Playbook Studio",
@@ -51,6 +52,7 @@ const TITLES: Record<string, string> = {
   "/game": "Game Day — GridIronVault",
   "/practice": "Practice — GridIronVault",
   "/admin": "Admin — GridIronVault",
+  "/tools": "More tools — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -75,6 +77,7 @@ const NAMES: Record<string, string> = {
   "/game": "Game Day",
   "/practice": "Practice",
   "/admin": "Admin",
+  "/tools": "More tools",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -132,6 +135,7 @@ export function App() {
         <Route path="/team/:token" element={<Team />} />
         <Route path="/practice" element={<Practice />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/tools" element={<Tools />} />
         <Route path="/game" element={<GameDay />} />
         <Route path="/game/:id" element={<GameDay />} />
         {Object.keys(COMING_SOON).map((p) => (

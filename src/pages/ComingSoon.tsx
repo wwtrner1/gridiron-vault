@@ -8,13 +8,7 @@ type Screen = { title: string; icon: string; blurb: string };
  * Side-menu destinations whose screens are still being built. Each one keeps
  * the signed-in shell so the menu works end to end before the screen lands.
  */
-export const COMING_SOON: Record<string, Screen> = {
-  "/tools": {
-    title: "More tools",
-    icon: "sparkle",
-    blurb: "Griddy, the formation and defense libraries, the route tree and Saved play format — everything that speeds up drawing a play.",
-  },
-};
+export const COMING_SOON: Record<string, Screen> = {};
 
 export function ComingSoon({ path }: { path: keyof typeof COMING_SOON }) {
   const screen = COMING_SOON[path];
