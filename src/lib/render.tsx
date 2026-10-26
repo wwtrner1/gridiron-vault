@@ -164,7 +164,10 @@ export const TAG_SIZE = 13;
  * reads the same on a flipped or rotated route. It sits just past the end of
  * the route, along its last leg; on a zone it sits in the middle.
  */
-function RouteTag({ node, color }: { node: PathNode; color: string }) {
+export type TagLayout = { text: string; at: { x: number; y: number }; ox: number; oy: number; halfW: number; halfH: number; fontSize: number };
+
+/** Where a route's tag sits: its anchor in the path's own points, and its offset and half-size in world units. */
+export function tagLayout(node: PathNode): TagLayout | null {
   const text = node.tag?.trim().slice(0, TAG_MAX);
   const pts = node.points;
   if (!text || pts.length < 2) return null;
@@ -190,6 +193,13 @@ function RouteTag({ node, color }: { node: PathNode; color: string }) {
     ox = ux * gap;
     oy = uy * gap;
   }
+  return { text, at, ox, oy, halfW, halfH, fontSize };
+}
+
+function RouteTag({ node, color }: { node: PathNode; color: string }) {
+  const layout = tagLayout(node);
+  if (!layout) return null;
+  const { text, at, ox, oy, halfW, halfH, fontSize } = layout;
   return (
     <g transform={`translate(${at.x} ${at.y}) scale(${1 / (node.scaleX || 1)} ${1 / (node.scaleY || 1)}) rotate(${-node.rotation})`}>
       <rect
