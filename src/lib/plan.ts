@@ -219,6 +219,7 @@ export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.p
 export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
   { id: "season", name: "Season Pass", price: "$29", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
   { id: "yearly", name: "Head Coach yearly", price: "$69", cadence: "per year", blurb: "Every Head Coach feature, about five months free against paying monthly." },
+  { id: "staff-yearly", name: "Staff yearly", price: "$179", cadence: "per year", blurb: "Staff seats for the whole coaching staff, billed once a year." },
   { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
 ];
 
