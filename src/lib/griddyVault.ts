@@ -97,13 +97,6 @@ export async function savePlays(plays: StoredPlay[], opts: { playbook: string | 
   if (book) {
     // removePlay above dropped the local ids from the playbook; file the account copies in their place.
     file(synced.map((p) => p.id));
-    if (!existing) {
-      try {
-        await api.createPlaybook({ name: book.name, description: book.description, color: book.color, isPublic: false });
-      } catch {
-        /* the playbook is saved in this browser */
-      }
-    }
   }
   return synced;
 }

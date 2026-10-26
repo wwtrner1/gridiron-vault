@@ -85,7 +85,14 @@ export const api = {
 
   copyPlay: (id: string) => request<{ play: ApiPlay }>(`plays/${id}/copy`, { method: "POST" }),
 
-  listPlaybooks: () => request<{ playbooks: Playbook[] }>("playbooks"),
+  listPlaybooks: () =>
+    request<{ playbooks: Playbook[]; members: { playbookId: string; playId: string; sortOrder: number }[] }>("playbooks"),
+
+  /** `playIds` replaces the playbook's whole list, in order. */
+  updatePlaybook: (id: string, body: Partial<Playbook> & { playIds?: string[] }) =>
+    request<{ playbook: Playbook }>(`playbooks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  deletePlaybook: (id: string) => request<{ ok: true }>(`playbooks/${id}`, { method: "DELETE" }),
 
   createPlaybook: (body: Partial<Playbook>) =>
     request<{ playbook: Playbook }>("playbooks", { method: "POST", body: JSON.stringify(body) }),

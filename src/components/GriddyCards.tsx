@@ -417,13 +417,6 @@ async function writeFilings(filings: BulkFiling[], signedIn: boolean, back = fal
       continue;
     }
     store.upsertPlaybook({ ...(current ?? f.book), playIds: f.after, updatedAt: new Date().toISOString() });
-    if (f.created && signedIn) {
-      try {
-        await api.createPlaybook({ name: f.book.name, description: f.book.description, color: f.book.color, isPublic: false });
-      } catch {
-        /* the playbook is saved in this browser */
-      }
-    }
   }
 }
 

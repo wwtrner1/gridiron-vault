@@ -1216,7 +1216,7 @@ export function Builder() {
         };
         const res = existing?.remote ? await api.updatePlay(record.id, payload) : await api.createPlay(payload);
         const stored = toStoredPlay(res.play);
-        if (stored.id !== record.id) store.removePlay(record.id);
+        if (stored.id !== record.id) store.replacePlayId(record.id, stored.id);
         store.upsertPlay(stored);
         setDirty(false);
         toast("Saved to your Vault and your account.");

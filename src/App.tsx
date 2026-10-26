@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
+import { PlaybookSync } from "./lib/playbookSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
 import { Landing } from "./pages/Landing";
@@ -106,6 +107,7 @@ export function App() {
       <GriddyProvider>
       <RouteChrome />
       <CarryOver />
+      <PlaybookSync />
       <PhoneGate />
       <NewPassword />
       <Routes>

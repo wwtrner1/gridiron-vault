@@ -516,11 +516,6 @@ export async function addReadyPlaybook(opts: { tier: Tier; vaultSize: number; ow
     }
     plays = synced;
     store.upsertPlaybook({ ...book, playIds: plays.map((p) => p.id) });
-    try {
-      await api.createPlaybook({ name: book.name, description: book.description, color: book.color, isPublic: false });
-    } catch {
-      /* the playbook is saved in this browser */
-    }
   }
   return { ok: true, added: plays.length };
 }

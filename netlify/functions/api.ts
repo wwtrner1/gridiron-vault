@@ -390,12 +390,14 @@ async function route(req: Request, deviceId: string): Promise<Response> {
           .where(eq(playbooks.ownerId, me.id))
           .orderBy(desc(playbooks.updatedAt));
         // Only this coach's playbooks, and only plays they may see: their own or public ones.
+        // Members are ids and order only: the browser already holds the plays (the Vault pulls those).
         const members = await db
-          .select({ playbook_plays: playbookPlays, plays })
+          .select({ playbookId: playbookPlays.playbookId, playId: playbookPlays.playId, sortOrder: playbookPlays.sortOrder })
           .from(playbookPlays)
           .innerJoin(playbooks, eq(playbookPlays.playbookId, playbooks.id))
           .innerJoin(plays, eq(playbookPlays.playId, plays.id))
-          .where(and(eq(playbooks.ownerId, me.id), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))));
+          .where(and(eq(playbooks.ownerId, me.id), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))))
+          .orderBy(playbookPlays.sortOrder);
         return json({ playbooks: books, members });
       }
 
@@ -439,18 +441,31 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
 
       if (req.method === "PUT" && id) {
+        if (!UUID.test(id)) return fail("That playbook isn't in your account.", 404);
         const body = await req.json();
         const [row] = await db
           .update(playbooks)
           .set({
-            name: body.name,
-            description: body.description,
-            color: body.color,
-            isPublic: body.isPublic,
+            name: body.name === undefined ? undefined : String(body.name).slice(0, 120),
+            description: body.description === undefined ? undefined : String(body.description),
+            color: body.color === undefined ? undefined : String(body.color),
+            isPublic: body.isPublic === undefined ? undefined : Boolean(body.isPublic),
             updatedAt: new Date(),
           })
           .where(and(eq(playbooks.id, id), eq(playbooks.ownerId, me.id)))
           .returning();
+        if (!row) return fail("That playbook isn't in your account.", 404);
+        // `playIds` is the whole list, in order: the browser's copy of the playbook replaces the cloud's.
+        if (Array.isArray(body.playIds)) {
+          const wanted = [...new Set((body.playIds as unknown[]).map(String).filter((p) => UUID.test(p)))].slice(0, 500);
+          const visible = wanted.length
+            ? await db.select({ id: plays.id }).from(plays).where(and(inArray(plays.id, wanted), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))))
+            : [];
+          const ok = new Set(visible.map((v) => v.id));
+          const ids = wanted.filter((p) => ok.has(p));
+          await db.delete(playbookPlays).where(eq(playbookPlays.playbookId, id));
+          if (ids.length) await db.insert(playbookPlays).values(ids.map((playId, sortOrder) => ({ playbookId: id, playId, sortOrder })));
+        }
         return json({ playbook: row });
       }
 
