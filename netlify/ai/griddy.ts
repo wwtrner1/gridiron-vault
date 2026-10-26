@@ -72,6 +72,7 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       type: str(p?.type, 20),
       tags: (Array.isArray(p?.tags) ? p.tags : []).slice(0, 8).map((t) => str(t, 30)),
       books: (Array.isArray(p?.books) ? p.books : []).slice(0, 6).map((b) => str(b, 120)),
+      routes: str(p?.routes, 160),
     })),
     playbooks: (Array.isArray(c.playbooks) ? c.playbooks : []).slice(0, 60).map((b) => ({
       id: str(b?.id, 64),
@@ -181,6 +182,19 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
         if (c?.op === "route_color") {
           const color = bulkColor(str(c.color, 30));
           return LETTER.test(letter(c.letter)) && color ? [{ op: "route_color", letter: letter(c.letter), color, ...narrow }] : [];
+        }
+        if (c?.op === "rename") {
+          // Row numbers in the list Griddy was shown, mapped to real Vault ids; anything else is dropped.
+          const seen = new Set<string>();
+          const names = (Array.isArray(c.names) ? c.names : []).slice(0, GRIDDY_LIMITS.vault).flatMap((r: Record<string, unknown>) => {
+            const play = ctx.vault[Number(r?.n) - 1];
+            const name = str(r?.name, 120).trim();
+            if (!play || !name || seen.has(play.id)) return [];
+            seen.add(play.id);
+            const formation = str(r?.formation, 60).trim();
+            return [{ id: play.id, name, ...(formation ? { formation } : {}) }];
+          });
+          return names.length ? [{ op: "rename" as const, names }] : [];
         }
         if (["style", "wristband", "meta", "file"].includes(c?.op)) {
           const open = cleanOpenChange(c);
