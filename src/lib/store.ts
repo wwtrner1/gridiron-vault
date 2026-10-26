@@ -2,7 +2,8 @@ import { useSyncExternalStore } from "react";
 import type { StoredPlay } from "./types";
 import type { Playbook } from "./api";
 
-export type LocalPlaybook = Playbook & { playIds: string[] };
+/** `cloudId` is the playbook's id on the account once it has been saved there (see playbookSync.ts). */
+export type LocalPlaybook = Playbook & { playIds: string[]; cloudId?: string };
 
 export type SheetColumn = {
   id: string;
@@ -34,6 +35,10 @@ type State = {
 };
 
 const KEY = "snapline.workspace.v1";
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const removedBooks = new Set<(book: LocalPlaybook) => void>();
+
 const empty: State = { plays: [], playbooks: [], sheets: [] };
 
 function read(): State {
@@ -85,12 +90,54 @@ export const store = {
     }
     commit({ ...state, plays: [...byId.values()] });
   },
+  /** A play saved to the account gets a new id; keep it in every playbook it was filed in. */
+  replacePlayId(oldId: string, newId: string) {
+    commit({
+      ...state,
+      plays: state.plays.filter((p) => p.id !== oldId),
+      playbooks: state.playbooks.map((b) =>
+        b.playIds.includes(oldId) ? { ...b, playIds: [...new Set(b.playIds.map((p) => (p === oldId ? newId : p)))] } : b,
+      ),
+    });
+  },
+  /** Change a playbook without marking it edited (used by sync, which is not the coach editing). */
+  patchPlaybook(id: string, patch: Partial<LocalPlaybook>) {
+    commit({ ...state, playbooks: state.playbooks.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
+  },
+  /** Playbooks pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
+  mergeRemotePlaybooks(remote: LocalPlaybook[]) {
+    const books = [...state.playbooks];
+    for (const r of remote) {
+      const at = books.findIndex((b) => b.cloudId === r.id || b.id === r.id);
+      if (at < 0) {
+        books.push({ ...r, cloudId: r.id });
+        continue;
+      }
+      const local = books[at];
+      if (new Date(r.updatedAt ?? 0) > new Date(local.updatedAt ?? 0)) {
+        // Plays only in this browser (never saved to the account) stay filed where they were.
+        const keep = local.playIds.filter((p) => !UUID.test(p) && !r.playIds.includes(p));
+        books[at] = { ...local, name: r.name, description: r.description, color: r.color, isPublic: r.isPublic, updatedAt: r.updatedAt, playIds: [...r.playIds, ...keep], cloudId: r.id };
+      } else if (!local.cloudId) {
+        books[at] = { ...local, cloudId: r.id };
+      }
+    }
+    commit({ ...state, playbooks: books });
+  },
   upsertPlaybook(book: LocalPlaybook) {
     const rest = state.playbooks.filter((b) => b.id !== book.id);
-    commit({ ...state, playbooks: [book, ...rest] });
+    // Stamped here so a coach's edit always reads as newer than the cloud copy when sync compares them.
+    commit({ ...state, playbooks: [{ ...book, updatedAt: new Date().toISOString() }, ...rest] });
   },
   removePlaybook(id: string) {
+    const gone = state.playbooks.find((b) => b.id === id);
     commit({ ...state, playbooks: state.playbooks.filter((b) => b.id !== id) });
+    if (gone) removedBooks.forEach((cb) => cb(gone));
+  },
+  /** Called when the coach removes a playbook (not when the whole local workspace is cleared). */
+  onPlaybookRemoved(cb: (book: LocalPlaybook) => void) {
+    removedBooks.add(cb);
+    return () => removedBooks.delete(cb);
   },
   upsertSheet(sheet: SheetDoc) {
     const rest = state.sheets.filter((s) => s.id !== sheet.id);

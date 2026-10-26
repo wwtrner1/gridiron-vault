@@ -72,13 +72,6 @@ export function Playbooks() {
     store.upsertPlaybook(book);
     setDraft(null);
     toast(existing ? `${name} updated.` : `${name} created. Add plays to it next.`);
-    if (account && !existing) {
-      try {
-        await api.createPlaybook({ name: book.name, description: book.description, color: book.color, isPublic: book.isPublic });
-      } catch {
-        /* local copy already saved; cloud catches up on the next sync */
-      }
-    }
   };
 
   const setPlays = (book: LocalPlaybook, playIds: string[]) =>
