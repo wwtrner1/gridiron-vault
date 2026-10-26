@@ -2,7 +2,7 @@ import type { Box } from "./geometry";
 import { toWorld, unionBox, worldBox } from "./geometry";
 import type { Scene, SceneNode } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
-import { TAG_SIZE } from "./render";
+import { TAG_SIZE, tagLayout } from "./render";
 
 /**
  * How a diagram is framed and weighted for print. The Designer draws at
@@ -153,7 +153,41 @@ export function boostScene(scene: Scene, b: Boost): Scene {
     if (n.kind === "shape") return { ...n, width: n.width * line };
     return { ...n, fontSize: n.fontSize * Math.max(Math.min(tokenK, 1.6), textBoost(n.fontSize, ptPerUnit)) };
   });
-  return { ...scene, nodes };
+  return { ...scene, nodes: ptPerUnit ? dropCrowdedTags(nodes) : nodes };
+}
+
+/**
+ * Route tags and text labels never print below MIN_TEXT_PT, so on a small box
+ * a labelled play (a route tree, a fully tagged concept) lands its labels on
+ * top of each other. Keep the first read's tag, then the rest in drawing
+ * order, and leave off any label that would cover one already kept: a pile of
+ * overlapping labels reads as nothing.
+ */
+function dropCrowdedTags(nodes: SceneNode[]): SceneNode[] {
+  type Label = { id: string; first: boolean; box: Box };
+  const labels: Label[] = [];
+  for (const n of nodes) {
+    if (n.hidden) continue;
+    if (n.kind === "path") {
+      const t = tagLayout(n);
+      if (!t) continue;
+      const end = toWorld(n, t.at);
+      labels.push({ id: n.id, first: !!n.firstRead, box: { x: end.x + t.ox - t.halfW, y: end.y + t.oy - t.halfH, w: t.halfW * 2, h: t.halfH * 2 } });
+    } else if (n.kind === "text" && n.text.trim()) {
+      const w = (Math.max(40, n.text.length * n.fontSize * 0.56) + 16) * Math.abs(n.scaleX || 1);
+      const h = n.fontSize * 1.64 * Math.abs(n.scaleY || 1);
+      labels.push({ id: n.id, first: false, box: { x: n.x - w / 2, y: n.y - h / 2, w, h } });
+    }
+  }
+  const kept: Box[] = [];
+  const dropped = new Set<string>();
+  for (const l of [...labels].sort((a, b) => Number(b.first) - Number(a.first))) {
+    const b = l.box;
+    if (kept.some((k) => b.x < k.x + k.w && k.x < b.x + b.w && b.y < k.y + k.h && k.y < b.y + b.h)) dropped.add(l.id);
+    else kept.push(b);
+  }
+  if (!dropped.size) return nodes;
+  return nodes.map((n): SceneNode => (!dropped.has(n.id) ? n : n.kind === "path" ? { ...n, tag: "" } : { ...n, hidden: true }));
 }
 
 /** Bounds of everything visible in the play, or null for an empty scene. */
