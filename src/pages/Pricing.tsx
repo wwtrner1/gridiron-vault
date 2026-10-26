@@ -85,7 +85,7 @@ const FAQ = [
 ];
 
 /** The offer on each card below the plans, by its id in OFFERS. */
-const OFFER_KEY: Record<string, string> = { season: "season", yearly: "solo_year", founding: "founding" };
+const OFFER_KEY: Record<string, string> = { season: "season", yearly: "solo_year", "staff-yearly": "crew_year", founding: "founding" };
 
 export function Pricing() {
   const tier = useTier();
