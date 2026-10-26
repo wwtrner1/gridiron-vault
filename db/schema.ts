@@ -26,6 +26,11 @@ export const profiles = pgTable("profiles", {
   lastActiveAt: timestamp("last_active_at"),
   /** End of the 14-day Head Coach trial. Set only while plan is "trial"; the server drops the coach to Sideline after it. */
   trialEndsAt: timestamp("trial_ends_at"),
+  /** Stripe's ids for this coach, set when they first pay. Billing (netlify/billing/stripe.ts) is the only writer of plan after that. */
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  /** End of a one-time Season Pass. Past it, with no subscription, the coach is back on Sideline. */
+  planEndsAt: timestamp("plan_ends_at"),
 });
 
 /**

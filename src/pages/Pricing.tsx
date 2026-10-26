@@ -4,7 +4,7 @@ import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { OFFERS, PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
-import { choosePlan, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
 import "../styles/pricing.css";
@@ -84,12 +84,32 @@ const FAQ = [
   },
 ];
 
+/** The offer on each card below the plans, by its id in OFFERS. */
+const OFFER_KEY: Record<string, string> = { season: "season", yearly: "solo_year", founding: "founding" };
+
 export function Pricing() {
   const tier = useTier();
   const toast = useToast();
   const { account } = useAuth();
+  const billing = useBilling();
+
+  /** What a plan button buys when billing is open; Program is by quote. */
+  const OFFER_OF: Partial<Record<TierId, string>> = { solo: "solo_month", crew: "crew_month" };
+
+  const pay = async (offer: string) => {
+    try {
+      await goToBilling(offer);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Stripe didn't open. Try again in a minute.", true);
+    }
+  };
 
   const choose = async (id: TierId) => {
+    if (billing && id !== "free") {
+      const offer = OFFER_OF[id];
+      if (offer) return pay(offer);
+      return toast("Program plans are set up with us directly. Use Help & feedback and we'll reply the same day.");
+    }
     try {
       await choosePlan(id, Boolean(account));
     } catch (e) {
@@ -127,7 +147,9 @@ export function Pricing() {
           <p className="price-note" role="note">
             <Icon name="sparkle" size={16} />
             <span>
-              {tier.id === "beta" ? (
+              {billing ? (
+                <>Payments are handled by Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid for ends.</>
+              ) : tier.id === "beta" ? (
                 <>
                   You are on <b>Beta Coach</b> — everything is already switched on. Billing is not live yet: picking a plan below
                   only changes which features are switched on in this browser, and nothing is charged. Beta coaches keep founding
@@ -185,6 +207,11 @@ export function Pricing() {
                   <small>{o.cadence}</small>
                 </div>
                 <p>{o.blurb}</p>
+                {billing && account && OFFER_KEY[o.id] && (
+                  <button type="button" className="btn btn-ghost" onClick={() => pay(OFFER_KEY[o.id])}>
+                    {o.id === "season" ? "Buy the Season Pass" : o.id === "founding" ? "Take the founding rate" : "Choose yearly"}
+                  </button>
+                )}
               </article>
             ))}
           </div>

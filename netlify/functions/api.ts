@@ -33,6 +33,7 @@ import {
 } from "../security/phone.js";
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { emailKey, isDisposable, isInternetNumber, phoneKey, trialsOn } from "../security/trial.js";
+import { billingOn, expireSeason, handleWebhook, openPortal, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
@@ -184,7 +185,17 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
       const state = await planState(me);
-      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, ownerHint: me.owner ? undefined : me.ownerHint, plan: state.tier.id, trialEndsAt: state.trialEndsAt?.toISOString(), security: await securityOf(me, deviceId) });
+      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, billing: billingOn(), ownerHint: me.owner ? undefined : me.ownerHint, plan: state.tier.id, trialEndsAt: state.trialEndsAt?.toISOString(), security: await securityOf(me, deviceId) });
+    }
+
+    /* -------------------------------------------------------- billing --- */
+    if (resource === "billing" && req.method === "POST" && (id === "checkout" || id === "portal")) {
+      if (!me) return fail("Sign in first.", 401);
+      if (me.owner) return fail("Your account is All-Access Master. There's nothing to buy.", 403);
+      await ensureProfile(me);
+      const body = id === "checkout" ? await req.json().catch(() => ({})) : {};
+      const out = id === "checkout" ? await startCheckout(me, String((body as Record<string, unknown>).offer ?? "")) : await openPortal(me);
+      return "error" in out ? fail(out.error, 400) : json(out);
     }
 
     /* ---------------------------------------------------------- phone --- */
@@ -200,6 +211,9 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action !== "results" && req.method === "GET") return await openShare(id);
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
       return await sendScore(id, await req.json().catch(() => ({})));
+
+    // Stripe's webhook proves itself with a signature, not a sign-in.
+    if (resource === "billing" && id === "webhook" && req.method === "POST") return await handleWebhook(req);
 
     // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
     if (resource === "visit") {
@@ -603,7 +617,15 @@ async function planOf(me: Session): Promise<Tier> {
 /** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
 async function planState(me: Session): Promise<{ tier: Tier; trialEndsAt: Date | null }> {
   if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
-  const [row] = await db.select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt }).from(profiles).where(eq(profiles.id, me.id));
+  const [row] = await db
+    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId })
+    .from(profiles)
+    .where(eq(profiles.id, me.id));
+  // A one-time Season Pass that has run out, with no subscription behind it, is Sideline from this request on.
+  if (row?.plan === "solo" && row.planEndsAt && !row.sub && row.planEndsAt.getTime() <= Date.now()) {
+    await expireSeason(me.id);
+    return { tier: TIERS.free, trialEndsAt: null };
+  }
   if (row?.plan === "trial") {
     if (row.trialEndsAt && row.trialEndsAt.getTime() > Date.now()) return { tier: TIERS.trial, trialEndsAt: row.trialEndsAt };
     await db.update(profiles).set({ plan: "free", trialEndsAt: null }).where(and(eq(profiles.id, me.id), eq(profiles.plan, "trial")));

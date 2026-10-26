@@ -217,8 +217,8 @@ export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.p
 
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
 export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
-  { id: "season", name: "Season Pass", price: "$39", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
-  { id: "yearly", name: "Head Coach yearly", price: "$120", cadence: "per year", blurb: "Every Head Coach feature, two months free." },
+  { id: "season", name: "Season Pass", price: "$29", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
+  { id: "yearly", name: "Head Coach yearly", price: "$69", cadence: "per year", blurb: "Every Head Coach feature, about five months free against paying monthly." },
   { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
 ];
 
