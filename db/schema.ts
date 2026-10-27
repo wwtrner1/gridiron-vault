@@ -182,7 +182,8 @@ export const callSheets = pgTable(
 /**
  * AI calls per coach per day, so one account can't run up the Claude bill.
  * `kind` is "assistant" (a Griddy message or single play read), "import" (one
- * play of a Griddy bulk import), "photo" (whiteboard photo review) or "texts".
+ * play of a Griddy bulk import), "photo" (whiteboard photo review or one play read
+ * from a scanned page), "scan" (a scanned page looked over for plays) or "texts".
  */
 export const aiUsage = pgTable(
   "ai_usage",

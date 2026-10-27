@@ -365,9 +365,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 
-/* ---- Rail tabs: Draw · Routes · Players · Sets ---- */
+/* ---- Rail tabs: Draw · Routes · Players · Sets · Plays (folder icon) ---- */
 .builder .builder-rail { gap: 12px; }
-.dz-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--ink); }
+.dz-tabs { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--ink); }
 .dz-tabs button {
   height: 30px;
   padding: 0 4px;
@@ -381,6 +381,10 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   text-transform: uppercase;
 }
 .dz-tabs button:hover { color: var(--white); }
+.dz-tabs button { flex: 1 1 0; min-width: 0; }
+.dz-tabs button.is-icon { flex: 0 0 28px; display: grid; place-items: center; }
+/* Five tabs in the 244px rail: a little less tracking so PLAYERS fits beside the folder. */
+.dz-tabs:has(.is-icon) button { padding: 0 1px; letter-spacing: 0.02em; font-size: 12px; }
 .dz-tabs button.is-on { background: var(--ink-3); color: var(--white); box-shadow: inset 0 -2px 0 var(--cyan); }
 .dz-tabpanel { display: flex; flex: none; flex-direction: column; gap: 16px; }
 .dz-modes, .dz-tabs, .dz-rail-foot { flex: none; }
@@ -583,6 +587,39 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-more-menu > a:focus-visible { background: var(--ink-3); }
 .dz-more-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 0 12px; font-size: 14px; color: var(--white); }
 .dz-more-menu .is-wide-dup { display: none; }
+
+/* ---- Field controls (one panel for grid, snap, hashes, contrast, rule lines) ---- */
+.fc-panel {
+  position: fixed;
+  z-index: 300;
+  top: calc(60px + env(safe-area-inset-top));
+  right: 12px;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: var(--shadow-l);
+}
+.fc-head { display: flex; align-items: center; justify-content: space-between; }
+.fc-head h2 { margin: 0; font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.fc-close { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--ink); }
+.fc-close:hover, .fc-close:focus-visible { background: var(--border-2); }
+.fc-section { margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid var(--border-2); font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.fc-head + .fc-section { border-top: 0; padding-top: 0; }
+.fc-row { margin-bottom: 8px; }
+.fc-label { display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 600; }
+.fc-row .chip { min-height: 30px; }
+.fc-switch { margin-bottom: 8px; }
+.fc-presets { margin-bottom: 8px; }
+.fc-nums { display: flex; gap: 8px; }
+.fc-nums label { flex: 1; font-size: 12px; font-weight: 600; }
+.fc-nums span { display: block; margin-bottom: 3px; }
+.fc-foot { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+@media (pointer: coarse) { .fc-row .chip { min-height: 40px; padding: 0 12px; } }
 
 /* ---- Zoom buttons (− Fit +) ---- */
 .dz-zoom-btns { display: none; flex: none; align-items: center; gap: 2px; }

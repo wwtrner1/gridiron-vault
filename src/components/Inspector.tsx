@@ -175,7 +175,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
               </Tooltip>
             ))}
           </div>
-          <p className="hint">Routes keep their depth in yards when the field changes.</p>
+          <p className="hint">Routes keep their depth in yards when the field changes. Hash marks, yard-line contrast and snap to grid live in Field controls above the field.</p>
           <label className="field" style={{ marginTop: 10, marginBottom: 0 }}>
             <span>Line of scrimmage</span>
             <input

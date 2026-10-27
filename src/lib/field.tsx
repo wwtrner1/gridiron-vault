@@ -1,3 +1,4 @@
+import { HASHES, useFieldPrefs, type FieldContrast, type HashStyle } from "./fieldPrefs";
 import type { Box } from "./geometry";
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
@@ -22,6 +23,10 @@ type Props = {
   ptPerUnit?: number;
   /** Print only: the part of the canvas that prints, so distances sit at its edges. */
   frame?: Box;
+  /** Hash mark style; defaults to the coach's Field Controls. */
+  hashes?: HashStyle;
+  /** Yard line contrast; defaults to the coach's Field Controls. */
+  contrast?: FieldContrast;
 };
 
 /** Smallest field lettering worth printing, and the thinnest chalk line, in points. */
@@ -33,12 +38,13 @@ const LOS_PRINT = "#7D8B99";
 
 /* GridIronVault field: paper-white turf, cool navy chalk. Prints clean at any size. */
 const TURF = "#FFFFFF";
-const BAND = "#F5F8FA"; // --paper
-const CHALK = "#CBDAE4";
-const CHALK_SOFT = "#E4ECF1";
-const NUMBERS = "#8FA6BB"; // --muted-2
-/** Distances on paper print darker than on screen, so a small number still reads. */
-const NUMBERS_PRINT = "#5B7085";
+type Chalk = { band: string; chalk: string; soft: string; numbers: string; numbersPrint: string };
+/** Field markings per Field Controls contrast. Distances on paper print darker than on screen, so a small number still reads. */
+const CHALKS: Record<FieldContrast, Chalk> = {
+  soft: { band: "#F8FAFC", chalk: "#DCE6ED", soft: "#EDF2F6", numbers: "#A9BBCB", numbersPrint: "#7D8B99" },
+  standard: { band: "#F5F8FA", chalk: "#CBDAE4", soft: "#E4ECF1", numbers: "#8FA6BB", numbersPrint: "#5B7085" },
+  high: { band: "#EEF3F7", chalk: "#8FA6BB", soft: "#B4C5D3", numbers: "#4F6478", numbersPrint: "#33475B" },
+};
 const NAVY = "#0B1524"; // --ink
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
@@ -83,7 +89,10 @@ function labelled(lines: YardLine[], gap: number, size: number, frame?: Box): Ya
   return [];
 }
 
-export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame }: Props) {
+export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame, hashes, contrast }: Props) {
+  const prefs = useFieldPrefs();
+  const { band: BAND, chalk: CHALK, soft: CHALK_SOFT, numbers: NUMBERS, numbersPrint: NUMBERS_PRINT } = CHALKS[contrast ?? prefs.contrast];
+  const hashAt = HASHES.find((h) => h.id === (hashes ?? prefs.hashes))?.at ?? 0;
   // On paper: does lettering of this size read, and how wide must a line be to print.
   const reads = (size: number) => !ptPerUnit || size * ptPerUnit >= MIN_LABEL_PT;
   const atLeast = (width: number, pt: number) => (ptPerUnit ? Math.max(width, pt / ptPerUnit) : width);
@@ -141,7 +150,16 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
   const inset = fieldInset(view);
   const top = fieldTop(view);
   const lines = yardLines(view, losY, top);
-  const hashes = reads(15);
+  // Hash marks every yard; flag fields have none.
+  const showHashes = hashAt > 0 && view !== "flag" && reads(15);
+  const perYard = gap / 5;
+  const yardTicks = !ptPerUnit || perYard * ptPerUnit >= 2.5;
+  const hashXs = [inset + hashAt * (CANVAS_W - inset * 2), CANVAS_W - inset - hashAt * (CANVAS_W - inset * 2)];
+  const ticks: { y: number; five: boolean }[] = [];
+  if (showHashes && perYard > 0) {
+    for (let k = 0, y = losY; y > top + 2; k++, y = losY - k * perYard) if (k % 5 === 0 || yardTicks) ticks.push({ y, five: k % 5 === 0 });
+    for (let k = 1, y = losY + perYard; y < CANVAS_H - 16; k++, y = losY + k * perYard) if (k % 5 === 0 || yardTicks) ticks.push({ y, five: k % 5 === 0 });
+  }
   // Distances sit just inside the sidelines, or inside the printed frame when it crops them.
   const numLeft = Math.max(inset, frame?.x ?? -Infinity) + 10 + (frame ? 0 : 22);
   const numRight = Math.min(CANVAS_W - inset, frame ? frame.x + frame.w : Infinity) - 10 - (frame ? 0 : 22);
@@ -202,13 +220,20 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
           ))}
           {labelled(lines, gap, numSize, frame).flatMap((l) => [distance(l, numLeft, "start"), distance(l, numRight, "end")])}
 
-          {/* Hash marks */}
-          {hashes &&
-            lines.flatMap((l) =>
-              [CANVAS_W * 0.36, CANVAS_W * 0.64].map((x) => (
-                <line key={`${l.y}-${x}`} x1={x - 10} x2={x + 10} y1={l.y} y2={l.y} stroke={CHALK} strokeWidth={1.8} />
-              )),
-            )}
+          {/* Hash marks: a long mark on each 5-yard line, a short tick every yard between */}
+          {ticks.flatMap((t) =>
+            hashXs.map((x) => (
+              <line
+                key={`h-${t.y}-${x}`}
+                x1={x - (t.five ? 10 : 6)}
+                x2={x + (t.five ? 10 : 6)}
+                y1={t.y}
+                y2={t.y}
+                stroke={CHALK}
+                strokeWidth={chalk(t.five ? 1.8 : 1.4)}
+              />
+            )),
+          )}
         </>
       )}
 

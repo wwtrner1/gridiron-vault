@@ -54,6 +54,7 @@ import {
 } from "../../src/lib/assistant.js";
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
 import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
+import { cleanBoxes, SCAN_SYSTEM, SCAN_TOOL, type ScanBox, type ScanRequest } from "../../src/lib/scan.js";
 
 /** Identity user ids are UUIDs today; accept any safe id so a different provider format doesn't lock the owner out. */
 const UUID_OR_ID = /^[A-Za-z0-9_-]{8,64}$/;
@@ -266,6 +267,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       }
       if (id === "assistant") return await assistant(me, await req.json());
       if (id === "photo") return await photo(me, await req.json());
+      if (id === "scan") return await scan(me, await req.json());
       return fail("That address is not part of the playbook API.", 404);
     }
 
@@ -708,7 +710,8 @@ async function recordEvent(me: Session, raw: string) {
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
 // "texts" counts codes Twilio actually sent. (It replaced "sms", which also counted refused sends.)
 // "import" counts plays Griddy draws from a dump, one per play, so a big import doesn't use up the coach's chat for the day.
-const DAILY_AI = { assistant: 60, import: 200, photo: 15, texts: SMS_PER_DAY } as const;
+// "scan" counts pages looked over for plays; each play read from a page is a "photo".
+const DAILY_AI = { assistant: 60, import: 200, photo: 15, scan: 40, texts: SMS_PER_DAY } as const;
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
@@ -765,6 +768,34 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
 }
 
 const unit = (n: unknown) => Math.min(1, Math.max(0, Number(n) || 0));
+
+/**
+ * Finds the plays on a scanned page or PDF page. It doesn't use a photo
+ * review (the reads that follow do), but needs one left this month, and the
+ * daily "scan" cap bounds the cost.
+ */
+async function scan(me: Session, body: Partial<ScanRequest>) {
+  const image = String(body.image ?? "");
+  if (!image) return fail("Choose a scanned page first.");
+  if (image.length > MAX_IMAGE_CHARS || !/^[A-Za-z0-9+/=]+$/.test(image))
+    return fail("That page couldn't be read. Try a JPG, PNG or PDF under 50 MB.");
+  const monthly = await monthlyAi(me, "photo");
+  if (monthly) return monthly;
+  if (!(await spend(me, "scan")))
+    return fail(`That's ${DAILY_AI.scan} scanned pages today — the daily limit. It resets at midnight UTC.`, 429);
+  const raw = await callTool<{ plays?: unknown; reason?: unknown }>({
+    model: MODELS.photo,
+    system: SCAN_SYSTEM,
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+      { type: "text", text: "Find every play diagram on this page." },
+    ],
+    tool: SCAN_TOOL,
+    maxTokens: 1500,
+  });
+  const plays: ScanBox[] = cleanBoxes(raw.plays);
+  return json({ plays, reason: plays.length ? undefined : String(raw.reason ?? "").slice(0, 200) || undefined });
+}
 
 async function photo(me: Session, body: Partial<PhotoRequest>) {
   const image = String(body.image ?? "");

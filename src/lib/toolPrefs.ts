@@ -9,7 +9,7 @@ import type { ModeId, ToolId } from "./tools";
 export type ToolKey = ToolId | ModeId;
 
 /** The Designer's left-rail groups and the tab each lives on. */
-export const RAIL_GROUPS = { modes: "draw", lines: "draw", shapes: "draw", routes: "routes", players: "players", sets: "sets", format: "sets" } as const;
+export const RAIL_GROUPS = { modes: "draw", lines: "draw", shapes: "draw", routes: "routes", players: "players", sets: "sets", format: "sets", plays: "plays" } as const;
 export type RailId = keyof typeof RAIL_GROUPS;
 export type ToolPrefs = { hiddenGroups: RailId[]; hiddenTools: ToolKey[] };
 
@@ -22,6 +22,7 @@ export const GROUP_GUIDE: { id: RailId; title: string; text: string }[] = [
   { id: "shapes", title: "Shapes · Zones", text: "Zones, boxes, circles and text labels for coverage areas and notes." },
   { id: "players", title: "Offense · Defense", text: "Single players to drop on the field." },
   { id: "sets", title: "Libraries · Layers", text: "Whole formations and defenses in one tap, and the list of everything on the field." },
+  { id: "plays", title: "Your playbooks", text: "Every playbook as a folder with its plays inside. Open another play, start one in a playbook, or drag a play onto a folder." },
 ];
 
 /** A simpler set for coaches who want the basics: draw, add players, formations. */
