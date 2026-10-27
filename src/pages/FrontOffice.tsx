@@ -24,6 +24,7 @@ type Ask = { title: string; body: string; label: string; danger?: boolean; input
 const TABS: { id: "playbooks" | HubTab; label: string; icon: string }[] = [
   { id: "playbooks", label: "Playbooks & coaches", icon: "folder" },
   { id: "roster", label: "Roster", icon: "users" },
+  { id: "depth", label: "Depth chart", icon: "ladder" },
 ];
 
 const day = (iso: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");

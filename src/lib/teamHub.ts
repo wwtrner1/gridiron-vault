@@ -285,3 +285,63 @@ export function rosterCsv(players: PlayerInfo[]): string {
   });
   return [head.map(csvCell).join(","), ...rows].join("\n");
 }
+
+/* ---------------------------------------------------------- depth chart --- */
+
+export const DEPTH_UNITS = ["offense", "defense", "special"] as const;
+export type DepthUnit = (typeof DEPTH_UNITS)[number];
+export const UNIT_LABEL: Record<DepthUnit, string> = { offense: "Offense", defense: "Defense", special: "Special teams" };
+
+/**
+ * One spot on the depth chart, its players in order (1st string first).
+ * `letter` is the playbook letter it plays (X, Q, H...), so the starters can
+ * fill the Assignments roster.
+ */
+export type DepthSlot = { key: string; label: string; letter: string; playerIds: string[] };
+export type DepthChart = { unit: DepthUnit; slots: DepthSlot[]; updatedAt: string };
+
+export const DEPTH_LIMITS = { slots: 30, deep: 6, label: 20 };
+
+type Preset = { id: string; label: string; unit: DepthUnit; slots: [string, string][] };
+
+/** Starting spots by format. [label, playbook letter] */
+export const DEPTH_PRESETS: Preset[] = [
+  { id: "flag5-o", label: "Flag 5-on-5", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"]] },
+  { id: "flag7-o", label: "7-on-7 / Flag 7", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"], ["H", "H"], ["S", "S"]] },
+  {
+    id: "eleven-o",
+    label: "11-man pro set",
+    unit: "offense",
+    slots: [["QB", "Q"], ["RB", "H"], ["FB", "F"], ["X", "X"], ["Z", "Z"], ["TE", "Y"], ["LT", ""], ["LG", ""], ["C", "C"], ["RG", ""], ["RT", ""]],
+  },
+  { id: "flag5-d", label: "Flag 5-on-5", unit: "defense", slots: [["Rusher", "R"], ["Corner L", ""], ["Corner R", ""], ["Linebacker", ""], ["Safety", ""]] },
+  { id: "flag7-d", label: "7-on-7 / Flag 7", unit: "defense", slots: [["Corner L", ""], ["Corner R", ""], ["Mike", "M"], ["Will", "W"], ["Sam", "S"], ["Free safety", "F"], ["Strong safety", ""]] },
+  {
+    id: "four3",
+    label: "11-man 4-3",
+    unit: "defense",
+    slots: [["DE", "E"], ["DT", "T"], ["DT", "N"], ["DE", "E"], ["Sam", "S"], ["Mike", "M"], ["Will", "W"], ["CB", ""], ["CB", ""], ["FS", "F"], ["SS", ""]],
+  },
+  { id: "special", label: "Specialists", unit: "special", slots: [["Kicker", "K"], ["Punter", "P"], ["Long snapper", ""], ["Holder", ""], ["Kick returner", ""], ["Punt returner", ""]] },
+];
+
+let slotSeq = 0;
+export const slotKey = () => `s${Date.now().toString(36)}${(slotSeq++).toString(36)}`;
+
+export const presetSlots = (id: string): DepthSlot[] =>
+  (DEPTH_PRESETS.find((p) => p.id === id)?.slots ?? []).map(([label, letter]) => ({ key: slotKey(), label, letter, playerIds: [] }));
+
+/** A depth chart as sent, held to the limits; only ids in `players` survive, once per spot. */
+export function cleanDepth(raw: unknown, players: Set<string>): DepthSlot[] {
+  const list = Array.isArray(raw) ? raw.slice(0, DEPTH_LIMITS.slots) : [];
+  return list.map((s, i) => {
+    const o = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
+    const ids = (Array.isArray(o.playerIds) ? o.playerIds : []).map(String).filter((id) => players.has(id));
+    return {
+      key: clip(o.key, 24) || `s${i}`,
+      label: clip(o.label, DEPTH_LIMITS.label) || "Spot",
+      letter: clip(o.letter, 2).toUpperCase(),
+      playerIds: [...new Set(ids)].slice(0, DEPTH_LIMITS.deep),
+    };
+  });
+}
