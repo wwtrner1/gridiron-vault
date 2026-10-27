@@ -14,6 +14,7 @@ import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
 import { PlaySetup } from "../components/PlaySetup";
+import { PlaybookTree } from "../components/PlaybookTree";
 import { RAIL_TABS, RailGroup, railStore, useRailTab, type RailTab } from "../components/RailGroup";
 import { StyleCard } from "../components/StyleCard";
 import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolbar";
@@ -62,6 +63,8 @@ import { overlayStore, useOverlay } from "../lib/overlay";
 import { editScene, swapSides } from "../lib/bulkEdit";
 import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
+import { useFieldPrefs } from "../lib/fieldPrefs";
+import { FieldControls } from "../components/FieldControls";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -194,7 +197,9 @@ export function Builder() {
   // The Style card's dash, curve and end for the next line. Picking a tool starts again from that tool's look.
   const [lookOverride, setLookOverride] = useState<LineLook>({});
   const look = { ...toolLook(tool), ...lookOverride };
-  const [grid, setGrid] = useState(0);
+  // Snap-to-grid and the field markings live in Field Controls, remembered per browser.
+  const { grid, snapRadius } = useFieldPrefs();
+  const [fieldOpen, setFieldOpen] = useState(false);
   // The league's rule lines (rush line, no-run zone), remembered per browser.
   const [rules, setRulesState] = useState(loadRules);
   const setRules = (next: RuleLines) => (saveRules(next), setRulesState(next));
@@ -1268,8 +1273,11 @@ export function Builder() {
       remote: false,
     };
     store.upsertPlay(record);
-    const target = isNew ? fileIn.current : null;
-    const bookName = target && fileNewPlay(record.id, target);
+    // A new play goes in the playbook picked in the setup, else the one it was started from (the tree's +, ?book=).
+    const fromBook = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
+    const target: FileTarget | null = isNew ? (fileIn.current ?? (fromBook ? { id: fromBook.id } : null)) : null;
+    const filed = target && fileNewPlay(record.id, target);
+    const bookQuery = filed ? `?book=${filed.id}` : "";
 
     try {
       if (account) {
@@ -1291,13 +1299,13 @@ export function Builder() {
         if (target) fileNewPlay(stored.id, target);
         fileIn.current = null;
         setDirty(false);
-        toast(bookName ? `Saved to your Vault, your account and ${bookName}.` : "Saved to your Vault and your account.");
-        if (!existing) navigate(`/build/${stored.id}`, { replace: true });
+        toast(`Saved to your Vault${filed ? ` in ${filed.name}` : ""} and your account.`);
+        if (!existing) navigate(`/build/${stored.id}${bookQuery}`, { replace: true });
       } else {
         fileIn.current = null;
         setDirty(false);
-        toast(bookName ? `Saved in this browser and filed in ${bookName}. Sign in to keep it across devices.` : "Saved in this browser. Sign in to keep it across devices.");
-        if (!existing) navigate(`/build/${record.id}`, { replace: true });
+        toast(`Saved in this browser${filed ? ` in ${filed.name}` : ""}. Sign in to keep it across devices.`);
+        if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
       }
       track("play_created", { formation: record.formation, type: record.playType });
     } catch (error) {
@@ -1405,6 +1413,12 @@ export function Builder() {
   };
   const goPlayRef = useRef(goPlay);
   goPlayRef.current = goPlay;
+  /** The Plays tab: unsaved changes are saved first, as stepping to the next play does. */
+  const openFromTree = async (href: string) => {
+    if (saving) return;
+    if (dirty && !(await save())) return;
+    navigate(href);
+  };
 
   // Vs defense: a saved defense (or any play) faded under this one.
   const overlayKey = existing?.id ?? "draft";
@@ -1674,16 +1688,6 @@ export function Builder() {
               <span className="dz-btn-word">Redo</span>
             </button>
           </Tooltip>
-          <Tooltip title="Snap to grid" hint="Locks every drop point to a grid so players and routes line up exactly." side="bottom">
-            <button
-              type="button"
-              className={`dz-top-btn dz-wide${grid ? " is-on" : ""}`}
-              onClick={() => setGrid((g) => (g ? 0 : 20))}
-              aria-pressed={grid > 0}
-            >
-              {grid ? "Grid on" : "Grid off"}
-            </button>
-          </Tooltip>
           <Tooltip title="Route depths" hint="Shows how many yards past the line of scrimmage each route breaks, worked out from the drawing. Drag a route and the number follows." side="bottom">
             <button type="button" className={`dz-top-btn dz-wide${depths ? " is-on" : ""}`} onClick={toggleDepths} aria-pressed={depths}>
               Depths
@@ -1712,6 +1716,21 @@ export function Builder() {
                 </option>
               ))}
             </select>
+          </Tooltip>
+          <Tooltip
+            title="Field controls"
+            hint="Snap to grid and snap radius, hash marks, yard-line contrast and the flag rush line and no-run zone, all in one place."
+            side="bottom"
+          >
+            <button
+              type="button"
+              className={`dz-top-btn dz-wide${fieldOpen ? " is-on" : ""}`}
+              onClick={() => setFieldOpen((v) => !v)}
+              aria-expanded={fieldOpen}
+              aria-controls="field-controls"
+            >
+              Field controls
+            </button>
           </Tooltip>
           <Tooltip
             title="Vs defense"
@@ -1811,8 +1830,8 @@ export function Builder() {
                   <button type="button" role="menuitemcheckbox" aria-checked={depths} className="is-wide-dup" onClick={toggleDepths}>
                     Route depths: {depths ? "on" : "off"}
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={grid > 0} className="is-wide-dup" onClick={() => setGrid((g) => (g ? 0 : 20))}>
-                    Snap to grid: {grid ? "on" : "off"}
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setFieldOpen(true)}>
+                    Field controls: grid, hashes, rule lines
                   </button>
                   <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
                     <span>Field</span>
@@ -1960,11 +1979,13 @@ export function Builder() {
                 aria-selected={railTab === t.id}
                 aria-controls="dz-tabpanel"
                 tabIndex={railTab === t.id ? 0 : -1}
-                className={railTab === t.id ? "is-on" : ""}
+                className={`${railTab === t.id ? "is-on" : ""}${t.id === "plays" ? " is-icon" : ""}`}
                 onClick={() => railStore.show(t.id)}
                 onKeyDown={onTabKey}
+                aria-label={t.id === "plays" ? "Plays: your playbooks" : undefined}
+                title={t.id === "plays" ? "Your playbooks" : undefined}
               >
-                {t.label}
+                {t.id === "plays" ? <Icon name="folder" size={15} /> : t.label}
               </button>
             ))}
           </div>
@@ -2103,6 +2124,12 @@ export function Builder() {
                 </RailGroup>
               </>
             )}
+
+            {railTab === "plays" && (
+              <RailGroup id="plays" title="Your playbooks">
+                <PlaybookTree idPrefix="dz-tree" activePlayId={existing?.id ?? null} activeBookId={params.get("book")} onOpen={openFromTree} quietTitle />
+              </RailGroup>
+            )}
           </div>
 
           <div className="dz-rail-foot">
@@ -2237,6 +2264,7 @@ export function Builder() {
                 }}
                 onStatus={setStatus}
                 aids={aids}
+                snapRadius={snapRadius}
                 onPickNode={pickNode}
                 onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
                 nodeActions={nodeActions}
@@ -2333,8 +2361,6 @@ export function Builder() {
             onMeta={(patch) => (setMeta((m) => ({ ...m, ...patch })), setDirty(true))}
             onScene={applyScene}
             onSelection={setSelection}
-            rules={rules}
-            onRules={setRules}
           />
         </aside>
       </div>
@@ -2351,6 +2377,10 @@ export function Builder() {
           }}
         />
       )}
+      {fieldOpen && (
+        <FieldControls rules={rules} onRules={setRules} snapPlayers={aids.snap} onSnapPlayers={() => toggleAid("snap")} onClose={() => setFieldOpen(false)} />
+      )}
+
       {exporting && (
         <ExportDialog
           plays={exportables}

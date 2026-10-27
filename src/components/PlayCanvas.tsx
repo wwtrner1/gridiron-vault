@@ -76,6 +76,8 @@ type Props = {
   onToolDone: (placed?: boolean) => void;
   onStatus?: (text: string) => void;
   aids?: DrawAids;
+  /** How close a click must land to a player for Snap to start or end on him. */
+  snapRadius?: number;
   /** The node actually clicked, even when its whole group gets selected. */
   onPickNode?: (id: string) => void;
   /** Picks a tool from the right-click menu. */
@@ -169,6 +171,7 @@ export function PlayCanvas({
   onToolDone,
   onStatus,
   aids = NO_AIDS,
+  snapRadius = 26,
   onPickTool,
   onPickNode,
   nodeActions,
@@ -272,7 +275,7 @@ export function PlayCanvas({
     (raw: Point, from: Point | null, shift = false): { p: Point; player: string | null } => {
       if (aids.snap) {
         let best: SceneNode | null = null;
-        let bestD = 26;
+        let bestD = snapRadius;
         for (const n of sceneRef.current.nodes)
           if (n.kind === "player" && !n.hidden) {
             const d = dist(raw, n);
@@ -288,7 +291,7 @@ export function PlayCanvas({
       else if (from && aids.polar) p = polarLock(from, p);
       return { p, player: null };
     },
-    [aids.snap, aids.ortho, aids.polar, snapped],
+    [aids.snap, aids.ortho, aids.polar, snapped, snapRadius],
   );
 
   /* ---------------------------------------------------------------- drawing */

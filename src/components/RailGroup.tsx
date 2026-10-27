@@ -2,12 +2,13 @@ import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { RAIL_GROUPS, useToolPrefs, type RailId } from "../lib/toolPrefs";
 
-/** The rail's tabs, in order. Modes and the Style card sit outside them, always in view. */
+/** The rail's tabs, in order. Modes and the Style card sit outside them, always in view. Plays is the playbook tree, shown as a folder icon. */
 export const RAIL_TABS = [
   { id: "draw", label: "Draw" },
   { id: "routes", label: "Routes" },
   { id: "players", label: "Players" },
   { id: "sets", label: "Sets" },
+  { id: "plays", label: "Plays" },
 ] as const;
 export type RailTab = (typeof RAIL_TABS)[number]["id"];
 

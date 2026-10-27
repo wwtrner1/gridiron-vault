@@ -22,6 +22,7 @@ import {
 import { CARD_LOOK, FIELD_OPTIONS, FIT_OPTIONS, FULL_LOOK, WEIGHT_STEPS, type PrintLook } from "../lib/printLook";
 import { cappedDpi, gateSheets, gateSize, gateVector, type Tier } from "../lib/plan";
 import type { StoredPlay } from "../lib/types";
+import { loadRules } from "../lib/rules";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 
 type Exportable = Pick<StoredPlay, "name" | "formation" | "playType" | "description" | "scene">;
@@ -74,7 +75,13 @@ const lookForSize = (w: number, h: number): PrintLook => (w < 5.5 && h < 5.5 ? C
 
 export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props) {
   const [kind, setKind] = useState<Kind>("pdf");
-  const [options, setOptions] = useState<SheetOptions>({ ...defaultSheetOptions, dpi: cappedDpi(tier, 300), custom: { w: 4.75, h: 2.5 } });
+  // Rule lines start on when the coach has them on in Field controls.
+  const [options, setOptions] = useState<SheetOptions>(() => ({
+    ...defaultSheetOptions,
+    dpi: cappedDpi(tier, 300),
+    custom: { w: 4.75, h: 2.5 },
+    look: { ...(defaultSheetOptions.look ?? FULL_LOOK), rules: loadRules().on },
+  }));
   const [order, setOrder] = useState<number[]>(() => plays.map((_, i) => i));
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,7 +97,9 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const ordered = order.map((i) => plays[i]).filter(Boolean);
   const vectorPdf = kind === "pdf" && vectorGate.ok;
 
-  const set = (patch: Partial<SheetOptions>) => setOptions((o) => ({ ...o, ...patch }));
+  // A new look (size or preset) keeps the rule-lines switch unless it sets its own.
+  const set = (patch: Partial<SheetOptions>) =>
+    setOptions((o) => ({ ...o, ...patch, ...(patch.look ? { look: { rules: o.look?.rules, ...patch.look } } : {}) }));
   const setLook = (patch: Partial<PrintLook>) => setOptions((o) => ({ ...o, look: { ...(o.look ?? FULL_LOOK), ...patch } }));
   const pickSize = (id: SizeChoice) => {
     const next = sheetSize({ ...options, size: id });

@@ -179,8 +179,8 @@ export function fileTarget(c: SetupChoice): FileTarget | null {
   return c.book ? { id: c.book } : null;
 }
 
-/** Files a saved play at the end of its playbook (making the playbook if it is new). Returns the playbook's name. */
-export function fileNewPlay(playId: string, target: FileTarget): string | null {
+/** Files a saved play at the end of its playbook (making the playbook if it is new). Returns that playbook. */
+export function fileNewPlay(playId: string, target: FileTarget): { id: string; name: string } | null {
   const books = store.get().playbooks;
   const found =
     "id" in target ? books.find((b) => b.id === target.id) : books.find((b) => b.name.toLowerCase() === target.name.toLowerCase());
@@ -195,5 +195,5 @@ export function fileNewPlay(playId: string, target: FileTarget): string | null {
     playIds: [] as string[],
   };
   store.upsertPlaybook({ ...book, playIds: [...book.playIds.filter((p) => p !== playId), playId] });
-  return book.name;
+  return { id: book.id, name: book.name };
 }

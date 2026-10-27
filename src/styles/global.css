@@ -125,6 +125,9 @@ footer.mkt a:focus-visible,
   display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md);
   font-size: 14px; font-weight: 500; color: var(--rail-text); transition: background .12s, color .12s;
 }
+/* Each link on its own full-width row (short ones like Call Sheet and Practice used to share a line). */
+.rail-group > .tip-anchor { display: flex; }
+.rail-group > .tip-anchor > .rail-link { flex: 1; }
 .rail-link:hover { background: var(--ink-2); color: var(--white); }
 .rail-link.is-active { background: var(--ink-3); color: var(--white); font-weight: 600; }
 .rail-link.is-active svg { color: var(--cyan); }
@@ -1480,3 +1483,51 @@ table.sheet.is-compact .cell-input { min-height: 26px; font-size: 12.5px; }
 .row-tools { display: grid; grid-template-columns: repeat(4, 24px); justify-content: center; align-items: center; padding: 2px 4px; }
 .row-tools .th-sort { display: flex; align-items: center; justify-content: center; width: 24px; height: 22px; }
 table.sheet.is-compact .row-tools { grid-template-columns: repeat(8, 24px); }
+
+/* ---- Playbook tree: side menu and the Designer's Plays tab ---- */
+.pbt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pbt-head { display: flex; align-items: center; gap: 2px; }
+.pbt-head > p { flex: 1; margin: 0 0 0 8px; font-size: 9.5px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--muted-2); }
+.pbt-tool, .pbt-add {
+  display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--rail-text); cursor: pointer;
+}
+.pbt-tool:hover, .pbt-add:hover { background: var(--ink-3); color: var(--white); }
+.pbt-tool .is-up { transform: rotate(180deg); }
+.pbt-find, .pbt-new {
+  display: flex; align-items: center; gap: 6px; margin: 0 2px; padding: 0 8px; height: 30px;
+  border: 1px solid var(--ink-3); border-radius: var(--radius-sm); background: var(--ink-2); color: var(--muted-2);
+}
+.pbt-find:focus-within, .pbt-new:focus-within { border-color: var(--cyan); }
+.pbt-find input, .pbt-new input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--white); font: inherit; font-size: 13px; }
+.pbt-find input::placeholder, .pbt-new input::placeholder { color: var(--muted-2); }
+.pbt-tree, .pbt-tree ul { margin: 0; padding: 0; list-style: none; }
+.pbt-tree ul { position: relative; margin-left: 13px; padding-left: 6px; border-left: 1px solid var(--ink-3); }
+.pbt-tree [role="treeitem"]:focus-visible { outline: none; }
+.pbt-row {
+  display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 4px 3px 6px; border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--rail-text); cursor: pointer; user-select: none;
+}
+.pbt-row:hover { background: var(--ink-2); color: var(--white); }
+.pbt-item:focus-visible > .pbt-row, .pbt-play:focus-visible { box-shadow: inset 0 0 0 2px var(--cyan); }
+.pbt-folder { font-weight: 600; color: var(--white); }
+.pbt-folder.is-drop { background: var(--ink-3); box-shadow: inset 0 0 0 1px var(--cyan); }
+.pbt-caret { flex: none; color: var(--muted-2); transform: rotate(-90deg); transition: transform .12s; }
+.pbt-caret.is-open { transform: none; }
+.pbt-dot { flex: none; width: 9px; height: 9px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+.pbt-unfiled { flex: none; color: var(--muted-2); }
+.pbt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pbt-count { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--cyan); }
+.pbt-add { width: 22px; height: 22px; opacity: 0; }
+.pbt-row:hover .pbt-add, .pbt-item:focus-within > .pbt-row .pbt-add { opacity: 1; }
+.pbt-play { font-weight: 500; }
+.pbt-play.is-active { background: var(--ink-3); color: var(--white); font-weight: 600; box-shadow: inset 2px 0 0 var(--cyan); }
+.pbt-badge {
+  flex: none; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 4px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+}
+.pbt-none { padding: 4px 6px; font-size: 12px; color: var(--muted-2); }
+.pbt-empty { margin: 0 8px; font-size: 12px; line-height: 1.4; color: var(--muted-2); }
+@media (hover: none) { .pbt-add { opacity: 1; } }
+.rail-tree { padding-bottom: 8px; }
+.pbt-spacer { flex: 1; }
