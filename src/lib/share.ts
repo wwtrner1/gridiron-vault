@@ -11,6 +11,8 @@ export type SharedPlay = {
   name: string;
   formation: string;
   playType: string;
+  /** Older snapshots have none; a Front Office clone falls back to 5v5. */
+  personnel?: string;
   description: string;
   tags: string[];
   scene: Scene;
@@ -37,6 +39,7 @@ export function toSnapshot(name: string, plays: StoredPlay[]): Snapshot {
       name: p.name,
       formation: p.formation,
       playType: p.playType,
+      personnel: p.personnel,
       description: p.description,
       tags: p.tags,
       scene: { ...p.scene, film: undefined },
@@ -46,13 +49,16 @@ export function toSnapshot(name: string, plays: StoredPlay[]): Snapshot {
 
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-/** A coach-facing sentence when the snapshot can't be stored, else the cleaned snapshot. */
-export function cleanSnapshot(raw: unknown): Snapshot | string {
+/**
+ * A coach-facing sentence when the snapshot can't be stored, else the cleaned snapshot.
+ * `what` names the thing being shared in those sentences ("A player link", "A Front Office playbook").
+ */
+export function cleanSnapshot(raw: unknown, what = "A player link"): Snapshot | string {
   const r = raw as { name?: unknown; plays?: unknown } | null;
   if (!r || !Array.isArray(r.plays)) return "That playbook couldn't be read. Open it and try the link again.";
   if (!r.plays.length) return "Add at least one play to the playbook before you share it.";
   if (r.plays.length > SHARE_LIMITS.plays)
-    return `A player link holds up to ${SHARE_LIMITS.plays} plays. Split this playbook, or share the plays you install first.`;
+    return `${what} holds up to ${SHARE_LIMITS.plays} plays. Split this playbook, or share the plays you install first.`;
   const plays: SharedPlay[] = [];
   for (const p of r.plays as Record<string, unknown>[]) {
     const scene = p?.scene as Scene | undefined;
@@ -62,13 +68,14 @@ export function cleanSnapshot(raw: unknown): Snapshot | string {
       name: text(p.name, 120) || "Untitled play",
       formation: text(p.formation, 80),
       playType: text(p.playType, 20) || "pass",
+      personnel: text(p.personnel, 20) || undefined,
       description: text(p.description, 600),
       tags: Array.isArray(p.tags) ? (p.tags as unknown[]).map((t) => text(t, 30)).filter(Boolean).slice(0, 12) : [],
       scene,
     });
   }
   const snap = { name: text(r.name, 120) || "Playbook", plays };
-  if (JSON.stringify(snap).length > SHARE_LIMITS.chars) return "That playbook is too large for one link. Share fewer plays, or split it into two playbooks.";
+  if (JSON.stringify(snap).length > SHARE_LIMITS.chars) return "That playbook is too large to share in one piece. Share fewer plays, or split it into two playbooks.";
   return snap;
 }
 

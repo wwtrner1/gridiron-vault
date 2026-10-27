@@ -295,3 +295,68 @@ export const trash = pgTable(
   },
   (t) => [index("trash_owner_idx").on(t.ownerId)],
 );
+
+/**
+ * Front Office: a league or program director's organisation. The director
+ * (`ownerId`) invites coaches by email and hands them read-only playbooks.
+ */
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    ownerName: text("owner_name").notNull().default(""),
+    name: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("organizations_owner_idx").on(t.ownerId)],
+);
+
+/**
+ * A coach invited into an organisation. `email` is what the director typed
+ * (lower case); `userId` is set when the coach signed in with that address and
+ * accepted. Only accepted members can open the organisation's playbooks.
+ */
+export const orgMembers = pgTable(
+  "org_members",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text().notNull(),
+    userId: text("user_id"),
+    name: text().notNull().default(""),
+    status: text().notNull().default("invited"), // "invited" | "active"
+    invitedAt: timestamp("invited_at").defaultNow(),
+    joinedAt: timestamp("joined_at"),
+  },
+  (t) => [
+    uniqueIndex("org_members_org_email_idx").on(t.orgId, t.email),
+    index("org_members_email_idx").on(t.email),
+    index("org_members_user_idx").on(t.userId),
+  ],
+);
+
+/**
+ * A master playbook the director shared with the organisation: a frozen copy
+ * (same shape as a player link's snapshot), so members can read and clone it
+ * but nothing they do changes the director's plays. `source` is the
+ * director's own playbook id, so sharing it again refreshes the same entry.
+ */
+export const orgShares = pgTable(
+  "org_shares",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    source: text().notNull().default(""),
+    name: text().notNull(),
+    note: text().notNull().default(""),
+    snapshot: jsonb().$type<unknown>().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("org_shares_org_idx").on(t.orgId)],
+);

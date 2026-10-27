@@ -4,6 +4,7 @@ import type { AssistantRead, AssistantRequest } from "./assistant";
 import type { PhotoRead, PhotoRequest } from "./photo";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
+import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
 
 export type ApiPlay = {
   id: string;
@@ -111,6 +112,21 @@ export const api = {
     request<{ share: { name: string; plays: Snapshot["plays"]; updatedAt: string } }>(`shares/${token}`),
   sendScore: (token: string, body: { name: string; letter: string; score: number; total: number }) =>
     request<{ ok: true }>(`shares/${token}/results`, { method: "POST", body: JSON.stringify(body) }),
+
+  /** Front Office: the coach's own league or program, the ones they joined, and invites waiting for them. */
+  frontOffice: () => request<FrontOfficeState>("orgs"),
+  createOrg: (name: string) => request<FrontOfficeState>("orgs", { method: "POST", body: JSON.stringify({ name }) }),
+  renameOrg: (id: string, name: string) => request<FrontOfficeState>(`orgs/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+  deleteOrg: (id: string) => request<FrontOfficeState>(`orgs/${id}`, { method: "DELETE" }),
+  inviteCoaches: (id: string, emails: string[]) =>
+    request<FrontOfficeState & { invited: number }>(`orgs/${id}/members`, { method: "POST", body: JSON.stringify({ emails }) }),
+  shareToOrg: (id: string, body: { source: string; note: string; snapshot: Snapshot }) =>
+    request<FrontOfficeState>(`orgs/${id}/shares`, { method: "POST", body: JSON.stringify(body) }),
+  acceptInvite: (memberId: string) => request<FrontOfficeState>(`org-members/${memberId}/accept`, { method: "POST" }),
+  /** Decline an invite, leave a Front Office, or (director) remove a coach. */
+  removeMember: (memberId: string) => request<FrontOfficeState>(`org-members/${memberId}`, { method: "DELETE" }),
+  openOrgShare: (shareId: string) => request<{ share: OrgShareDetail }>(`org-shares/${shareId}`),
+  unshareFromOrg: (shareId: string) => request<FrontOfficeState>(`org-shares/${shareId}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
 

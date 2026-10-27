@@ -36,6 +36,12 @@ const PLAYBOOK_NAV: NavItem[] = [
     hint: "Group plays into an install order — base, red zone, third down.",
   },
   {
+    to: "/front-office",
+    icon: "link",
+    label: "Front Office",
+    hint: "League and program playbooks: share read-only masters with your coaches, or clone the ones shared with you.",
+  },
+  {
     to: "/assignments",
     icon: "user",
     label: "Assignments",
