@@ -27,6 +27,8 @@ import { Practice } from "./pages/Practice";
 import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
 import { Admin } from "./pages/Admin";
+import { useFreePrint } from "./lib/guard";
+import { useTier } from "./lib/tier";
 import { notePage } from "./lib/lastPage";
 import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
@@ -109,6 +111,7 @@ function RouteChrome() {
 }
 
 export function App() {
+  useFreePrint(useTier().watermark);
   return (
     <ToastProvider>
       <GriddyProvider>
