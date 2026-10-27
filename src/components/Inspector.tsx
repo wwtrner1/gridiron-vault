@@ -7,7 +7,6 @@ import { PlayerPresets } from "./PlayerPresets";
 import { FIELD_VIEWS } from "../lib/field";
 import { TAG_MAX } from "../lib/render";
 import { explainPlay } from "../lib/explain";
-import { clampRule, RULE_LIMITS, RULE_PRESETS, type RuleLines } from "../lib/rules";
 import { knownPersonnel, personnelGroups } from "../lib/personnel";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ, sendToBack } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
@@ -20,14 +19,12 @@ type Props = {
   onMeta: (patch: Partial<PlayMeta>) => void;
   onScene: (next: Scene, label?: string) => void;
   onSelection: (ids: string[]) => void;
-  rules: RuleLines;
-  onRules: (next: RuleLines) => void;
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
 const CUSTOM = "__custom";
 
-export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules }: Props) {
+export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection }: Props) {
   const [tagDraft, setTagDraft] = useState("");
   // Personnel is picked from the list; "Custom…" (or a saved value the list doesn't have) opens a text box.
   const [customPersonnel, setCustomPersonnel] = useState(false);
@@ -231,53 +228,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             onChange={(e) => onScene({ ...scene, losY: Number(e.target.value) })}
           />
         </label>
-        <div className="field" style={{ marginTop: 12 }}>
-          <span>League rule lines</span>
-          <label className="switch">
-            <input type="checkbox" checked={rules.on} onChange={(e) => onRules({ ...rules, on: e.target.checked })} />
-            Show the rush line and no-run zone
-          </label>
-          <div className="chip-row" style={{ marginTop: 6 }}>
-            {RULE_PRESETS.map((r) => (
-              <Tooltip key={r.id} title={r.name} hint={r.note} side="top">
-                <button
-                  type="button"
-                  className={`chip${rules.rush === r.rush && rules.noRun === r.noRun ? " is-on" : ""}`}
-                  onClick={() => onRules({ on: true, rush: r.rush, noRun: r.noRun })}
-                >
-                  {r.name}
-                </button>
-              </Tooltip>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-            <label className="field" style={{ flex: 1, marginBottom: 0 }}>
-              <span>Rush line (yds)</span>
-              <input
-                className="input"
-                type="number"
-                inputMode="numeric"
-                min={RULE_LIMITS.rush.min}
-                max={RULE_LIMITS.rush.max}
-                value={rules.rush}
-                onChange={(e) => onRules({ ...rules, rush: clampRule(Number(e.target.value), "rush") })}
-              />
-            </label>
-            <label className="field" style={{ flex: 1, marginBottom: 0 }}>
-              <span>No-run zone (yds)</span>
-              <input
-                className="input"
-                type="number"
-                inputMode="numeric"
-                min={RULE_LIMITS.noRun.min}
-                max={RULE_LIMITS.noRun.max}
-                value={rules.noRun}
-                onChange={(e) => onRules({ ...rules, noRun: clampRule(Number(e.target.value), "noRun") })}
-              />
-            </label>
-          </div>
-          <p className="hint">Leagues differ, so set your own distances. The no-run zone shows on the Red zone and Flag 30×70 views, counted back from the goal line.</p>
-        </div>
+        <p className="hint">Hash marks, yard-line contrast, snap to grid and the flag rush line live in Field controls above the field.</p>
         {scene.pivot && (
           <button type="button" className="btn btn-ghost btn-sm btn-block" onClick={() => onScene({ ...scene, pivot: null }, "Clear pivot")}>
             <Icon name="pivot" size={14} /> Clear pivot point
