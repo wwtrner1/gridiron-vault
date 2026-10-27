@@ -421,3 +421,35 @@ export const depthCharts = pgTable(
   },
   (t) => [uniqueIndex("depth_charts_team_unit_idx").on(t.teamId, t.unit)],
 );
+
+/**
+ * Team hub calendar: games, practices and meetings. `teamId` null is an event
+ * for the whole organisation (only the director adds those). `sheetId` is a
+ * Call Sheet id from the coach's own browser, so Game Day opens from a game.
+ */
+export const hubEvents = pgTable(
+  "hub_events",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    kind: text().notNull().default("other"),
+    title: text().notNull(),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at"),
+    location: text().notNull().default(""),
+    opponent: text().notNull().default(""),
+    homeAway: text("home_away").notNull().default(""),
+    notes: text().notNull().default(""),
+    sheetId: text("sheet_id").notNull().default(""),
+    scoreUs: integer("score_us"),
+    scoreThem: integer("score_them"),
+    canceled: boolean().notNull().default(false),
+    createdBy: text("created_by").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("hub_events_org_idx").on(t.orgId, t.startsAt)],
+);

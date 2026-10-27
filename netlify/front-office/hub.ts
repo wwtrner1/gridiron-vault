@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { depthCharts, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
-import { cleanDepth, cleanPlayer, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
+import { depthCharts, hubEvents, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
+import { cleanDepth, cleanEvent, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
 
 /**
  * Team hub routes, behind the sign-in and phone checks. The director of an
@@ -101,6 +101,46 @@ async function depth(teamId: string): Promise<DepthChart[]> {
   return rows.map((r) => ({ unit: r.unit as DepthUnit, slots: r.slots as DepthChart["slots"], updatedAt: iso(r.updatedAt) }));
 }
 
+const eventRow = (e: EventDraft, shift: number) => ({
+  ...e,
+  startsAt: new Date(new Date(e.startsAt).getTime() + shift),
+  endsAt: e.endsAt ? new Date(new Date(e.endsAt).getTime() + shift) : null,
+});
+
+/** Null when this coach may add to or change that calendar (a team they staff, or the whole Front Office for the director). */
+async function mayWrite(me: Me, access: Access, teamId: string | null): Promise<Response | null> {
+  if (teamId === null) return access.director ? null : fail("Only the director adds events for the whole Front Office.", 403);
+  const found = await teamFor(me, teamId);
+  return found && found.team.orgId === access.orgId ? null : fail(NO_TEAM, 404);
+}
+
+/** Every event this coach can see: the whole Front Office's, and their teams'. */
+async function calendar(me: Me, access: Access): Promise<HubEvent[]> {
+  const visible = (await db.select().from(teams).where(eq(teams.orgId, access.orgId))).filter((t) => onStaff(access, t)).map((t) => t.id);
+  const rows = await db
+    .select()
+    .from(hubEvents)
+    .where(and(eq(hubEvents.orgId, access.orgId), visible.length ? or(isNull(hubEvents.teamId), inArray(hubEvents.teamId, visible)) : isNull(hubEvents.teamId)))
+    .orderBy(asc(hubEvents.startsAt))
+    .limit(SCHEDULE_LIMITS.events);
+  return rows.map((r) => ({
+    id: r.id,
+    teamId: r.teamId,
+    kind: r.kind as HubEvent["kind"],
+    title: r.title,
+    startsAt: r.startsAt.toISOString(),
+    endsAt: r.endsAt ? r.endsAt.toISOString() : null,
+    location: r.location,
+    opponent: r.opponent,
+    homeAway: r.homeAway as HubEvent["homeAway"],
+    notes: r.notes,
+    sheetId: r.sheetId,
+    scoreUs: r.scoreUs,
+    scoreThem: r.scoreThem,
+    canceled: r.canceled,
+  }));
+}
+
 /** Member ids the director picked that really are coaches in this organisation. */
 async function realCoaches(orgId: string, ids: string[]) {
   if (!ids.length) return [];
@@ -109,7 +149,7 @@ async function realCoaches(orgId: string, ids: string[]) {
 }
 
 /**
- * `/api/hub/:orgId`, `/api/teams[/:id[/players]]` and `/api/team-players/:id`.
+ * `/api/hub/:orgId[/events]`, `/api/hub-events/:id`, `/api/teams[/:id[/players]]` and `/api/team-players/:id`.
  */
 export async function hubRoute(me: Me, req: Request, resource: string, id?: string, action?: string): Promise<Response> {
   const method = req.method;
@@ -119,6 +159,50 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
     const access = await accessTo(me, id);
     if (!access) return fail(NO_ORG, 404);
     return json(await hubState(access));
+  }
+
+  if (resource === "hub" && action === "events") {
+    const access = await accessTo(me, id);
+    if (!access) return fail(NO_ORG, 404);
+    if (method === "GET") return json({ events: await calendar(me, access) });
+    if (method === "POST") {
+      const clean = cleanEvent(body.event);
+      if (typeof clean === "string") return fail(clean);
+      const denied = await mayWrite(me, access, clean.teamId);
+      if (denied) return denied;
+      const weeks = Math.min(Math.max(Math.floor(Number(body.repeatWeeks) || 0), 0), SCHEDULE_LIMITS.repeat);
+      const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(hubEvents).where(eq(hubEvents.orgId, access.orgId));
+      if ((count?.n ?? 0) + weeks + 1 > SCHEDULE_LIMITS.events) return fail(`A Front Office calendar holds ${SCHEDULE_LIMITS.events} events. Remove old ones first.`, 403);
+      const week = 7 * 86_400_000;
+      const rows = Array.from({ length: weeks + 1 }, (_, i) => ({
+        ...eventRow(clean, i * week),
+        orgId: access.orgId,
+        createdBy: me.id,
+      }));
+      await db.insert(hubEvents).values(rows);
+      return json({ events: await calendar(me, access), added: rows.length }, 201);
+    }
+  }
+
+  if (resource === "hub-events" && id && UUID.test(id)) {
+    const [row] = await db.select().from(hubEvents).where(eq(hubEvents.id, id));
+    const access = row ? await accessTo(me, row.orgId) : null;
+    if (!row || !access) return fail("That event isn't on a calendar you can see.", 404);
+    const denied = await mayWrite(me, access, row.teamId);
+    if (denied) return denied;
+    if (method === "PUT") {
+      const clean = cleanEvent(body.event);
+      if (typeof clean === "string") return fail(clean);
+      // Moving it to another team (or the whole Front Office) needs rights there too.
+      const deniedThere = await mayWrite(me, access, clean.teamId);
+      if (deniedThere) return deniedThere;
+      await db.update(hubEvents).set({ ...eventRow(clean, 0), updatedAt: new Date() }).where(eq(hubEvents.id, id));
+      return json({ events: await calendar(me, access) });
+    }
+    if (method === "DELETE") {
+      await db.delete(hubEvents).where(eq(hubEvents.id, id));
+      return json({ events: await calendar(me, access) });
+    }
   }
 
   if (resource === "teams") {

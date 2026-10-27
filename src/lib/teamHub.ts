@@ -345,3 +345,105 @@ export function cleanDepth(raw: unknown, players: Set<string>): DepthSlot[] {
     };
   });
 }
+
+/* ------------------------------------------------------------- schedule --- */
+
+export const EVENT_KINDS = ["game", "practice", "meeting", "other"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+export const KIND_LABEL: Record<EventKind, string> = { game: "Game", practice: "Practice", meeting: "Meeting", other: "Event" };
+export type HomeAway = "home" | "away" | "neutral" | "";
+
+/** Something on the calendar. `teamId` null means the whole Front Office (league day, coaches' meeting). */
+export type HubEvent = {
+  id: string;
+  teamId: string | null;
+  kind: EventKind;
+  title: string;
+  /** ISO instants. */
+  startsAt: string;
+  endsAt: string | null;
+  location: string;
+  opponent: string;
+  homeAway: HomeAway;
+  notes: string;
+  /** A Call Sheet's id in the coach's own browser, for Game Day. */
+  sheetId: string;
+  scoreUs: number | null;
+  scoreThem: number | null;
+  canceled: boolean;
+};
+
+export type EventDraft = Omit<HubEvent, "id">;
+
+export const SCHEDULE_LIMITS = { events: 400, repeat: 26, title: 80, notes: 1000 };
+
+const score = (v: unknown) => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 0 && n < 1000 ? n : null;
+};
+
+/** An event as sent, held to the limits; a string says what's wrong. */
+export function cleanEvent(raw: unknown): EventDraft | string {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const kind = (EVENT_KINDS as readonly string[]).includes(String(r.kind)) ? (r.kind as EventKind) : "other";
+  const start = new Date(String(r.startsAt ?? ""));
+  if (Number.isNaN(start.getTime())) return "Pick a date and start time.";
+  const end = r.endsAt ? new Date(String(r.endsAt)) : null;
+  const opponent = clip(r.opponent, HUB_LIMITS.name);
+  const title = clip(r.title, SCHEDULE_LIMITS.title) || (kind === "game" && opponent ? `vs ${opponent}` : KIND_LABEL[kind]);
+  return {
+    teamId: typeof r.teamId === "string" && r.teamId ? r.teamId : null,
+    kind,
+    title,
+    startsAt: start.toISOString(),
+    endsAt: end && !Number.isNaN(end.getTime()) && end > start ? end.toISOString() : null,
+    location: clip(r.location, HUB_LIMITS.text),
+    opponent,
+    homeAway: ["home", "away", "neutral"].includes(String(r.homeAway)) ? (r.homeAway as HomeAway) : "",
+    notes: clip(r.notes, SCHEDULE_LIMITS.notes),
+    sheetId: clip(r.sheetId, 80),
+    scoreUs: kind === "game" ? score(r.scoreUs) : null,
+    scoreThem: kind === "game" ? score(r.scoreThem) : null,
+    canceled: flag(r.canceled),
+  };
+}
+
+/** Wins, losses and ties from the games with both scores in. */
+export function record(events: HubEvent[]) {
+  const r = { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
+  for (const e of events) {
+    if (e.kind !== "game" || e.canceled || e.scoreUs === null || e.scoreThem === null) continue;
+    r.pf += e.scoreUs;
+    r.pa += e.scoreThem;
+    if (e.scoreUs > e.scoreThem) r.w++;
+    else if (e.scoreUs < e.scoreThem) r.l++;
+    else r.t++;
+  }
+  return r;
+}
+
+const icsText = (s: string) => s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1");
+const icsTime = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+/** The schedule as an .ics calendar file, for Google Calendar, Outlook or a phone. */
+export function scheduleIcs(name: string, events: HubEvent[]): string {
+  const now = icsTime(new Date().toISOString());
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//GridIronVault//Team hub//EN", "CALSCALE:GREGORIAN", `X-WR-CALNAME:${icsText(name)}`];
+  for (const e of events) {
+    const end = e.endsAt ?? new Date(new Date(e.startsAt).getTime() + (e.kind === "game" ? 2 : 1.5) * 3_600_000).toISOString();
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${e.id}@gridiron-vault.com`,
+      `DTSTAMP:${now}`,
+      `DTSTART:${icsTime(e.startsAt)}`,
+      `DTEND:${icsTime(end)}`,
+      `SUMMARY:${icsText((e.canceled ? "CANCELED: " : "") + e.title)}`,
+    );
+    if (e.location) lines.push(`LOCATION:${icsText(e.location)}`);
+    if (e.notes) lines.push(`DESCRIPTION:${icsText(e.notes)}`);
+    if (e.canceled) lines.push("STATUS:CANCELLED");
+    lines.push("END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
