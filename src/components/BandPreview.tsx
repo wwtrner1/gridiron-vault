@@ -3,9 +3,9 @@ import { PrintDiagram } from "../lib/export";
 import {
   bandChrome,
   cardLetter,
+  cellType,
+  diagramBox,
   fillBandText,
-  NUMBER_SIZES,
-  stripHeight,
   type BandEntry,
   type BandOptions,
 } from "../lib/wristbands";
@@ -36,12 +36,10 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
   const { w, h } = o.card;
   const { headH, footH } = bandChrome(o);
-  const cellW = w / o.grid.cols;
-  const cellH = (h - headH - footH) / o.grid.rows;
-  const strip = stripHeight(o.numberSize);
+  const { cellW, cellH, strip, numPt, bigPt, namePt } = cellType(o);
+  const art = diagramBox(o);
   // Type sizes in container units, so text keeps the printed proportion at any preview width.
   const cq = (pt: number) => `${((pt / 72) / w) * 100}cqw`;
-  const numPt = NUMBER_SIZES[o.numberSize];
 
   function drop(to: number) {
     if (dragFrom !== null && dragFrom !== to) onMove(dragFrom, Math.min(to, entries.length - 1));
@@ -125,16 +123,16 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                         <PrintDiagram
                           scene={e.scene!}
                           look={o.look}
-                          widthIn={cellW - 0.06}
-                          heightIn={cellH - strip - 0.045}
+                          widthIn={art.w}
+                          heightIn={art.h}
                           label={e.name}
                         />
                       </div>
                     </>
                   ) : (
                     <div className="wb-cell-num">
-                      <b style={{ fontSize: cq(Math.min(40, numPt * 2.4)) }}>{e.number}</b>
-                      {o.shows.name && <span style={{ fontSize: cq(Math.max(6, numPt * 0.62)) }}>{e.name}</span>}
+                      <b style={{ fontSize: cq(bigPt) }}>{e.number}</b>
+                      {o.shows.name && <span style={{ fontSize: cq(namePt) }}>{e.name}</span>}
                     </div>
                   )}
                   <span className="wb-move">
