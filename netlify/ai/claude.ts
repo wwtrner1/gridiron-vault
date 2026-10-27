@@ -28,8 +28,10 @@ const MISREAD = "Griddy couldn't read that just now. Try again, or draw it by ha
 
 let shared: Anthropic | null = null;
 function client(): Anthropic {
-  if (!process.env.ANTHROPIC_API_KEY) throw new AiError("Griddy isn't switched on for this site yet.", 503);
-  shared ??= new Anthropic();
+  // Trimmed: a space or line break pasted along with the key makes Anthropic answer "invalid x-api-key".
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) throw new AiError("Griddy isn't switched on for this site yet.", 503);
+  shared ??= new Anthropic({ apiKey });
   return shared;
 }
 
@@ -41,7 +43,7 @@ function plain(error: unknown): never {
     throw new AiError(BUSY, 503);
   }
   if (error instanceof Anthropic.APIError) {
-    console.error("Claude API", error.status, error.message.slice(0, 500));
+    console.error("Claude API", error.status, error.message.slice(0, 500), `key ends …${process.env.ANTHROPIC_API_KEY?.trim().slice(-4) ?? "none"}`);
     if (error.status === 529) throw new AiError(BUSY, 503);
     // A rejected or expired key is ours to fix, not the coach's to retry: say so instead of "couldn't read that".
     if (error.status === 401 || error.status === 403) throw new AiError("Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later.", 503);
