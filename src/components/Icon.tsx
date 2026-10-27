@@ -17,6 +17,7 @@ const PATHS: Record<string, string> = {
   polygon: "M12 3l9 6.5-3.4 10.5H6.4L3 9.5z",
   zone: "M5 8c4-5 10-5 14 0s-1 12-7 12S1 13 5 8z",
   rect: "M3 5h18v14H3z",
+  dock: "M20 20L8 8M8 8h7M8 8v7M3 21V3h18",
   ellipse: "M12 5c5 0 9 3.1 9 7s-4 7-9 7-9-3.1-9-7 4-7 9-7z",
   text: "M5 5h14M12 5v14M9 19h6",
   group: "M3 7h6v6H3zM15 11h6v6h-6zM9 10h6M12 10v4",
