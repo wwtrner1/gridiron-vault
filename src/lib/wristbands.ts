@@ -184,8 +184,30 @@ export function bandChrome(opts: Pick<BandOptions, "header" | "footer">) {
 /** Fill of the "band" number strip, also used by the preview. */
 export const BAND_GRAY: [number, number, number] = [217, 222, 227];
 
-/** Number strip at the top of each cell, in inches. */
-export const stripHeight = (size: NumberSize) => (NUMBER_SIZES[size] * 1.3) / 72;
+/** Number strip at the top of each cell, in inches, for a number printed at `pt`. */
+export const stripHeight = (pt: number) => (pt * 1.3) / 72;
+
+/** The number strip may take at most this share of a box's height; the diagram keeps the rest. */
+const STRIP_SHARE = 0.22;
+/** Below this the number stops reading at arm's length, so it holds here and the diagram gives way. */
+const MIN_NUMBER_PT = 6;
+
+/**
+ * Type sizes for one box, scaled to the box like Football Play Card does: the
+ * coach's number size is the most it prints at, and a small box (a dense grid
+ * or a youth window) takes it down so the strip never crowds out the play.
+ * Shared by the cards, the preview and the fit checks so they always agree.
+ */
+export function cellType(o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize">) {
+  const { headH, footH } = bandChrome(o);
+  const cellW = o.card.w / o.grid.cols;
+  const cellH = (o.card.h - headH - footH) / o.grid.rows;
+  const chosen = NUMBER_SIZES[o.numberSize];
+  const numPt = Math.max(MIN_NUMBER_PT, Math.min(chosen, (cellH * 72 * STRIP_SHARE) / 1.3));
+  // A number-only box: as big as the box allows, up to 40 pt, leaving room for the name under it.
+  const bigPt = Math.max(numPt, Math.min(40, chosen * 2.4, cellH * 72 * 0.5, cellW * 72 * 0.45));
+  return { cellW, cellH, numPt, strip: stripHeight(numPt), bigPt, namePt: Math.max(6, Math.min(numPt * 0.62, cellH * 72 * 0.14)) };
+}
 
 /** Card letter for the nth card: A … Z, then AA, AB … */
 export function cardLetter(n: number): string {
@@ -219,10 +241,7 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
     doc.line(x, y + CARD_H - footH, x + CARD_W, y + CARD_H - footH);
   }
 
-  const cellW = CARD_W / cols;
-  const cellH = (CARD_H - headH - footH) / rows;
-  const numPt = NUMBER_SIZES[o.numberSize];
-  const strip = stripHeight(o.numberSize);
+  const { cellW, cellH, numPt, strip, bigPt, namePt } = cellType(o);
   for (let i = 0; i < perCard; i++) {
     const cx = x + (i % cols) * cellW;
     const cy = y + headH + Math.floor(i / cols) * cellH;
@@ -234,10 +253,10 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(11, 21, 36);
     if (o.shows.numberOnly || !e.scene || !o.shows.diagram) {
-      doc.setFontSize(Math.min(40, numPt * 2.4));
+      doc.setFontSize(bigPt);
       doc.text(e.number, cx + cellW / 2, cy + cellH / 2 + 0.05, { align: "center", baseline: "middle" });
       if (o.shows.name) {
-        doc.setFontSize(Math.max(6, numPt * 0.62));
+        doc.setFontSize(namePt);
         doc.text(doc.splitTextToSize(e.name.toUpperCase(), cellW - 0.08).slice(0, 2), cx + cellW / 2, cy + cellH - 0.12, { align: "center" });
       }
       continue;
@@ -284,10 +303,8 @@ const DIAGRAM_PAD = 0.03;
 
 /** The diagram's printed size inside one box, in inches. Shared by the cards and the fit check. */
 export function diagramBox(o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize">) {
-  const { headH, footH } = bandChrome(o);
-  const cellW = o.card.w / o.grid.cols;
-  const cellH = (o.card.h - headH - footH) / o.grid.rows;
-  return { w: cellW - DIAGRAM_PAD * 2, h: cellH - stripHeight(o.numberSize) - DIAGRAM_PAD * 1.5 };
+  const { cellW, cellH, strip } = cellType(o);
+  return { w: cellW - DIAGRAM_PAD * 2, h: cellH - strip - DIAGRAM_PAD * 1.5 };
 }
 
 /** A diagram reads on a wristband from about this tall and this wide, in inches. */
