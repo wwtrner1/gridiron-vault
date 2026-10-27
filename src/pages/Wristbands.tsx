@@ -20,6 +20,7 @@ import {
   BAND_SIZES,
   tightBoxes,
   boxCheck,
+  cellType,
   callSheetRows,
   cardsPerPage,
   COACH_SHEETS,
@@ -251,6 +252,7 @@ export function Wristbands() {
   };
   const tight = tightBoxes(entries, options);
   const boxes = boxCheck(options);
+  const type = cellType(options);
   const printed = cards * (prefs.copies.qb + prefs.copies.center);
   const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
@@ -608,6 +610,11 @@ export function Wristbands() {
                   ))}
                 </select>
               </label>
+              {type.numPt < NUMBER_SIZES[prefs.numberSize] && (
+                <p className="wb-note">
+                  Numbers print at {Math.round(type.numPt * 10) / 10} pt in these boxes, so the strip never crowds out the play.
+                </p>
+              )}
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-text">
