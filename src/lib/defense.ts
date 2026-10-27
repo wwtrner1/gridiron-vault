@@ -232,3 +232,49 @@ export function defenseNodes(layout: DefenseLayout, ball: Point, show: boolean, 
   }
   return nodes.map((n, i) => ({ ...n, groupId: group, z: z + i }));
 }
+
+/** 5-on-5 flag looks for the Opponent front: one rusher and four in coverage. */
+export const FLAG_LOOKS = ["1 rush · Cover 2", "1 rush · Cover 3", "1 rush · Man"] as const;
+export type FlagLook = (typeof FLAG_LOOKS)[number];
+
+/**
+ * A 5-on-5 flag defense around the ball. The rusher lines up `rushUnits` off
+ * the ball (the league's rush line), so the look is legal as drawn; man
+ * defenders take the receivers outside-in.
+ */
+export function layoutFlagDefense(look: FlagLook, rushUnits: number, receivers: { dx: number; dy: number }[] = []): DefenseLayout {
+  const rush = Math.max(30, rushUnits);
+  const defenders: Defender[] = [{ dx: 0, dy: -rush, label: "R", job: "rush" }];
+  const zones: Zone[] = [];
+  const lines: Line[] = [{ from: 0, to: { dx: 0, dy: 26 }, kind: "rush" }];
+  const add = (dx: number, dy: number, label: string, zone?: Zone) => {
+    defenders.push({ dx, dy, label, job: zone ? "zone" : "man" });
+    if (zone) {
+      zones.push(zone);
+      lines.push({ from: defenders.length - 1, to: { dx: zone.dx, dy: zone.dy }, kind: "drop" });
+    }
+  };
+  if (look === "1 rush · Cover 2") {
+    add(-300, -60, "C", z(-320, -110, 110, 36));
+    add(300, -60, "C", z(320, -110, 110, 36));
+    add(-170, -200, "S", z(-200, -260, 200, 52));
+    add(170, -200, "S", z(200, -260, 200, 52));
+  } else if (look === "1 rush · Cover 3") {
+    add(-300, -90, "C", z(-320, -250, 130, 48));
+    add(300, -90, "C", z(320, -250, 130, 48));
+    add(0, -200, "S", z(0, -270, 130, 48));
+    add(0, -110 - Math.min(40, rush / 4), "M", z(0, -130, 150, 38));
+  } else {
+    const spots: [number, number, string][] = [[-300, -40, "C"], [300, -40, "C"], [-120, -110, "S"], [120, -110, "S"]];
+    spots.forEach(([dx, dy, label]) => add(dx, dy, label));
+    const order = [...receivers].sort((a, b) => Math.abs(b.dx) - Math.abs(a.dx));
+    const left = new Set([1, 2, 3, 4]);
+    for (const r of order) {
+      const i = nearest(defenders, r.dx, (j) => left.has(j));
+      if (i < 0) break;
+      left.delete(i);
+      lines.push({ from: i, to: r, kind: "man" });
+    }
+  }
+  return { defenders, zones, lines };
+}
