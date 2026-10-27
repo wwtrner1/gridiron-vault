@@ -40,7 +40,7 @@ export function DevicesCard() {
       <p>
         Codes go to <b>{sec.phone}</b>. {sec.devices} of 5 devices confirmed.
       </p>
-      <p className="hint">One account, one coach: a new device needs a code to your phone, and a fourth signs out the one used longest ago.</p>
+      <p className="hint">One account, one coach: a new device needs a code to your phone, and a sixth signs out the one used longest ago.</p>
       <button type="button" className="btn btn-ghost btn-sm" onClick={forget} disabled={busy || sec.devices < 2}>
         Sign out other devices
       </button>
