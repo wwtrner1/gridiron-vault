@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
@@ -13,6 +13,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
+import { PlaySetup } from "../components/PlaySetup";
 import { PlaybookTree } from "../components/PlaybookTree";
 import { RAIL_TABS, RailGroup, railStore, useRailTab, type RailTab } from "../components/RailGroup";
 import { StyleCard } from "../components/StyleCard";
@@ -75,6 +76,7 @@ import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
+import { fileNewPlay, fileTarget, lastChoice, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
 import "../styles/designer.css";
 
 const blankMeta: PlayMeta = {
@@ -162,12 +164,26 @@ export function Builder() {
   const plays = useStore((s) => s.plays);
   const playbooks = useStore((s) => s.playbooks);
   const [params] = useSearchParams();
+  const location = useLocation();
   const offense = usePositionTokens();
 
   const existing = useMemo(() => plays.find((p) => p.id === id) ?? null, [plays, id]);
 
   const [scene, setScene] = useState<Scene>(() => existing?.scene ?? emptyScene());
   const [meta, setMeta] = useState<PlayMeta>(() => existing ?? blankMeta);
+  /*
+   * New Play setup: a fresh /build opens with name, personnel, field and
+   * playbook, unless the coach turned it off or came here to have Griddy draw.
+   */
+  const askSetup = () => {
+    const state = location.state as { skipSetup?: boolean; setup?: boolean } | null;
+    const ask = state?.setup || (!state?.skipSetup && setupWanted());
+    return ask ? lastChoice(params.get("book"), playbooks) : null;
+  };
+  const [setup, setSetup] = useState<SetupChoice | null>(() => (id ? null : askSetup()));
+  const [setupOn, setSetupOn] = useState(setupWanted);
+  /** The playbook a new play goes in on its first save, picked in the setup. */
+  const fileIn = useRef<FileTarget | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
   const [tool, setTool] = useState<ToolId>("select");
   /**
@@ -416,6 +432,10 @@ export function Builder() {
     setScene(existing?.scene ?? emptyScene());
     setMeta(existing ?? blankMeta);
     setSelection([]);
+    if (!id) {
+      fileIn.current = null;
+      setSetup(askSetup());
+    } else setSetup(null);
     past.current = [];
     future.current = [];
     pastLabels.current = [];
@@ -497,7 +517,20 @@ export function Builder() {
     picked();
   };
 
+  const startSetup = (c: SetupChoice) => {
+    rememberChoice(c);
+    setSetupOn(setupWanted());
+    const start = setupScene(c, offense);
+    applyScene(start.scene, "New play setup");
+    setSelection([]);
+    setMeta({ ...blankMeta, ...start.meta });
+    fileIn.current = fileTarget(c);
+    setStatus(start.status);
+    setSetup(null);
+  };
+
   const drawAssistant = (nodes: SceneNode[], read: AssistantRead) => {
+    setSetup(null);
     const group = uid("grp");
     const grouped = nodes.map((n) => ({ ...n, groupId: group }));
     applyScene({ ...scene, nodes: [...scene.nodes, ...grouped] }, `Griddy: ${read.name}`);
@@ -1016,14 +1049,15 @@ export function Builder() {
     return () => window.clearTimeout(t);
   }, [draftPoints]);
 
-  // First visit: the walkthrough opens by itself once; More and the Tools guide bring it back.
+  // First visit: the walkthrough opens by itself once, after the New play setup; More and the Tools guide bring it back.
   const [tourOpen, setTourOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const setupShowing = !!setup;
   useEffect(() => {
-    if (tourSeen()) return;
+    if (tourSeen() || setupShowing) return;
     const t = window.setTimeout(() => setTourOpen(true), 700);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [setupShowing]);
   const prefs = useToolPrefs();
   const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
   const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;
@@ -1101,6 +1135,8 @@ export function Builder() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      // A dialog (New play setup, export…) keeps its keys to itself.
+      if (el?.closest?.(".modal-back")) return;
       const meta_ = e.metaKey || e.ctrlKey;
 
       if (meta_ && e.key.toLowerCase() === "z") {
@@ -1237,10 +1273,11 @@ export function Builder() {
       remote: false,
     };
     store.upsertPlay(record);
-    // A new play started from a playbook (the tree's +, ?book=) is filed in it straight away.
-    const fileIn = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
-    if (fileIn && !fileIn.playIds.includes(record.id)) store.upsertPlaybook({ ...fileIn, playIds: [...fileIn.playIds, record.id] });
-    const bookQuery = fileIn ? `?book=${fileIn.id}` : "";
+    // A new play goes in the playbook picked in the setup, else the one it was started from (the tree's +, ?book=).
+    const fromBook = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
+    const target: FileTarget | null = isNew ? (fileIn.current ?? (fromBook ? { id: fromBook.id } : null)) : null;
+    const filed = target && fileNewPlay(record.id, target);
+    const bookQuery = filed ? `?book=${filed.id}` : "";
 
     try {
       if (account) {
@@ -1259,12 +1296,15 @@ export function Builder() {
         const stored = toStoredPlay(res.play);
         if (stored.id !== record.id) store.replacePlayId(record.id, stored.id);
         store.upsertPlay(stored);
+        if (target) fileNewPlay(stored.id, target);
+        fileIn.current = null;
         setDirty(false);
-        toast(`Saved to your Vault${fileIn ? ` in ${fileIn.name}` : ""} and your account.`);
+        toast(`Saved to your Vault${filed ? ` in ${filed.name}` : ""} and your account.`);
         if (!existing) navigate(`/build/${stored.id}${bookQuery}`, { replace: true });
       } else {
+        fileIn.current = null;
         setDirty(false);
-        toast(`Saved in this browser${fileIn ? ` in ${fileIn.name}` : ""}. Sign in to keep it across devices.`);
+        toast(`Saved in this browser${filed ? ` in ${filed.name}` : ""}. Sign in to keep it across devices.`);
         if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
       }
       track("play_created", { formation: record.formation, type: record.playType });
@@ -1344,6 +1384,20 @@ export function Builder() {
     }
     toast(`Saved ${saved.name}${homeBook ? ` in ${homeBook.name}` : ""}. You're on the flipped copy now.`);
     navigate(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
+  };
+  /** More → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
+  const newPlay = () => {
+    if (dirty && !window.confirm("Start a new play? This one has changes you haven't saved.")) return;
+    if (id) {
+      navigate("/build", { state: { setup: true } });
+      return;
+    }
+    applyScene(emptyScene(), "New play");
+    setMeta(blankMeta);
+    setSelection([]);
+    fileIn.current = null;
+    setDirty(false);
+    setSetup(lastChoice(params.get("book"), playbooks));
   };
   const stepName = (step: 1 | -1) => {
     if (!lineup) return "";
@@ -1797,6 +1851,20 @@ export function Builder() {
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}
                   </label>
+                  <button type="button" role="menuitem" onClick={newPlay}>
+                    New play…
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={setupOn}
+                    onClick={() => {
+                      setSetupWanted(!setupOn);
+                      setSetupOn(!setupOn);
+                    }}
+                  >
+                    New play setup: {setupOn ? "on" : "off"}
+                  </button>
                   <button type="button" role="menuitem" onClick={() => void flipToCopy()}>
                     Flip and save as a new play
                   </button>
@@ -2297,6 +2365,18 @@ export function Builder() {
         </aside>
       </div>
 
+      {setup && (
+        <PlaySetup
+          initial={setup}
+          books={playbooks}
+          tokens={offense}
+          onStart={startSetup}
+          onSkip={() => {
+            setSetupOn(setupWanted());
+            setSetup(null);
+          }}
+        />
+      )}
       {fieldOpen && (
         <FieldControls rules={rules} onRules={setRules} snapPlayers={aids.snap} onSnapPlayers={() => toggleAid("snap")} onClose={() => setFieldOpen(false)} />
       )}

@@ -29,7 +29,7 @@ function readChoice(): Choice {
 const LOS = 347;
 const R = 24;
 
-function Preview({ placed, tokens, label }: { placed: Placed[]; tokens: TokenPreset[]; label: string }) {
+export function FormationPreview({ placed, tokens, label }: { placed: Placed[]; tokens: TokenPreset[]; label: string }) {
   return (
     <svg viewBox="0 0 1040 650" className="fl-preview" role="img" aria-label={label}>
       {[0, 260, 520].map((y) => (
@@ -129,7 +129,7 @@ export function FormationLibrary({
           ))}
         </select>
       </label>
-      <Preview placed={placed} tokens={tokens} label={label} />
+      <FormationPreview placed={placed} tokens={tokens} label={label} />
       <p className="dz-note">
         {choice.game === "11"
           ? "11-man adds the offensive line. Personnel sets the RB and TE count."
