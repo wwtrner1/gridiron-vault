@@ -61,6 +61,8 @@ import { overlayStore, useOverlay } from "../lib/overlay";
 import { editScene, swapSides } from "../lib/bulkEdit";
 import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
+import { useFieldPrefs } from "../lib/fieldPrefs";
+import { FieldControls } from "../components/FieldControls";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -178,7 +180,9 @@ export function Builder() {
   // The Style card's dash, curve and end for the next line. Picking a tool starts again from that tool's look.
   const [lookOverride, setLookOverride] = useState<LineLook>({});
   const look = { ...toolLook(tool), ...lookOverride };
-  const [grid, setGrid] = useState(0);
+  // Snap-to-grid and the field markings live in Field Controls, remembered per browser.
+  const { grid, snapRadius } = useFieldPrefs();
+  const [fieldOpen, setFieldOpen] = useState(false);
   // The league's rule lines (rush line, no-run zone), remembered per browser.
   const [rules, setRulesState] = useState(loadRules);
   const setRules = (next: RuleLines) => (saveRules(next), setRulesState(next));
@@ -1619,16 +1623,6 @@ export function Builder() {
               <span className="dz-btn-word">Redo</span>
             </button>
           </Tooltip>
-          <Tooltip title="Snap to grid" hint="Locks every drop point to a grid so players and routes line up exactly." side="bottom">
-            <button
-              type="button"
-              className={`dz-top-btn dz-wide${grid ? " is-on" : ""}`}
-              onClick={() => setGrid((g) => (g ? 0 : 20))}
-              aria-pressed={grid > 0}
-            >
-              {grid ? "Grid on" : "Grid off"}
-            </button>
-          </Tooltip>
           <Tooltip title="Route depths" hint="Shows how many yards past the line of scrimmage each route breaks, worked out from the drawing. Drag a route and the number follows." side="bottom">
             <button type="button" className={`dz-top-btn dz-wide${depths ? " is-on" : ""}`} onClick={toggleDepths} aria-pressed={depths}>
               Depths
@@ -1657,6 +1651,21 @@ export function Builder() {
                 </option>
               ))}
             </select>
+          </Tooltip>
+          <Tooltip
+            title="Field controls"
+            hint="Snap to grid and snap radius, hash marks, yard-line contrast and the flag rush line and no-run zone, all in one place."
+            side="bottom"
+          >
+            <button
+              type="button"
+              className={`dz-top-btn dz-wide${fieldOpen ? " is-on" : ""}`}
+              onClick={() => setFieldOpen((v) => !v)}
+              aria-expanded={fieldOpen}
+              aria-controls="field-controls"
+            >
+              Field controls
+            </button>
           </Tooltip>
           <Tooltip
             title="Vs defense"
@@ -1756,8 +1765,8 @@ export function Builder() {
                   <button type="button" role="menuitemcheckbox" aria-checked={depths} className="is-wide-dup" onClick={toggleDepths}>
                     Route depths: {depths ? "on" : "off"}
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={grid > 0} className="is-wide-dup" onClick={() => setGrid((g) => (g ? 0 : 20))}>
-                    Snap to grid: {grid ? "on" : "off"}
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setFieldOpen(true)}>
+                    Field controls: grid, hashes, rule lines
                   </button>
                   <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
                     <span>Field</span>
@@ -2168,6 +2177,7 @@ export function Builder() {
                 }}
                 onStatus={setStatus}
                 aids={aids}
+                snapRadius={snapRadius}
                 onPickNode={pickNode}
                 onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
                 nodeActions={nodeActions}
@@ -2264,11 +2274,13 @@ export function Builder() {
             onMeta={(patch) => (setMeta((m) => ({ ...m, ...patch })), setDirty(true))}
             onScene={applyScene}
             onSelection={setSelection}
-            rules={rules}
-            onRules={setRules}
           />
         </aside>
       </div>
+
+      {fieldOpen && (
+        <FieldControls rules={rules} onRules={setRules} snapPlayers={aids.snap} onSnapPlayers={() => toggleAid("snap")} onClose={() => setFieldOpen(false)} />
+      )}
 
       {exporting && (
         <ExportDialog
