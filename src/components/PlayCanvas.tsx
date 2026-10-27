@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FieldBackground, RuleLinesLayer } from "../lib/field";
-import type { RuleLines } from "../lib/rules";
+import { ruleSet, type RuleLines } from "../lib/rules";
 import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { noteShowsOnHover } from "../lib/notes";
 import {
@@ -1119,7 +1119,7 @@ export function PlayCanvas({
       >
         <MarkerDefs colors={markerColors} />
         <FieldBackground view={scene.view} losY={scene.losY} />
-        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} />}
+        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} midfield={ruleSet(rules.set).midfieldNoRun} />}
 
         <rect
           x={0}

@@ -60,7 +60,7 @@ const SPACING: Record<FieldView, number> = {
 export const unitsPerYard = (view: FieldView) => SPACING[view] / 5;
 
 /** Top of the playing field: the goal line on views with an end zone, else the sideline box. */
-const fieldTop = (view: FieldView) => (view === "redzone" || view === "flag" ? 82 : 14);
+const fieldTop = (view: FieldView) => (view === "redzone" || view === "flag" ? GOAL_Y : 14);
 
 export type YardLine = { y: number; yards: number };
 
@@ -271,33 +271,64 @@ const RULE_RUSH = "#C0792B";
 const RULE_ZONE = "#D24B3E";
 const RULE_MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
+/** Where the goal line and (on the flag field) midfield sit, for rule lines and the Rules check. Null where the view doesn't show them. */
+export function fieldMarks(view: FieldView): { goal: number | null; midfield: number | null } {
+  const perYard = unitsPerYard(view);
+  if (view === "redzone") return { goal: GOAL_Y, midfield: null };
+  // Flag 30×70: 10-yard end zones around a 50-yard field, so midfield is 25 yards out from the goal line.
+  if (view === "flag") return { goal: GOAL_Y, midfield: GOAL_Y + 25 * perYard };
+  return { goal: null, midfield: null };
+}
+
+const GOAL_Y = 82;
+
 /**
  * A league's rule lines over the field: the rush line a set number of yards
- * behind the line of scrimmage (offense side), and the no-run zone counted back
- * from the goal line on the views that show an end zone.
+ * off the ball on the defense's side (rushers start behind it), and the no-run
+ * zone counted back from the goal line on the views that show an end zone, plus
+ * the one before midfield on the flag field when the rule set has it.
  */
-export function RuleLinesLayer({ view, losY, rush, noRun, scale = 1 }: { view: FieldView; losY: number; rush: number; noRun: number; scale?: number }) {
+export function RuleLinesLayer({
+  view,
+  losY,
+  rush,
+  noRun,
+  midfield = false,
+  scale = 1,
+}: {
+  view: FieldView;
+  losY: number;
+  rush: number;
+  noRun: number;
+  midfield?: boolean;
+  scale?: number;
+}) {
   const perYard = unitsPerYard(view);
   if (!perYard) return null;
   const inset = fieldInset(view);
   const x1 = inset;
   const x2 = CANVAS_W - inset;
-  const rushY = losY + rush * perYard;
-  const hasEndZone = view === "redzone" || view === "flag";
-  const goal = 82;
-  const zoneBottom = goal + noRun * perYard;
+  const rushY = losY - rush * perYard;
+  const marks = fieldMarks(view);
+  const zones = [
+    marks.goal !== null ? { from: marks.goal, label: "NO-RUN ZONE" } : null,
+    midfield && marks.midfield !== null ? { from: marks.midfield, label: "NO-RUN ZONE · MIDFIELD" } : null,
+  ].filter((z): z is { from: number; label: string } => !!z && noRun > 0 && z.from < CANVAS_H - 14);
   return (
     <g pointerEvents="none">
-      {hasEndZone && noRun > 0 && zoneBottom < losY && (
-        <>
-          <rect x={x1} y={goal} width={x2 - x1} height={zoneBottom - goal} fill={RULE_ZONE} fillOpacity={0.1} />
-          <line x1={x1} x2={x2} y1={zoneBottom} y2={zoneBottom} stroke={RULE_ZONE} strokeWidth={1.6 * scale} strokeDasharray="6 5" />
-          <text x={CANVAS_W * 0.3} y={zoneBottom - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_ZONE} fontFamily={RULE_MONO} letterSpacing="1">
-            NO-RUN ZONE · {noRun} YDS
-          </text>
-        </>
-      )}
-      {rush > 0 && rushY < CANVAS_H - 14 && (
+      {zones.map((z) => {
+        const bottom = Math.min(CANVAS_H - 14, z.from + noRun * perYard);
+        return (
+          <g key={z.label}>
+            <rect x={x1} y={z.from} width={x2 - x1} height={bottom - z.from} fill={RULE_ZONE} fillOpacity={0.1} />
+            <line x1={x1} x2={x2} y1={bottom} y2={bottom} stroke={RULE_ZONE} strokeWidth={1.6 * scale} strokeDasharray="6 5" />
+            <text x={CANVAS_W * 0.3} y={bottom - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_ZONE} fontFamily={RULE_MONO} letterSpacing="1">
+              {z.label} · {noRun} YDS
+            </text>
+          </g>
+        );
+      })}
+      {rush > 0 && rushY > 20 && (
         <>
           <line x1={x1} x2={x2} y1={rushY} y2={rushY} stroke={RULE_RUSH} strokeWidth={1.8 * scale} strokeDasharray="3 5" />
           <text x={CANVAS_W * 0.7} y={rushY - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_RUSH} fontFamily={RULE_MONO} letterSpacing="1" textAnchor="end">

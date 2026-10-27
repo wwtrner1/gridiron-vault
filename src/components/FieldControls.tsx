@@ -107,8 +107,8 @@ export function FieldControls({ rules, onRules, snapPlayers, onSnapPlayers, onCl
               key={r.id}
               type="button"
               title={r.note}
-              className={`chip${rules.rush === r.rush && rules.noRun === r.noRun ? " is-on" : ""}`}
-              onClick={() => onRules({ on: true, rush: r.rush, noRun: r.noRun })}
+              className={`chip${rules.set === r.id ? " is-on" : ""}`}
+              onClick={() => onRules({ on: true, rush: r.rush, noRun: r.noRun, set: r.id })}
             >
               {r.name}
             </button>

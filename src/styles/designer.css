@@ -1080,6 +1080,21 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 }
 @media print { .dz-float { display: none; } }
 
+/* ---- Play drawer: Rules check and Opponent front ---- */
+.insp-tab-alert { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red); color: var(--white); }
+.rc-list { display: grid; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+.rc-item { display: grid; grid-template-columns: 20px 1fr; gap: 8px; padding: 9px 10px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink); }
+.rc-item b { display: block; font-size: 13px; color: var(--white); }
+.rc-item p { margin: 2px 0 0; font-size: 12px; line-height: 1.45; color: var(--rail-text); }
+.rc-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-3); color: var(--white); }
+.rc-item.is-fail { border-color: var(--red); }
+.rc-item.is-fail .rc-mark { background: var(--red); }
+.rc-item.is-warn .rc-mark { background: var(--amber); color: var(--ink); }
+.rc-item.is-ok .rc-mark { background: var(--green); }
+.rc-item.is-skip { opacity: 0.85; }
+.rc-show { margin-top: 5px; padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.rc-goal { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--rail-text); }
+.rc-goal .input { width: 64px; height: 30px; }
 /* New Play setup (components/PlaySetup.tsx) */
 .ps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ps .fl-preview { max-height: 220px; object-fit: contain; border: 1px solid var(--border); }

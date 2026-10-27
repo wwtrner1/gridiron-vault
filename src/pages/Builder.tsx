@@ -59,7 +59,9 @@ import {
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
-import { overlayStore, useOverlay } from "../lib/overlay";
+import { lookName, lookScene, overlayStore, parseLook, useOverlay } from "../lib/overlay";
+import { unitsPerYard } from "../lib/field";
+import { convertField } from "../lib/fieldConvert";
 import { editScene, swapSides } from "../lib/bulkEdit";
 import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
@@ -548,6 +550,23 @@ export function Builder() {
     onEdit: (edit, label) => applyScene(edit(sceneRefValue.current), label),
     onMeta: (patch) => setMeta((m) => ({ ...m, ...patch })),
   });
+
+  // A new field keeps routes true to the yard (a 10-yard out stays 10 yards); Undo puts the old drawing back.
+  const changeField = (view: Scene["view"]) => {
+    if (view === scene.view) return;
+    const move = convertField(scene, view);
+    applyScene(move.scene, "Field view");
+    const name = FIELD_VIEWS.find((v) => v.id === view)?.label ?? view;
+    setStatus(
+      !move.moved
+        ? `${name}. The whiteboard has no yards, so the drawing stays as it is.`
+        : move.clipped
+          ? `${name}, routes kept to the yard. The play is taller than this field, so some lines run off it.`
+          : move.slidYards
+            ? `${name}, routes kept to the yard. The play slid ${Math.abs(move.slidYards)} yds ${move.slidYards < 0 ? "up" : "down"} to fit.`
+            : `${name}, routes kept to the yard.`,
+    );
+  };
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
     // Line up on the ball: the center if there is one, else the middle of the field.
@@ -1423,19 +1442,26 @@ export function Builder() {
   // Vs defense: a saved defense (or any play) faded under this one.
   const overlayKey = existing?.id ?? "draft";
   const overlayId = useOverlay(overlayKey);
-  const underPlay = overlayId ? plays.find((p) => p.id === overlayId && p.id !== existing?.id) ?? null : null;
+  const savedUnder = overlayId ? plays.find((p) => p.id === overlayId && p.id !== existing?.id) ?? null : null;
+  // A stock look from the Opponent front is built around this play's offense, with a flag rusher on the rush line.
+  const underLook = parseLook(overlayId);
+  const lookUnits = (rules.rush || 7) * (unitsPerYard(scene.view) || 14.4);
+  const lookUnder = useMemo(() => (underLook ? lookScene(scene, underLook, lookUnits) : null), [overlayId, scene.nodes, scene.losY, lookUnits]); // eslint-disable-line react-hooks/exhaustive-deps
+  const underPlay = savedUnder ?? (underLook && lookUnder ? { id: overlayId!, name: lookName(underLook), scene: lookUnder } : null);
   const overlayChoices = useMemo(() => {
     const others = plays.filter((p) => p.id !== existing?.id).sort((a, b) => a.name.localeCompare(b.name));
     return { defenses: others.filter((p) => p.playType === "defense"), rest: others.filter((p) => p.playType !== "defense") };
   }, [plays, existing?.id]);
   const pickOverlay = (pid: string) => {
     overlayStore.set(overlayKey, pid || null);
-    const picked = plays.find((p) => p.id === pid);
-    setStatus(picked ? `Showing ${picked.name} under this play. It's only a guide: it won't print or save into the play.` : "Defense overlay off.");
+    const look = parseLook(pid);
+    const picked = look ? lookName(look) : plays.find((p) => p.id === pid)?.name;
+    setStatus(picked ? `Showing ${picked} under this play. It's only a guide: it won't print or save into the play.` : "Defense overlay off.");
   };
   const overlaySelect = (className: string) => (
     <select className={className} value={underPlay?.id ?? ""} onChange={(e) => pickOverlay(e.target.value)} aria-label="Show a defense under this play">
       <option value="">Vs defense: none</option>
+      {underLook && underPlay && <option value={underPlay.id}>Vs {underPlay.name}</option>}
       {overlayChoices.defenses.length > 0 && (
         <optgroup label="Defenses">
           {overlayChoices.defenses.map((p) => (
@@ -1707,7 +1733,7 @@ export function Builder() {
             <select
               className="dz-top-select dz-wide"
               value={scene.view}
-              onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
+              onChange={(e) => changeField(e.target.value as Scene["view"])}
               aria-label="Field"
             >
               {FIELD_VIEWS.map((v) => (
@@ -1838,7 +1864,7 @@ export function Builder() {
                     <select
                       className="dz-top-select"
                       value={scene.view}
-                      onChange={(e) => applyScene({ ...scene, view: e.target.value as Scene["view"] }, "Field view")}
+                      onChange={(e) => changeField(e.target.value as Scene["view"])}
                     >
                       {FIELD_VIEWS.map((v) => (
                         <option key={v.id} value={v.id}>
@@ -2361,6 +2387,17 @@ export function Builder() {
             onMeta={(patch) => (setMeta((m) => ({ ...m, ...patch })), setDirty(true))}
             onScene={applyScene}
             onSelection={setSelection}
+            rules={rules}
+            onRules={setRules}
+            underlay={underPlay?.scene ?? null}
+            opponent={{
+              value: underPlay?.id ?? null,
+              showing: underPlay?.name ?? null,
+              defenses: overlayChoices.defenses,
+              rest: overlayChoices.rest,
+              onPick: pickOverlay,
+            }}
+            onField={changeField}
           />
         </aside>
       </div>

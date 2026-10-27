@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "./Panel";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -7,6 +7,10 @@ import { PlayerPresets } from "./PlayerPresets";
 import { FIELD_VIEWS } from "../lib/field";
 import { TAG_MAX } from "../lib/render";
 import { explainPlay } from "../lib/explain";
+import { ruleSet, type RuleLines } from "../lib/rules";
+import { checkRules } from "../lib/ruleCheck";
+import { RulesCheck } from "./RulesCheck";
+import { OpponentFront, type OpponentChoices } from "./OpponentFront";
 import { knownPersonnel, personnelGroups } from "../lib/personnel";
 import { alignNodes, describe, distributeNodes, flipNodes, nextZ, sendToBack } from "../lib/scene";
 import type { FieldView, PlayMeta, PathNode, Scene, SceneNode, ShapeNode, TextNode } from "../lib/types";
@@ -19,12 +23,19 @@ type Props = {
   onMeta: (patch: Partial<PlayMeta>) => void;
   onScene: (next: Scene, label?: string) => void;
   onSelection: (ids: string[]) => void;
+  rules: RuleLines;
+  onRules: (next: RuleLines) => void;
+  /** The Vs defense under the play (a saved play or a stock look), for the Rules check. */
+  underlay: Scene | null;
+  opponent: OpponentChoices;
+  /** Move the play to another field, routes kept to the yard. */
+  onField: (view: FieldView) => void;
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
 const CUSTOM = "__custom";
 
-export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection }: Props) {
+export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules, underlay, opponent, onField }: Props) {
   const [tagDraft, setTagDraft] = useState("");
   // Personnel is picked from the list; "Custom…" (or a saved value the list doesn't have) opens a text box.
   const [customPersonnel, setCustomPersonnel] = useState(false);
@@ -37,7 +48,17 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
   // The coach can still switch by hand; it flips back whenever the field goes from empty to picked or the reverse.
   const hasSelection = selection.length > 0;
   const [tab, setTab] = useState<"selection" | "play">(hasSelection ? "selection" : "play");
-  useEffect(() => setTab(hasSelection ? "selection" : "play"), [hasSelection]);
+  // "Show me on the field" picks players from the Rules check; the drawer stays on the check.
+  const keepTab = useRef(false);
+  useEffect(() => {
+    if (keepTab.current) keepTab.current = false;
+    else setTab(hasSelection ? "selection" : "play");
+  }, [hasSelection]);
+
+  // Rules check, read from the drawing (and the Vs defense under it).
+  const [toGoal, setToGoal] = useState<number | null>(null);
+  const check = useMemo(() => checkRules(scene, meta, rules, { underlay, toGoal }), [scene, meta, rules, underlay, toGoal]);
+  const set = ruleSet(rules.set);
 
   const patch = (changes: Partial<SceneNode> | ((n: SceneNode) => Partial<SceneNode>), label = "Edit") =>
     onScene(
@@ -64,13 +85,13 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           Selection{hasSelection && <b className="insp-tab-count">{selection.length}</b>}
         </button>
         <button type="button" role="tab" id="insp-tab-play" aria-selected={tab === "play"} aria-controls="insp-pane" className={tab === "play" ? "is-on" : ""} onClick={() => setTab("play")}>
-          Play
+          Play{check.fails > 0 && <b className="insp-tab-count insp-tab-alert" aria-label={`${check.fails} rule problems`}>{check.fails}</b>}
         </button>
       </div>
       <div id="insp-pane" role="tabpanel" aria-labelledby={`insp-tab-${tab}`}>
       {tab === "play" && (
       <>
-      <Panel title="Play details" icon="board" defaultOpen>
+      <Panel title="Play intel" icon="board" defaultOpen>
         <label className="field">
           <span>Play name</span>
           <input
@@ -143,6 +164,35 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             />
           )}
         </div>
+        <div className="field">
+          <span>Field</span>
+          <div className="chip-row">
+            {FIELD_VIEWS.map((v) => (
+              <Tooltip key={v.id} title={v.label} hint={v.hint} side="top">
+                <button type="button" className={`chip${scene.view === v.id ? " is-on" : ""}`} aria-pressed={scene.view === v.id} onClick={() => onField(v.id)}>
+                  {v.label}
+                </button>
+              </Tooltip>
+            ))}
+          </div>
+          <p className="hint">Routes keep their depth in yards when the field changes. Hash marks, yard-line contrast and snap to grid live in Field controls above the field.</p>
+          <label className="field" style={{ marginTop: 10, marginBottom: 0 }}>
+            <span>Line of scrimmage</span>
+            <input
+              type="range"
+              className="range"
+              min={90}
+              max={600}
+              value={scene.losY}
+              onChange={(e) => onScene({ ...scene, losY: Number(e.target.value) })}
+            />
+          </label>
+          {scene.pivot && (
+            <button type="button" className="btn btn-ghost btn-sm btn-block" style={{ marginTop: 8 }} onClick={() => onScene({ ...scene, pivot: null }, "Clear pivot")}>
+              <Icon name="pivot" size={14} /> Clear pivot point
+            </button>
+          )}
+        </div>
         <label className="field">
           <span>Coaching notes</span>
           <textarea
@@ -203,37 +253,22 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
         </label>
       </Panel>
 
-      <Panel title="Field" icon="grid" count={FIELD_VIEWS.find((v) => v.id === scene.view)?.label}>
-        <div className="chip-row">
-          {FIELD_VIEWS.map((v) => (
-            <Tooltip key={v.id} title={v.label} hint={v.hint} side="top">
-              <button
-                type="button"
-                className={`chip${scene.view === v.id ? " is-on" : ""}`}
-                onClick={() => onScene({ ...scene, view: v.id as FieldView }, "Field view")}
-              >
-                {v.label}
-              </button>
-            </Tooltip>
-          ))}
-        </div>
-        <label className="field" style={{ marginTop: 12 }}>
-          <span>Line of scrimmage</span>
-          <input
-            type="range"
-            className="range"
-            min={90}
-            max={600}
-            value={scene.losY}
-            onChange={(e) => onScene({ ...scene, losY: Number(e.target.value) })}
-          />
-        </label>
-        <p className="hint">Hash marks, yard-line contrast, snap to grid and the flag rush line live in Field controls above the field.</p>
-        {scene.pivot && (
-          <button type="button" className="btn btn-ghost btn-sm btn-block" onClick={() => onScene({ ...scene, pivot: null }, "Clear pivot")}>
-            <Icon name="pivot" size={14} /> Clear pivot point
-          </button>
-        )}
+      <Panel title="Opponent front" icon="user" count={opponent.showing ?? undefined}>
+        <OpponentFront {...opponent} flag={!set.sevenOnLine} />
+      </Panel>
+
+      <Panel title="Rules check" icon="check" count={check.fails ? `${check.fails} to fix` : check.warns ? `${check.warns} to check` : "Legal"}>
+        <RulesCheck
+          check={check}
+          rules={rules}
+          onRules={onRules}
+          toGoal={toGoal}
+          onToGoal={setToGoal}
+          onShow={(ids) => {
+            keepTab.current = selection.length === 0;
+            onSelection(ids);
+          }}
+        />
       </Panel>
       </>
       )}

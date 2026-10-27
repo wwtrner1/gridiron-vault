@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { jsPDF } from "jspdf";
 import { FieldBackground, RuleLinesLayer } from "./field";
-import { loadRules } from "./rules";
+import { loadRules, ruleSet } from "./rules";
 import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
 import { DEPTH_SIZE } from "./depth";
 import { playerNoteLines } from "./notes";
@@ -127,6 +127,7 @@ export function PrintDiagram({
           losY={scene.losY}
           rush={loadRules().rush}
           noRun={loadRules().noRun}
+          midfield={ruleSet(loadRules().set).midfieldNoRun}
           scale={ptPerUnit ? Math.min(4, Math.max(1, 5.5 / (11 * ptPerUnit))) : 1}
         />
       ) : null}
