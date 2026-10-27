@@ -1531,3 +1531,21 @@ table.sheet.is-compact .row-tools { grid-template-columns: repeat(8, 24px); }
 @media (hover: none) { .pbt-add { opacity: 1; } }
 .rail-tree { padding-bottom: 8px; }
 .pbt-spacer { flex: 1; }
+
+/* Sideline (free) browser prints: diagrams come out soft and pale with a
+   repeating watermark over the page, so a printout is a preview, not a card.
+   Head Coach and up never get data-free-print (see useFreePrint). */
+@media print {
+  html[data-free-print] svg:not([aria-hidden="true"]) {
+    filter: blur(2.5px) contrast(0.45) opacity(0.6);
+  }
+  html[data-free-print] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='120'><text x='10' y='70' transform='rotate(-24 130 60)' font-family='sans-serif' font-size='15' font-weight='700' fill='%23000' fill-opacity='0.22'>GRIDIRONVAULT · SIDELINE PLAN</text></svg>");
+    background-repeat: repeat;
+  }
+}

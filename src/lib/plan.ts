@@ -127,7 +127,7 @@ export const TIERS: Record<TierId, Tier> = {
     playbookLimit: 1,
     copyLimit: 5,
     sizes: "starter",
-    maxDpi: 96,
+    maxDpi: 86,
     watermark: true,
     sheets: false,
     share: false,

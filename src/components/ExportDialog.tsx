@@ -45,7 +45,7 @@ const KINDS: { id: Kind; label: string }[] = [
   { id: "pptx", label: "PowerPoint" },
 ];
 
-const DPI_STEPS = [96, 150, 300, 600];
+const DPI_STEPS = [86, 150, 300, 600];
 
 /** One click to a known-good print setup; everything stays editable afterwards. */
 const EXPORT_PRESETS: { id: string; label: string; hint: string; options: Partial<SheetOptions> & { size: SizeChoice } }[] = [

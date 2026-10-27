@@ -40,3 +40,20 @@ export function useCaptureGuard(active: boolean) {
     };
   }, [active]);
 }
+
+/**
+ * Free-plan browser prints: sets `data-free-print` on <html> so the print
+ * stylesheet (global.css) blurs and fades every diagram and tiles a watermark
+ * across the page. Like the capture guard this is a deterrent, not a lock; the
+ * export dialog's watermark and DPI cap are the real limits.
+ */
+export function useFreePrint(active: boolean) {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (active) root.dataset.freePrint = "on";
+    else delete root.dataset.freePrint;
+    return () => {
+      delete root.dataset.freePrint;
+    };
+  }, [active]);
+}

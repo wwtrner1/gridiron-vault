@@ -75,7 +75,8 @@ export async function openPortal(me: Who): Promise<{ url: string } | { error: st
 }
 
 /** Does this subscription still entitle the coach to its plan? A late payment keeps access while Stripe retries. */
-const PAYING = new Set(["active", "trialing", "past_due"]);
+// past_due and unpaid are deliberately not here: a failed payment drops the coach to Sideline at once, and the next paid invoice (status active) restores the plan.
+const PAYING = new Set(["active", "trialing"]);
 
 async function applySubscription(sub: Stripe.Subscription) {
   const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
