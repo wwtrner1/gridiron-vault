@@ -74,6 +74,9 @@ async function twilio(path: string, body: Record<string, string>) {
   const data = (await res.json().catch(() => ({}))) as { status?: string; code?: number; message?: string };
   if (!res.ok) {
     console.error("Twilio Verify", res.status, data.code, data.message);
+    // Refusals about our Twilio account (21608: a trial account may only text verified numbers; 20003: bad keys), not the coach's number.
+    if (data.code === 21608 || data.code === 20003 || res.status === 401)
+      throw new PhoneError("Texting codes is down on our side, so this isn't your number. We're fixing it now: try again later today.", 503);
     if (res.status === 429 || data.code === 60203) throw new PhoneError("Too many codes sent to that number. Wait ten minutes and try again.", 429);
     if (data.code === 60200 || data.code === 21211) throw new PhoneError("That doesn't look like a mobile number. Check it and try again.");
     if (res.status === 404 && path === "VerificationCheck") throw new PhoneError("That code has expired. Send a new one.");
