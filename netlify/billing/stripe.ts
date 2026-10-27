@@ -8,17 +8,17 @@ import type { TierId } from "../../src/lib/plan.js";
  * Billing through Stripe: Checkout to pay, the customer portal to cancel or change a card, and a
  * webhook that is the only thing that moves a paying coach's plan. Off until STRIPE_SECRET_KEY is set.
  * STRIPE_PRICES maps what we sell to Stripe price ids (not secret), as JSON:
- *   {"solo_month":"price_…","solo_year":"price_…","season":"price_…","crew_month":"…","crew_year":"…","founding":"price_…"}
+ *   {"solo_month":"price_…","solo_year":"price_…","season":"price_…","crew_month":"…","crew_year":"…","program_month":"…","program_year":"…","founding":"price_…"}
  * Amounts live in Stripe; this file only knows which plan each price unlocks.
  */
 const SITE = "https://gridiron-vault.com";
 const SEASON_MONTHS = 4;
 
-export const OFFER_KEYS = ["solo_month", "solo_year", "season", "crew_month", "crew_year", "founding"] as const;
+export const OFFER_KEYS = ["solo_month", "solo_year", "season", "crew_month", "crew_year", "program_month", "program_year", "founding"] as const;
 export type OfferKey = (typeof OFFER_KEYS)[number];
 
 /** The plan each thing we sell opens. Founding coaches are Head Coach at their own price. */
-const PLAN_OF: Record<OfferKey, TierId> = { solo_month: "solo", solo_year: "solo", season: "solo", crew_month: "crew", crew_year: "crew", founding: "solo" };
+const PLAN_OF: Record<OfferKey, TierId> = { solo_month: "solo", solo_year: "solo", season: "solo", crew_month: "crew", crew_year: "crew", program_month: "program", program_year: "program", founding: "solo" };
 
 export const billingOn = () => Boolean(process.env.STRIPE_SECRET_KEY && prices());
 
@@ -109,6 +109,8 @@ async function applyCheckout(s: Stripe.Checkout.Session) {
     set.planEndsAt = end;
   }
   await db.update(profiles).set(set).where(eq(profiles.id, userId));
+  // Stripe's own customer record carries our id, so a payment found in the Dashboard says whose it is.
+  if (customer) await stripe().customers.update(customer, { metadata: { userId } }).catch(() => undefined);
 }
 
 /** One webhook from Stripe, checked against its signature. Anything else is refused. */
