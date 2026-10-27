@@ -77,9 +77,62 @@
 .dz-back:hover { color: var(--white); }
 
 /* ---- Body: rail · stage · details ---- */
-.dz-body { display: grid; flex: 1; grid-template-columns: 244px minmax(0, 1fr) 300px; min-height: 0; }
+.dz-body { position: relative; display: grid; flex: 1; grid-template-columns: 244px minmax(0, 1fr) 300px; min-height: 0; }
 .dz-body.is-side-closed { grid-template-columns: 244px minmax(0, 1fr); }
 .dz-body.is-side-closed .builder-side { display: none; }
+
+/* ---- Edge tabs: tuck the tools or the play panel against its side ----
+   Open, the tab sits in the stage's gutter beside the panel; closed, it hugs the screen edge.
+   Phones (and phones turned sideways) open the tools from the dock instead, so no tabs there. */
+.dz-edge { display: none; }
+@media (min-width: 901px) and (min-height: 501px), (min-width: 901px) and (pointer: fine) {
+  .dz-body.is-rail-closed { grid-template-columns: minmax(0, 1fr) 300px; }
+  .dz-body.is-rail-closed.is-side-closed { grid-template-columns: minmax(0, 1fr); }
+  .dz-body.is-rail-closed .builder-rail { display: none; }
+  .dz-edge {
+    position: absolute;
+    z-index: 20;
+    top: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 18px;
+    height: 56px;
+    padding: 0;
+    border: 1px solid var(--ink-3);
+    border-radius: var(--radius-md);
+    background: var(--ink-2);
+    color: var(--rail-text);
+    transform: translateY(-50%);
+  }
+  .dz-edge:hover { border-color: var(--cyan); color: var(--white); }
+  .dz-edge:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .dz-edge-left { left: 249px; }
+  .dz-edge-left svg { transform: rotate(90deg); }
+  .dz-edge-right { right: 320px; }
+  .dz-edge-right svg { transform: rotate(-90deg); }
+  .dz-edge.is-closed { width: 24px; height: 96px; border-color: var(--ink-4); color: var(--white); }
+  .dz-edge.is-closed:hover { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
+  .dz-edge-left.is-closed { left: 0; border-left: 0; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .dz-edge-left.is-closed svg { transform: rotate(-90deg); }
+  .dz-edge-right.is-closed { right: 0; border-right: 0; border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .dz-edge-right.is-closed svg { transform: rotate(90deg); }
+  .dz-edge span { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; writing-mode: vertical-rl; }
+  .dz-edge-left span { transform: rotate(180deg); }
+}
+@media (min-width: 901px) and (pointer: coarse) {
+  .dz-edge { width: 24px; height: 64px; }
+  .dz-edge.is-closed { width: 26px; height: 104px; }
+}
+@media print { .dz-edge { display: none !important; } }
+/* iPad and small laptops: the play panel slides over the field, so its own Done button closes it. */
+@media (max-width: 1180px) {
+  .dz-body.is-rail-closed,
+  .dz-body.is-rail-closed.is-side-closed { grid-template-columns: minmax(0, 1fr); }
+  .dz-edge-right:not(.is-closed) { display: none; }
+}
 
 .builder .builder-rail {
   display: flex;
