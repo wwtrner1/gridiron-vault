@@ -6,6 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
+import type { HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -132,6 +133,18 @@ export const api = {
   removeMember: (memberId: string) => request<FrontOfficeState>(`org-members/${memberId}`, { method: "DELETE" }),
   openOrgShare: (shareId: string) => request<{ share: OrgShareDetail }>(`org-shares/${shareId}`),
   unshareFromOrg: (shareId: string) => request<FrontOfficeState>(`org-shares/${shareId}`, { method: "DELETE" }),
+
+  /* Team hub: teams and rosters, for the director and each team's staff. */
+  hub: (orgId: string) => request<HubState>(`hub/${orgId}`),
+  createTeam: (orgId: string, team: Partial<HubTeam>) =>
+    request<HubState & { created: string }>("teams", { method: "POST", body: JSON.stringify({ ...team, orgId }) }),
+  updateTeam: (id: string, team: Partial<HubTeam>) => request<HubState>(`teams/${id}`, { method: "PUT", body: JSON.stringify(team) }),
+  deleteTeam: (id: string) => request<HubState>(`teams/${id}`, { method: "DELETE" }),
+  roster: (teamId: string) => request<{ players: HubPlayer[] }>(`teams/${teamId}/players`),
+  addPlayers: (teamId: string, players: PlayerInfo[]) =>
+    request<{ players: HubPlayer[]; added: number }>(`teams/${teamId}/players`, { method: "POST", body: JSON.stringify({ players }) }),
+  updatePlayer: (id: string, player: PlayerInfo) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "PUT", body: JSON.stringify({ player }) }),
+  deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
 

@@ -40,6 +40,7 @@ import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
+import { hubRoute } from "../front-office/hub.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -404,6 +405,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await frontOfficeRoute(me, () => planOf(me), req, resource, id, action);
+    }
+
+    /* ----------------------------------------- team hub (Front Office) --- */
+    if (resource === "hub" || resource === "teams" || resource === "team-players") {
+      if (!me) return fail("Sign in to open the Front Office.", 401);
+      await ensureProfile(me);
+      return await hubRoute(me, req, resource, id, action);
     }
 
     /* ------------------------------------------------------ playbooks --- */

@@ -361,3 +361,48 @@ export const orgShares = pgTable(
   },
   (t) => [index("org_shares_org_idx").on(t.orgId)],
 );
+
+/**
+ * Team hub: a team inside an organisation (Varsity, U10 Eagles). The director
+ * creates it and picks its staff (`coachIds` are org_members ids, or
+ * `allCoaches`). Only the director and that staff can read its roster.
+ */
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    level: text().notNull().default(""),
+    season: text().notNull().default(""),
+    color: text().notNull().default(""),
+    coachIds: jsonb("coach_ids").$type<string[]>().notNull().default([]),
+    allCoaches: boolean("all_coaches").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("teams_org_idx").on(t.orgId)],
+);
+
+/**
+ * One player on a team's roster. Names are columns so the list sorts in SQL;
+ * everything else (contacts, guardians, medical notes) is `info`, shaped by
+ * `PlayerInfo` in src/lib/teamHub.ts. Minors' details: staff only, never public.
+ */
+export const teamPlayers = pgTable(
+  "team_players",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    firstName: text("first_name").notNull().default(""),
+    lastName: text("last_name").notNull().default(""),
+    jersey: text().notNull().default(""),
+    info: jsonb().$type<unknown>().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("team_players_team_idx").on(t.teamId)],
+);
