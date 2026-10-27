@@ -2,6 +2,7 @@ import type { Scene, StoredPlay } from "./types";
 import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
 import type { PhotoRead, PhotoRequest } from "./photo";
+import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
@@ -60,6 +61,10 @@ export const api = {
 
   photo: (body: PhotoRequest) =>
     request<{ read: PhotoRead }>("ai/photo", { method: "POST", body: JSON.stringify(body) }),
+
+  /** Where the plays are on a scanned page (the reads that follow each use a photo review). */
+  scan: (body: ScanRequest) =>
+    request<ScanFind>("ai/scan", { method: "POST", body: JSON.stringify(body) }),
 
   me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; security?: Security }>("me"),
 

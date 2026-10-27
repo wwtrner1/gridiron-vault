@@ -4,6 +4,7 @@ import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
 import { PhotoReview } from "../components/PhotoReview";
+import { ScanReview } from "../components/ScanReview";
 import { store, useStore } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { gateSave } from "../lib/plan";
@@ -22,15 +23,16 @@ const SUGGEST: Record<string, string> = { R: "H", F: "H", B: "H", T: "H", RB: "H
 const SOURCES = [
   { icon: "board", title: "PowerPoint deck", body: "Upload a .pptx playbook. Every slide with a play becomes a draft you can import in one batch.", ready: true },
   { icon: "upload", title: "Whiteboard photo", body: "Snap the board after practice. Marker circles, Xs and arrows are read as players and routes.", ready: true },
-  { icon: "print", title: "Scanned page or PDF", body: "Old binder pages. A photo or scan of the page reads now; PDF files are coming soon.", ready: false },
+  { icon: "print", title: "Scanned page or PDF", body: "Binder pages and playbook PDFs. Every play on a page is found, cut out and redrawn, up to 20 pages at a time.", ready: true },
   { icon: "sparkle", title: "Screenshot", body: "Plays from another app, a clinic slide or a text from your coordinator.", ready: true },
 ];
 
 /**
  * Upload plays, from the Grid1ron Design canvas (Upload · choose a source,
  * Upload · PowerPoint deck, Upload · review a whiteboard photo). Decks are
- * read in the browser; photos and screenshots go to the Play reader (Claude,
- * through the API function). PDFs are still to come.
+ * read in the browser; photos, scans and PDF pages (drawn to images in the
+ * browser) go to the Play reader (Claude, through the API function): a page
+ * is looked over for plays first, so a binder page with six plays becomes six.
  */
 export function Upload() {
   const [deck, setDeck] = useState<Deck | null>(null);
@@ -40,17 +42,24 @@ export function Upload() {
     const handed = (location.state as { photo?: unknown } | null)?.photo;
     return handed instanceof File ? handed : null;
   });
+  const [scan, setScan] = useState<File[] | null>(null);
   const [error, setError] = useState("");
-  const [waiting, setWaiting] = useState("");
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function take(files: File[]) {
     setError("");
-    setWaiting("");
     const file = files[0];
     if (!file) return;
+    // Several scans or photos at once are pages of one scan.
+    const pages = files.filter((f) => f.type.startsWith("image/") || f.type === "application/pdf" || /\.(jpe?g|png|heic|webp|pdf)$/i.test(f.name));
+    if (files.length > 1) {
+      if (!pages.length) return setError("Those files can't be read here. Use JPG, PNG, HEIC or PDF, or one PowerPoint deck at a time.");
+      const big = pages.find((f) => f.size > MAX_BYTES);
+      if (big) return setError(`${big.name} is over 50 MB. Split it into smaller files.`);
+      return setScan(pages.slice(0, 20));
+    }
     if (file.size > MAX_BYTES) return setError(`${file.name} is over 50 MB. Split the deck or export fewer slides.`);
     const ext = file.name.toLowerCase().split(".").pop() ?? "";
     if (ext === "pptx") {
@@ -65,12 +74,10 @@ export function Upload() {
       return;
     }
     if (ext === "ppt") return setError("That is an older .ppt file. Open it in PowerPoint, save it as .pptx, and upload that.");
-    if (ext === "pdf" || file.type === "application/pdf") {
-      return setWaiting(`Reading PDFs is coming soon. For now, take a screenshot of the page with the play and upload that.`);
-    }
+    if (ext === "pdf" || file.type === "application/pdf") return setScan([file]);
     if (["jpg", "jpeg", "png", "heic", "webp"].includes(ext) || file.type.startsWith("image/")) {
       if (file.size > 20 * 1024 * 1024) return setError(`${file.name} is over 20 MB. Use a smaller photo.`);
-      return setPhoto(file);
+      return setScan([file]);
     }
     setError(`${file.name} isn’t a file GridIronVault can read. Use JPG, PNG, HEIC, PDF or PPTX.`);
   }
@@ -90,6 +97,17 @@ export function Upload() {
 
   if (deck) return <DeckReview deck={deck} onBack={() => setDeck(null)} />;
   if (photo) return <PhotoReview file={photo} onBack={() => setPhoto(null)} />;
+  if (scan)
+    return (
+      <ScanReview
+        files={scan}
+        onBack={() => setScan(null)}
+        onSingle={(file) => {
+          setScan(null);
+          setPhoto(file);
+        }}
+      />
+    );
 
   return (
     <Shell
@@ -121,10 +139,10 @@ export function Upload() {
           }}
         >
           <Icon name="upload" size={34} />
-          <b>Drop a play here</b>
+          <b>Drop plays here</b>
           <p>
-            A whiteboard photo, a screenshot, a scanned playbook page or a PowerPoint deck. GridIronVault redraws each play on the
-            field so you can check it before it goes in the Vault.
+            A whiteboard photo, a screenshot, scanned binder pages, a playbook PDF or a PowerPoint deck. GridIronVault finds every
+            play, redraws it on the field and lets you check it before it goes in the Vault.
           </p>
           <div className="up-drop-acts">
             <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()} disabled={busy}>
@@ -154,6 +172,7 @@ export function Upload() {
             ref={inputRef}
             type="file"
             hidden
+            multiple
             accept=".jpg,.jpeg,.png,.heic,.webp,.pdf,.pptx,.ppt"
             onChange={(e) => (take(Array.from(e.target.files ?? [])), (e.target.value = ""))}
           />
@@ -162,11 +181,6 @@ export function Upload() {
         {error && (
           <p className="error-line" role="alert">
             {error}
-          </p>
-        )}
-        {waiting && (
-          <p className="up-wait" role="status">
-            <Icon name="sparkle" size={16} /> {waiting}
           </p>
         )}
 
@@ -287,8 +301,8 @@ function DeckReview({ deck, onBack }: { deck: Deck; onBack: () => void }) {
             <Icon name="board" size={40} />
             <h3>No plays drawn with shapes in this deck</h3>
             <p>
-              Plays that are pictures pasted into slides need the Play reader, which is coming soon. Plays drawn with PowerPoint
-              circles, letters and arrows import now.
+              Plays drawn with PowerPoint circles, letters and arrows import from the deck. If your plays are pictures pasted into
+              slides, save the deck as a PDF and upload that: every play on every slide is read.
             </p>
             <button type="button" className="btn btn-ghost" onClick={onBack}>
               Upload another file
