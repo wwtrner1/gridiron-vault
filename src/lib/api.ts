@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { DepthChart, DepthSlot, DepthUnit, EventDraft, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
+import type { Delivery, DepthChart, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -152,6 +152,10 @@ export const api = {
     request<{ events: HubEvent[]; added: number }>(`hub/${orgId}/events`, { method: "POST", body: JSON.stringify({ event, repeatWeeks }) }),
   updateEvent: (id: string, event: EventDraft) => request<{ events: HubEvent[] }>(`hub-events/${id}`, { method: "PUT", body: JSON.stringify({ event }) }),
   deleteEvent: (id: string) => request<{ events: HubEvent[] }>(`hub-events/${id}`, { method: "DELETE" }),
+  messages: (orgId: string) => request<{ messages: HubMessage[]; delivery: Delivery }>(`hub/${orgId}/messages`),
+  postMessage: (orgId: string, msg: { teamId: string | null; channel: MessageChannel; subject: string; body: string; email: boolean; sms: boolean }) =>
+    request<{ messages: HubMessage[]; delivery: Delivery; emailed: number; texted: number }>(`hub/${orgId}/messages`, { method: "POST", body: JSON.stringify(msg) }),
+  deleteMessage: (id: string) => request<{ messages: HubMessage[]; delivery: Delivery }>(`hub-messages/${id}`, { method: "DELETE" }),
   deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),

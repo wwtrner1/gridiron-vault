@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { emailOn, sendEmails, sendTexts, smsOn } from "./send.js";
 import { db } from "../../db/index.js";
-import { depthCharts, hubEvents, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
-import { cleanDepth, cleanEvent, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
+import { depthCharts, hubEvents, hubMessages, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
+import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
 
 /**
  * Team hub routes, behind the sign-in and phone checks. The director of an
@@ -116,7 +117,7 @@ async function mayWrite(me: Me, access: Access, teamId: string | null): Promise<
 
 /** Every event this coach can see: the whole Front Office's, and their teams'. */
 async function calendar(me: Me, access: Access): Promise<HubEvent[]> {
-  const visible = (await db.select().from(teams).where(eq(teams.orgId, access.orgId))).filter((t) => onStaff(access, t)).map((t) => t.id);
+  const visible = await staffTeams(access);
   const rows = await db
     .select()
     .from(hubEvents)
@@ -141,6 +142,75 @@ async function calendar(me: Me, access: Access): Promise<HubEvent[]> {
   }));
 }
 
+/** Team ids this coach is on the staff of in the organisation. */
+async function staffTeams(access: Access) {
+  return (await db.select().from(teams).where(eq(teams.orgId, access.orgId))).filter((t) => onStaff(access, t)).map((t) => t.id);
+}
+
+/** The newest messages this coach can see: the whole Front Office's and their teams'. */
+async function board(me: Me, access: Access): Promise<HubMessage[]> {
+  const visible = await staffTeams(access);
+  const rows = await db
+    .select()
+    .from(hubMessages)
+    .where(and(eq(hubMessages.orgId, access.orgId), visible.length ? or(isNull(hubMessages.teamId), inArray(hubMessages.teamId, visible)) : isNull(hubMessages.teamId)))
+    .orderBy(desc(hubMessages.createdAt))
+    .limit(MESSAGE_LIMITS.list);
+  return rows.map((r) => ({
+    id: r.id,
+    teamId: r.teamId,
+    channel: r.channel === "family" ? "family" : "staff",
+    authorName: r.authorName,
+    mine: r.authorId === me.id,
+    subject: r.subject,
+    body: r.body,
+    emailed: r.emailed,
+    texted: r.texted,
+    createdAt: iso(r.createdAt),
+  }));
+}
+
+/**
+ * A new message. Staff notes are just saved. A family announcement is saved
+ * and, when the site has email or texts set up and the coach asked for them,
+ * sent from the server to the team's roster contacts. The browser never
+ * chooses the recipients, so this can't be used to message anyone else.
+ */
+async function post(me: Me, access: Access, body: Record<string, unknown>): Promise<Response> {
+  const channel = body.channel === "family" ? "family" : "staff";
+  const teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;
+  const text = typeof body.body === "string" ? body.body.trim().slice(0, MESSAGE_LIMITS.body) : "";
+  const subject = typeof body.subject === "string" ? body.subject.trim().slice(0, MESSAGE_LIMITS.subject) : "";
+  if (!text) return fail("Write the message first.");
+  const denied = await mayWrite(me, access, teamId);
+  if (denied) return denied;
+  if (channel === "family" && !teamId) return fail("Pick the team whose families get this.");
+
+  let emailed = 0;
+  let texted = 0;
+  if (channel === "family" && teamId && (body.email === true || body.sms === true)) {
+    const [team] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, teamId));
+    const players = (await db.select({ info: teamPlayers.info }).from(teamPlayers).where(eq(teamPlayers.teamId, teamId))).map((r) => r.info as PlayerInfo);
+    const { emails, phones } = familyContacts(players);
+    const since = new Date(Date.now() - 86_400_000);
+    const [today] = await db
+      .select({ e: sql<number>`coalesce(sum(${hubMessages.emailed}), 0)::int`, s: sql<number>`coalesce(sum(${hubMessages.texted}), 0)::int` })
+      .from(hubMessages)
+      .where(and(eq(hubMessages.orgId, access.orgId), gte(hubMessages.createdAt, since)));
+    if (body.email === true && emailOn() && emails.length) {
+      if ((today?.e ?? 0) + emails.length > MESSAGE_LIMITS.emailPerDay) return fail(`Your Front Office has sent its ${MESSAGE_LIMITS.emailPerDay} emails for today. Try again tomorrow.`, 429);
+      emailed = await sendEmails(emails, subject || `${team?.name ?? "Team"} update`, `${text}\n\n— ${me.name || "Coach"}, ${team?.name ?? access.orgName}`, me.email);
+    }
+    if (body.sms === true && smsOn() && phones.length) {
+      if ((today?.s ?? 0) + phones.length > MESSAGE_LIMITS.smsPerDay) return fail(`Your Front Office has sent its ${MESSAGE_LIMITS.smsPerDay} texts for today. Try again tomorrow.`, 429);
+      const sms = `${team?.name ?? access.orgName}: ${subject ? `${subject}. ` : ""}${text}`.slice(0, MESSAGE_LIMITS.sms);
+      texted = await sendTexts(phones, `${sms}\nReply STOP to opt out.`);
+    }
+  }
+  await db.insert(hubMessages).values({ orgId: access.orgId, teamId, channel, authorId: me.id, authorName: me.name || me.email, subject, body: text, emailed, texted });
+  return json({ messages: await board(me, access), delivery: { email: emailOn(), sms: smsOn() }, emailed, texted }, 201);
+}
+
 /** Member ids the director picked that really are coaches in this organisation. */
 async function realCoaches(orgId: string, ids: string[]) {
   if (!ids.length) return [];
@@ -149,7 +219,7 @@ async function realCoaches(orgId: string, ids: string[]) {
 }
 
 /**
- * `/api/hub/:orgId[/events]`, `/api/hub-events/:id`, `/api/teams[/:id[/players]]` and `/api/team-players/:id`.
+ * `/api/hub/:orgId[/events|/messages]`, `/api/hub-events/:id`, `/api/hub-messages/:id`, `/api/teams[/:id[/players]]` and `/api/team-players/:id`.
  */
 export async function hubRoute(me: Me, req: Request, resource: string, id?: string, action?: string): Promise<Response> {
   const method = req.method;
@@ -182,6 +252,21 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
       await db.insert(hubEvents).values(rows);
       return json({ events: await calendar(me, access), added: rows.length }, 201);
     }
+  }
+
+  if (resource === "hub" && action === "messages") {
+    const access = await accessTo(me, id);
+    if (!access) return fail(NO_ORG, 404);
+    if (method === "GET") return json({ messages: await board(me, access), delivery: { email: emailOn(), sms: smsOn() } });
+    if (method === "POST") return await post(me, access, body);
+  }
+
+  if (resource === "hub-messages" && id && UUID.test(id) && method === "DELETE") {
+    const [row] = await db.select().from(hubMessages).where(eq(hubMessages.id, id));
+    const access = row ? await accessTo(me, row.orgId) : null;
+    if (!row || !access || (row.authorId !== me.id && !access.director)) return fail("Only the coach who wrote it, or the director, can remove a message.", 404);
+    await db.delete(hubMessages).where(eq(hubMessages.id, id));
+    return json({ messages: await board(me, access), delivery: { email: emailOn(), sms: smsOn() } });
   }
 
   if (resource === "hub-events" && id && UUID.test(id)) {

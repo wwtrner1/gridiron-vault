@@ -26,6 +26,7 @@ const TABS: { id: "playbooks" | HubTab; label: string; icon: string }[] = [
   { id: "roster", label: "Roster", icon: "users" },
   { id: "depth", label: "Depth chart", icon: "ladder" },
   { id: "schedule", label: "Schedule", icon: "calendar" },
+  { id: "messages", label: "Messages", icon: "message" },
 ];
 
 const day = (iso: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
