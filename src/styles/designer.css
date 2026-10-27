@@ -365,9 +365,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 
-/* ---- Rail tabs: Draw · Routes · Players · Sets ---- */
+/* ---- Rail tabs: Draw · Routes · Players · Sets · Plays (folder icon) ---- */
 .builder .builder-rail { gap: 12px; }
-.dz-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--ink); }
+.dz-tabs { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--ink); }
 .dz-tabs button {
   height: 30px;
   padding: 0 4px;
@@ -381,6 +381,10 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   text-transform: uppercase;
 }
 .dz-tabs button:hover { color: var(--white); }
+.dz-tabs button { flex: 1 1 0; min-width: 0; }
+.dz-tabs button.is-icon { flex: 0 0 28px; display: grid; place-items: center; }
+/* Five tabs in the 244px rail: a little less tracking so PLAYERS fits beside the folder. */
+.dz-tabs:has(.is-icon) button { padding: 0 1px; letter-spacing: 0.02em; font-size: 12px; }
 .dz-tabs button.is-on { background: var(--ink-3); color: var(--white); box-shadow: inset 0 -2px 0 var(--cyan); }
 .dz-tabpanel { display: flex; flex: none; flex-direction: column; gap: 16px; }
 .dz-modes, .dz-tabs, .dz-rail-foot { flex: none; }

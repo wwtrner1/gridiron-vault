@@ -13,6 +13,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
+import { PlaybookTree } from "../components/PlaybookTree";
 import { RAIL_TABS, RailGroup, railStore, useRailTab, type RailTab } from "../components/RailGroup";
 import { StyleCard } from "../components/StyleCard";
 import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolbar";
@@ -1232,6 +1233,10 @@ export function Builder() {
       remote: false,
     };
     store.upsertPlay(record);
+    // A new play started from a playbook (the tree's +, ?book=) is filed in it straight away.
+    const fileIn = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
+    if (fileIn && !fileIn.playIds.includes(record.id)) store.upsertPlaybook({ ...fileIn, playIds: [...fileIn.playIds, record.id] });
+    const bookQuery = fileIn ? `?book=${fileIn.id}` : "";
 
     try {
       if (account) {
@@ -1251,12 +1256,12 @@ export function Builder() {
         if (stored.id !== record.id) store.replacePlayId(record.id, stored.id);
         store.upsertPlay(stored);
         setDirty(false);
-        toast("Saved to your Vault and your account.");
-        if (!existing) navigate(`/build/${stored.id}`, { replace: true });
+        toast(`Saved to your Vault${fileIn ? ` in ${fileIn.name}` : ""} and your account.`);
+        if (!existing) navigate(`/build/${stored.id}${bookQuery}`, { replace: true });
       } else {
         setDirty(false);
-        toast("Saved in this browser. Sign in to keep it across devices.");
-        if (!existing) navigate(`/build/${record.id}`, { replace: true });
+        toast(`Saved in this browser${fileIn ? ` in ${fileIn.name}` : ""}. Sign in to keep it across devices.`);
+        if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
       }
       track("play_created", { formation: record.formation, type: record.playType });
     } catch (error) {
@@ -1350,6 +1355,12 @@ export function Builder() {
   };
   const goPlayRef = useRef(goPlay);
   goPlayRef.current = goPlay;
+  /** The Plays tab: unsaved changes are saved first, as stepping to the next play does. */
+  const openFromTree = async (href: string) => {
+    if (saving) return;
+    if (dirty && !(await save())) return;
+    navigate(href);
+  };
 
   // Vs defense: a saved defense (or any play) faded under this one.
   const overlayKey = existing?.id ?? "draft";
@@ -1891,11 +1902,13 @@ export function Builder() {
                 aria-selected={railTab === t.id}
                 aria-controls="dz-tabpanel"
                 tabIndex={railTab === t.id ? 0 : -1}
-                className={railTab === t.id ? "is-on" : ""}
+                className={`${railTab === t.id ? "is-on" : ""}${t.id === "plays" ? " is-icon" : ""}`}
                 onClick={() => railStore.show(t.id)}
                 onKeyDown={onTabKey}
+                aria-label={t.id === "plays" ? "Plays: your playbooks" : undefined}
+                title={t.id === "plays" ? "Your playbooks" : undefined}
               >
-                {t.label}
+                {t.id === "plays" ? <Icon name="folder" size={15} /> : t.label}
               </button>
             ))}
           </div>
@@ -2033,6 +2046,12 @@ export function Builder() {
                   </FormatPanel>
                 </RailGroup>
               </>
+            )}
+
+            {railTab === "plays" && (
+              <RailGroup id="plays" title="Your playbooks">
+                <PlaybookTree idPrefix="dz-tree" activePlayId={existing?.id ?? null} activeBookId={params.get("book")} onOpen={openFromTree} quietTitle />
+              </RailGroup>
             )}
           </div>
 

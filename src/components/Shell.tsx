@@ -6,6 +6,7 @@ import { useAuth } from "../lib/auth";
 import { useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
+import { PlaybookTree } from "./PlaybookTree";
 
 type Props = {
   title: string;
@@ -132,6 +133,10 @@ export function Shell({ title, actions, children }: Props) {
             </RailLink>
           ))}
         </nav>
+
+        <div className="rail-group rail-tree">
+          <PlaybookTree idPrefix="rail-tree" onNavigate={() => setOpen(false)} />
+        </div>
 
         <nav className="rail-group" aria-labelledby="rail-account">
           <p id="rail-account">Account</p>
