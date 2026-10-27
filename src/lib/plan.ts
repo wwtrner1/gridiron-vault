@@ -20,6 +20,8 @@ export type Tier = {
   playLimit: number;
   /** Call Sheets they may keep. */
   gridLimit: number;
+  /** Playbooks they may make. Playbooks past a cap (made on a bigger plan) are kept, not deleted. */
+  playbookLimit: number;
   /** Public Vault plays they may copy into their own Vault each month. */
   copyLimit: number;
   /** Export sizes unlocked, by id from EXPORT_SIZES. */
@@ -54,6 +56,7 @@ export const TIERS: Record<TierId, Tier> = {
     seats: "Owner",
     playLimit: 1_000_000,
     gridLimit: 1_000_000,
+    playbookLimit: 1_000_000,
     copyLimit: 1_000_000,
     sizes: "all",
     maxDpi: 600,
@@ -75,6 +78,7 @@ export const TIERS: Record<TierId, Tier> = {
     seats: "1 coach",
     playLimit: 200,
     gridLimit: 10,
+    playbookLimit: 1_000_000,
     copyLimit: 100,
     sizes: "all",
     maxDpi: 300,
@@ -97,6 +101,7 @@ export const TIERS: Record<TierId, Tier> = {
     seats: "1 coach",
     playLimit: 400,
     gridLimit: 25,
+    playbookLimit: 1_000_000,
     copyLimit: 200,
     sizes: "all",
     maxDpi: 300,
@@ -119,6 +124,7 @@ export const TIERS: Record<TierId, Tier> = {
     seats: "1 coach",
     playLimit: 8,
     gridLimit: 1,
+    playbookLimit: 1,
     copyLimit: 5,
     sizes: "starter",
     maxDpi: 96,
@@ -147,6 +153,7 @@ export const TIERS: Record<TierId, Tier> = {
     featured: true,
     playLimit: 400,
     gridLimit: 25,
+    playbookLimit: 1_000_000,
     copyLimit: 200,
     sizes: "all",
     maxDpi: 300,
@@ -174,6 +181,7 @@ export const TIERS: Record<TierId, Tier> = {
     seats: "Up to 3 coaches",
     playLimit: 1200,
     gridLimit: 60,
+    playbookLimit: 1_000_000,
     copyLimit: 600,
     sizes: "all",
     maxDpi: 600,
@@ -198,21 +206,22 @@ export const TIERS: Record<TierId, Tier> = {
     blurb: "A league or a multi-team program on one system.",
     price: "$79",
     cadence: "per month",
-    seats: "Up to 12 coaches",
+    seats: "Up to 15 coaches",
     playLimit: 5000,
     gridLimit: 250,
+    playbookLimit: 1_000_000,
     copyLimit: 5000,
     sizes: "all",
     maxDpi: 600,
     watermark: false,
     sheets: true,
     share: true,
-    orgSeats: 12,
+    orgSeats: 15,
     lockedTools: [],
     photoReviews: 300,
     assistantCalls: 2000,
     perks: [
-      "12 seats and shared team Vaults",
+      "15 seats and shared team Vaults",
       "Front Office: league-wide master playbooks",
       "Bulk wristband runs for every team",
       "Priority support during the season",
@@ -228,8 +237,9 @@ export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.p
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
 export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
   { id: "season", name: "Season Pass", price: "$29", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
-  { id: "yearly", name: "Head Coach yearly", price: "$69", cadence: "per year", blurb: "Every Head Coach feature, about five months free against paying monthly." },
-  { id: "staff-yearly", name: "Staff yearly", price: "$179", cadence: "per year", blurb: "Staff seats for the whole coaching staff, billed once a year." },
+  { id: "yearly", name: "Head Coach yearly", price: "$99", cadence: "per year", blurb: "Every Head Coach feature for about $8 a month, billed once a year." },
+  { id: "staff-yearly", name: "Staff yearly", price: "$249", cadence: "per year", blurb: "Staff seats for the whole coaching staff, billed once a year." },
+  { id: "program-yearly", name: "Program yearly", price: "$699", cadence: "per year", blurb: "Program seats and Front Office for a league or club, billed once a year." },
   { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
 ];
 
@@ -258,6 +268,15 @@ export function gateGrid(tier: Tier, currentGrids: number): Gate {
   return {
     ok: false,
     reason: `${tier.name} includes ${tier.gridLimit} Call Sheet${tier.gridLimit === 1 ? "" : "s"}. Move up a plan to run a grid per opponent.`,
+    cta: "See plans",
+  };
+}
+
+export function gatePlaybook(tier: Tier, currentBooks: number): Gate {
+  if (currentBooks < tier.playbookLimit) return { ok: true };
+  return {
+    ok: false,
+    reason: `${tier.name} includes ${tier.playbookLimit} playbook${tier.playbookLimit === 1 ? "" : "s"}. Head Coach opens as many as you run, one for every opponent, unit or season.`,
     cta: "See plans",
   };
 }

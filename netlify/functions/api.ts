@@ -44,7 +44,7 @@ import { hubRoute } from "../front-office/hub.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
-import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
+import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
@@ -448,6 +448,10 @@ async function route(req: Request, deviceId: string): Promise<Response> {
 
       if (req.method === "POST" && !id) {
         const body = await req.json();
+        const tier = await planOf(me);
+        const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(playbooks).where(eq(playbooks.ownerId, me.id));
+        const gate = gatePlaybook(tier, have?.n ?? 0);
+        if (!gate.ok) return planFail(gate);
         const [row] = await db
           .insert(playbooks)
           .values({

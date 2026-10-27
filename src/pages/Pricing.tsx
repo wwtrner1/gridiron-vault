@@ -85,7 +85,7 @@ const FAQ = [
 ];
 
 /** The offer on each card below the plans, by its id in OFFERS. */
-const OFFER_KEY: Record<string, string> = { season: "season", yearly: "solo_year", "staff-yearly": "crew_year", founding: "founding" };
+const OFFER_KEY: Record<string, string> = { season: "season", yearly: "solo_year", "staff-yearly": "crew_year", "program-yearly": "program_year", founding: "founding" };
 
 export function Pricing() {
   const tier = useTier();
@@ -94,7 +94,7 @@ export function Pricing() {
   const billing = useBilling();
 
   /** What a plan button buys when billing is open; Program is by quote. */
-  const OFFER_OF: Partial<Record<TierId, string>> = { solo: "solo_month", crew: "crew_month" };
+  const OFFER_OF: Partial<Record<TierId, string>> = { solo: "solo_month", crew: "crew_month", program: "program_month" };
 
   const pay = async (offer: string) => {
     try {

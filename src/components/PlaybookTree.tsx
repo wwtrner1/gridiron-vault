@@ -4,6 +4,8 @@ import { Icon } from "./Icon";
 import { store, useStore, type LocalPlaybook } from "../lib/store";
 import { treeState, useTreeOpen } from "../lib/treeState";
 import { useToast } from "../lib/toast";
+import { gatePlaybook } from "../lib/plan";
+import { useTier } from "../lib/tier";
 import { uid, type StoredPlay } from "../lib/types";
 
 type Props = {
@@ -49,6 +51,7 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
   const open = useTreeOpen();
   const navigate = useNavigate();
   const toast = useToast();
+  const tier = useTier();
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -134,6 +137,11 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
     setCreating(false);
     setNewName("");
     if (!name) return;
+    const gate = gatePlaybook(tier, books.length);
+    if (!gate.ok) {
+      toast(gate.reason, true);
+      return;
+    }
     const book: LocalPlaybook = { id: uid("book"), name, description: "", color: "#16C8E8", isPublic: false, playIds: [] };
     store.upsertPlaybook(book);
     treeState.set(book.id, true);
