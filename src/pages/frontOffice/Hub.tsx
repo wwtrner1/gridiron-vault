@@ -4,9 +4,10 @@ import { Modal } from "../../components/Modal";
 import { api } from "../../lib/api";
 import { HUB_LIMITS, TEAM_COLORS, type HubState, type HubTeam } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
+import { DepthTab } from "./DepthTab";
 import { RosterTab } from "./RosterTab";
 
-export type HubTab = "roster";
+export type HubTab = "roster" | "depth";
 
 /**
  * The team hub for one organisation: the team picker (the director adds teams
@@ -95,7 +96,10 @@ export function Hub({ orgId, tab, teamId, onTeam }: { orgId: string; tab: HubTab
           )}
         </div>
       ) : (
-        tab === "roster" && <RosterTab key={team.id} team={team} onCount={() => void load()} />
+        <>
+          {tab === "roster" && <RosterTab key={team.id} team={team} onCount={() => void load()} />}
+          {tab === "depth" && <DepthTab key={team.id} team={team} />}
+        </>
       )}
 
       {editing && (

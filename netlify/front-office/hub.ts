@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
-import { cleanPlayer, cleanTeam, HUB_LIMITS, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
+import { depthCharts, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
+import { cleanDepth, cleanPlayer, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
 
 /**
  * Team hub routes, behind the sign-in and phone checks. The director of an
@@ -96,6 +96,11 @@ async function roster(teamId: string): Promise<HubPlayer[]> {
   return rows.map(toPlayer);
 }
 
+async function depth(teamId: string): Promise<DepthChart[]> {
+  const rows = await db.select().from(depthCharts).where(eq(depthCharts.teamId, teamId));
+  return rows.map((r) => ({ unit: r.unit as DepthUnit, slots: r.slots as DepthChart["slots"], updatedAt: iso(r.updatedAt) }));
+}
+
 /** Member ids the director picked that really are coaches in this organisation. */
 async function realCoaches(orgId: string, ids: string[]) {
   if (!ids.length) return [];
@@ -150,6 +155,20 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
       if (!access.director) return fail("Only the director removes a team.", 403);
       await db.delete(teams).where(eq(teams.id, team.id));
       return json(await hubState(access));
+    }
+
+    if (action === "depth" && method === "GET") return json({ charts: await depth(team.id) });
+
+    if (action === "depth" && method === "PUT") {
+      const unit = String(body.unit) as DepthUnit;
+      if (!DEPTH_UNITS.includes(unit)) return fail("Pick offense, defense or special teams.");
+      const ids = await db.select({ id: teamPlayers.id }).from(teamPlayers).where(eq(teamPlayers.teamId, team.id));
+      const slots = cleanDepth(body.slots, new Set(ids.map((r) => r.id)));
+      await db
+        .insert(depthCharts)
+        .values({ teamId: team.id, unit, slots })
+        .onConflictDoUpdate({ target: [depthCharts.teamId, depthCharts.unit], set: { slots, updatedAt: new Date() } });
+      return json({ charts: await depth(team.id) });
     }
 
     if (action === "players" && method === "GET") return json({ players: await roster(team.id) });

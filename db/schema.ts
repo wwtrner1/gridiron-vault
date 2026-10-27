@@ -406,3 +406,18 @@ export const teamPlayers = pgTable(
   },
   (t) => [index("team_players_team_idx").on(t.teamId)],
 );
+
+/** A team's depth chart for one unit: spots in order, each with its players 1st string first. Shape: `DepthSlot[]`. */
+export const depthCharts = pgTable(
+  "depth_charts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    unit: text().notNull(),
+    slots: jsonb().$type<unknown>().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("depth_charts_team_unit_idx").on(t.teamId, t.unit)],
+);
