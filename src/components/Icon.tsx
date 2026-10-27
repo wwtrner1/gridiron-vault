@@ -55,6 +55,12 @@ const PATHS: Record<string, string> = {
   sparkle: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z",
   link: "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1",
   sort: "M8 4v16M8 20l-3-3M8 20l3-3M16 20V4M16 4l-3 3M16 4l3 3",
+  users: "M9 11a4 4 0 100-8 4 4 0 000 8zM2 21a7 7 0 0114 0M16 3.5a4 4 0 010 7M18 14a6 6 0 014 7",
+  calendar: "M4 6h16v15H4zM4 10h16M8 3v5M16 3v5",
+  message: "M4 4h16v12H8l-4 4zM8 9h8M8 12h5",
+  ladder: "M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10",
+  phone: "M5 3h4l2 5-3 2a11 11 0 006 6l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 5a2 2 0 012-2z",
+  mail: "M3 5h18v14H3zM3 6l9 7 9-7",
 };
 
 export function Icon({ name, size = 18, ...rest }: { name: string; size?: number } & React.SVGProps<SVGSVGElement>) {

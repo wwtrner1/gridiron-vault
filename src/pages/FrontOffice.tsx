@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
@@ -14,10 +14,17 @@ import { store, useStore } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import type { StoredPlay } from "../lib/types";
+import { Hub, type HubTab } from "./frontOffice/Hub";
 import "../styles/frontOffice.css";
 
 /** A question before a change: Leave, Remove, Stop sharing, Close, or a new name (`input`). */
 type Ask = { title: string; body: string; label: string; danger?: boolean; input?: string; onYes: (value: string) => void };
+
+/** The Front Office's tabs: the playbook sharing it started with, then the team hub. */
+const TABS: { id: "playbooks" | HubTab; label: string; icon: string }[] = [
+  { id: "playbooks", label: "Playbooks & coaches", icon: "folder" },
+  { id: "roster", label: "Roster", icon: "users" },
+];
 
 const day = (iso: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
 
@@ -43,6 +50,7 @@ export function FrontOffice() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<OrgShareDetail | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
+  const [params, setParams] = useSearchParams();
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +112,20 @@ export function FrontOffice() {
     setPreview(null);
   };
 
+  // Every Front Office this coach can open the team hub of: their own first, then the ones they joined.
+  const hubOrgs = data ? [...(data.mine ? [{ id: data.mine.id, name: data.mine.name }] : []), ...data.joined.map((j) => ({ id: j.org.id, name: j.org.name }))] : [];
+  const orgId = hubOrgs.find((o) => o.id === params.get("org"))?.id ?? hubOrgs[0]?.id ?? "";
+  const asked = params.get("tab");
+  const tab = TABS.find((t) => t.id === asked)?.id ?? "playbooks";
+  const choose = (next: { tab?: string; org?: string; team?: string }) => {
+    const p = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(next)) {
+      if (v) p.set(k, v);
+      else p.delete(k);
+    }
+    setParams(p, { replace: true });
+  };
+
   if (!account) {
     return (
       <Shell title="Front Office">
@@ -163,6 +185,34 @@ export function FrontOffice() {
             </section>
           )}
 
+          {hubOrgs.length > 0 && (
+            <div className="hub-nav">
+              {hubOrgs.length > 1 && (
+                <label className="field hub-org">
+                  <span>Front Office</span>
+                  <select className="select" value={orgId} onChange={(e) => choose({ org: e.target.value, team: "" })}>
+                    {hubOrgs.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="chip-row hub-tabs" role="tablist" aria-label="Front Office sections">
+                {TABS.map((t) => (
+                  <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? " is-on" : ""}`} onClick={() => choose({ tab: t.id })}>
+                    <Icon name={t.icon} size={14} /> {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab !== "playbooks" && orgId ? (
+            <Hub orgId={orgId} tab={tab} teamId={params.get("team") ?? ""} onTeam={(team) => choose({ team })} />
+          ) : (
+          <>
           <section className="fo-section" aria-labelledby="fo-shared">
             <h3 id="fo-shared">Shared with you</h3>
             {data.joined.length === 0 ? (
@@ -210,6 +260,8 @@ export function FrontOffice() {
             onUpgrade={() => navigate("/pricing")}
             ask={setAsk}
           />
+          </>
+          )}
         </>
       )}
 
@@ -301,8 +353,8 @@ function Head() {
       <div>
         <h2>Front Office</h2>
         <p>
-          A league or program director shares master playbooks with every coach they invite. Coaches open them read-only and clone what
-          they want into their own Vault, so the master never changes by accident.
+          Run your league or program from one place. Share read-only master playbooks with every coach you invite, and keep each team's
+          roster, parent contacts and season in a hub only you and that team's staff can open.
         </p>
       </div>
     </div>

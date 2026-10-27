@@ -1,0 +1,287 @@
+/**
+ * The team hub inside the Front Office: teams, their rosters and everything a
+ * staff runs a season with. Shared by the browser and the API function, so
+ * both clean a player the same way.
+ *
+ * Privacy: roster rows hold minors' names, contacts and medical notes. Only
+ * the director and the coaches on that team's staff ever receive them, every
+ * answer is `private, no-store`, and nothing here is reachable without a
+ * sign-in. Never add a public route that returns roster data.
+ */
+
+export const HUB_LIMITS = {
+  teams: 40,
+  players: 150,
+  name: 60,
+  short: 40,
+  text: 120,
+  notes: 1000,
+  guardians: 3,
+  /** Rows one paste can import. */
+  importRows: 150,
+};
+
+/** Where a player stands right now. */
+export const PLAYER_STATUS = ["active", "injured", "inactive"] as const;
+export type PlayerStatus = (typeof PLAYER_STATUS)[number];
+export const STATUS_LABEL: Record<PlayerStatus, string> = { active: "Active", injured: "Injured", inactive: "Inactive" };
+
+/** A parent, guardian or emergency contact. `text` is their OK to receive team texts. */
+export type Guardian = { name: string; relation: string; phone: string; email: string; text: boolean };
+
+export type PlayerInfo = {
+  firstName: string;
+  lastName: string;
+  jersey: string;
+  /** As the coach writes them: "QB, S" or "X / CB". */
+  positions: string;
+  grade: string;
+  /** yyyy-mm-dd, or "" */
+  birthDate: string;
+  height: string;
+  weight: string;
+  status: PlayerStatus;
+  phone: string;
+  email: string;
+  /** The player's own OK to receive team texts (older players). */
+  text: boolean;
+  address: string;
+  guardians: Guardian[];
+  /** Allergies, conditions, medication. Coaches only. */
+  medical: string;
+  notes: string;
+};
+
+export type HubPlayer = PlayerInfo & { id: string; teamId: string; updatedAt: string };
+
+export type HubTeam = {
+  id: string;
+  name: string;
+  /** "Varsity", "U10", "Tuesday flag" */
+  level: string;
+  season: string;
+  color: string;
+  /** Member ids (org_members.id) on this team's staff. */
+  coachIds: string[];
+  /** Every coach in the Front Office is on the staff. */
+  allCoaches: boolean;
+  players: number;
+};
+
+/** A coach the director can put on a team's staff. */
+export type HubCoach = { id: string; name: string; email: string; active: boolean };
+
+/** What one coach can see of an organisation's hub. */
+export type HubState = {
+  org: { id: string; name: string };
+  role: "director" | "coach";
+  teams: HubTeam[];
+  /** Filled for the director only. */
+  coaches: HubCoach[];
+};
+
+export const TEAM_COLORS = ["#0f8aa6", "#1d4ed8", "#c0392b", "#1e8449", "#d35400", "#7d3c98", "#2c3e50", "#b7950b"];
+
+const clip = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : typeof v === "number" ? String(v).slice(0, max) : "");
+const flag = (v: unknown) => v === true || v === "true" || v === "yes" || v === "1" || v === 1;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const HEX = /^#[0-9a-f]{6}$/i;
+
+export const emptyGuardian = (): Guardian => ({ name: "", relation: "", phone: "", email: "", text: false });
+
+export const emptyPlayer = (): PlayerInfo => ({
+  firstName: "",
+  lastName: "",
+  jersey: "",
+  positions: "",
+  grade: "",
+  birthDate: "",
+  height: "",
+  weight: "",
+  status: "active",
+  phone: "",
+  email: "",
+  text: false,
+  address: "",
+  guardians: [],
+  medical: "",
+  notes: "",
+});
+
+/** A player as the coach sent it, held to the limits; a string says what is missing. */
+export function cleanPlayer(raw: unknown): PlayerInfo | string {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const p: PlayerInfo = {
+    firstName: clip(r.firstName, HUB_LIMITS.short),
+    lastName: clip(r.lastName, HUB_LIMITS.short),
+    jersey: clip(r.jersey, 3),
+    positions: clip(r.positions, HUB_LIMITS.short),
+    grade: clip(r.grade, 20),
+    birthDate: DATE.test(clip(r.birthDate, 10)) ? clip(r.birthDate, 10) : "",
+    height: clip(r.height, 12),
+    weight: clip(r.weight, 12),
+    status: (PLAYER_STATUS as readonly string[]).includes(String(r.status)) ? (r.status as PlayerStatus) : "active",
+    phone: clip(r.phone, 30),
+    email: clip(r.email, 254).toLowerCase(),
+    text: flag(r.text),
+    address: clip(r.address, HUB_LIMITS.text),
+    guardians: (Array.isArray(r.guardians) ? r.guardians : [])
+      .slice(0, HUB_LIMITS.guardians)
+      .map((g) => {
+        const o = (g && typeof g === "object" ? g : {}) as Record<string, unknown>;
+        return { name: clip(o.name, HUB_LIMITS.name), relation: clip(o.relation, 30), phone: clip(o.phone, 30), email: clip(o.email, 254).toLowerCase(), text: flag(o.text) };
+      })
+      .filter((g) => g.name || g.phone || g.email),
+    medical: clip(r.medical, HUB_LIMITS.notes),
+    notes: clip(r.notes, HUB_LIMITS.notes),
+  };
+  if (!p.firstName && !p.lastName) return "Give the player a first or last name.";
+  return p;
+}
+
+export function cleanTeam(raw: unknown): Omit<HubTeam, "id" | "players"> | string {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const name = clip(r.name, HUB_LIMITS.name);
+  if (!name) return "Name the team first.";
+  return {
+    name,
+    level: clip(r.level, HUB_LIMITS.short),
+    season: clip(r.season, HUB_LIMITS.short),
+    color: HEX.test(clip(r.color, 7)) ? clip(r.color, 7).toLowerCase() : TEAM_COLORS[0],
+    coachIds: (Array.isArray(r.coachIds) ? r.coachIds : []).map((v) => clip(v, 40)).filter(Boolean).slice(0, 60),
+    allCoaches: flag(r.allCoaches),
+  };
+}
+
+export const fullName = (p: Pick<PlayerInfo, "firstName" | "lastName">) => [p.firstName, p.lastName].filter(Boolean).join(" ");
+
+/** "Marcus Hill #12" */
+export const playerLabel = (p: Pick<PlayerInfo, "firstName" | "lastName" | "jersey">) => [fullName(p), p.jersey ? `#${p.jersey}` : ""].filter(Boolean).join(" ");
+
+/** Jersey number order, then last name; players without a number last. */
+export function byJersey(a: PlayerInfo, b: PlayerInfo) {
+  const na = a.jersey === "" ? Infinity : Number(a.jersey);
+  const nb = b.jersey === "" ? Infinity : Number(b.jersey);
+  if (na !== nb) return (Number.isNaN(na) ? Infinity : na) - (Number.isNaN(nb) ? Infinity : nb);
+  return (a.lastName || a.firstName).localeCompare(b.lastName || b.firstName);
+}
+
+/* ------------------------------------------------------------------ CSV --- */
+
+/** Spreadsheet headings a coach is likely to have, matched loosely, to the field they fill. */
+const HEADINGS: [RegExp, string][] = [
+  [/^(first|first ?name|given)/, "firstName"],
+  [/^(last|last ?name|surname|family)/, "lastName"],
+  [/^(name|player|player ?name|full ?name)$/, "name"],
+  [/^(#|no\.?|num|number|jersey)/, "jersey"],
+  [/^(pos|position)/, "positions"],
+  [/^(grade|class|yr|year)$/, "grade"],
+  [/^(dob|birth|birthday|date of birth)/, "birthDate"],
+  [/^(height|ht)$/, "height"],
+  [/^(weight|wt)$/, "weight"],
+  [/^(player ?phone|cell|mobile|phone)$/, "phone"],
+  [/^(player ?email|email)$/, "email"],
+  [/^(address|street)/, "address"],
+  [/^(parent|guardian|mother|father|mom|dad)( ?\/ ?guardian)?( ?1)?( ?name)?$/, "g0.name"],
+  [/^(parent|guardian)( ?1)? ?phone/, "g0.phone"],
+  [/^(parent|guardian)( ?1)? ?email/, "g0.email"],
+  [/^(parent|guardian) ?2( ?name)?$/, "g1.name"],
+  [/^(parent|guardian) ?2 ?phone/, "g1.phone"],
+  [/^(parent|guardian) ?2 ?email/, "g1.email"],
+  [/^(medical|allerg|health)/, "medical"],
+  [/^(notes?|comments?)$/, "notes"],
+];
+
+/** Rows out of pasted CSV or tab-separated text (quotes allowed). */
+export function parseTable(text: string): string[][] {
+  const sep = text.includes("\t") ? "\t" : ",";
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === sep) {
+      row.push(cell.trim());
+      cell = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += ch;
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+/** "3/14/2012" or "2012-03-14" → "2012-03-14"; anything else → "". */
+function isoDate(s: string): string {
+  if (DATE.test(s)) return s;
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+  if (!m) return "";
+  const y = m[3].length === 2 ? `20${m[3]}` : m[3];
+  return `${y}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+}
+
+/**
+ * Players out of a pasted spreadsheet. The first row must be headings; columns
+ * nobody recognises are skipped and reported, so the coach can see what didn't
+ * come across.
+ */
+export function playersFromTable(text: string): { players: PlayerInfo[]; skipped: string[] } {
+  const [head, ...body] = parseTable(text);
+  if (!head) return { players: [], skipped: [] };
+  const fields = head.map((h) => HEADINGS.find(([re]) => re.test(h.toLowerCase().replace(/[_*]/g, " ").trim()))?.[1] ?? "");
+  const skipped = head.filter((_, i) => !fields[i] && head[i]);
+  const players: PlayerInfo[] = [];
+  for (const cells of body.slice(0, HUB_LIMITS.importRows)) {
+    const raw: Record<string, unknown> = { guardians: [emptyGuardian(), emptyGuardian()] };
+    const gs = raw.guardians as Guardian[];
+    cells.forEach((value, i) => {
+      const f = fields[i];
+      if (!f || !value) return;
+      if (f === "name") {
+        const parts = value.includes(",") ? value.split(",").map((s) => s.trim()).reverse() : value.split(/\s+/);
+        raw.firstName = parts[0];
+        raw.lastName = parts.slice(1).join(" ");
+      } else if (f.startsWith("g")) {
+        const [g, key] = f.split(".");
+        (gs[Number(g[1])] as Record<string, unknown>)[key] = value;
+      } else if (f === "birthDate") raw.birthDate = isoDate(value);
+      else if (f === "jersey") raw.jersey = value.replace(/^#/, "");
+      else raw[f] = value;
+    });
+    const p = cleanPlayer(raw);
+    if (typeof p !== "string") players.push(p);
+  }
+  return { players, skipped };
+}
+
+const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+
+/** The roster as a spreadsheet the coach can open in Excel or Sheets. */
+export function rosterCsv(players: PlayerInfo[]): string {
+  const head = ["First name", "Last name", "Jersey", "Positions", "Grade", "Birth date", "Height", "Weight", "Status", "Player phone", "Player email", "Address"];
+  for (let g = 1; g <= HUB_LIMITS.guardians; g++) head.push(`Guardian ${g} name`, `Guardian ${g} relation`, `Guardian ${g} phone`, `Guardian ${g} email`);
+  head.push("Medical", "Notes");
+  const rows = players.map((p) => {
+    const cells = [p.firstName, p.lastName, p.jersey, p.positions, p.grade, p.birthDate, p.height, p.weight, STATUS_LABEL[p.status], p.phone, p.email, p.address];
+    for (let g = 0; g < HUB_LIMITS.guardians; g++) {
+      const x = p.guardians[g];
+      cells.push(x?.name ?? "", x?.relation ?? "", x?.phone ?? "", x?.email ?? "");
+    }
+    cells.push(p.medical, p.notes);
+    return cells.map(csvCell).join(",");
+  });
+  return [head.map(csvCell).join(","), ...rows].join("\n");
+}
