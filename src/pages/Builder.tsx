@@ -148,6 +148,29 @@ const readKeepOpen = () => {
   }
 };
 
+/**
+ * Which side panels the coach tucked away to give the field more room, per browser.
+ * `rail` is the tools panel (wherever it sits docked); `side` is the Selection/Play
+ * panel, remembered only on screens wide enough to dock it.
+ */
+const PANELS_KEY = "grid1ronvault.panels.v1";
+type PanelPrefs = { rail: boolean; side: boolean };
+const readPanels = (): PanelPrefs => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PANELS_KEY) ?? "{}") as Partial<PanelPrefs>;
+    return { rail: raw.rail !== false, side: raw.side !== false };
+  } catch {
+    return { rail: true, side: true };
+  }
+};
+const savePanels = (patch: Partial<PanelPrefs>) => {
+  try {
+    localStorage.setItem(PANELS_KEY, JSON.stringify({ ...readPanels(), ...patch }));
+  } catch {
+    /* storage blocked — the choice still holds this visit */
+  }
+};
+
 /** What undoing the same step three times usually means, and the fix. */
 const UNDO_TIPS: Record<string, string> = {
   Move: "To move one player out of a formation, tap him once to pick the set, then press him again to pick only him. To move the whole set, tap the empty field first.",
@@ -396,10 +419,28 @@ export function Builder() {
   );
   const [status, setStatus] = useState("Drop a formation, then draw the routes. Hover any tool to see how it works.");
   const [exporting, setExporting] = useState(false);
-  const [sideOpen, setSideOpen] = useState(wideScreen);
+  const [sideOpen, setSideOpen] = useState(() => wideScreen() && readPanels().side);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
   const [lists, setLists] = useState<"formations" | "defense" | "layers" | null>(null);
   const [railOpen, setRailOpen] = useState(false);
+  /** The docked tools panel tucked against the left edge (tablets and up; phones use the sheet). */
+  const [railShown, setRailShown] = useState(() => readPanels().rail);
+  useEffect(() => savePanels({ rail: railShown }), [railShown]);
+  useEffect(() => {
+    if (wideScreen()) savePanels({ side: sideOpen });
+  }, [sideOpen]);
+  /** Opens the tools wherever they live: the sheet on a phone, the docked panel elsewhere. */
+  const showRail = () => {
+    setRailOpen(true);
+    setRailShown(true);
+  };
+  const panelsShown = railShown || (wideScreen() && sideOpen);
+  /** Ctrl+\ and the field menu: tuck both panels away for the whole field, or bring them back. */
+  const togglePanels = () => {
+    const show = !panelsShown;
+    setRailShown(show);
+    setSideOpen(show && wideScreen());
+  };
   const [keepOpen, setKeepOpen] = useState(readKeepOpen);
   const [moreOpen, setMoreOpen] = useState(false);
   const [draftPoints, setDraftPoints] = useState(0);
@@ -922,7 +963,7 @@ export function Builder() {
             label: "Pick from the route library",
             run: () => {
               railStore.open("routes");
-              setRailOpen(true);
+              showRail();
             },
           },
           ...(giver
@@ -1018,6 +1059,7 @@ export function Builder() {
       : []),
     ...(existing ? [{ id: "flip-copy", label: "Flip and save as a new play", run: () => void flipToCopy() }] : []),
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
+    ...(sheetScreen() ? [] : [{ id: "panels", label: panelsShown ? "Hide the side panels" : "Show the side panels", run: togglePanels }]),
   ];
 
   /* ----------------------------------------------------------- coach tips */
@@ -1025,7 +1067,7 @@ export function Builder() {
   const openLayers = () => {
     railStore.open("sets");
     setLists("layers");
-    setRailOpen(true);
+    showRail();
   };
   const onSignal = useCallback((s: CanvasSignal) => {
     if (s.kind === "emptyTap")
@@ -1208,6 +1250,11 @@ export function Builder() {
         setSelection(scene.nodes.map((n) => n.id));
         return;
       }
+      if (meta_ && e.code === "Backslash" && !sheetScreen()) {
+        e.preventDefault();
+        togglePanels();
+        return;
+      }
       if (meta_) return;
 
       if (e.key === "[" || e.key === "]" || e.key === "PageUp" || e.key === "PageDown") {
@@ -1260,7 +1307,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, railShown, sideOpen]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -1931,7 +1978,32 @@ export function Builder() {
         />
       )}
 
-      <div className={`dz-body${sideOpen ? "" : " is-side-closed"}`}>
+      <div className={`dz-body${sideOpen ? "" : " is-side-closed"}${railShown ? "" : " is-rail-closed"}`}>
+        {/* Edge tabs: tuck either panel against its side for more field, and pull it back out. */}
+        <button
+          type="button"
+          className={`dz-edge dz-edge-left${railShown ? "" : " is-closed"}`}
+          onClick={() => setRailShown((v) => !v)}
+          aria-expanded={railShown}
+          aria-controls="dz-tools"
+          aria-label={railShown ? "Hide the tools panel" : "Show the tools panel"}
+          title={`${railShown ? "Hide" : "Show"} tools (Ctrl+\\ hides or shows both panels)`}
+        >
+          <Icon name="chevron" size={14} />
+          {!railShown && <span>Tools</span>}
+        </button>
+        <button
+          type="button"
+          className={`dz-edge dz-edge-right${sideOpen ? "" : " is-closed"}`}
+          onClick={() => setSideOpen((v) => !v)}
+          aria-expanded={sideOpen}
+          aria-controls="play-details"
+          aria-label={sideOpen ? "Hide the play panel" : "Show the play panel"}
+          title={`${sideOpen ? "Hide" : "Show"} Selection and Play (Ctrl+\\ hides or shows both panels)`}
+        >
+          <Icon name="chevron" size={14} />
+          {!sideOpen && <span>Play</span>}
+        </button>
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} id="dz-tools" aria-label="Drawing tools">
           <div className="dz-sheet-head">
             <span className="dz-sheet-grip" aria-hidden="true" />
@@ -2181,7 +2253,7 @@ export function Builder() {
             onLook={changeLook}
             onRoutes={() => {
               railStore.show("routes");
-              setRailOpen(true);
+              showRail();
             }}
           />
         </aside>
