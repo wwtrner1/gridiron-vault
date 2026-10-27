@@ -1,4 +1,4 @@
-import { fieldInset, unitsPerYard } from "./field";
+import { fieldInset, unitsPerYard } from "./fieldUnits";
 import { toWorld } from "./geometry";
 import type { FieldView, Point, Scene, SceneNode } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";

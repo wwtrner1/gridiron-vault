@@ -1,4 +1,5 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
+import { convertField } from "./fieldConvert";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
@@ -257,6 +258,7 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
   const firstReads = new Set<string>();
   let nodes = scene.nodes;
   let view = scene.view;
+  let moved: Pick<Scene, "losY" | "pivot"> | null = null;
   for (const change of changes) {
     if (change.op === "mirror") {
       nodes = nodes.map(mirrorNode);
@@ -264,7 +266,10 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       continue;
     }
     if (change.op === "field") {
+      // Routes keep their depth in yards on the new field, as when the coach changes it in the Designer.
+      const move = convertField({ ...scene, ...moved, nodes, view }, change.view);
       view = change.view;
+      if (move.moved) (nodes = move.scene.nodes), (moved = { losY: move.scene.losY, pivot: move.scene.pivot });
       continue;
     }
     if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
@@ -350,8 +355,8 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       return next;
     });
   }
-  const changed = touched.size > 0;
-  return { scene: changed || view !== scene.view ? { ...scene, ...(changed ? { nodes } : {}), view } : scene, players: touched.size, firstReads: firstReads.size };
+  const changed = touched.size > 0 || moved !== null;
+  return { scene: changed || view !== scene.view ? { ...scene, ...moved, ...(changed ? { nodes } : {}), view } : scene, players: touched.size, firstReads: firstReads.size };
 }
 
 export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
@@ -562,9 +567,12 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
   const kept = new Set(after.nodes.map((n) => n.id));
   const onField = new Set(field.nodes.map((n) => n.id));
   const removed = before.nodes.filter((n) => !kept.has(n.id) && !onField.has(n.id));
-  if (!changed.size && !removed.length) return field;
+  // A field change comes back whole (field, line of scrimmage, pivot) while the play is still on the field it was moved to.
+  const unmove = before.view !== after.view && field.view === after.view ? { view: before.view, losY: before.losY, pivot: before.pivot } : {};
+  if (!changed.size && !removed.length && !("view" in unmove)) return field;
   return {
     ...field,
+    ...unmove,
     nodes: [
       ...field.nodes.map((n) => {
         const how = changed.get(n.id);
