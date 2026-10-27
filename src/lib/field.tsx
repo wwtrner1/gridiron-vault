@@ -2,9 +2,10 @@ import { HASHES, useFieldPrefs, type FieldContrast, type HashStyle } from "./fie
 import type { Box } from "./geometry";
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
+import { fieldInset, SPACING, unitsPerYard } from "./fieldUnits";
 
-/** How far in from the canvas edge each field view draws its sidelines. */
-export const fieldInset = (view: FieldView) => (view === "flag" ? 96 : 34);
+export { fieldInset, unitsPerYard };
+
 
 type Props = {
   view: FieldView;
@@ -48,16 +49,6 @@ const CHALKS: Record<FieldContrast, Chalk> = {
 const NAVY = "#0B1524"; // --ink
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
-/** Yard spacing for each view, in canvas units per 5 yards. */
-const SPACING: Record<FieldView, number> = {
-  full: 48,
-  half: 72,
-  redzone: 104,
-  flag: 60,
-  blank: 0,
-};
-/** Canvas units per yard in a view (0 for the whiteboard), for distance read-outs. */
-export const unitsPerYard = (view: FieldView) => SPACING[view] / 5;
 
 /** Top of the playing field: the goal line on views with an end zone, else the sideline box. */
 const fieldTop = (view: FieldView) => (view === "redzone" || view === "flag" ? GOAL_Y : 14);
