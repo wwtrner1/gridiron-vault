@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { DepthChart, DepthSlot, DepthUnit, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
+import type { DepthChart, DepthSlot, DepthUnit, EventDraft, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -147,6 +147,11 @@ export const api = {
   depthCharts: (teamId: string) => request<{ charts: DepthChart[] }>(`teams/${teamId}/depth`),
   saveDepth: (teamId: string, unit: DepthUnit, slots: DepthSlot[]) =>
     request<{ charts: DepthChart[] }>(`teams/${teamId}/depth`, { method: "PUT", body: JSON.stringify({ unit, slots }) }),
+  events: (orgId: string) => request<{ events: HubEvent[] }>(`hub/${orgId}/events`),
+  addEvent: (orgId: string, event: EventDraft, repeatWeeks = 0) =>
+    request<{ events: HubEvent[]; added: number }>(`hub/${orgId}/events`, { method: "POST", body: JSON.stringify({ event, repeatWeeks }) }),
+  updateEvent: (id: string, event: EventDraft) => request<{ events: HubEvent[] }>(`hub-events/${id}`, { method: "PUT", body: JSON.stringify({ event }) }),
+  deleteEvent: (id: string) => request<{ events: HubEvent[] }>(`hub-events/${id}`, { method: "DELETE" }),
   deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),

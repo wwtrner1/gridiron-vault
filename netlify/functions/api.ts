@@ -408,7 +408,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     }
 
     /* ----------------------------------------- team hub (Front Office) --- */
-    if (resource === "hub" || resource === "teams" || resource === "team-players") {
+    if (resource === "hub" || resource === "hub-events" || resource === "teams" || resource === "team-players") {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await hubRoute(me, req, resource, id, action);
