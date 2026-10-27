@@ -5,11 +5,12 @@ import { api } from "../../lib/api";
 import { HUB_LIMITS, TEAM_COLORS, type HubState, type HubTeam } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
 import { DepthTab } from "./DepthTab";
+import { FilesTab } from "./FilesTab";
 import { MessagesTab } from "./MessagesTab";
 import { RosterTab } from "./RosterTab";
 import { ScheduleTab } from "./ScheduleTab";
 
-export type HubTab = "roster" | "depth" | "schedule" | "messages";
+export type HubTab = "roster" | "depth" | "schedule" | "messages" | "files";
 
 /**
  * The team hub for one organisation: the team picker (the director adds teams
@@ -103,6 +104,7 @@ export function Hub({ orgId, tab, teamId, onTeam }: { orgId: string; tab: HubTab
           {tab === "depth" && <DepthTab key={team.id} team={team} />}
           {tab === "schedule" && <ScheduleTab key={team.id} hub={hub} team={team} />}
           {tab === "messages" && <MessagesTab key={team.id} hub={hub} team={team} />}
+          {tab === "files" && <FilesTab key={team.id} hub={hub} team={team} />}
         </>
       )}
 

@@ -478,3 +478,45 @@ export const hubMessages = pgTable(
   },
   (t) => [index("hub_messages_org_idx").on(t.orgId, t.createdAt)],
 );
+
+/** Team hub folder. `teamId` null is a folder for the whole organisation. */
+export const hubFolders = pgTable(
+  "hub_folders",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_folders_org_idx").on(t.orgId)],
+);
+
+/**
+ * A file in a team hub folder. The bytes live in the private `team-files`
+ * Netlify Blobs store under `blobKey` (`<orgId>/<id>`); they are only ever
+ * served to signed-in staff, as a download. Deleting a row here does not
+ * delete the blob: the routes delete both.
+ */
+export const hubFiles = pgTable(
+  "hub_files",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => hubFolders.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    type: text().notNull().default(""),
+    size: integer().notNull().default(0),
+    blobKey: text("blob_key").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploaderName: text("uploader_name").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_files_folder_idx").on(t.folderId), index("hub_files_org_idx").on(t.orgId)],
+);

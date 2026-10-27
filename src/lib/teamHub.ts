@@ -487,3 +487,29 @@ export function familyContacts(players: PlayerInfo[]) {
   }
   return { emails: [...emails], phones: [...phones] };
 }
+
+/* ---------------------------------------------------------------- files --- */
+
+/** A folder of files. `teamId` null is a folder for the whole Front Office (only the director adds to it). */
+export type HubFolder = { id: string; teamId: string | null; name: string; files: HubFile[] };
+export type HubFile = { id: string; name: string; type: string; size: number; uploaderName: string; mine: boolean; createdAt: string };
+
+export const FILE_LIMITS = {
+  /** Netlify Functions take about 6 MB per request. */
+  size: 5 * 1024 * 1024,
+  /** Everything one Front Office stores. */
+  total: 500 * 1024 * 1024,
+  folders: 60,
+  name: 120,
+};
+
+/** What a coach can upload: documents, sheets, slides and pictures. Everything downloads as an attachment, never opens in the page. */
+export const FILE_TYPES = ["pdf", "doc", "docx", "xls", "xlsx", "csv", "ppt", "pptx", "txt", "rtf", "png", "jpg", "jpeg", "gif", "webp", "heic"];
+
+export const fileExt = (name: string) => (name.match(/\.([a-z0-9]{1,5})$/i)?.[1] ?? "").toLowerCase();
+
+/** Starter folders a new team gets offered. */
+export const STARTER_FOLDERS = ["Forms and waivers", "Medical", "Practice plans", "Scouting reports", "Film notes"];
+
+export const fileSize = (bytes: number) =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;

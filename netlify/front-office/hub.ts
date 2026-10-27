@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { emailOn, sendEmails, sendTexts, smsOn } from "./send.js";
+import { dropTeamFiles } from "./files.js";
 import { db } from "../../db/index.js";
 import { depthCharts, hubEvents, hubMessages, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
 import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
@@ -12,7 +13,7 @@ import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, type HubMessage
  * team the coach can't see answers the same 404 as one that doesn't exist.
  */
 
-type Me = { id: string; email: string; name: string };
+export type Me = { id: string; email: string; name: string };
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 const fail = (message: string, status = 400) => json({ error: message }, status);
@@ -22,9 +23,9 @@ const NO_ORG = "That Front Office isn't one you belong to.";
 const iso = (d: Date | null) => (d ? d.toISOString() : "");
 
 /** Who this coach is in an organisation: its director, an active coach (with their member id), or nobody. */
-type Access = { orgId: string; orgName: string; director: boolean; memberId: string | null };
+export type Access = { orgId: string; orgName: string; director: boolean; memberId: string | null };
 
-async function accessTo(me: Me, orgId: string | undefined): Promise<Access | null> {
+export async function accessTo(me: Me, orgId: string | undefined): Promise<Access | null> {
   if (!orgId || !UUID.test(orgId)) return null;
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId));
   if (!org) return null;
@@ -109,7 +110,7 @@ const eventRow = (e: EventDraft, shift: number) => ({
 });
 
 /** Null when this coach may add to or change that calendar (a team they staff, or the whole Front Office for the director). */
-async function mayWrite(me: Me, access: Access, teamId: string | null): Promise<Response | null> {
+export async function mayWrite(me: Me, access: Access, teamId: string | null): Promise<Response | null> {
   if (teamId === null) return access.director ? null : fail("Only the director adds events for the whole Front Office.", 403);
   const found = await teamFor(me, teamId);
   return found && found.team.orgId === access.orgId ? null : fail(NO_TEAM, 404);
@@ -143,7 +144,7 @@ async function calendar(me: Me, access: Access): Promise<HubEvent[]> {
 }
 
 /** Team ids this coach is on the staff of in the organisation. */
-async function staffTeams(access: Access) {
+export async function staffTeams(access: Access) {
   return (await db.select().from(teams).where(eq(teams.orgId, access.orgId))).filter((t) => onStaff(access, t)).map((t) => t.id);
 }
 
@@ -322,6 +323,7 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
 
     if (!action && method === "DELETE") {
       if (!access.director) return fail("Only the director removes a team.", 403);
+      await dropTeamFiles(team.id);
       await db.delete(teams).where(eq(teams.id, team.id));
       return json(await hubState(access));
     }

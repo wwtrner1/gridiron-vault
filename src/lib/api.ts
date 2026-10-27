@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { Delivery, DepthChart, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
+import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -156,6 +156,25 @@ export const api = {
   postMessage: (orgId: string, msg: { teamId: string | null; channel: MessageChannel; subject: string; body: string; email: boolean; sms: boolean }) =>
     request<{ messages: HubMessage[]; delivery: Delivery; emailed: number; texted: number }>(`hub/${orgId}/messages`, { method: "POST", body: JSON.stringify(msg) }),
   deleteMessage: (id: string) => request<{ messages: HubMessage[]; delivery: Delivery }>(`hub-messages/${id}`, { method: "DELETE" }),
+  folders: (orgId: string) => request<{ folders: HubFolder[]; used: number }>(`hub/${orgId}/folders`),
+  addFolders: (orgId: string, teamId: string | null, names: string[]) =>
+    request<{ folders: HubFolder[]; used: number }>(`hub/${orgId}/folders`, { method: "POST", body: JSON.stringify({ teamId, names }) }),
+  renameFolder: (id: string, name: string) => request<{ folders: HubFolder[]; used: number }>(`hub-folders/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+  deleteFolder: (id: string) => request<{ folders: HubFolder[]; used: number }>(`hub-folders/${id}`, { method: "DELETE" }),
+  deleteFile: (id: string) => request<{ folders: HubFolder[]; used: number }>(`hub-files/${id}`, { method: "DELETE" }),
+  /** The file's bytes go as the body; its name rides in a header. */
+  uploadFile: async (folderId: string, file: File) => {
+    const res = await fetch(`/api/hub-folders/${folderId}/files`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Device": deviceId() },
+      body: file,
+    });
+    const data = (await res.json().catch(() => ({}))) as { folders?: HubFolder[]; used?: number; error?: string };
+    if (res.status === 413 && !data.error) data.error = "That file is too big to upload. Keep files under 5 MB.";
+    if (!res.ok) throw new Error(data.error ?? "That file didn't upload. Try again in a minute.");
+    return data as { folders: HubFolder[]; used: number };
+  },
   deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),

@@ -3,6 +3,7 @@ import { db } from "../../db/index.js";
 import { organizations, orgMembers, orgShares } from "../../db/schema.js";
 import { gateFrontOffice, type Gate, type Tier } from "../../src/lib/plan.js";
 import { cleanSnapshot, type Snapshot } from "../../src/lib/share.js";
+import { dropBlobs, orgFileKeys } from "./files.js";
 import { ORG_LIMITS, parseEmails, type FrontOfficeState, type OrgShareSummary } from "../../src/lib/frontOffice.js";
 
 /**
@@ -129,8 +130,10 @@ export async function frontOfficeRoute(me: Me, tierOf: () => Promise<Tier>, req:
     }
 
     if (method === "DELETE" && !action) {
-      // Members keep every play they cloned; only the shared copies and the member list go.
+      // Members keep every play they cloned; the shared copies, member list and team hub go.
+      const keys = await orgFileKeys(org.id);
       await db.delete(organizations).where(eq(organizations.id, org.id));
+      await dropBlobs(keys).catch((e) => console.error("team-files cleanup", e));
       return json(await state(me, await tierOf()));
     }
 

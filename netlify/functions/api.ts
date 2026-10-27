@@ -41,6 +41,7 @@ import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from ".
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
+import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -405,6 +406,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await frontOfficeRoute(me, () => planOf(me), req, resource, id, action);
+    }
+
+    /* ------------------------------------- team hub files (Front Office) --- */
+    if (resource === "hub-folders" || resource === "hub-files" || (resource === "hub" && action === "folders")) {
+      if (!me) return fail("Sign in to open the Front Office.", 401);
+      await ensureProfile(me);
+      return await filesRoute(me, req, resource, id, action);
     }
 
     /* ----------------------------------------- team hub (Front Office) --- */
@@ -976,6 +984,9 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
   // One transaction: if any delete fails, none of them happen, so a coach is
   // never left with a profile and sign-in but no plays.
   const [prof] = await db.select().from(profiles).where(eq(profiles.id, me.id));
+  // A director's team files: read where they are now, delete them once the rows are gone.
+  const [ownOrg] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
+  const fileKeys = ownOrg ? await orgFileKeys(ownOrg.id) : [];
   const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, me.id));
   await db.transaction(async (tx) => {
     // The owner's signup history keeps a fingerprint of the account, never the plays or the phone number itself.
@@ -1004,6 +1015,7 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(events).where(eq(events.ownerId, me.id));
     await tx.delete(profiles).where(eq(profiles.id, me.id));
   });
+  await dropBlobs(fileKeys).catch((e) => console.error("team-files cleanup", e));
   try {
     await admin.deleteUser(me.id);
   } catch {

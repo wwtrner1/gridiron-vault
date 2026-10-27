@@ -27,6 +27,7 @@ const TABS: { id: "playbooks" | HubTab; label: string; icon: string }[] = [
   { id: "depth", label: "Depth chart", icon: "ladder" },
   { id: "schedule", label: "Schedule", icon: "calendar" },
   { id: "messages", label: "Messages", icon: "message" },
+  { id: "files", label: "Files", icon: "folder" },
 ];
 
 const day = (iso: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "");
@@ -513,7 +514,7 @@ function Director({
             onClick={() =>
               ask({
                 title: `Close ${mine.name}?`,
-                body: "Coaches lose access to its shared playbooks and the coach list is cleared. Plays they already cloned stay theirs, and your own plays and playbooks are not touched.",
+                body: "Coaches lose access to its shared playbooks, the coach list is cleared, and every team's roster, depth chart, schedule, messages and files are deleted. Plays coaches already cloned stay theirs, and your own plays and playbooks are not touched.",
                 label: "Close it",
                 danger: true,
                 onYes: () => void run(() => api.deleteOrg(mine.id), "Front Office closed."),
