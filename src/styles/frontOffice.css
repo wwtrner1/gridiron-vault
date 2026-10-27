@@ -224,3 +224,26 @@
 .hub-feed-subject { display: block; margin-top: 6px; }
 .hub-feed p { margin: 4px 0 0; white-space: pre-wrap; }
 .hub-feed-sent { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+
+/* Files */
+.hub-usage { display: grid; gap: 3px; min-width: 160px; }
+.hub-usage small { color: var(--muted); font-size: 11.5px; text-align: right; }
+.hub-usage span { height: 6px; border-radius: 3px; background: var(--border-2); overflow: hidden; }
+.hub-usage i { display: block; height: 100%; background: var(--cyan); }
+.hub-folders { list-style: none; margin: 10px 0 14px; padding: 0; display: grid; gap: 8px; }
+.hub-folder { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--white); }
+.hub-drop { padding: 8px 10px; border-radius: var(--radius-md); }
+.hub-drop.is-over { outline: 2px dashed var(--cyan); background: var(--cyan-soft); }
+.hub-folder-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hub-folder-name { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; padding: 4px 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.hub-folder-name svg:first-child { color: var(--cyan-ink); }
+.hub-folder-name small { color: var(--muted); }
+.hub-files { list-style: none; margin: 6px 0 2px; padding: 0; display: grid; gap: 2px; }
+.hub-files li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 4px; border-top: 1px solid var(--border-2); }
+.hub-files a { color: var(--cyan-ink); font-weight: 600; word-break: break-word; }
+.hub-files small { flex: 1; color: var(--muted); font-size: 12px; min-width: 140px; }
+.hub-ext { min-width: 38px; padding: 2px 4px; border-radius: 4px; background: var(--border-2); font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; text-align: center; }
+.hub-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.hub-inline .input { flex: 1; min-width: 180px; max-width: 360px; }
+.hub-inline .check { margin: 0; }
+.hub-sub { margin: 18px 0 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
