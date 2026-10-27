@@ -11,6 +11,7 @@ import { gateAi, gateSave } from "../lib/plan";
 import { asAssistantRead, letterChanges, photoLayoutNodes, prepareImage, vaultFormatNodes } from "../lib/photo";
 import type { PhotoRead } from "../lib/photo";
 import { usePositionTokens } from "../lib/positions";
+import type { TokenPreset } from "../lib/presets";
 import { emptyScene } from "../lib/presets";
 import { store, useStore } from "../lib/store";
 import { useTerms } from "../lib/terms";
@@ -20,7 +21,7 @@ import { uid } from "../lib/types";
 import type { StoredPlay } from "../lib/types";
 
 const GAME_KEY = "grid1ronvault.formationLib.v1";
-const currentGame = () => {
+export const currentGame = (): "5v5" | "7v7" | "11" => {
   try {
     const g = JSON.parse(localStorage.getItem(GAME_KEY) ?? "{}").game;
     return g === "7v7" || g === "11" ? g : "5v5";
@@ -30,13 +31,33 @@ const currentGame = () => {
 };
 
 type Stage = { kind: "reading" } | { kind: "error"; text: string; plans?: boolean } | { kind: "done"; read: PhotoRead };
+export type PhotoFormat = "vault" | "photo";
+
+/** The play as it will save: the Formation library's spacing when the formation is known, else as drawn. */
+export function photoScene(read: PhotoRead, aspect: number, format: PhotoFormat, tokens: TokenPreset[]) {
+  const base = emptyScene(420);
+  const useVault = format === "vault" && read.formation !== "Custom";
+  const nodes = useVault ? vaultFormatNodes(read, tokens, aspect, base.losY, 1) : photoLayoutNodes(read, tokens, aspect, base.losY, 1);
+  return { ...base, nodes };
+}
+
+/** One play from a scanned page, already read: checked here, then handed back to the page's list. */
+export type PhotoCheck = {
+  read: PhotoRead;
+  url: string;
+  aspect: number;
+  format: PhotoFormat;
+  onUse: (read: PhotoRead, format: PhotoFormat) => void;
+};
 
 /**
  * Review a whiteboard photo, from the Grid1ron Design canvas. The photo is
  * shrunk in the browser, read by Claude through the API function, and
  * rebuilt on the field. Nothing is saved until the coach presses Save.
+ * With `check`, the play was already read from a scanned page: nothing is
+ * read again, and "Use this version" hands the answers back to that page.
  */
-export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }) {
+export function PhotoReview({ file, onBack, check }: { file: File; onBack: () => void; check?: PhotoCheck }) {
   const navigate = useNavigate();
   const toast = useToast();
   const tier = useTier();
@@ -44,12 +65,13 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
   const { terms } = useTerms();
   const tokens = usePositionTokens();
   const plays = useStore((s) => s.plays);
-  const [img, setImg] = useState<{ url: string; aspect: number } | null>(null);
-  const [stage, setStage] = useState<Stage>({ kind: "reading" });
-  const [format, setFormat] = useState<"vault" | "photo">("vault");
+  const [img, setImg] = useState<{ url: string; aspect: number } | null>(check ? { url: check.url, aspect: check.aspect } : null);
+  const [stage, setStage] = useState<Stage>(check ? { kind: "done", read: check.read } : { kind: "reading" });
+  const [format, setFormat] = useState<PhotoFormat>(check?.format ?? "vault");
   const [asked, setAsked] = useState(0);
 
   useEffect(() => {
+    if (check) return;
     let live = true;
     (async () => {
       let prepared;
@@ -85,12 +107,7 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
   const read = stage.kind === "done" ? stage.read : null;
   const known = !!read && read.formation !== "Custom";
   const useVault = format === "vault" && known;
-  const scene = useMemo(() => {
-    if (!read || !img) return null;
-    const base = emptyScene(420);
-    const nodes = useVault ? vaultFormatNodes(read, tokens, img.aspect, base.losY, 1) : photoLayoutNodes(read, tokens, img.aspect, base.losY, 1);
-    return { ...base, nodes };
-  }, [read, img, useVault, tokens]);
+  const scene = useMemo(() => (read && img ? photoScene(read, img.aspect, useVault ? "vault" : "photo", tokens) : null), [read, img, useVault, tokens]);
   const match = useMemo(() => (read ? nearMatch(asAssistantRead(read), plays) : null), [read, plays]);
   const question = read?.questions[asked];
   const changes = read ? letterChanges(read) : [];
@@ -135,7 +152,7 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
       title="Review upload"
       actions={
         <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-          <Icon name="upload" size={15} /> Upload more
+          <Icon name="upload" size={15} /> {check ? "Back to the page" : "Upload more"}
         </button>
       }
     >
@@ -246,7 +263,18 @@ export function PhotoReview({ file, onBack }: { file: File; onBack: () => void }
           </div>
         )}
 
-        {read?.isPlay && (
+        {read?.isPlay && check && (
+          <div className="pr-acts">
+            <button type="button" className="btn btn-primary" onClick={() => check.onUse(read, useVault ? "vault" : "photo")}>
+              Use this version
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={onBack}>
+              Back to the page
+            </button>
+          </div>
+        )}
+
+        {read?.isPlay && !check && (
           <div className="pr-acts">
             {!saveGate.ok && (
               <p className="up-gate">
