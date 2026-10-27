@@ -1,0 +1,54 @@
+/* Front Office: league and program playbook sharing (pages/FrontOffice.tsx) */
+.fo-section {
+  margin-bottom: var(--space-6);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-s);
+}
+.fo-section > h3,
+.fo-org-head h3 { margin: 0 0 12px; }
+.fo-org + .fo-org { margin-top: var(--space-5); }
+.fo-org h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.fo-org-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.fo-org-head small,
+.fo-list small { display: block; font-size: 12px; color: var(--muted); }
+.fo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+}
+.fo-grid .fo-org + .fo-org { margin-top: 0; }
+.fo-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.fo-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.fo-list li > svg { color: var(--cyan-ink); flex: none; }
+.fo-list li > div:not(.fo-actions) { flex: 1; min-width: 160px; }
+.fo-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.fo-inline { display: grid; gap: 4px; justify-items: start; margin-top: 8px; }
+.fo-inline .field { width: 100%; margin-bottom: 6px; }
+.fo-inline .field > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.fo-note { padding: 8px 12px; border-left: 3px solid var(--cyan); background: var(--cyan-soft); border-radius: var(--radius-md); }
+.fo-card { cursor: default; }
+.fo-card:hover { transform: none; border-color: var(--border); }

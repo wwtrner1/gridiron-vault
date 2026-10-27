@@ -8,6 +8,8 @@ import {
   aiUsage,
   callSheets,
   events,
+  organizations,
+  orgMembers,
   playbookPlays,
   playbookShares,
   playbooks,
@@ -37,6 +39,7 @@ import { billingOn, expireSeason, handleWebhook, openPortal, startCheckout } fro
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
+import { frontOfficeRoute } from "../front-office/orgs.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -392,6 +395,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in to share a playbook with your players.", 401);
       await ensureProfile(me);
       return await shareRoute(me, req.method, id, action, req);
+    }
+
+    /* --------------------------------------------------- front office --- */
+    if (resource === "orgs" || resource === "org-members" || resource === "org-shares") {
+      if (!me) return fail("Sign in to open the Front Office.", 401);
+      await ensureProfile(me);
+      return await frontOfficeRoute(me, () => planOf(me), req, resource, id, action);
     }
 
     /* ------------------------------------------------------ playbooks --- */
@@ -946,6 +956,9 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(playSaves).where(eq(playSaves.userId, me.id));
     await tx.delete(playbooks).where(eq(playbooks.ownerId, me.id));
     await tx.delete(playbookShares).where(eq(playbookShares.ownerId, me.id));
+    // A director's Front Office (its member list and shared copies) goes with them; coaches keep what they cloned.
+    await tx.delete(organizations).where(eq(organizations.ownerId, me.id));
+    await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));

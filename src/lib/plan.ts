@@ -32,6 +32,8 @@ export type Tier = {
   sheets: boolean;
   /** Share links and playbook hand-off. */
   share: boolean;
+  /** Coaches a director can invite into a Front Office (0 = no Front Office of their own; anyone can still join one). */
+  orgSeats: number;
   /** Tools held back on the free tier. */
   lockedTools: string[];
   /** Whiteboard photo reviews per month (the costlier AI job). */
@@ -58,6 +60,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 1_000_000,
     lockedTools: [],
     photoReviews: 1_000_000,
     assistantCalls: 1_000_000,
@@ -78,6 +81,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 12,
     lockedTools: [],
     photoReviews: 30,
     assistantCalls: 300,
@@ -99,6 +103,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 0,
     lockedTools: [],
     // The real cost of a trial is Griddy, so it gets a taste, not a month's allowance.
     photoReviews: 5,
@@ -120,6 +125,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: true,
     sheets: false,
     share: false,
+    orgSeats: 0,
     lockedTools: ["pen", "polygon", "zone", "motion", "connect"],
     photoReviews: 0,
     assistantCalls: 5,
@@ -147,6 +153,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 0,
     lockedTools: [],
     photoReviews: 30,
     assistantCalls: 300,
@@ -173,6 +180,7 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 3,
     lockedTools: [],
     photoReviews: 90,
     assistantCalls: 900,
@@ -181,6 +189,7 @@ export const TIERS: Record<TierId, Tier> = {
       "Everything in Head Coach",
       "600-DPI print for booklets",
       "Practice-plan and install exports",
+      "Front Office: hand master playbooks to your 3 coaches",
     ],
   },
   program: {
@@ -198,12 +207,13 @@ export const TIERS: Record<TierId, Tier> = {
     watermark: false,
     sheets: true,
     share: true,
+    orgSeats: 12,
     lockedTools: [],
     photoReviews: 300,
     assistantCalls: 2000,
     perks: [
       "12 seats and shared team Vaults",
-      "League-wide play standards",
+      "Front Office: league-wide master playbooks",
       "Bulk wristband runs for every team",
       "Priority support during the season",
     ],
@@ -285,6 +295,26 @@ export function gateShare(tier: Tier): Gate {
     ok: false,
     reason: "Share links let players and parents open a play without an account. That comes with Head Coach.",
     cta: "Unlock sharing",
+  };
+}
+
+/**
+ * Front Office: a director hands read-only master playbooks to the coaches they
+ * invite. `seatsUsed` counts invited and joined coaches; pass it when inviting.
+ */
+export function gateFrontOffice(tier: Tier, seatsUsed = 0, adding = 0): Gate {
+  if (tier.orgSeats === 0)
+    return {
+      ok: false,
+      reason: "Running a Front Office for your league or program comes with Staff and Program. Joining one is free on every plan.",
+      cta: "See plans",
+    };
+  if (seatsUsed + adding <= tier.orgSeats) return { ok: true };
+  const left = Math.max(0, tier.orgSeats - seatsUsed);
+  return {
+    ok: false,
+    reason: `${tier.name} includes ${tier.orgSeats} coach${tier.orgSeats === 1 ? "" : "es"} in your Front Office${left ? `, and ${left} ${left === 1 ? "seat is" : "seats are"} left` : ", and every seat is taken"}. Remove a coach, or move up a plan for more seats.`,
+    cta: "See plans",
   };
 }
 
