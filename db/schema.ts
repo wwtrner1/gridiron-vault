@@ -361,3 +361,162 @@ export const orgShares = pgTable(
   },
   (t) => [index("org_shares_org_idx").on(t.orgId)],
 );
+
+/**
+ * Team hub: a team inside an organisation (Varsity, U10 Eagles). The director
+ * creates it and picks its staff (`coachIds` are org_members ids, or
+ * `allCoaches`). Only the director and that staff can read its roster.
+ */
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    level: text().notNull().default(""),
+    season: text().notNull().default(""),
+    color: text().notNull().default(""),
+    coachIds: jsonb("coach_ids").$type<string[]>().notNull().default([]),
+    allCoaches: boolean("all_coaches").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("teams_org_idx").on(t.orgId)],
+);
+
+/**
+ * One player on a team's roster. Names are columns so the list sorts in SQL;
+ * everything else (contacts, guardians, medical notes) is `info`, shaped by
+ * `PlayerInfo` in src/lib/teamHub.ts. Minors' details: staff only, never public.
+ */
+export const teamPlayers = pgTable(
+  "team_players",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    firstName: text("first_name").notNull().default(""),
+    lastName: text("last_name").notNull().default(""),
+    jersey: text().notNull().default(""),
+    info: jsonb().$type<unknown>().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("team_players_team_idx").on(t.teamId)],
+);
+
+/** A team's depth chart for one unit: spots in order, each with its players 1st string first. Shape: `DepthSlot[]`. */
+export const depthCharts = pgTable(
+  "depth_charts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    unit: text().notNull(),
+    slots: jsonb().$type<unknown>().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("depth_charts_team_unit_idx").on(t.teamId, t.unit)],
+);
+
+/**
+ * Team hub calendar: games, practices and meetings. `teamId` null is an event
+ * for the whole organisation (only the director adds those). `sheetId` is a
+ * Call Sheet id from the coach's own browser, so Game Day opens from a game.
+ */
+export const hubEvents = pgTable(
+  "hub_events",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    kind: text().notNull().default("other"),
+    title: text().notNull(),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at"),
+    location: text().notNull().default(""),
+    opponent: text().notNull().default(""),
+    homeAway: text("home_away").notNull().default(""),
+    notes: text().notNull().default(""),
+    sheetId: text("sheet_id").notNull().default(""),
+    scoreUs: integer("score_us"),
+    scoreThem: integer("score_them"),
+    canceled: boolean().notNull().default(false),
+    createdBy: text("created_by").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("hub_events_org_idx").on(t.orgId, t.startsAt)],
+);
+
+/**
+ * Team hub messages: the coaches' board (`channel` staff) and announcements to
+ * players and families (`family`), with how many emails and texts the server
+ * sent. Recipients are always worked out from the roster on the server.
+ */
+export const hubMessages = pgTable(
+  "hub_messages",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    channel: text().notNull().default("staff"),
+    authorId: text("author_id").notNull(),
+    authorName: text("author_name").notNull().default(""),
+    subject: text().notNull().default(""),
+    body: text().notNull(),
+    emailed: integer().notNull().default(0),
+    texted: integer().notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_messages_org_idx").on(t.orgId, t.createdAt)],
+);
+
+/** Team hub folder. `teamId` null is a folder for the whole organisation. */
+export const hubFolders = pgTable(
+  "hub_folders",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_folders_org_idx").on(t.orgId)],
+);
+
+/**
+ * A file in a team hub folder. The bytes live in the private `team-files`
+ * Netlify Blobs store under `blobKey` (`<orgId>/<id>`); they are only ever
+ * served to signed-in staff, as a download. Deleting a row here does not
+ * delete the blob: the routes delete both.
+ */
+export const hubFiles = pgTable(
+  "hub_files",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => hubFolders.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    type: text().notNull().default(""),
+    size: integer().notNull().default(0),
+    blobKey: text("blob_key").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploaderName: text("uploader_name").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_files_folder_idx").on(t.folderId), index("hub_files_org_idx").on(t.orgId)],
+);
