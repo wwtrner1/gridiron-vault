@@ -453,3 +453,28 @@ export const hubEvents = pgTable(
   },
   (t) => [index("hub_events_org_idx").on(t.orgId, t.startsAt)],
 );
+
+/**
+ * Team hub messages: the coaches' board (`channel` staff) and announcements to
+ * players and families (`family`), with how many emails and texts the server
+ * sent. Recipients are always worked out from the roster on the server.
+ */
+export const hubMessages = pgTable(
+  "hub_messages",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    channel: text().notNull().default("staff"),
+    authorId: text("author_id").notNull(),
+    authorName: text("author_name").notNull().default(""),
+    subject: text().notNull().default(""),
+    body: text().notNull(),
+    emailed: integer().notNull().default(0),
+    texted: integer().notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("hub_messages_org_idx").on(t.orgId, t.createdAt)],
+);

@@ -447,3 +447,43 @@ export function scheduleIcs(name: string, events: HubEvent[]): string {
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
+
+/* ------------------------------------------------------------- messages --- */
+
+/** `staff`: a note on the coaches' board. `family`: an announcement to players and parents. */
+export type MessageChannel = "staff" | "family";
+
+export type HubMessage = {
+  id: string;
+  teamId: string | null;
+  channel: MessageChannel;
+  authorName: string;
+  mine: boolean;
+  subject: string;
+  body: string;
+  /** How many addresses and phones it went to from the server. */
+  emailed: number;
+  texted: number;
+  createdAt: string;
+};
+
+/** What the server can send on its own (set up by the site owner). */
+export type Delivery = { email: boolean; sms: boolean };
+
+export const MESSAGE_LIMITS = { subject: 120, body: 2000, sms: 600, list: 200, smsPerDay: 300, emailPerDay: 1000 };
+
+/** A team's family contacts: every email, and the phones that said OK to texts. */
+export function familyContacts(players: PlayerInfo[]) {
+  const emails = new Set<string>();
+  const phones = new Set<string>();
+  for (const p of players) {
+    if (p.status === "inactive") continue;
+    if (p.email) emails.add(p.email.toLowerCase());
+    if (p.text && p.phone) phones.add(p.phone);
+    for (const g of p.guardians) {
+      if (g.email) emails.add(g.email.toLowerCase());
+      if (g.text && g.phone) phones.add(g.phone);
+    }
+  }
+  return { emails: [...emails], phones: [...phones] };
+}

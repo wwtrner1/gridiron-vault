@@ -205,3 +205,22 @@
   .hub-ev span { display: none; }
 }
 .hub-form > .chip-row { margin-bottom: 14px; }
+
+/* Messages */
+.hub-panel > .chip-row .chip { display: inline-flex; align-items: center; gap: 6px; }
+.hub-compose { margin: 14px 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--paper); }
+.hub-compose .field .input, .hub-compose .field .textarea { width: 100%; }
+.hub-send { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.hub-send .check { margin: 2px 0 6px; }
+.hub-send .check svg { color: var(--muted); }
+.hub-manual { display: grid; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.hub-manual b { display: block; font-size: 13px; margin-bottom: 4px; }
+.btn.is-disabled { opacity: .45; pointer-events: none; }
+.hub-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hub-feed li { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.hub-feed li.is-new { border-left: 4px solid var(--cyan); }
+.hub-feed-head { display: flex; align-items: center; gap: 8px; }
+.hub-feed-head small { color: var(--muted); flex: 1; }
+.hub-feed-subject { display: block; margin-top: 6px; }
+.hub-feed p { margin: 4px 0 0; white-space: pre-wrap; }
+.hub-feed-sent { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
