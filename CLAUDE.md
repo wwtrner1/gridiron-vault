@@ -67,6 +67,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - `lib/scene.ts` — pure scene ops (selection, align/distribute/flip, cloning, node factories). Auto-connect paths store `fromId`/`toId`; call `reconcileConnections(scene)` before saving so they stay glued to their tokens.
 - `lib/geometry.ts` — transforms and path-data math. `lib/tools.ts` — tool/mode definitions and export sizes. `lib/presets.ts` — position token colors and formation presets. `lib/starters.ts` — the 56 starter plays built as real scene data.
 - First read: at most one `PathNode` per play has `firstRead: true`, always drawn in `FIRST_READ` (cyan-2) via `lineColor()`.
+- Floating tools (`components/FloatingToolbar.tsx`): a draggable, collapsible mini-bar over the field (Select, Route, Dashed, Block, Text; 1st read / 2nd read / Checkdown / Defense colors; weights). It is a sibling of `.builder-stage` inside `.dz-stage-wrap`, never inside the canvas, so it can't swallow drawing. Picks restyle the selected lines or set the next line, through the same Builder state as the Style card. Its spot, open state and dock live in `grid1ronvault.floatbar.v1`; Home on the grip or the dock button puts it back in the corner.
 
 ### Plans and gating
 - `src/lib/plan.ts` owns every entitlement (`TIERS`, `gateSave`, `gateGrid`, `gateSize`, `gateSheets`, `gateTool`, `gateShare`, `cappedDpi`). UI and export both read gates from here — add new limits here, not in components. A `Gate` carries user-facing `reason`/`cta`.

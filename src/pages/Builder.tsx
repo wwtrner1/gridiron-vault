@@ -15,6 +15,7 @@ import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
 import { RAIL_TABS, RailGroup, railStore, useRailTab, type RailTab } from "../components/RailGroup";
 import { StyleCard } from "../components/StyleCard";
+import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolbar";
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
@@ -688,6 +689,32 @@ export function Builder() {
       },
       "First read",
     );
+  // The floating toolbar's read colors and weights restyle the selected lines, or set the next line when none are.
+  const selectedLines = selectedNodes.filter((n): n is PathNode => n.kind === "path");
+  const pickRead = (id: ReadId) => {
+    const read = READS.find((r) => r.id === id)!;
+    if (!selectedLines.length) {
+      setColor(read.color);
+      if (!LOOK_TOOLS.includes(tool)) pickTool("line");
+      return;
+    }
+    const ids = selectedLines.map((n) => n.id);
+    applyScene(
+      {
+        ...scene,
+        nodes: scene.nodes.map((n) => {
+          if (n.kind !== "path") return n;
+          // One first read per play: it goes on the first selected line and comes off every other.
+          if (id === "first") return n.id === ids[0] ? { ...n, firstRead: true } : n.firstRead ? { ...n, firstRead: false } : n;
+          return ids.includes(n.id) ? { ...n, stroke: read.color, firstRead: false } : n;
+        }),
+      },
+      read.label,
+    );
+  };
+  const pickWeight = (w: number) => (selectedLines.length ? patchSelectedLines({ width: w }, "Weight") : setWidth(w));
+  const patchSelectedLines = (changes: Partial<PathNode>, label: string) =>
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (n.kind === "path" && selection.includes(n.id) ? { ...n, ...changes } : n)) }, label);
   const bringToFront = () => {
     const z = nextZ(scene);
     applyScene({ ...scene, nodes: scene.nodes.map((n) => (selection.includes(n.id) ? { ...n, z: z + selection.indexOf(n.id) } : n)) }, "Bring to front");
@@ -2108,50 +2135,62 @@ export function Builder() {
             </div>
           )}
 
-          <div
-            ref={stageRef}
-            className="builder-stage"
-            onPointerDownCapture={onStageDownCapture}
-            onDrop={onDrop}
-            onDragOver={(e) => e.preventDefault()}
-            role="group"
-            aria-label="Play canvas"
-          >
-            <PlayCanvas
-              scene={scene}
-              selection={selection}
+          <div className="dz-stage-wrap">
+            <div
+              ref={stageRef}
+              className="builder-stage"
+              onPointerDownCapture={onStageDownCapture}
+              onDrop={onDrop}
+              onDragOver={(e) => e.preventDefault()}
+              role="group"
+              aria-label="Play canvas"
+            >
+              <PlayCanvas
+                scene={scene}
+                selection={selection}
+                tool={tool}
+                mode={mode}
+                color={color}
+                width={width}
+                look={lookOverride}
+                grid={grid}
+                depths={depths}
+                rules={rules}
+                anchor={anchor}
+                zoom={zoom}
+                watermark={tier.watermark ? "GRIDIRONVAULT" : null}
+                onScene={applyScene}
+                onSelection={setSelection}
+                onToolDone={(placed) => {
+                  // One placement and the tool goes back to Select; copy and paste repeats it.
+                  setTool("select");
+                  if (placed) setStatus("Back to Select. Right-click it to copy and paste another.");
+                }}
+                onStatus={setStatus}
+                aids={aids}
+                onPickNode={pickNode}
+                onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
+                nodeActions={nodeActions}
+                fieldActions={fieldActions}
+                onZoom={zoomBy}
+                onPan={panBy}
+                onDoubleTap={doubleTapZoom}
+                onSignal={onSignal}
+                onDraftChange={setDraftPoints}
+                controlRef={canvasControl}
+                underlay={underPlay?.scene ?? null}
+                stamp={armed ? { label: armed.tile.label, place: stampTile } : null}
+              />
+            </div>
+            <FloatingToolbar
               tool={tool}
-              mode={mode}
-              color={color}
-              width={width}
-              look={lookOverride}
-              grid={grid}
-              depths={depths}
-              rules={rules}
-              anchor={anchor}
-              zoom={zoom}
-              watermark={tier.watermark ? "GRIDIRONVAULT" : null}
-              onScene={applyScene}
-              onSelection={setSelection}
-              onToolDone={(placed) => {
-                // One placement and the tool goes back to Select; copy and paste repeats it.
-                setTool("select");
-                if (placed) setStatus("Back to Select. Right-click it to copy and paste another.");
-              }}
-              onStatus={setStatus}
-              aids={aids}
-              onPickNode={pickNode}
-              onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
-              nodeActions={nodeActions}
-              fieldActions={fieldActions}
-              onZoom={zoomBy}
-              onPan={panBy}
-              onDoubleTap={doubleTapZoom}
-              onSignal={onSignal}
-              onDraftChange={setDraftPoints}
-              controlRef={canvasControl}
-              underlay={underPlay?.scene ?? null}
-              stamp={armed ? { label: armed.tile.label, place: stampTile } : null}
+              onTool={(t) => (t === "select" ? pickSelect() : pickTool(t))}
+              color={selectedLines.length ? selectedLines[0].stroke : color}
+              firstRead={!!selectedLines[0]?.firstRead}
+              onRead={pickRead}
+              width={selectedLines.length ? selectedLines[0].width : width}
+              onWidth={pickWeight}
+              target={selectedLines.length ? (selectedLines.length === 1 ? "1 line" : `${selectedLines.length} lines`) : "Next line"}
             />
           </div>
 

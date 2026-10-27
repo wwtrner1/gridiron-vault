@@ -751,6 +751,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-zoom-btns { display: none; }
   /* The white stage hugs the field instead of filling the column. */
   .builder .builder-stage { flex: none; min-height: 0; padding: 8px; }
+  .dz-stage-wrap { flex: none; }
   .builder .builder-main { padding: 10px 10px calc(84px + env(safe-area-inset-bottom)); gap: 10px; }
   .dz-drawbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .dz-drawbar button { flex: none; }
@@ -995,3 +996,49 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 }
 .dz-vs-chip button { display: inline-flex; padding: 3px; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
 .dz-vs-chip button:hover { background: var(--ink-3); }
+
+/* ---- Floating tools: a small bar the coach drags anywhere over the field ---- */
+/* The wrap holds the stage and the bar side by side, so only the bar's own box takes pointer events. */
+.dz-stage-wrap { position: relative; display: flex; flex: 1 0 auto; flex-direction: column; min-height: 0; }
+.dz-stage-wrap > .builder-stage { flex: 1 0 auto; }
+.dz-float {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  width: 236px;
+  overflow: hidden;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-lg);
+  background: var(--ink-2);
+  box-shadow: var(--shadow-m);
+  color: var(--rail-text);
+}
+.dz-float.is-closed { width: auto; }
+.dz-float-head { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 2px; background: var(--ink); cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.dz-float-head:active { cursor: grabbing; }
+.dz-float-grip { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: transparent; color: var(--tool-icon); font-size: 15px; cursor: inherit; touch-action: none; }
+.dz-float-title { flex: 1; min-width: 0; overflow: hidden; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; color: var(--panel-head); }
+.dz-float.is-closed .dz-float-title { padding-right: 4px; }
+.dz-float-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: transparent; color: var(--tool-icon); }
+.dz-float-icon:hover, .dz-float-grip:hover { background: var(--ink-3); color: var(--white); }
+.dz-float-icon .is-up { transform: rotate(180deg); }
+.dz-float-body { display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+.dz-float-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--ink); }
+.dz-float-tools button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 0 4px; border-radius: var(--radius-sm); background: transparent; color: var(--tool-icon); font-size: 9.5px; font-weight: 600; }
+.dz-float-tools button:hover { background: var(--ink-3); color: var(--white); }
+.dz-float-tools button.is-on { background: var(--cyan); color: var(--on-cyan); }
+.dz-float-reads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.dz-float-reads button { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--ink); color: var(--rail-text); font-size: 11px; font-weight: 600; text-align: left; }
+.dz-float-reads button:hover { color: var(--white); border-color: var(--ink-4); }
+.dz-float-reads button.is-on { border-color: var(--cyan); color: var(--white); }
+.dz-float-reads i { flex: none; width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.dz-float-weights { background: var(--ink); }
+@media (pointer: coarse) {
+  /* Fingers need bigger targets than a mouse. */
+  .dz-float { width: 268px; }
+  .dz-float-grip, .dz-float-icon { width: 36px; height: 36px; }
+  .dz-float-tools button { padding: 8px 0 6px; }
+  .dz-float-reads button, .dz-float-weights button { height: 34px; }
+}
+@media print { .dz-float { display: none; } }
