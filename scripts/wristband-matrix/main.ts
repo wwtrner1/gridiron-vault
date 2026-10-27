@@ -9,7 +9,7 @@ import type { StoredPlay } from "../../src/lib/types";
 
 const plays = STARTERS.slice(0, 16).map((s, i) => ({ ...starterMeta(s), id: `s${i}`, scene: starterScene(s) }) as unknown as StoredPlay);
 
-type Case = { id: string; size: string; grid: string; preset?: string; paper?: BandOptions["paper"]; plays?: number };
+type Case = { id: string; size: string; grid: string; preset?: string; paper?: BandOptions["paper"]; plays?: number; num?: BandOptions["numberSize"] };
 const CASES: Case[] = [
   { id: "teen-8up-sheet", size: "large", grid: "4x2" },
   { id: "teen-single-pages", size: "large", grid: "3x2", paper: "card" },
@@ -25,6 +25,10 @@ const CASES: Case[] = [
   { id: "best-teen", size: "large", grid: "best" },
   { id: "best-youth", size: "fpc-youth", grid: "best" },
   { id: "best-adult", size: "fpc-adult", grid: "best" },
+  // Large numbers in small boxes: the strip shrinks with the box so the play keeps its room.
+  { id: "youth-4x3-large", size: "fpc-youth", grid: "4x3", num: "l" },
+  { id: "teen-4x3-large", size: "large", grid: "4x3", num: "l" },
+  { id: "adult-5x2-large", size: "fpc-adult", grid: "5x2", num: "l" },
 ];
 
 function build(c: Case): { opts: BandOptions; entries: ReturnType<typeof entriesFromPlays> } {
@@ -37,7 +41,7 @@ function build(c: Case): { opts: BandOptions; entries: ReturnType<typeof entries
     grid: { cols, rows },
     shows: preset?.shows ?? { diagram: true, name: false, numberOnly: false },
     look: preset?.look ?? DEFAULT_BAND_LOOK,
-    numberSize: preset?.numberSize ?? "m",
+    numberSize: c.num ?? preset?.numberSize ?? "m",
     numberStyle: preset?.numberStyle ?? "band",
     header: preset?.header ?? { show: true, ...defaultBandText },
     footer: "",
