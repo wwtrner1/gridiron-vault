@@ -1095,3 +1095,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rc-show { margin-top: 5px; padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .rc-goal { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--rail-text); }
 .rc-goal .input { width: 64px; height: 30px; }
+/* New Play setup (components/PlaySetup.tsx) */
+.ps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ps .fl-preview { max-height: 220px; object-fit: contain; border: 1px solid var(--border); }
+.ps-note { margin: 6px 0 12px; }
+.ps-skip { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 520px) { .ps-row { grid-template-columns: 1fr; gap: 0; } .ps .fl-preview { display: none; } }

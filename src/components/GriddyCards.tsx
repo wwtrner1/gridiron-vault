@@ -202,7 +202,7 @@ function DrawCard({ id, initial }: { id: string; initial: AssistantRead }) {
                 Yes, draw it
               </button>
             ) : (
-              <button type="button" className="pa-btn is-primary" onClick={() => navigate("/build")}>
+              <button type="button" className="pa-btn is-primary" onClick={() => navigate("/build", { state: { skipSetup: true } })}>
                 Open the Designer
               </button>
             )}
