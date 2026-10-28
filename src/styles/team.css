@@ -64,6 +64,7 @@
 /* Game Day (/game): the Call Sheet on the sideline. Dark, big targets, one hand. */
 .gd { min-height: 100vh; padding: 12px 14px 40px; background: var(--ink); color: #fff; max-width: 760px; margin: 0 auto; }
 .gd-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.gd > .worktabs { margin-bottom: 12px; }
 .gd-top h1 { margin: 0; font-family: var(--display); font-size: 26px; text-transform: uppercase; line-height: 1.05; }
 .gd-name { flex: 1; min-width: 0; }
 .gd-name span { display: block; font-size: 13px; color: #B8C4D0; }

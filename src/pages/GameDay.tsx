@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PlayThumb } from "../components/PlayThumb";
+import { WorkTabs } from "../components/WorkTabs";
 import { ANY, callable, cell, choicesFor, loadCalls, mix, saveCalls, tally, type Call, type Situation } from "../lib/gameDay";
 import { useStore } from "../lib/store";
 import { uid } from "../lib/types";
+import { rememberWork } from "../lib/workTabs";
 
 /**
  * Game Day: the Call Sheet on a phone or tablet at the sideline. Tap the
@@ -31,6 +33,7 @@ export function GameDay() {
 
   useEffect(() => {
     if (sheet) setCalls(loadCalls(sheet.id));
+    if (sheet) rememberWork({ sheetId: sheet.id });
     setSit(ANY);
     setOpen(null);
   }, [sheet?.id]);
@@ -74,6 +77,7 @@ export function GameDay() {
           <Link to="/grid" className="gd-exit">Exit</Link>
           <h1>Game Day</h1>
         </header>
+        <WorkTabs current="game" tone="dark" />
         <p className="gd-empty">
           Game Day reads your Call Sheet. <Link to="/grid">Open the Call Sheet</Link>, add the calls, then come back here on game day.
         </p>
@@ -115,6 +119,7 @@ export function GameDay() {
           </select>
         )}
       </header>
+      <WorkTabs current="game" tone="dark" />
 
       <section className="gd-sit" aria-label="Situation">
         {CHIPS.map(({ key, label }) =>

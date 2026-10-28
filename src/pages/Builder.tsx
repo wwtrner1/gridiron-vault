@@ -79,6 +79,9 @@ import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
 import { fileNewPlay, fileTarget, lastChoice, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
+import { loadWork, rememberWork, workTabs } from "../lib/workTabs";
+import { WorkTabs } from "../components/WorkTabs";
+import { letterColor } from "../lib/colors";
 import "../styles/designer.css";
 
 const blankMeta: PlayMeta = {
@@ -188,6 +191,7 @@ export function Builder() {
   const tier = useTier();
   const plays = useStore((s) => s.plays);
   const playbooks = useStore((s) => s.playbooks);
+  const sheets = useStore((s) => s.sheets);
   const [params] = useSearchParams();
   const location = useLocation();
   const offense = usePositionTokens();
@@ -443,6 +447,19 @@ export function Builder() {
   };
   const [keepOpen, setKeepOpen] = useState(readKeepOpen);
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  // Escape closes Extras before the Designer's own Escape (clear selection) sees it.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setMoreOpen(false);
+      moreBtn.current?.focus();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [moreOpen]);
   const [draftPoints, setDraftPoints] = useState(0);
   const canvasControl = useRef<CanvasControl | null>(null);
   const tipsOn = useTipsEnabled();
@@ -808,6 +825,47 @@ export function Builder() {
         }),
       },
       read.label,
+    );
+  };
+  // The floating tools' color row: colors whatever is picked (lines, player fills, labels), else the next line.
+  const selectedPlayers = selectedNodes.filter((n) => n.kind === "player");
+  const selectedTexts = selectedNodes.filter((n) => n.kind === "text");
+  const floatTarget = selectedNodes.length
+    ? [
+        [selectedLines.length, "line"],
+        [selectedPlayers.length, "player"],
+        [selectedTexts.length, "label"],
+      ]
+        .filter(([n]) => n)
+        .map(([n, w]) => `${n} ${w}${n === 1 ? "" : "s"}`)
+        .join(" · ") || `${selectedNodes.length} selected`
+    : "Next line";
+  const floatInk = (() => {
+    const first = selectedNodes.find((n) => n.kind === "path") ?? selectedNodes.find((n) => n.kind === "player" || n.kind === "text");
+    if (first?.kind === "path") return first.stroke;
+    if (first?.kind === "player") return first.fill;
+    if (first?.kind === "text") return first.color;
+    return color;
+  })();
+  const pickColor = (hex: string) => {
+    if (!selectedNodes.length) {
+      setColor(hex);
+      return;
+    }
+    applyScene(
+      {
+        ...scene,
+        nodes: scene.nodes.map((n): SceneNode => {
+          if (!selection.includes(n.id)) return n;
+          // A first read always draws in cyan, so a new color takes the first-read mark off, as the read picks do.
+          if (n.kind === "path") return { ...n, stroke: hex, firstRead: false };
+          // Outlines follow the fill unless the coach set their own (same as the Style card).
+          if (n.kind === "player") return { ...n, fill: hex, textColor: letterColor(hex), stroke: n.stroke.toLowerCase() === n.fill.toLowerCase() ? hex : n.stroke };
+          if (n.kind === "text") return { ...n, color: hex };
+          return n;
+        }),
+      },
+      "Color",
     );
   };
   const pickWeight = (w: number) => (selectedLines.length ? patchSelectedLines({ width: w }, "Weight") : setWidth(w));
@@ -1406,6 +1464,11 @@ export function Builder() {
     return at < 0 || ids.length < 2 ? null : { book, ids, at };
   }, [existing, homeBook, plays]);
 
+  // The work tabs come back to this play, in this playbook.
+  useEffect(() => {
+    if (existing) rememberWork(homeBook ? { playId: existing.id, bookId: homeBook.id } : { playId: existing.id });
+  }, [existing?.id, homeBook?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /*
    * Flip the whole play left to right and save it as a new play ("Trips
    * Right" becomes "Trips Left"), filed in the same playbook right after the
@@ -1451,7 +1514,7 @@ export function Builder() {
     toast(`Saved ${saved.name}${homeBook ? ` in ${homeBook.name}` : ""}. You're on the flipped copy now.`);
     navigate(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
   };
-  /** More → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
+  /** Extras → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
   const newPlay = () => {
     if (dirty && !window.confirm("Start a new play? This one has changes you haven't saved.")) return;
     if (id) {
@@ -1748,70 +1811,9 @@ export function Builder() {
           </div>
         )}
 
+        <WorkTabs current="designer" tone="dark" onGo={(href) => void openFromTree(href)} />
+
         <div className="dz-top-actions">
-          <Tooltip title="Undo" hint="Steps back through everything you have drawn this session." shortcut="⌘Z" side="bottom">
-            <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo">
-              <span className="dz-btn-icon"><Icon name="undo" size={15} /></span>
-              <span className="dz-btn-word">Undo</span>
-            </button>
-          </Tooltip>
-          <Tooltip title="Redo" hint="Puts back the last thing you undid." shortcut="⇧⌘Z" side="bottom">
-            <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length} aria-label="Redo">
-              <span className="dz-btn-icon"><Icon name="redo" size={15} /></span>
-              <span className="dz-btn-word">Redo</span>
-            </button>
-          </Tooltip>
-          <Tooltip title="Route depths" hint="Shows how many yards past the line of scrimmage each route breaks, worked out from the drawing. Drag a route and the number follows." side="bottom">
-            <button type="button" className={`dz-top-btn dz-wide${depths ? " is-on" : ""}`} onClick={toggleDepths} aria-pressed={depths}>
-              Depths
-            </button>
-          </Tooltip>
-          <Tooltip
-            title="Clean up lines"
-            hint="Tidies every hand-drawn line on the play at once: curves come out smooth and routes get sharp, straight cuts. Undo puts them back."
-            side="bottom"
-          >
-            <button type="button" className="dz-top-btn dz-wide" onClick={cleanUpLines} disabled={!hasLines}>
-              <span className="dz-btn-icon"><Icon name="sparkle" size={15} /></span>
-              <span className="dz-btn-word">Clean up</span>
-            </button>
-          </Tooltip>
-          <Tooltip title="Field" hint="How much field the play is drawn on: full, half, red zone and more. Exports and wristbands use the same view." side="bottom">
-            <select
-              className="dz-top-select dz-wide"
-              value={scene.view}
-              onChange={(e) => changeField(e.target.value as Scene["view"])}
-              aria-label="Field"
-            >
-              {FIELD_VIEWS.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </Tooltip>
-          <Tooltip
-            title="Field controls"
-            hint="Snap to grid and snap radius, hash marks, yard-line contrast and the flag rush line and no-run zone, all in one place."
-            side="bottom"
-          >
-            <button
-              type="button"
-              className={`dz-top-btn dz-wide${fieldOpen ? " is-on" : ""}`}
-              onClick={() => setFieldOpen((v) => !v)}
-              aria-expanded={fieldOpen}
-              aria-controls="field-controls"
-            >
-              Field controls
-            </button>
-          </Tooltip>
-          <Tooltip
-            title="Vs defense"
-            hint="Shows a saved defense faded under this play, lined up on the line of scrimmage, so you can check routes against the coverage. It won't print or save into the play."
-            side="bottom"
-          >
-            {overlaySelect(`dz-top-select dz-wide dz-vs${underPlay ? " is-on" : ""}`)}
-          </Tooltip>
           <label className="dz-zoom">
             <input
               type="range"
@@ -1863,50 +1865,52 @@ export function Builder() {
               <Icon name="check" size={14} /> Saved
             </span>
           )}
-          <Tooltip title="Upload" hint="Turn a photo of a whiteboard or a hand-drawn play into an editable diagram." side="bottom">
-            <Link to="/upload" className="btn btn-outline-dark btn-sm dz-x">
-              <Icon name="upload" size={14} /> Upload
-            </Link>
-          </Tooltip>
-          <Tooltip title="More tools" hint="Griddy, the libraries, the route tree and Saved play format on one page." side="bottom">
-            <Link to="/tools" className="btn btn-outline-dark btn-sm dz-x">
-              More tools
-            </Link>
-          </Tooltip>
-          <Link to="/vault" className="dz-back">
-            Back to the Vault
-          </Link>
+          {/* Extras: undo, field, Vs defense, upload and the rest, in one drop-down so the bar has room for the tabs. */}
           <div className="dz-more">
-            <button
-              type="button"
-              className={`dz-top-btn${moreOpen ? " is-on" : ""}`}
-              onClick={() => setMoreOpen((v) => !v)}
-              aria-expanded={moreOpen}
-              aria-controls="dz-more-menu"
-              aria-label="More actions"
-            >
-              More <Icon name="chevron" size={13} />
-            </button>
+            <Tooltip title="Extras" hint="Undo and redo, route depths, clean up, the field, field controls, Vs defense, upload, more tools and help." side="bottom">
+              <button
+                type="button"
+                ref={moreBtn}
+                className={`dz-top-btn${moreOpen ? " is-on" : ""}${depths || underPlay ? " has-dot" : ""}`}
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={moreOpen}
+                aria-controls="dz-more-menu"
+                aria-haspopup="menu"
+              >
+                Extras <Icon name="chevron" size={13} />
+              </button>
+            </Tooltip>
             {moreOpen && (
               <>
                 <div className="stage-menu-scrim" onPointerDown={() => setMoreOpen(false)} aria-hidden="true" />
-                <div className="dz-more-menu" id="dz-more-menu" role="menu" aria-label="More actions" onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)}>
-                    Play details
+                <div
+                  className="dz-more-menu"
+                  id="dz-more-menu"
+                  role="menu"
+                  aria-label="Extras"
+                  onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}
+                >
+                  <p className="dz-more-head" role="presentation">Edit</p>
+                  <div className="dz-more-pair" role="group" aria-label="Undo and redo">
+                    <button type="button" role="menuitem" onClick={undo} disabled={!past.current.length}>
+                      <Icon name="undo" size={15} /> Undo <kbd>⌘Z</kbd>
+                    </button>
+                    <button type="button" role="menuitem" onClick={redo} disabled={!future.current.length}>
+                      <Icon name="redo" size={15} /> Redo <kbd>⇧⌘Z</kbd>
+                    </button>
+                  </div>
+                  <button type="button" role="menuitem" onClick={cleanUpLines} disabled={!hasLines}>
+                    <Icon name="sparkle" size={15} /> Clean up lines
                   </button>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
-                    Run play
-                  </button>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
-                    Export · print · wristband
-                  </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={depths} className="is-wide-dup" onClick={toggleDepths}>
+                  <button type="button" role="menuitemcheckbox" aria-checked={depths} onClick={toggleDepths}>
                     Route depths: {depths ? "on" : "off"}
                   </button>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setFieldOpen(true)}>
-                    Field controls: grid, hashes, rule lines
+                  <button type="button" role="menuitem" onClick={selectAll}>
+                    Select all
                   </button>
-                  <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
+
+                  <p className="dz-more-head" role="presentation">Field</p>
+                  <label className="dz-more-field" onClick={(e) => e.stopPropagation()}>
                     <span>Field</span>
                     <select
                       className="dz-top-select"
@@ -1920,10 +1924,24 @@ export function Builder() {
                       ))}
                     </select>
                   </label>
-                  <label className="dz-more-field is-wide-dup" onClick={(e) => e.stopPropagation()}>
+                  <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()}>
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}
                   </label>
+                  <button type="button" role="menuitem" onClick={() => setFieldOpen(true)}>
+                    Field controls: grid, hashes, rule lines
+                  </button>
+
+                  <p className="dz-more-head" role="presentation">Play</p>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)}>
+                    Play details
+                  </button>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
+                    Run play
+                  </button>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
+                    Export · print · wristband
+                  </button>
                   <button type="button" role="menuitem" onClick={newPlay}>
                     New play…
                   </button>
@@ -1941,9 +1959,26 @@ export function Builder() {
                   <button type="button" role="menuitem" onClick={() => void flipToCopy()}>
                     Flip and save as a new play
                   </button>
-                  <button type="button" role="menuitem" onClick={selectAll}>
-                    Select all
+
+                  <p className="dz-more-head" role="presentation">Go to</p>
+                  {workTabs(loadWork(), playbooks, sheets, new Set(plays.map((p) => p.id)))
+                    .filter((t) => t.id !== "designer")
+                    .map((t) => (
+                      <button key={t.id} type="button" role="menuitem" className="is-tabs-dup" onClick={() => void openFromTree(t.href)}>
+                        {t.label}
+                      </button>
+                    ))}
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/upload")}>
+                    <Icon name="upload" size={15} /> Upload a whiteboard photo
                   </button>
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/tools")}>
+                    More tools
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/vault")}>
+                    Back to the Vault
+                  </button>
+
+                  <p className="dz-more-head" role="presentation">Help</p>
                   <button type="button" role="menuitem" onClick={() => setGuideOpen(true)}>
                     Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
                   </button>
@@ -1953,15 +1988,6 @@ export function Builder() {
                   <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)}>
                     Coach tips: {tipsOn ? "on" : "off"}
                   </button>
-                  <Link to="/upload" role="menuitem">
-                    Upload a whiteboard photo
-                  </Link>
-                  <Link to="/tools" role="menuitem">
-                    More tools
-                  </Link>
-                  <Link to="/vault" role="menuitem">
-                    Back to the Vault
-                  </Link>
                 </div>
               </>
             )}
@@ -2385,7 +2411,13 @@ export function Builder() {
               onRead={pickRead}
               width={selectedLines.length ? selectedLines[0].width : width}
               onWidth={pickWeight}
-              target={selectedLines.length ? (selectedLines.length === 1 ? "1 line" : `${selectedLines.length} lines`) : "Next line"}
+              ink={floatInk}
+              onColor={pickColor}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={past.current.length > 0}
+              canRedo={future.current.length > 0}
+              target={floatTarget}
             />
           </div>
 
