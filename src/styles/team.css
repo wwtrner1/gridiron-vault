@@ -138,3 +138,14 @@
 .gd-card .gd-empty { color: var(--muted); }
 .gd-reset { margin-top: 12px; min-height: 44px; padding: 0 14px; border: 1px solid #3A4A5E; border-radius: var(--radius-lg); background: none; color: #B8C4D0; font-family: inherit; cursor: pointer; }
 .gd button:focus-visible, .gd a:focus-visible, .gd select:focus-visible, .gd input:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+/* Family texts sign-up (/join/:token). */
+.jn { display: flex; flex-direction: column; gap: 14px; }
+.jn .tm-sub { margin-bottom: 0; }
+.jn-field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.jn-field .input { font-size: 16px; min-height: 44px; }
+.jn-consent { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--white); font-size: 14px; line-height: 1.45; }
+.jn-consent input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.jn-legal { margin: 0; font-size: 13px; color: var(--muted); }
+.jn-error { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--red-bg); color: var(--red-fg); }
+.jn .btn { min-height: 48px; }

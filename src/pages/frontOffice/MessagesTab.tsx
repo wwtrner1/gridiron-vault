@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
-import { api } from "../../lib/api";
+import { api, type TextList } from "../../lib/api";
+import { FamilyTexts } from "./FamilyTexts";
 import { familyContacts, MESSAGE_LIMITS, type Delivery, type HubMessage, type HubPlayer, type HubState, type HubTeam, type MessageChannel } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
 
@@ -27,8 +28,8 @@ function markSeen(orgId: string) {
 
 /**
  * Team messages: the coaches' board (only staff see it) and announcements to
- * players and families. The server emails and texts the roster's contacts when
- * the site has that set up; until then the coach's own email app and phone do
+ * players and families. The server emails the roster's contacts and texts the
+ * numbers that signed up on the team's text link when the site has that set up; until then the coach's own email app and phone do
  * the sending and the announcement is still kept here.
  */
 export function MessagesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
@@ -36,16 +37,18 @@ export function MessagesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
   const [messages, setMessages] = useState<HubMessage[] | null>(null);
   const [delivery, setDelivery] = useState<Delivery>({ email: false, sms: false });
   const [players, setPlayers] = useState<HubPlayer[]>([]);
+  const [texts, setTexts] = useState<TextList | null>(null);
   const [failed, setFailed] = useState("");
   const [channel, setChannel] = useState<MessageChannel>("staff");
   const [seen] = useState(() => lastSeen(hub.org.id));
 
   useEffect(() => {
-    Promise.all([api.messages(hub.org.id), api.roster(team.id)])
-      .then(([m, r]) => {
+    Promise.all([api.messages(hub.org.id), api.roster(team.id), api.textSignups(team.id)])
+      .then(([m, r, t]) => {
         setMessages(m.messages);
         setDelivery(m.delivery);
         setPlayers(r.players);
+        setTexts(t);
         markSeen(hub.org.id);
       })
       .catch((e: Error) => setFailed(e.message));
@@ -84,12 +87,15 @@ export function MessagesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
         team={team}
         delivery={delivery}
         contacts={contacts}
+        signedUp={texts?.signups.length ?? 0}
         onPosted={(res, note) => {
           setMessages(res.messages);
           setDelivery(res.delivery);
           toast(note);
         }}
       />
+
+      {channel === "family" && texts && <FamilyTexts team={team} list={texts} onChange={setTexts} />}
 
       {shown.length === 0 ? (
         <p className="hint">
@@ -146,6 +152,7 @@ function Composer({
   team,
   delivery,
   contacts,
+  signedUp,
   onPosted,
 }: {
   channel: MessageChannel;
@@ -153,6 +160,7 @@ function Composer({
   team: HubTeam;
   delivery: Delivery;
   contacts: { emails: string[]; phones: string[] };
+  signedUp: number;
   onPosted: (res: { messages: HubMessage[]; delivery: Delivery }, note: string) => void;
 }) {
   const [subject, setSubject] = useState("");
@@ -200,7 +208,7 @@ function Composer({
       className="hub-compose"
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) void post({ email: family && email && delivery.email, sms: family && sms && delivery.sms });
+        if (ready) void post({ email: family && email && delivery.email, sms: family && sms && delivery.sms && signedUp > 0 });
       }}
     >
       {error && (
@@ -228,8 +236,8 @@ function Composer({
       {family ? (
         <>
           <p className="hint">
-            {team.name} has {contacts.emails.length} email {contacts.emails.length === 1 ? "address" : "addresses"} and {contacts.phones.length} {contacts.phones.length === 1 ? "phone" : "phones"} marked
-            OK to text on the roster.
+            {team.name} has {contacts.emails.length} email {contacts.emails.length === 1 ? "address" : "addresses"} on the roster and {signedUp}{" "}
+            {signedUp === 1 ? "phone" : "phones"} signed up for team texts.
           </p>
           <div className="hub-send">
             <div>
@@ -238,12 +246,12 @@ function Composer({
                 {!delivery.email && <small> (from your own email app below)</small>}
               </label>
               <label className="check">
-                <input type="checkbox" checked={sms && delivery.sms} onChange={(e) => setSms(e.target.checked)} disabled={!delivery.sms} /> <Icon name="phone" size={14} /> Text families who said OK
+                <input type="checkbox" checked={sms && delivery.sms && signedUp > 0} onChange={(e) => setSms(e.target.checked)} disabled={!delivery.sms || !signedUp} /> <Icon name="phone" size={14} /> Text families who signed up
                 {!delivery.sms && <small> (from your phone below)</small>}
               </label>
             </div>
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !ready}>
-              {(email && delivery.email) || (sms && delivery.sms) ? "Send announcement" : "Save announcement"}
+              {(email && delivery.email) || (sms && delivery.sms && signedUp > 0) ? "Send announcement" : "Save announcement"}
             </button>
           </div>
           {(!delivery.email || !delivery.sms) && (

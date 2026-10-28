@@ -42,6 +42,7 @@ import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from ".
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
+import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
@@ -219,6 +220,9 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action !== "results" && req.method === "GET") return await openShare(id);
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
       return await sendScore(id, await req.json().catch(() => ({})));
+
+    // A family signs up for team texts with no account.
+    if (resource === "join" && id && JOIN_TOKEN.test(id) && !action) return await joinRoute(req, id);
 
     // Stripe's webhook proves itself with a signature, not a sign-in.
     if (resource === "billing" && id === "webhook" && req.method === "POST") return await handleWebhook(req);
@@ -440,7 +444,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     }
 
     /* ----------------------------------------- team hub (Front Office) --- */
-    if (resource === "hub" || resource === "hub-events" || resource === "hub-messages" || resource === "teams" || resource === "team-players") {
+    if (resource === "hub" || resource === "hub-events" || resource === "hub-messages" || resource === "teams" || resource === "team-players" || resource === "text-signups") {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await hubRoute(me, req, resource, id, action);

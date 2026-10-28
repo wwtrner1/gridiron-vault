@@ -11,7 +11,7 @@ import "../styles/legal.css";
  * Drafted without a lawyer — have one review before charging for plans.
  */
 
-const UPDATED = "October 12, 2026";
+const UPDATED = "October 28, 2026";
 
 function Contact() {
   return SUPPORT_EMAIL ? (
@@ -95,6 +95,10 @@ export function Privacy() {
           <b>Feedback:</b> whatever you write on Help &amp; feedback, plus an optional email and screenshot.
         </li>
         <li>
+          <b>Team texts:</b> when a parent, guardian or player signs up on a team's texts link, we keep the mobile number,
+          the names they enter, the team and when they agreed, so the team's coaches can text them updates.
+        </li>
+        <li>
           <b>Usage counts:</b> how many AI requests and text codes your account used today, to keep the daily limits fair.
         </li>
       </ul>
@@ -109,13 +113,21 @@ export function Privacy() {
           <b>Netlify</b> hosts the site and stores accounts, plays and feedback.
         </li>
         <li>
-          <b>Twilio</b> sends the text-message codes.
+          <b>Twilio</b> sends the text-message codes and team texts.
         </li>
         <li>
           <b>Anthropic</b> (Claude) powers Griddy: it reads your messages, play calls and whiteboard photos.
         </li>
       </ul>
       <p>Each only gets what it needs for that job.</p>
+
+      <h2>Text messages</h2>
+      <p>
+        No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text
+        messaging opt-in data and consent will not be shared with any third parties. Your number is used only for the
+        texts you signed up for: sign-in codes, and team updates from the coaches of a team you joined. Reply STOP to any
+        team text to stop them, or ask the team's coach to take you off.
+      </p>
 
       <h2>Players and kids</h2>
       <p>
@@ -158,6 +170,21 @@ export function Terms() {
           GridIronVault is in <b>beta</b>. It's free while we test, features may change, and things may break. Download a
           backup of anything you can't afford to lose.
         </li>
+      </ul>
+
+      <h2>Team texts</h2>
+      <ul>
+        <li>
+          Parents, guardians and players can sign up on a team's link to get texts from that team's coaches, sent by
+          GridIronVault: game and practice times, schedule changes, cancellations and reminders.
+        </li>
+        <li>Message frequency varies, usually 1 to 4 a week during the season. Message and data rates may apply.</li>
+        <li>
+          Reply <b>STOP</b> to any team text to cancel; you'll get one text confirming it. Reply <b>START</b> to sign up
+          again, or <b>HELP</b> for help. Signing up is never a condition of joining a team.
+        </li>
+        <li>Carriers aren't liable for delayed or undelivered messages.</li>
+        <li>Coaches may only use team texts for their own team's updates, never for advertising.</li>
       </ul>
 
       <h2>Your plays belong to you</h2>
