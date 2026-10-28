@@ -1,9 +1,14 @@
+import { useEffect } from "react";
 import { api } from "./api";
+import { useAuth } from "./auth";
 import {
+  blankMyTeam,
   cleanDepth,
+  cleanMyTeam,
   cleanPlayer,
-  DEPTH_UNITS,
   HUB_LIMITS,
+  MY_TEAM_ID,
+  type MyTeamDoc,
   type DepthChart,
   type DepthSlot,
   type DepthUnit,
@@ -37,46 +42,104 @@ export const hubSource = (teamId: string): TeamSource => ({
 
 /* --------------------------------------------------------------- My team --- */
 
-/** The coach's own team, kept in this browser like the Assignments roster. */
-export type MyTeam = { name: string; level: string; season: string; players: HubPlayer[]; charts: DepthChart[] };
+/** The coach's own team, kept in this browser and copied to the account while signed in (see `MyTeamSync`). */
+export type MyTeam = MyTeamDoc;
+export { MY_TEAM_ID };
 
 const KEY = "grid1ronvault.myteam.v1";
-export const MY_TEAM_ID = "my-team";
-
-const blank = (): MyTeam => ({ name: "My team", level: "", season: "", players: [], charts: [] });
+const listeners = new Set<(from: "local" | "account") => void>();
 
 export function loadMyTeam(): MyTeam {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<MyTeam> | null;
-    if (!raw || typeof raw !== "object") return blank();
-    const players = (Array.isArray(raw.players) ? raw.players : []).flatMap((p): HubPlayer[] => {
-      const info = cleanPlayer(p);
-      const id = (p as Partial<HubPlayer>)?.id;
-      return typeof info === "string" || typeof id !== "string" ? [] : [{ ...info, id, teamId: MY_TEAM_ID, updatedAt: String(p.updatedAt ?? "") }];
-    });
-    const ids = new Set(players.map((p) => p.id));
-    const charts = (Array.isArray(raw.charts) ? raw.charts : []).flatMap((c): DepthChart[] =>
-      DEPTH_UNITS.includes(c?.unit) ? [{ unit: c.unit, slots: cleanDepth(c.slots, ids), updatedAt: String(c.updatedAt ?? "") }] : [],
-    );
-    return {
-      name: typeof raw.name === "string" && raw.name.trim() ? raw.name.slice(0, HUB_LIMITS.name) : "My team",
-      level: typeof raw.level === "string" ? raw.level.slice(0, HUB_LIMITS.short) : "",
-      season: typeof raw.season === "string" ? raw.season.slice(0, HUB_LIMITS.short) : "",
-      players,
-      charts,
-    };
+    const raw = localStorage.getItem(KEY);
+    return raw ? cleanMyTeam(JSON.parse(raw)) : blankMyTeam();
   } catch {
-    return blank();
+    return blankMyTeam();
   }
 }
 
-export function saveMyTeam(team: MyTeam) {
+function store(team: MyTeam) {
   try {
     localStorage.setItem(KEY, JSON.stringify(team));
   } catch {
     throw new Error("This browser won't let us save the roster. Turn off private browsing, or free some space, and try again.");
   }
 }
+
+/** Save a change made here: it gets a new time, and the account copy follows a moment later. */
+export function saveMyTeam(team: MyTeam) {
+  store({ ...team, updatedAt: new Date().toISOString() });
+  listeners.forEach((l) => l("local"));
+}
+
+/** Called after every change; `account` means the account's newer copy replaced this browser's. */
+export function onMyTeam(listener: (from: "local" | "account") => void) {
+  listeners.add(listener);
+  return () => void listeners.delete(listener);
+}
+
+const hasData = (t: MyTeam) => t.players.length > 0 || t.charts.some((c) => c.slots.length > 0) || t.name !== "My team" || !!t.level || !!t.season;
+
+/** What the account holds, so an unchanged team isn't sent again. */
+let sentAt = "";
+
+async function pushMyTeam() {
+  const team = loadMyTeam();
+  if (!team.updatedAt || team.updatedAt === sentAt || !hasData(team)) return;
+  try {
+    const res = await api.saveMyTeam(team);
+    sentAt = res.team?.updatedAt ?? team.updatedAt;
+  } catch {
+    /* still saved in this browser; the next change tries again */
+  }
+}
+
+/**
+ * Mounted once, under the sign-in provider. Signing in pulls the account's
+ * copy and keeps whichever is newer; every change here pushes a moment later.
+ */
+export function MyTeamSync() {
+  const { account } = useAuth();
+  const id = account?.id;
+
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    let timer: number | undefined;
+    const off = onMyTeam((from) => {
+      if (from !== "local" || !alive) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void pushMyTeam(), PUSH_DELAY_MS);
+    });
+    // Pull first, so a fresh browser never sends an empty team over the account's.
+    api
+      .myTeam()
+      .then(({ team: remote }) => {
+        if (!alive || !remote) return;
+        const local = loadMyTeam();
+        if (remote.updatedAt > local.updatedAt || !hasData(local)) {
+          store(remote);
+          sentAt = remote.updatedAt;
+          listeners.forEach((l) => l("account"));
+        } else if (remote.updatedAt === local.updatedAt) sentAt = local.updatedAt;
+      })
+      .catch(() => {
+        /* offline: the team in this browser still works */
+      })
+      .finally(() => {
+        if (alive) void pushMyTeam();
+      });
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+      off();
+    };
+  }, [id]);
+
+  return null;
+}
+
+const PUSH_DELAY_MS = 1500;
 
 let seq = 0;
 const newId = () => `p${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
