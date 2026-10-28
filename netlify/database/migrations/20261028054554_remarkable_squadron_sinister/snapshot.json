@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d3e0576a-e3d4-4d72-bcf8-e4d8f2ae2455",
+  "id": "426efbcd-f268-408c-8f2c-9b9a282185d8",
   "prevIds": [
     "48ac0e26-7143-4581-b6db-f01341f8a4de"
   ],
@@ -63,6 +63,12 @@
     {
       "isRlsEnabled": false,
       "name": "hub_messages",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "my_teams",
       "entityType": "tables",
       "schema": "public"
     },
@@ -135,12 +141,6 @@
     {
       "isRlsEnabled": false,
       "name": "teams",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "text_signups",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1233,6 +1233,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "hub_messages"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "my_teams"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "data",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "my_teams"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "my_teams"
     },
     {
       "type": "uuid",
@@ -2496,19 +2535,6 @@
       "table": "teams"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "join_token",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "teams"
-    },
-    {
       "type": "timestamp",
       "typeSchema": null,
       "notNull": false,
@@ -2520,97 +2546,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "teams"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "gen_random_uuid()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "team_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "phone",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "''",
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "''",
-      "generated": null,
-      "identity": null,
-      "name": "player",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "consent",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "text_signups"
     },
     {
       "type": "uuid",
@@ -3552,34 +3487,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "team_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "phone",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "text_signups_team_phone_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "owner_id",
           "isExpression": false,
           "asc": true,
@@ -3957,23 +3864,6 @@
       "table": "teams"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "team_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "teams",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "text_signups_team_id_teams_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "text_signups"
-    },
-    {
       "columns": [
         "user_id"
       ],
@@ -4071,6 +3961,16 @@
       "name": "hub_messages_pkey",
       "schema": "public",
       "table": "hub_messages",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "owner_id"
+      ],
+      "nameExplicit": false,
+      "name": "my_teams_pkey",
+      "schema": "public",
+      "table": "my_teams",
       "entityType": "pks"
     },
     {
@@ -4198,16 +4098,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "text_signups_pkey",
-      "schema": "public",
-      "table": "text_signups",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "trash_pkey",
       "schema": "public",
       "table": "trash",
@@ -4263,17 +4153,6 @@
       "name": "profiles_stripe_customer_id_key",
       "schema": "public",
       "table": "profiles",
-      "entityType": "uniques"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "join_token"
-      ],
-      "nullsNotDistinct": false,
-      "name": "teams_join_token_key",
-      "schema": "public",
-      "table": "teams",
       "entityType": "uniques"
     }
   ],

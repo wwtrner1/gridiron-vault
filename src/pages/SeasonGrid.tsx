@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { rememberWork } from "../lib/workTabs";
 import { Shell } from "../components/Shell";
+import { WorkTabs } from "../components/WorkTabs";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { Modal } from "../components/Modal";
@@ -59,7 +61,12 @@ export function SeasonGrid() {
   const sheets = useStore((s) => s.sheets);
   const plays = useStore((s) => s.plays);
 
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // The Call Sheet work tab (?sheet=) opens the sheet the coach was last on.
+  const [params] = useSearchParams();
+  const [activeId, setActiveId] = useState<string | null>(() => params.get("sheet"));
+  useEffect(() => {
+    if (activeId && sheets.some((s) => s.id === activeId)) rememberWork({ sheetId: activeId });
+  }, [activeId, sheets]);
   const [sortBy, setSortBy] = useState<{ col: string; dir: 1 | -1 } | null>(null);
   const [paint, setPaint] = useState<string>("");
   const [painting, setPainting] = useState(false);
@@ -132,7 +139,7 @@ export function SeasonGrid() {
 
   if (!sheet) {
     return (
-      <Shell title="Call Sheet">
+      <Shell title="Call Sheet" tabs={<WorkTabs current="sheet" />}>
         <div className="page">
           <div className="empty">
             <Icon name="table" size={44} />
@@ -336,6 +343,7 @@ export function SeasonGrid() {
   return (
     <Shell
       title="Call Sheet"
+      tabs={<WorkTabs current="sheet" />}
       actions={
         <>
           <Tooltip title="Print the call sheet" hint="Prints what you see, landscape, with the paint colours intact. Minimized rows and columns stay off the page." side="bottom">
@@ -352,7 +360,7 @@ export function SeasonGrid() {
               <Icon name="wristband" size={15} /> Wristbands
             </Link>
           </Tooltip>
-          <Tooltip title="Game Day" hint="A sideline view of this grid: pick the down and distance, see the calls that fit, and log what you called." side="bottom">
+          <Tooltip title="Game Day" hint="This sheet on the sideline: tap the down, distance, hash and field zone and see the calls you planned for it, grouped by section." side="bottom">
             <Link to={`/game/${sheet.id}`} className="btn btn-ghost btn-sm">
               <Icon name="play" size={15} /> Game Day
             </Link>

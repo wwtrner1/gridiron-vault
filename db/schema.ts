@@ -546,3 +546,14 @@ export const hubFiles = pgTable(
   },
   (t) => [index("hub_files_folder_idx").on(t.folderId), index("hub_files_org_idx").on(t.orgId)],
 );
+
+/**
+ * My team: a coach's own roster and depth chart, no Front Office needed. One
+ * row per coach holding the whole `MyTeamDoc` (src/lib/teamHub.ts), cleaned by
+ * `cleanMyTeam`. Holds minors' contacts: owner only, never public.
+ */
+export const myTeams = pgTable("my_teams", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

@@ -2,15 +2,34 @@ import type { SheetDoc, SheetRow } from "./store";
 
 /**
  * Game Day: the Call Sheet read from the sideline. Which calls fit the
- * situation, what's been called, and what is working. Pure, so the page and
+ * situation (down, distance, hash, field zone), grouped by the sheet's own
+ * sections, plus an optional log of what was called. Pure, so the page and
  * any print share one answer.
  */
 
 /** One call the coach made: the grid row, when, and how it went (if marked). */
 export type Call = { id: string; rowId: string; at: number; ok?: boolean };
 
+/** Other headings coaches use for the same column, so a renamed column still reads. */
+const ALIASES: Record<string, string[]> = {
+  "play name": ["play", "call", "name"],
+  group: ["section", "situation", "category"],
+  yl: ["field", "zone", "field zone", "yard line"],
+  distance: ["dist", "to go"],
+};
+
+const column = (sheet: SheetDoc, label: string) => {
+  const want = label.toLowerCase();
+  const names = [want, ...(ALIASES[want] ?? [])];
+  for (const n of names) {
+    const col = sheet.columns.find((c) => c.label.trim().toLowerCase() === n);
+    if (col) return col;
+  }
+  return undefined;
+};
+
 export const cell = (sheet: SheetDoc, row: SheetRow, label: string) => {
-  const col = sheet.columns.find((c) => c.label.toLowerCase() === label.toLowerCase());
+  const col = column(sheet, label);
   return col ? (row.cells[col.id] ?? "").trim() : "";
 };
 
@@ -31,8 +50,16 @@ export function choicesFor(sheet: SheetDoc, label: string, limit = 6): string[] 
   return [...seen.values()].sort((a, b) => b.n - a.n).slice(0, limit).map((v) => v.text);
 }
 
-export type Situation = { down: string; distance: string; hash: string; text: string };
-export const ANY: Situation = { down: "", distance: "", hash: "", text: "" };
+export type Situation = { down: string; distance: string; hash: string; field: string; text: string };
+export const ANY: Situation = { down: "", distance: "", hash: "", field: "", text: "" };
+
+/** The situation chips: which Situation key reads which call sheet column. */
+export const SITUATION: { key: "down" | "distance" | "hash" | "field"; label: string; column: string }[] = [
+  { key: "down", label: "Down", column: "Down" },
+  { key: "distance", label: "Distance", column: "Distance" },
+  { key: "hash", label: "Hash", column: "Hash" },
+  { key: "field", label: "Field", column: "YL" },
+];
 
 const matches = (have: string, want: string) => {
   if (!want) return true;
@@ -47,13 +74,58 @@ export function callable(sheet: SheetDoc, s: Situation): SheetRow[] {
   return sheet.rows.filter((r) => {
     const name = cell(sheet, r, "Play Name");
     if (!name) return false;
-    if (q && ![name, cell(sheet, r, "Group"), cell(sheet, r, "Route")].some((t) => norm(t).includes(q))) return false;
+    if (q && ![name, cell(sheet, r, "Group"), cell(sheet, r, "Route"), cell(sheet, r, "#")].some((t) => norm(t).includes(q))) return false;
     return (
       matches(cell(sheet, r, "Down"), s.down) &&
       matches(cell(sheet, r, "Distance"), s.distance) &&
-      matches(cell(sheet, r, "Hash"), s.hash)
+      matches(cell(sheet, r, "Hash"), s.hash) &&
+      matches(cell(sheet, r, "YL"), s.field)
     );
   });
+}
+
+/** Rows with a play name: the calls on this sheet. */
+export const namedRows = (sheet: SheetDoc) => sheet.rows.filter((r) => cell(sheet, r, "Play Name"));
+
+/**
+ * The sheet Game Day opens with no id: the one with the most calls on it,
+ * newest first on a tie, so a blank "Call Sheet" never wins over a filled one.
+ */
+export function pickSheet(sheets: SheetDoc[]): SheetDoc | undefined {
+  return [...sheets].sort((a, b) => namedRows(b).length - namedRows(a).length || b.updatedAt.localeCompare(a.updatedAt))[0];
+}
+
+export const NO_SECTION = "Other calls";
+
+export type Section = { name: string; rows: SheetRow[] };
+
+/** Rows grouped by the sheet's Group column, sections in the order the sheet first uses them. */
+export function sections(sheet: SheetDoc, rows: SheetRow[]): Section[] {
+  const out = new Map<string, Section>();
+  for (const r of rows) {
+    const name = cell(sheet, r, "Group") || NO_SECTION;
+    const key = norm(name);
+    const hit = out.get(key);
+    if (hit) hit.rows.push(r);
+    else out.set(key, { name, rows: [r] });
+  }
+  return [...out.values()];
+}
+
+/** What the sheet says about when to call a row, for the little tags under its name. */
+export function planned(sheet: SheetDoc, row: SheetRow): string[] {
+  const out: string[] = [];
+  if (cell(sheet, row, "Run")) out.push("Run");
+  else if (cell(sheet, row, "Pass")) out.push("Pass");
+  const list = (v: string) => v.split(/\s*[,/]\s*/).filter(Boolean).join(" / ");
+  const down = list(cell(sheet, row, "Down"));
+  const dist = list(cell(sheet, row, "Distance"));
+  if (down || dist) out.push([down && `${down} down`, dist && `${dist} to go`].filter(Boolean).join(" · "));
+  const hash = cell(sheet, row, "Hash");
+  if (hash) out.push(`${hash} hash`);
+  const yl = cell(sheet, row, "YL");
+  if (yl) out.push(yl);
+  return out;
 }
 
 export type Tally = { calls: number; ok: number; marked: number };
@@ -83,6 +155,25 @@ export function mix(sheet: SheetDoc, calls: Call[]): { run: number; pass: number
     else if (cell(sheet, r, "Pass")) pass++;
   }
   return { run, pass };
+}
+
+const PREFS = "grid1ronvault.gameday.v1";
+
+/** Whether the coach has put away the "What Game Day is" card on this browser. */
+export function introSeen(): boolean {
+  try {
+    return (JSON.parse(localStorage.getItem(PREFS) ?? "{}") as { intro?: boolean }).intro === false;
+  } catch {
+    return false;
+  }
+}
+
+export function setIntroSeen(seen: boolean) {
+  try {
+    localStorage.setItem(PREFS, JSON.stringify({ intro: !seen }));
+  } catch {
+    /* storage blocked: the card shows again next visit */
+  }
 }
 
 const KEY = "grid1ronvault.game.v1";

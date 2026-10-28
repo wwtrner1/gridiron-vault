@@ -248,3 +248,12 @@
 .hub-inline .check { margin: 0; }
 .hub-sub { margin: 18px 0 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .hub-panel .panel .fo-actions .input { flex: 1 1 240px; min-width: 0; }
+
+/* My team (pages/MyTeam.tsx): the hub's roster and depth chart for one coach */
+.myteam-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; padding: var(--space-5); margin-bottom: var(--space-5); }
+.myteam-info .field { margin: 0; }
+.myteam-info .hint { margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
+.myteam-foot { margin-top: var(--space-5); }
+@media print {
+  .myteam-info, .myteam-foot, .hub-tabs { display: none !important; }
+}

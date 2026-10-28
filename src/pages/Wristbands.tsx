@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { rememberWork } from "../lib/workTabs";
 import { Shell } from "../components/Shell";
+import { WorkTabs } from "../components/WorkTabs";
 import { Icon } from "../components/Icon";
 import { BandPreview } from "../components/BandPreview";
 import { playNamed, useStore } from "../lib/store";
@@ -160,6 +162,11 @@ export function Wristbands() {
     const asked = params.get("source");
     return (asked && sources.some((s) => s.id === asked) ? asked : sources[0]?.id) ?? "hand";
   });
+  // The work tabs follow the playbook or Call Sheet the cards come from.
+  useEffect(() => {
+    if (sourceId.startsWith("book:")) rememberWork({ bookId: sourceId.slice(5) });
+    else if (sourceId.startsWith("grid:")) rememberWork({ sheetId: sourceId.slice(5) });
+  }, [sourceId]);
   const [picked, setPicked] = useState<string[]>([]);
   const [prefs, setPrefs] = useState<BandPrefs>(loadPrefs);
   const [printing, setPrinting] = useState(false);
@@ -285,6 +292,7 @@ export function Wristbands() {
   return (
     <Shell
       title="Wristbands"
+      tabs={<WorkTabs current="wristbands" />}
       actions={
         <Link to="/grid" className="btn btn-ghost btn-sm">
           <Icon name="table" size={15} /> Call Sheet

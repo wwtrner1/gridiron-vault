@@ -544,3 +544,46 @@ export const teamText = (team: string, subject: string, body: string) =>
 
 /** "(615) 555-0142" from "+16155550142". */
 export const showPhone = (e164: string) => (/^\+1\d{10}$/.test(e164) ? `(${e164.slice(2, 5)}) ${e164.slice(5, 8)}-${e164.slice(8)}` : e164);
+
+/* --------------------------------------------------------------- my team --- */
+
+/**
+ * My team: one coach's own roster and depth chart, kept in the browser and
+ * copied to the account while signed in (`my_teams`, one row per coach).
+ * `updatedAt` decides which copy wins when a browser and the account differ.
+ */
+export type MyTeamDoc = { name: string; level: string; season: string; players: HubPlayer[]; charts: DepthChart[]; updatedAt: string };
+
+export const MY_TEAM_ID = "my-team";
+const PLAYER_ID = /^[A-Za-z0-9-]{1,40}$/;
+
+export const blankMyTeam = (): MyTeamDoc => ({ name: "My team", level: "", season: "", players: [], charts: [], updatedAt: "" });
+
+/** A My team document as stored or sent, held to the same limits as a Front Office team. */
+export function cleanMyTeam(raw: unknown): MyTeamDoc {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const seen = new Set<string>();
+  const players = (Array.isArray(r.players) ? r.players : []).slice(0, HUB_LIMITS.players).flatMap((p): HubPlayer[] => {
+    const info = cleanPlayer(p);
+    const id = (p as { id?: unknown })?.id;
+    if (typeof info === "string" || typeof id !== "string" || !PLAYER_ID.test(id) || seen.has(id)) return [];
+    seen.add(id);
+    return [{ ...info, id, teamId: MY_TEAM_ID, updatedAt: clip((p as { updatedAt?: unknown }).updatedAt, 30) }];
+  });
+  const units = new Set<string>();
+  const charts = (Array.isArray(r.charts) ? r.charts : []).flatMap((c): DepthChart[] => {
+    const o = (c && typeof c === "object" ? c : {}) as Record<string, unknown>;
+    const unit = String(o.unit) as DepthUnit;
+    if (!DEPTH_UNITS.includes(unit) || units.has(unit)) return [];
+    units.add(unit);
+    return [{ unit, slots: cleanDepth(o.slots, seen), updatedAt: clip(o.updatedAt, 30) }];
+  });
+  return {
+    name: clip(r.name, HUB_LIMITS.name) || "My team",
+    level: clip(r.level, HUB_LIMITS.short),
+    season: clip(r.season, HUB_LIMITS.short),
+    players,
+    charts,
+    updatedAt: clip(r.updatedAt, 30),
+  };
+}

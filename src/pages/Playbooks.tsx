@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
@@ -7,12 +7,14 @@ import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
 import { ExportDialog } from "../components/ExportDialog";
 import { PlayerLink } from "../components/PlayerLink";
+import { WorkTabs } from "../components/WorkTabs";
 import { store, useStore, type LocalPlaybook } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import { uid } from "../lib/types";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { rememberWork } from "../lib/workTabs";
 
 const COLORS = [
   { hex: "#16C8E8", name: "Cyan" },
@@ -37,7 +39,16 @@ export function Playbooks() {
   const books = useStore((s) => s.playbooks);
 
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [openBook, setOpenBook] = useState<string | null>(null);
+  // The Playbook work tab (?book=) opens straight onto the playbook the coach is working in.
+  const [params] = useSearchParams();
+  const [openBook, setOpenBookState] = useState<string | null>(() => {
+    const asked = params.get("book");
+    return asked && books.some((b) => b.id === asked) ? asked : null;
+  });
+  const setOpenBook = (id: string | null) => {
+    setOpenBookState(id);
+    if (id) rememberWork({ bookId: id });
+  };
   const [adding, setAdding] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
@@ -97,6 +108,7 @@ export function Playbooks() {
   return (
     <Shell
       title="Playbooks"
+      tabs={<WorkTabs current="playbook" />}
       actions={
         <>
           <Link to="/vault" className="btn btn-quiet btn-sm">

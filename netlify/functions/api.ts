@@ -8,6 +8,7 @@ import {
   aiUsage,
   callSheets,
   events,
+  myTeams,
   organizations,
   orgMembers,
   playbookPlays,
@@ -47,6 +48,7 @@ import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
+import { cleanMyTeam } from "../../src/lib/teamHub.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
@@ -417,6 +419,28 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await filesRoute(me, req, resource, id, action);
+    }
+
+    /* -------------------------------------------------------- my team --- */
+    // The coach's own roster (minors' contacts): owner only, never cached.
+    if (resource === "my-team") {
+      const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
+      if (!me) return req.method === "GET" ? mine({ team: null }) : fail("Sign in to keep your roster on your account.", 401);
+      if (req.method === "GET") {
+        const [row] = await db.select().from(myTeams).where(eq(myTeams.ownerId, me.id));
+        return mine({ team: row ? cleanMyTeam(row.data) : null });
+      }
+      if (req.method === "PUT") {
+        await ensureProfile(me);
+        const body = (await req.json().catch(() => ({}))) as { team?: unknown };
+        const team = cleanMyTeam(body.team);
+        if (!team.updatedAt) team.updatedAt = new Date().toISOString();
+        await db
+          .insert(myTeams)
+          .values({ ownerId: me.id, data: team, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: myTeams.ownerId, set: { data: team, updatedAt: new Date() } });
+        return mine({ team });
+      }
     }
 
     /* ----------------------------------------- team hub (Front Office) --- */
@@ -1018,6 +1042,7 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(organizations).where(eq(organizations.ownerId, me.id));
     await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
+    await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
     await tx.delete(events).where(eq(events.ownerId, me.id));
