@@ -48,12 +48,6 @@ export const PLAYBOOK_NAV: NavItem[] = [
     hint: "Your game plan. Sort it, paint it, collapse it, print it.",
   },
   {
-    to: "/game",
-    icon: "play",
-    label: "Game Day",
-    hint: "Your Call Sheet on the sideline: pick the situation, call the play, mark what worked.",
-  },
-  {
     to: "/practice",
     icon: "board",
     label: "Practice",

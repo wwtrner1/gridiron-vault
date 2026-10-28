@@ -1,12 +1,12 @@
 import type { LocalPlaybook, SheetDoc } from "./store";
 
 /**
- * The work tabs (Designer · Playbook · Wristbands · Call Sheet · Game Day)
+ * The work tabs (Designer · Playbook · Wristbands · Call Sheet)
  * carry one context between pages: the play and playbook last open in the
  * Designer and the Call Sheet last open. Kept per browser, like the other prefs.
  */
 export type WorkContext = { playId: string | null; bookId: string | null; sheetId: string | null };
-export type WorkTabId = "designer" | "playbook" | "wristbands" | "sheet" | "game";
+export type WorkTabId = "designer" | "playbook" | "wristbands" | "sheet";
 
 const KEY = "grid1ronvault.worktabs.v1";
 const EMPTY: WorkContext = { playId: null, bookId: null, sheetId: null };
@@ -80,12 +80,6 @@ export function workTabs(ctx: WorkContext, books: LocalPlaybook[], sheets: Sheet
       label: "Call Sheet",
       href: sheet ? `/grid?sheet=${encodeURIComponent(sheet.id)}` : "/grid",
       hint: sheet ? `Opens ${sheet.name}.` : "Plan the game: calls by down, distance and hash.",
-    },
-    {
-      id: "game",
-      label: "Game Day",
-      href: sheet ? `/game/${sheet.id}` : "/game",
-      hint: sheet ? `Calls from ${sheet.name} on the sideline.` : "Your Call Sheet on a phone at the sideline.",
     },
   ];
 }

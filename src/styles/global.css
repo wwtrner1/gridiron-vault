@@ -153,7 +153,7 @@ footer.mkt a:focus-visible,
 /* The <main> in Shell is the padded page container. Pages that still wrap
    their own content in .page get no second helping of padding. */
 .work > main { flex: 1; min-width: 0; padding: 24px 22px 56px; }
-/* Work tabs: Designer · Playbook · Wristbands · Call Sheet · Game Day (components/WorkTabs.tsx). */
+/* Work tabs: Designer · Playbook · Wristbands · Call Sheet (components/WorkTabs.tsx). */
 .worktabs { display: flex; flex: none; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .worktabs::-webkit-scrollbar { display: none; }
 .worktabs .tip-anchor { flex: none; }

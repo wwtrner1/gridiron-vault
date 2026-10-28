@@ -40,7 +40,7 @@ function download(name: string, text: string) {
 /**
  * The team's season: games, practices and meetings on a month calendar or a
  * list, with the won-lost record, an .ics download for phones and Google
- * Calendar, and Game Day one tap from a game with a Call Sheet.
+ * Calendar, and the Call Sheet one tap from a game with a Call Sheet.
  */
 export function ScheduleTab({ hub, team }: { hub: HubState; team: HubTeam }) {
   const toast = useToast();
@@ -257,8 +257,8 @@ export function ScheduleTab({ hub, team }: { hub: HubState; team: HubTeam }) {
               </div>
               <div className="fo-actions hub-noprint">
                 {e.kind === "game" && sheets.some((s) => s.id === e.sheetId) && (
-                  <button type="button" className="btn btn-quiet btn-sm" onClick={() => navigate(`/game/${e.sheetId}`)}>
-                    <Icon name="play" size={13} /> Game Day
+                  <button type="button" className="btn btn-quiet btn-sm" onClick={() => navigate(`/grid?sheet=${encodeURIComponent(e.sheetId)}`)}>
+                    <Icon name="table" size={13} /> Call Sheet
                   </button>
                 )}
                 <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOpen(e)} aria-label={`Open ${e.title}`}>
@@ -485,7 +485,7 @@ function EventDialog({
                 <input className="input" inputMode="numeric" value={d.scoreThem ?? ""} onChange={(e) => set({ scoreThem: score(e.target.value) })} />
               </label>
               <label className="field">
-                <span>Call Sheet for Game Day</span>
+                <span>Call Sheet for this game</span>
                 <select className="select" value={d.sheetId} onChange={(e) => set({ sheetId: e.target.value })}>
                   <option value="">None</option>
                   {sheets.map((s) => (
@@ -498,8 +498,8 @@ function EventDialog({
               </label>
             </div>
             {d.sheetId && sheets.some((s) => s.id === d.sheetId) && (
-              <button type="button" className="btn btn-quiet btn-sm" onClick={() => navigate(`/game/${d.sheetId}`)}>
-                <Icon name="play" size={13} /> Open Game Day
+              <button type="button" className="btn btn-quiet btn-sm" onClick={() => navigate(`/grid?sheet=${encodeURIComponent(d.sheetId)}`)}>
+                <Icon name="table" size={13} /> Open Call Sheet
               </button>
             )}
           </>

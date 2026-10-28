@@ -6,7 +6,7 @@ import { loadWork, workTabs, type WorkTabId } from "../lib/workTabs";
 
 type Props = {
   current: WorkTabId;
-  /** "dark" sits in the Designer's top bar and on Game Day; "light" under a Shell page's top bar. */
+  /** "dark" sits in the Designer's top bar; "light" under a Shell page's top bar. */
   tone?: "dark" | "light";
   /** The Designer saves unsaved changes before it leaves, so it takes over the click. */
   onGo?: (href: string) => void;
@@ -14,7 +14,7 @@ type Props = {
 
 /**
  * Tabs between the pages a coach works across in one sitting: the Designer,
- * the playbook, its wristbands, the Call Sheet and Game Day. Each tab keeps
+ * the playbook, its wristbands and the Call Sheet. Each tab keeps
  * the playbook and Call Sheet the coach was last on (lib/workTabs.ts). They
  * are links, so the browser's back button and new tabs work as usual.
  */
