@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PlayThumb } from "../components/PlayThumb";
+import { WorkTabs } from "../components/WorkTabs";
 import {
   ANY,
   SITUATION,
@@ -22,6 +23,7 @@ import {
 } from "../lib/gameDay";
 import { useStore } from "../lib/store";
 import { uid } from "../lib/types";
+import { rememberWork } from "../lib/workTabs";
 
 /**
  * Game Day: the Call Sheet on a phone or tablet at the sideline. Set the
@@ -59,6 +61,7 @@ export function GameDay() {
 
   useEffect(() => {
     if (sheet) setCalls(loadCalls(sheet.id));
+    if (sheet) rememberWork({ sheetId: sheet.id });
     setSit(ANY);
     setSection("");
     setOpen(null);
@@ -139,6 +142,7 @@ export function GameDay() {
             <h1>Game Day</h1>
           </div>
         </header>
+        <WorkTabs current="game" tone="dark" />
         {introCard}
         <p className="gd-empty">
           {id ? "That Call Sheet isn't on this device. " : "You don't have a Call Sheet yet. "}
@@ -184,6 +188,7 @@ export function GameDay() {
           </button>
         )}
       </header>
+      <WorkTabs current="game" tone="dark" />
 
       {sheets.length > 1 && (
         <label className="gd-sheetpick">

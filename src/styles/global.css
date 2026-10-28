@@ -153,6 +153,25 @@ footer.mkt a:focus-visible,
 /* The <main> in Shell is the padded page container. Pages that still wrap
    their own content in .page get no second helping of padding. */
 .work > main { flex: 1; min-width: 0; padding: 24px 22px 56px; }
+/* Work tabs: Designer · Playbook · Wristbands · Call Sheet · Game Day (components/WorkTabs.tsx). */
+.worktabs { display: flex; flex: none; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.worktabs::-webkit-scrollbar { display: none; }
+.worktabs .tip-anchor { flex: none; }
+.worktabs a {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: var(--radius-md);
+  font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap; text-decoration: none;
+}
+.worktabs.is-dark { padding: 2px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink-2); }
+.worktabs.is-dark a { height: 28px; padding: 0 10px; color: var(--rail-text); font-size: 12px; }
+.worktabs.is-dark a:hover { color: var(--white); background: var(--ink-3); }
+.worktabs.is-dark a.is-on { background: var(--cyan); color: var(--on-cyan); }
+.worktabs.is-light { padding: 0 22px; height: 44px; gap: 4px; background: var(--white); border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 29; }
+.worktabs.is-light a { height: 44px; border-radius: 0; color: var(--muted); border-bottom: 3px solid transparent; }
+.worktabs.is-light a:hover { color: var(--ink); }
+.worktabs.is-light a.is-on { color: var(--ink); border-bottom-color: var(--cyan); }
+@media (max-width: 480px) { .worktabs.is-light { top: 0; position: static; padding: 0 10px; } }
+@media print { .worktabs { display: none !important; } }
 .work > main > .page { padding: 0; }
 .page { padding: 24px 22px 56px; }
 .page-head { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }

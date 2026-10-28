@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
+import { ColorPicker } from "./ColorPicker";
+import { colorName, normalizeHex } from "../lib/colors";
 import type { ToolId } from "../lib/tools";
-import { FIRST_READ, STROKE_WEIGHTS } from "../lib/types";
+import { FIRST_READ, PALETTE, STROKE_WEIGHTS } from "../lib/types";
 
 /** The read colors a coach reaches for most. "First" also marks the line as the first read when one is selected. */
 export const READS = [
@@ -54,6 +56,14 @@ type Props = {
   onRead: (id: ReadId) => void;
   width: number | undefined;
   onWidth: (w: number) => void;
+  /** The ink shown as picked in the color row: the next line's, or the first selected line, player or label. */
+  ink: string | undefined;
+  /** Colors the selection (lines, player fills, labels), or sets the next line's color when nothing is picked. */
+  onColor: (hex: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   /** "Next line" or what the picks will restyle. */
   target: string;
 };
@@ -64,8 +74,11 @@ type Props = {
  * so only its own box takes pointer events and drawing underneath is untouched.
  * Its spot is remembered per browser.
  */
-export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width, onWidth, target }: Props) {
+export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width, onWidth, ink, onColor, onUndo, onRedo, canUndo, canRedo, target }: Props) {
   const [spot, setSpot] = useState(load);
+  const [moreColors, setMoreColors] = useState(false);
+  const inkHex = normalizeHex(ink ?? "") ?? "";
+  const customInk = inkHex !== "" && !PALETTE.some((p) => p.toLowerCase() === inkHex.toLowerCase());
   const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; dx: number; dy: number; moved: boolean } | null>(null);
 
@@ -160,6 +173,12 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
           <span aria-hidden="true">⠿</span>
         </button>
         <span className="dz-float-title">{spot.open ? target : "Tools"}</span>
+        <button type="button" className="dz-float-icon" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <Icon name="undo" size={13} />
+        </button>
+        <button type="button" className="dz-float-icon" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <Icon name="redo" size={13} />
+        </button>
         {!spot.docked && (
           <button type="button" className="dz-float-icon" onClick={() => place({ ...spot, ...DOCK, docked: true })} title="Dock in the corner" aria-label="Dock in the corner">
             <Icon name="dock" size={13} />
@@ -209,6 +228,39 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
               </button>
             ))}
           </div>
+          <div className="dz-float-colors" role="group" aria-label={`Color: ${target}`}>
+            {PALETTE.map((hex) => {
+              const on = hex.toLowerCase() === inkHex.toLowerCase();
+              return (
+                <button
+                  key={hex}
+                  type="button"
+                  className={`cp-swatch${on ? " is-on" : ""}`}
+                  style={{ background: hex }}
+                  title={colorName(hex)}
+                  aria-label={`${colorName(hex)} for ${target.toLowerCase()}`}
+                  aria-pressed={on}
+                  onClick={() => onColor(hex)}
+                />
+              );
+            })}
+            <button
+              type="button"
+              className={`dz-swatch-more${customInk ? " is-on" : ""}`}
+              style={customInk ? { background: inkHex } : undefined}
+              aria-expanded={moreColors}
+              aria-label="More colors"
+              title="More colors: team colors, recent, any hex"
+              onClick={() => setMoreColors((m) => !m)}
+            >
+              {customInk ? "" : "+"}
+            </button>
+          </div>
+          {moreColors && (
+            <div className="dz-float-picker">
+              <ColorPicker label={target} value={inkHex} onChange={onColor} />
+            </div>
+          )}
           <div className="dz-seg dz-seg-4 dz-float-weights" role="group" aria-label="Line weight">
             {STROKE_WEIGHTS.map((w, i) => (
               <button

@@ -12,6 +12,8 @@ import { PlaybookTree } from "./PlaybookTree";
 type Props = {
   title: string;
   actions?: React.ReactNode;
+  /** A strip under the top bar, e.g. the work tabs. */
+  tabs?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -23,7 +25,7 @@ const ACCOUNT_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem = { to: "/admin", icon: "lock", label: "Admin", hint: "Owner console: users, visitors and account recovery." };
 
-export function Shell({ title, actions, children }: Props) {
+export function Shell({ title, actions, tabs, children }: Props) {
   const { account, signOut } = useAuth();
   const tier = useTier();
   const trialDays = useTrialDays();
@@ -151,6 +153,7 @@ export function Shell({ title, actions, children }: Props) {
           <div className="spacer" />
           {actions}
         </header>
+        {tabs}
         <main id="main">{children}</main>
       </div>
     </div>
