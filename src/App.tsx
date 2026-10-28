@@ -34,6 +34,7 @@ import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 import { Tools } from "./pages/Tools";
 import { FrontOffice } from "./pages/FrontOffice";
+import { MyTeam } from "./pages/MyTeam";
 
 const TITLES: Record<string, string> = {
   "/": "GridIronVault — Flag Football Playbook Studio",
@@ -58,6 +59,7 @@ const TITLES: Record<string, string> = {
   "/admin": "Admin — GridIronVault",
   "/tools": "More tools — GridIronVault",
   "/front-office": "Front Office — GridIronVault",
+  "/roster": "My team — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -84,6 +86,7 @@ const NAMES: Record<string, string> = {
   "/admin": "Admin",
   "/tools": "More tools",
   "/front-office": "Front Office",
+  "/roster": "My team",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -145,6 +148,7 @@ export function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/front-office" element={<FrontOffice />} />
+        <Route path="/roster" element={<MyTeam />} />
         <Route path="/game" element={<GameDay />} />
         <Route path="/game/:id" element={<GameDay />} />
         {Object.keys(COMING_SOON).map((p) => (

@@ -125,6 +125,10 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 - Files (`hub_folders`, `hub_files`, `FilesTab.tsx`, `netlify/front-office/files.ts`): folders per team or for the whole Front Office (director only), bytes in the private `team-files` Netlify Blobs store under `<orgId>/<fileId>`. Upload sends the raw file as the body (name in `X-File-Name`), allowed types `FILE_TYPES`, 5 MB each, 500 MB per Front Office. Downloads are always `attachment` + `nosniff`, staff only. Deleting a row does not delete its blob: folder/file/team routes, closing a Front Office and `deleteAccount` read keys first (`orgFileKeys`) and call `dropBlobs` after.
 - Routes: `GET|POST /api/hub/:orgId/folders`, `PUT|DELETE /api/hub-folders/:id`, `POST /api/hub-folders/:id/files`, `GET|DELETE /api/hub-files/:id`, `GET|POST /api/hub/:orgId/messages`, `DELETE /api/hub-messages/:id`, `GET|POST /api/hub/:orgId/events`, `PUT|DELETE /api/hub-events/:id`, `GET|PUT /api/teams/:id/depth`, `GET /api/hub/:orgId`, `POST /api/teams`, `PUT|DELETE /api/teams/:id`, `GET|POST /api/teams/:id/players`, `PUT|DELETE /api/team-players/:id`, after the sign-in and phone checks. Teams cascade with the organisation.
 
+### My team (solo roster)
+- `/roster` (`pages/MyTeam.tsx`) gives a coach without a Front Office one team's roster and depth chart. It renders the Front Office's own `RosterTab` and `DepthTab` over a `TeamSource` (`src/lib/teamSource.ts`): `hubSource(teamId)` is the API (the Front Office default), `localSource()` keeps the team in `grid1ronvault.myteam.v1` (this browser only, checked with the same `cleanPlayer`/`cleanDepth`). Add new roster or depth features to the tabs and the `TeamSource` type, not to one page.
+- The depth chart's "Starters to Assignments" fills the `roster.ts` letter roster; the Assignments roster offers My team's names (picking one fills the jersey). A downloaded CSV imports into a Front Office team.
+
 ### Field Controls
 - One panel above the field (`components/FieldControls.tsx`, the Designer's "Field controls" button; "More" on phones) holds snap to grid (size), snap lines to players and its radius (the drawing bar's Snap), hash marks (high school, college, pro, none), yard-line contrast (soft, standard, high) and the league rule lines. `lib/fieldPrefs.ts` keeps them in `grid1ronvault.field.v1` (per browser, like the other prefs); `FieldBackground` reads hashes and contrast from it unless given props, so the canvas, thumbnails, Run play and every export match. Flag views never draw hashes; the grid never prints. Export starts with rule lines on when they're on in the Designer.
 
@@ -153,7 +157,7 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.
-- Signed-in pages wrap content in `components/Shell.tsx` (the shared side menu).
+- Signed-in pages wrap content in `components/Shell.tsx` (the shared side menu). The menu's tool list is `PLAYBOOK_NAV` in `lib/nav.ts`; the home page's "Every tool, one click away" grid renders the same list, so add a tool there once and both pick it up.
 - Auth UI state: `lib/auth.tsx` (`AuthProvider`/`useAuth`). If Identity isn't enabled, `available` is false and the app stays local-only. Map Identity errors through `authMessage()`, never show raw error text.
 
 ## Conventions

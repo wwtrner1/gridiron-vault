@@ -6,6 +6,8 @@ import { PlayThumb } from "../components/PlayThumb";
 import { useStore } from "../lib/store";
 import { assignmentsFor, lettersIn } from "../lib/assignments";
 import { loadRoster, saveRoster, who, type Roster } from "../lib/roster";
+import { fullName } from "../lib/teamHub";
+import { loadMyTeam } from "../lib/teamSource";
 import "../styles/assignments.css";
 
 /**
@@ -36,6 +38,12 @@ export function Assignments() {
   const [everyone, setEveryone] = useState(false);
   const offense = useMemo(() => letters.filter((l) => l.side === "offense"), [letters]);
   const named = (l: string) => who(roster, l);
+  // My team's players, offered as names; picking one fills the jersey too.
+  const team = useMemo(() => loadMyTeam().players.filter((p) => p.status !== "inactive"), []);
+  const pickName = (l: string, name: string) => {
+    const p = team.find((x) => fullName(x) === name);
+    setSlot(l, p ? { name, number: p.jersey } : { name });
+  };
 
   const setSlot = (l: string, patch: Partial<Roster[string]>) => {
     const next = { ...roster, [l]: { ...(roster[l] ?? { name: "", number: "" }), ...patch } };
@@ -120,7 +128,21 @@ export function Assignments() {
       {offense.length > 0 && (
         <details className="asg-roster">
           <summary>Roster: who wears each letter</summary>
-          <p>Names and numbers stay on this device and print on each player's sheet.</p>
+          <p>
+            Names and numbers stay on this device and print on each player's sheet.{" "}
+            {team.length ? "Start typing to pick from " : "Build your whole roster and depth chart in "}
+            <Link to="/roster">My team</Link>
+            {team.length ? ", or send its depth chart starters here in one click." : "."}
+          </p>
+          {team.length > 0 && (
+            <datalist id="asg-team">
+              {team.map((p) => (
+                <option key={p.id} value={fullName(p)}>
+                  {p.jersey ? `#${p.jersey}` : ""} {p.positions}
+                </option>
+              ))}
+            </datalist>
+          )}
           <div className="asg-slots">
             {offense.map((l) => (
               <div key={l.letter} className="asg-slot">
@@ -130,8 +152,9 @@ export function Assignments() {
                   aria-label={`Player at ${l.letter}`}
                   placeholder="Player name"
                   maxLength={40}
+                  list={team.length ? "asg-team" : undefined}
                   value={roster[l.letter]?.name ?? ""}
-                  onChange={(e) => setSlot(l.letter, { name: e.target.value })}
+                  onChange={(e) => pickName(l.letter, e.target.value)}
                 />
                 <input
                   className="input"

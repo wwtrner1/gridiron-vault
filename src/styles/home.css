@@ -273,6 +273,28 @@
   color: var(--white);
 }
 
+/* ---- Every tool (the side menu, on the home page) ---- */
+.home-all { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-20) clamp(18px, 3.2vw, 46px); background: var(--paper); }
+.home-all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.home-all-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.home-all-card svg { color: var(--cyan-ink); }
+.home-all-card b { font-size: 17px; text-transform: uppercase; letter-spacing: .01em; }
+.home-all-card small { font-size: 14px; line-height: 1.45; color: var(--muted); }
+.home-all-card:hover,
+.home-all-card:focus-visible { border-color: var(--cyan); box-shadow: var(--shadow-s); }
+
 /* ---- How it works ---- */
 .home-how { display: flex; flex-direction: column; gap: 36px; }
 .home-how .home-eyebrow { color: var(--cyan); }

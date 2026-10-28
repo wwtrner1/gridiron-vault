@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
+import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
+import { PLAYBOOK_NAV } from "../lib/nav";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
 import { useTier } from "../lib/tier";
@@ -119,6 +121,32 @@ export function Landing() {
             <li>School programs</li>
             <li>Youth coaches</li>
             <li>Players learning the tree</li>
+          </ul>
+        </section>
+
+        <section className="home-all" id="everything" aria-labelledby="all-h">
+          <div className="home-band-head">
+            <p className="home-eyebrow">Everything in the Vault</p>
+            <h2 id="all-h">Every tool, one click away</h2>
+            <p>The same tools as the side menu inside the app. Jump straight to the one you need.</p>
+          </div>
+          <ul className="home-all-grid">
+            <li>
+              <Link to="/build" className="home-all-card">
+                <Icon name="pencil" size={22} />
+                <b>Designer</b>
+                <small>Draw a play: players, routes, blocks and coverage on a real field.</small>
+              </Link>
+            </li>
+            {PLAYBOOK_NAV.map((item) => (
+              <li key={item.to}>
+                <Link to={item.to} className="home-all-card">
+                  <Icon name={item.icon} size={22} />
+                  <b>{item.label}</b>
+                  <small>{item.hint}</small>
+                </Link>
+              </li>
+            ))}
           </ul>
         </section>
 
