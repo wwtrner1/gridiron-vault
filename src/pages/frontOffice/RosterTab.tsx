@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
-import { api } from "../../lib/api";
 import {
   byJersey,
   emptyGuardian,
@@ -17,6 +16,7 @@ import {
   type PlayerInfo,
   type PlayerStatus,
 } from "../../lib/teamHub";
+import { hubSource, type TeamSource } from "../../lib/teamSource";
 import { useToast } from "../../lib/toast";
 
 const STATUS_PILL: Record<PlayerStatus, string> = { active: "pill-green", injured: "pill-red", inactive: "" };
@@ -43,8 +43,21 @@ function download(name: string, text: string, type = "text/csv") {
  * importable from a spreadsheet, downloadable as CSV and printable as a
  * sideline contact sheet.
  */
-export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => void }) {
+export function RosterTab({
+  team,
+  onCount,
+  source: given,
+  privacy,
+}: {
+  team: Pick<HubTeam, "id" | "name" | "allCoaches">;
+  onCount?: () => void;
+  /** Where the players live; a Front Office team's API unless given. */
+  source?: TeamSource;
+  /** Who can see the contacts, in place of the Front Office line. */
+  privacy?: string;
+}) {
   const toast = useToast();
+  const source = useMemo(() => given ?? hubSource(team.id), [given, team.id]);
   const [players, setPlayers] = useState<HubPlayer[] | null>(null);
   const [failed, setFailed] = useState("");
   const [find, setFind] = useState("");
@@ -53,11 +66,11 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    api
-      .roster(team.id)
+    source
+      .roster()
       .then((r) => setPlayers(r.players))
       .catch((e: Error) => setFailed(e.message));
-  }, [team.id]);
+  }, [source]);
 
   const shown = useMemo(() => {
     const q = find.trim().toLowerCase();
@@ -78,7 +91,7 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
   }, [players]);
 
   const changed = (next: HubPlayer[], message?: string) => {
-    if (next.length !== players?.length) onCount();
+    if (next.length !== players?.length) onCount?.();
     setPlayers(next);
     if (message) toast(message);
   };
@@ -207,8 +220,9 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
         </div>
       )}
       <p className="hint hub-noprint">
-        <Icon name="lock" size={12} /> Only you{team.allCoaches ? " and your Front Office coaches" : " and this team's staff"} can see these contacts. They are never shared with players or
-        posted publicly.
+        <Icon name="lock" size={12} />{" "}
+        {privacy ??
+          `Only you${team.allCoaches ? " and your Front Office coaches" : " and this team's staff"} can see these contacts. They are never shared with players or posted publicly.`}
       </p>
 
       {open && (
@@ -216,7 +230,7 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
           player={open === "new" ? null : open}
           onClose={() => setOpen(null)}
           onSave={async (info) => {
-            const res = open === "new" ? await api.addPlayers(team.id, [info]) : await api.updatePlayer(open.id, info);
+            const res = open === "new" ? await source.addPlayers([info]) : await source.updatePlayer(open.id, info);
             changed(res.players, open === "new" ? `${fullName(info)} added.` : "Saved.");
             setOpen(null);
           }}
@@ -224,7 +238,7 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
             open === "new"
               ? undefined
               : async () => {
-                  changed((await api.deletePlayer(open.id)).players, `${fullName(open)} removed from the roster.`);
+                  changed((await source.deletePlayer(open.id)).players, `${fullName(open)} removed from the roster.`);
                   setOpen(null);
                 }
           }
@@ -236,7 +250,7 @@ export function RosterTab({ team, onCount }: { team: HubTeam; onCount: () => voi
           room={HUB_LIMITS.players - players.length}
           onClose={() => setImporting(false)}
           onImport={async (list) => {
-            const res = await api.addPlayers(team.id, list);
+            const res = await source.addPlayers(list);
             changed(res.players, `${res.added} ${res.added === 1 ? "player" : "players"} added to ${team.name}.`);
             setImporting(false);
           }}
