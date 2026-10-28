@@ -366,7 +366,7 @@ export type HubEvent = {
   opponent: string;
   homeAway: HomeAway;
   notes: string;
-  /** A Call Sheet's id in the coach's own browser, for Game Day. */
+  /** A Call Sheet's id in the coach's own browser, opened from the game. */
   sheetId: string;
   scoreUs: number | null;
   scoreThem: number | null;

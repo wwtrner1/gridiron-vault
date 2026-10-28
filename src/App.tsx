@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
@@ -25,7 +25,6 @@ import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
 import { Assignments } from "./pages/Assignments";
 import { Practice } from "./pages/Practice";
-import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
 import { Join } from "./pages/Join";
 import { Admin } from "./pages/Admin";
@@ -57,7 +56,6 @@ const TITLES: Record<string, string> = {
   "/assignments": "Assignments — GridIronVault",
   "/team": "Your playbook — GridIronVault",
   "/join": "Team texts sign-up — GridIronVault",
-  "/game": "Game Day — GridIronVault",
   "/practice": "Practice — GridIronVault",
   "/admin": "Admin — GridIronVault",
   "/tools": "More tools — GridIronVault",
@@ -85,7 +83,6 @@ const NAMES: Record<string, string> = {
   "/assignments": "Assignments",
   "/team": "Player playbook",
   "/join": "Team texts sign-up",
-  "/game": "Game Day",
   "/practice": "Practice",
   "/admin": "Admin",
   "/tools": "More tools",
@@ -99,13 +96,19 @@ const NAMES: Record<string, string> = {
  * gets no announcement. This sets the document title and speaks the new page
  * name through a live region.
  */
+/** Old /game/:id links (bookmarks, schedule entries) land on that Call Sheet. */
+function GameDayMoved() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/grid?sheet=${encodeURIComponent(id)}` : "/grid"} replace />;
+}
+
 function RouteChrome() {
   const { pathname } = useLocation();
   const [spoken, setSpoken] = useState("");
   useVisitCounter();
   useEffect(() => {
     notePage(pathname);
-    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/join/") ? "/join" : pathname.startsWith("/game") ? "/game" : pathname;
+    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/join/") ? "/join" : pathname;
     document.title = TITLES[key] ?? "GridIronVault";
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
@@ -155,8 +158,9 @@ export function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/front-office" element={<FrontOffice />} />
         <Route path="/roster" element={<MyTeam />} />
-        <Route path="/game" element={<GameDay />} />
-        <Route path="/game/:id" element={<GameDay />} />
+        {/* Game Day was retired: old links open the Call Sheet they pointed at. */}
+        <Route path="/game" element={<Navigate to="/grid" replace />} />
+        <Route path="/game/:id" element={<GameDayMoved />} />
         {Object.keys(COMING_SOON).map((p) => (
           <Route key={p} path={p} element={<ComingSoon path={p} />} />
         ))}
