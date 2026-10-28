@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
+import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, TextSignup } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -31,6 +31,9 @@ export type Security = { required: boolean; verified: boolean; trusted: boolean;
 
 /** Fired when the server asks for the phone or a device code, so the gate can open. */
 export const SECURITY_EVENT = "grid1ronvault:security";
+
+/** A team's family texts link and the people who signed up on it. */
+export type TextList = { token: string; signups: TextSignup[]; sms: boolean };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/${path}`, {
@@ -144,6 +147,13 @@ export const api = {
   addPlayers: (teamId: string, players: PlayerInfo[]) =>
     request<{ players: HubPlayer[]; added: number }>(`teams/${teamId}/players`, { method: "POST", body: JSON.stringify({ players }) }),
   updatePlayer: (id: string, player: PlayerInfo) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "PUT", body: JSON.stringify({ player }) }),
+  textSignups: (teamId: string, fresh = false) =>
+    request<TextList>(`teams/${teamId}/texts`, fresh ? { method: "POST", body: JSON.stringify({ fresh: true }) } : undefined),
+  removeTextSignup: (id: string) => request<TextList>(`text-signups/${id}`, { method: "DELETE" }),
+  /** The public family sign-up page. */
+  joinInfo: (token: string) => request<{ team: string; org: string }>(`join/${token}`),
+  join: (token: string, body: { name: string; player: string; phone: string; consent: boolean }) =>
+    request<{ ok: true; again?: boolean; confirmed?: boolean }>(`join/${token}`, { method: "POST", body: JSON.stringify(body) }),
   depthCharts: (teamId: string) => request<{ charts: DepthChart[] }>(`teams/${teamId}/depth`),
   saveDepth: (teamId: string, unit: DepthUnit, slots: DepthSlot[]) =>
     request<{ charts: DepthChart[] }>(`teams/${teamId}/depth`, { method: "PUT", body: JSON.stringify({ unit, slots }) }),

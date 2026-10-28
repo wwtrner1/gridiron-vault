@@ -380,9 +380,35 @@ export const teams = pgTable(
     color: text().notNull().default(""),
     coachIds: jsonb("coach_ids").$type<string[]>().notNull().default([]),
     allCoaches: boolean("all_coaches").notNull().default(false),
+    /** The team's family texts sign-up link (`/join/:token`), made the first time a coach opens it. */
+    joinToken: text("join_token").unique(),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (t) => [index("teams_org_idx").on(t.orgId)],
+);
+
+/**
+ * A parent, guardian or player who signed themselves up for a team's texts on
+ * its `/join/:token` page. Carriers only allow texts to people who opted in
+ * themselves, so these numbers, never the roster's, are what the server texts.
+ * `consent` is the version of the wording they agreed to (`CONSENT_VERSION`).
+ * STOP replies are handled by Twilio's Messaging Service, which refuses to
+ * send to that number again.
+ */
+export const textSignups = pgTable(
+  "text_signups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    phone: text().notNull(),
+    name: text().notNull().default(""),
+    player: text().notNull().default(""),
+    consent: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("text_signups_team_phone_idx").on(t.teamId, t.phone)],
 );
 
 /**

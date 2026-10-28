@@ -26,6 +26,7 @@ import { Assignments } from "./pages/Assignments";
 import { Practice } from "./pages/Practice";
 import { GameDay } from "./pages/GameDay";
 import { Team } from "./pages/Team";
+import { Join } from "./pages/Join";
 import { Admin } from "./pages/Admin";
 import { useFreePrint } from "./lib/guard";
 import { useTier } from "./lib/tier";
@@ -53,6 +54,7 @@ const TITLES: Record<string, string> = {
   "/upload": "Upload plays — GridIronVault",
   "/assignments": "Assignments — GridIronVault",
   "/team": "Your playbook — GridIronVault",
+  "/join": "Team texts sign-up — GridIronVault",
   "/game": "Game Day — GridIronVault",
   "/practice": "Practice — GridIronVault",
   "/admin": "Admin — GridIronVault",
@@ -79,6 +81,7 @@ const NAMES: Record<string, string> = {
   "/upload": "Upload plays",
   "/assignments": "Assignments",
   "/team": "Player playbook",
+  "/join": "Team texts sign-up",
   "/game": "Game Day",
   "/practice": "Practice",
   "/admin": "Admin",
@@ -98,7 +101,7 @@ function RouteChrome() {
   useVisitCounter();
   useEffect(() => {
     notePage(pathname);
-    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/game") ? "/game" : pathname;
+    const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/join/") ? "/join" : pathname.startsWith("/game") ? "/game" : pathname;
     document.title = TITLES[key] ?? "GridIronVault";
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
@@ -141,6 +144,7 @@ export function App() {
         <Route path="/upload" element={<Upload />} />
         <Route path="/assignments" element={<Assignments />} />
         <Route path="/team/:token" element={<Team />} />
+        <Route path="/join/:token" element={<Join />} />
         <Route path="/practice" element={<Practice />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/tools" element={<Tools />} />

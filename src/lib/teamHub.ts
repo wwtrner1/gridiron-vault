@@ -513,3 +513,34 @@ export const STARTER_FOLDERS = ["Forms and waivers", "Medical", "Practice plans"
 
 export const fileSize = (bytes: number) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+/* ----------------------------------------------------------- family texts --- */
+
+/**
+ * Carriers only deliver texts to people who signed up themselves, so families
+ * opt in on the team's `/join/:token` page and the server texts only those
+ * numbers. The roster's "OK to text" stays for texting from the coach's own phone.
+ */
+export type TextSignup = { id: string; name: string; player: string; phone: string; createdAt: string };
+
+export const TEXT_LIMITS = { name: 80, perTeam: 400, perDay: 40 };
+
+/** Bump when the wording below changes, so each sign-up records what it agreed to. */
+export const CONSENT_VERSION = "2026-10-28";
+
+/** What a family agrees to, word for word, on the sign-up page. */
+export const consentWording = (team: string) =>
+  `Text me team updates from ${team} coaches through GridIronVault, such as game times, schedule changes and cancellations. ` +
+  "Message frequency varies, usually 1 to 4 a week during the season. Msg & data rates may apply. Reply HELP for help, STOP to cancel. " +
+  "Consent is not a condition of joining the team.";
+
+/** The text a new sign-up gets straight away. */
+export const SIGNUP_TEXT = (team: string) =>
+  `GridIronVault: You're signed up for ${team} team texts. Up to 4 msgs/week in season. Msg & data rates may apply. Reply HELP for help, STOP to cancel.`;
+
+/** Every team text names GridIronVault and the team first, as carriers require. */
+export const teamText = (team: string, subject: string, body: string) =>
+  `GridIronVault - ${team}: ${subject ? `${subject}. ` : ""}${body}`.slice(0, MESSAGE_LIMITS.sms) + "\nReply STOP to opt out.";
+
+/** "(615) 555-0142" from "+16155550142". */
+export const showPhone = (e164: string) => (/^\+1\d{10}$/.test(e164) ? `(${e164.slice(2, 5)}) ${e164.slice(5, 8)}-${e164.slice(8)}` : e164);

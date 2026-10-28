@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { emailOn, sendEmails, sendTexts, smsOn } from "./send.js";
 import { dropTeamFiles } from "./files.js";
+import { dropSignup, joinToken, signedUpPhones, signups, signupTeam } from "./texts.js";
 import { db } from "../../db/index.js";
 import { depthCharts, hubEvents, hubMessages, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
-import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
+import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, teamText, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
 
 /**
  * Team hub routes, behind the sign-in and phone checks. The director of an
@@ -192,7 +193,9 @@ async function post(me: Me, access: Access, body: Record<string, unknown>): Prom
   if (channel === "family" && teamId && (body.email === true || body.sms === true)) {
     const [team] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, teamId));
     const players = (await db.select({ info: teamPlayers.info }).from(teamPlayers).where(eq(teamPlayers.teamId, teamId))).map((r) => r.info as PlayerInfo);
-    const { emails, phones } = familyContacts(players);
+    // Emails go to the roster; texts only to numbers that signed up on the team's link.
+    const { emails } = familyContacts(players);
+    const phones = body.sms === true ? await signedUpPhones(teamId) : [];
     const since = new Date(Date.now() - 86_400_000);
     const [today] = await db
       .select({ e: sql<number>`coalesce(sum(${hubMessages.emailed}), 0)::int`, s: sql<number>`coalesce(sum(${hubMessages.texted}), 0)::int` })
@@ -204,8 +207,7 @@ async function post(me: Me, access: Access, body: Record<string, unknown>): Prom
     }
     if (body.sms === true && smsOn() && phones.length) {
       if ((today?.s ?? 0) + phones.length > MESSAGE_LIMITS.smsPerDay) return fail(`Your Front Office has sent its ${MESSAGE_LIMITS.smsPerDay} texts for today. Try again tomorrow.`, 429);
-      const sms = `${team?.name ?? access.orgName}: ${subject ? `${subject}. ` : ""}${text}`.slice(0, MESSAGE_LIMITS.sms);
-      texted = await sendTexts(phones, `${sms}\nReply STOP to opt out.`);
+      texted = await sendTexts(phones, teamText(team?.name ?? access.orgName, subject, text));
     }
   }
   await db.insert(hubMessages).values({ orgId: access.orgId, teamId, channel, authorId: me.id, authorName: me.name || me.email, subject, body: text, emailed, texted });
@@ -220,7 +222,7 @@ async function realCoaches(orgId: string, ids: string[]) {
 }
 
 /**
- * `/api/hub/:orgId[/events|/messages]`, `/api/hub-events/:id`, `/api/hub-messages/:id`, `/api/teams[/:id[/players]]` and `/api/team-players/:id`.
+ * `/api/hub/:orgId[/events|/messages]`, `/api/hub-events/:id`, `/api/hub-messages/:id`, `/api/teams[/:id[/players|/texts]]`, `/api/team-players/:id` and `/api/text-signups/:id`.
  */
 export async function hubRoute(me: Me, req: Request, resource: string, id?: string, action?: string): Promise<Response> {
   const method = req.method;
@@ -342,6 +344,12 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
       return json({ charts: await depth(team.id) });
     }
 
+    // Family texts: the sign-up link and who has signed up. `fresh` retires the old link.
+    if (action === "texts" && (method === "GET" || method === "POST")) {
+      const token = await joinToken(team.id, team.joinToken, method === "POST" && body.fresh === true);
+      return json({ token, signups: await signups(team.id), sms: smsOn() });
+    }
+
     if (action === "players" && method === "GET") return json({ players: await roster(team.id) });
 
     if (action === "players" && method === "POST") {
@@ -357,6 +365,14 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
       await db.insert(teamPlayers).values(good.map((p) => ({ ...playerRow(p), teamId: team.id })));
       return json({ players: await roster(team.id), added: good.length }, 201);
     }
+  }
+
+  if (resource === "text-signups" && id && UUID.test(id) && method === "DELETE") {
+    const teamId = await signupTeam(id);
+    const found = teamId ? await teamFor(me, teamId) : null;
+    if (!found) return fail("That sign-up isn't on a team you can see.", 404);
+    await dropSignup(id, found.team.id);
+    return json({ token: found.team.joinToken, signups: await signups(found.team.id), sms: smsOn() });
   }
 
   if (resource === "team-players" && id && UUID.test(id)) {

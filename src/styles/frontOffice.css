@@ -247,3 +247,4 @@
 .hub-inline .input { flex: 1; min-width: 180px; max-width: 360px; }
 .hub-inline .check { margin: 0; }
 .hub-sub { margin: 18px 0 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hub-panel .panel .fo-actions .input { flex: 1 1 240px; min-width: 0; }
