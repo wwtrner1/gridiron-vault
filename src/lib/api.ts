@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo } from "./teamHub";
+import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc } from "./teamHub";
 
 export type ApiPlay = {
   id: string;
@@ -134,6 +134,9 @@ export const api = {
   openOrgShare: (shareId: string) => request<{ share: OrgShareDetail }>(`org-shares/${shareId}`),
   unshareFromOrg: (shareId: string) => request<FrontOfficeState>(`org-shares/${shareId}`, { method: "DELETE" }),
 
+  /* My team: the coach's own roster and depth chart, one per account. */
+  myTeam: () => request<{ team: MyTeamDoc | null }>("my-team"),
+  saveMyTeam: (team: MyTeamDoc) => request<{ team: MyTeamDoc }>("my-team", { method: "PUT", body: JSON.stringify({ team }) }),
   /* Team hub: teams and rosters, for the director and each team's staff. */
   hub: (orgId: string) => request<HubState>(`hub/${orgId}`),
   createTeam: (orgId: string, team: Partial<HubTeam>) =>

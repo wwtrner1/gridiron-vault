@@ -4,6 +4,7 @@ import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
 import { PlaybookSync } from "./lib/playbookSync";
+import { MyTeamSync } from "./lib/teamSource";
 import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
@@ -121,6 +122,7 @@ export function App() {
       <RouteChrome />
       <CarryOver />
       <PlaybookSync />
+      <MyTeamSync />
       <SheetSync />
       <PhoneGate />
       <NewPassword />

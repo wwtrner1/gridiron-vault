@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Shell } from "../components/Shell";
 import { HUB_LIMITS } from "../lib/teamHub";
-import { loadMyTeam, localSource, MY_TEAM_ID, saveMyTeam } from "../lib/teamSource";
+import { useAuth } from "../lib/auth";
+import { loadMyTeam, localSource, MY_TEAM_ID, onMyTeam, saveMyTeam } from "../lib/teamSource";
 import { useToast } from "../lib/toast";
 import { DepthTab } from "./frontOffice/DepthTab";
 import { RosterTab } from "./frontOffice/RosterTab";
@@ -31,6 +32,20 @@ export function MyTeam() {
   });
   // The tabs reload from the source when this changes, so the header count stays true.
   const [count, setCount] = useState(() => loadMyTeam().players.length);
+  const { account } = useAuth();
+  // The account's newer copy arrived after sign-in: show it.
+  const [version, setVersion] = useState(0);
+  useEffect(
+    () =>
+      onMyTeam((from) => {
+        if (from !== "account") return;
+        const t = loadMyTeam();
+        setInfo({ name: t.name, level: t.level, season: t.season });
+        setCount(t.players.length);
+        setVersion((v) => v + 1);
+      }),
+    [],
+  );
 
   const rename = (patch: Partial<typeof info>) => {
     const next = { ...info, ...patch };
@@ -99,18 +114,23 @@ export function MyTeam() {
 
       {tab === "roster" ? (
         <RosterTab
+          key={version}
           team={team}
           source={source}
           onCount={() => setCount(loadMyTeam().players.length)}
-          privacy="This roster stays in this browser on this device. Nothing here is sent to us, shared with players or posted publicly. Download the CSV to keep a copy."
+          privacy={
+            account
+              ? "Saved in this browser and on your account, so it opens on any device you sign in on. Only you can see it; it is never shared with players or posted publicly."
+              : "Saved in this browser only. Sign in to keep it on your account and open it on any device. It is never shared with players or posted publicly."
+          }
         />
       ) : (
-        <DepthTab team={team} source={source} />
+        <DepthTab key={version} team={team} source={source} />
       )}
 
       <p className="hint myteam-foot">
-        Coaching more than one team, or sharing the roster with assistant coaches? A <Link to="/front-office">Front Office</Link> keeps rosters on
-        your account for your whole staff, and its Import spreadsheet takes the CSV you download here.
+        Coaching more than one team, or sharing the roster with assistant coaches? A <Link to="/front-office">Front Office</Link> holds a
+        roster per team for your whole staff, and its Import spreadsheet takes the CSV you download here.
       </p>
     </Shell>
   );
