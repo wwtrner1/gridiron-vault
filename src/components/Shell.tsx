@@ -55,6 +55,12 @@ const PLAYBOOK_NAV: NavItem[] = [
     hint: "Your game plan. Sort it, paint it, collapse it, print it.",
   },
   {
+    to: "/game",
+    icon: "play",
+    label: "Game Day",
+    hint: "Your Call Sheet on the sideline: pick the situation, call the play, mark what worked.",
+  },
+  {
     to: "/practice",
     icon: "board",
     label: "Practice",
@@ -77,6 +83,12 @@ const PLAYBOOK_NAV: NavItem[] = [
     icon: "language",
     label: "Playbook language",
     hint: "Your own names for formations, routes and calls.",
+  },
+  {
+    to: "/tools",
+    icon: "grid",
+    label: "More tools",
+    hint: "Formation and defense libraries, the route tree and the other Designer tools in one place.",
   },
 ];
 
