@@ -1,9 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 /**
- * The one place GridIronVault talks to the Claude API. The key lives only in
- * the ANTHROPIC_API_KEY environment variable (secret, set in Netlify) and
- * never reaches the browser.
+ * The one place GridIronVault talks to the Claude API. Calls go through
+ * Netlify AI Gateway: with no ANTHROPIC_API_KEY set on the site, Netlify
+ * injects ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL into the function and the
+ * SDK reads both (usage is billed in Netlify credits). Setting our own
+ * ANTHROPIC_API_KEY in Netlify overrides the gateway. Neither reaches the browser.
  */
 export const MODELS = {
   /** Griddy's conversation: football talk, tool choice, splitting a dump of plays. */
