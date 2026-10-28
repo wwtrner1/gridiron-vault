@@ -268,6 +268,13 @@ export function backSpot(name: string): { dx: number; dy: number } {
   return { dx, dy };
 }
 
+/** Where the full formation lines up a token code (X wide left in Trips Right), for a player the call adds. */
+export function letterSpot(name: string, code: string): { dx: number; dy: number } | null {
+  const f = LIBRARY.find((x) => x.name === name) ?? LIBRARY[0];
+  const spot = f.spots.find((s) => s[2]?.[0] === code);
+  return spot ? { dx: spot[0], dy: spot[1] } : null;
+}
+
 export function describeFormation(game: GameType, personnelCode: string, name: string): string {
   const g = GAME_TYPES.find((x) => x.id === game)!.label;
   if (game !== "11") return `${g} ${name}`;

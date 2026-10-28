@@ -1,5 +1,5 @@
 import { BLOCKS, ROUTES } from "./routes";
-import { backSpot, FORMATION_NAMES, GAME_TYPES, layoutFormation, tokenFor } from "./formations";
+import { backSpot, FORMATION_NAMES, GAME_TYPES, layoutFormation, letterSpot, tokenFor } from "./formations";
 import type { GameType, Placed } from "./formations";
 import { makePlayer } from "./presets";
 import type { TokenPreset } from "./presets";
@@ -70,7 +70,7 @@ export const ASSISTANT_TOOL = {
             player: { type: "string", description: "Q, C, X, Y, Z, H (running back) or S (slot / second back)." },
             kind: { type: "string", enum: ["route", "block", "motion"] },
             action: { type: "string", enum: [...ROUTE_IDS, ...BLOCK_IDS, "motion"] },
-            toward: { type: "string", enum: ["in", "out"] },
+            toward: { type: "string", enum: ["in", "out"], description: "Only when the call breaks the route the other way from its usual shape ('slant out', 'fade in'). Leave it off for a plain out, in, slant or corner: they already break the right way." },
             firstRead: { type: "boolean" },
             heard: { type: "string", description: "The exact words from the call this came from." },
           },
@@ -115,7 +115,8 @@ export const CODE_FOR: Record<string, string> = { Q: "QB", C: "C", X: "X", Y: "Y
 /**
  * The formation's players, with anyone the call names but the formation
  * lacks (5v5 Trips has no running back, say) swapped in for a player the
- * call left without a job. A called running back lines up in the backfield.
+ * call left without a job. A called running back lines up in the backfield,
+ * and any other letter at its own spot in the full formation when it's free.
  */
 export function placeForRead(read: AssistantRead, tokens: TokenPreset[]): Placed[] {
   const placed = layoutFormation(read.game, read.personnel ?? "11", read.formation);
@@ -130,7 +131,10 @@ export function placeForRead(read: AssistantRead, tokens: TokenPreset[]): Placed
       .filter(({ p }) => (p.role === "wr" || p.role === "te" || p.role === "rb") && !called.has(letter(p)))
       .sort((a, b) => Math.abs(a.p.dx) - Math.abs(b.p.dx))[0];
     if (!spare) continue;
-    const spot = want === "H" ? backSpot(read.formation) : { dx: spare.p.dx, dy: spare.p.dy };
+    // A called letter lines up where the formation puts it (X alone on the left in Trips Right), if that spot is free.
+    const home = letterSpot(read.formation, CODE_FOR[want]);
+    const free = home && !placed.some((p, i) => i !== spare.i && Math.abs(p.dx - home.dx) < 40 && Math.abs(p.dy - home.dy) < 30);
+    const spot = want === "H" ? backSpot(read.formation) : free ? home : { dx: spare.p.dx, dy: spare.p.dy };
     placed[spare.i] = { ...spot, code: CODE_FOR[want], role: want === "H" ? "rb" : spare.p.role };
     have.delete(letter(spare.p));
     have.add(want);
@@ -165,14 +169,14 @@ export function assignmentPath(a: Assignment, from: Point, losY: number, z: numb
     a.kind === "motion"
       ? ([[0, 26], [from.x > cx ? -180 : 180, 8]] as [number, number][])
       : ((a.kind === "block" ? BLOCKS[a.action] : ROUTES[a.action]) ?? ROUTES.go);
-  // Routes break toward the near sideline unless the call says "in".
+  // Shapes are drawn for a receiver on the right, so a left-side player mirrors them:
+  // an out still breaks to his sideline and a slant still breaks to the middle.
   let mirror = from.x < cx;
-  if (a.toward === "in") mirror = !mirror;
-  if (a.breaks) {
-    // Flip the shape so its last leg points the way the board shows.
-    const last = segs[segs.length - 1]?.[0] ?? 0;
-    if (last !== 0) mirror = (last > 0) === (a.breaks === "left");
-  }
+  const last = [...segs].reverse().find(([dx]) => dx !== 0)?.[0] ?? 0;
+  // "toward" only flips a route the call breaks the other way from its usual shape (an "out" slant).
+  if (a.kind === "route" && a.toward && last !== 0 && (last > 0 ? "out" : "in") !== a.toward) mirror = !mirror;
+  // Flip the shape so its last leg points the way the board shows.
+  if (a.breaks && last !== 0) mirror = (last > 0) === (a.breaks === "left");
   const points: Point[] = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;

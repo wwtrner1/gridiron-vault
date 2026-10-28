@@ -242,10 +242,25 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
   });
 }
 
+const TOOL_MENTION = new RegExp(`\\b(${GRIDDY_TOOLS.map((t) => t.name).join("|")})\\b`);
+
+/**
+ * Drops any sentence that talks about Griddy's own tools ("Single play, so
+ * draw_play."): that's Griddy thinking out loud, not something for the coach.
+ */
+export function forCoach(text: string): string {
+  return text
+    .split(/\n/)
+    .map((line) => (line.match(/[^.!?]+[.!?]*\s*/g) ?? [line]).filter((s) => !TOOL_MENTION.test(s)).join("").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** One coach message in, Griddy's answer and any cards out. */
 export async function griddy(body: Partial<GriddyRequest>): Promise<GriddyReply> {
   const req = cleanRequest(body);
-  const { text, uses } = await converse({
+  const { text: said, uses } = await converse({
     model: MODELS.griddy,
     system: GRIDDY_SYSTEM,
     tools: GRIDDY_TOOLS.map((t) => ({ ...t, input_schema: t.input_schema as Anthropic.Beta.BetaTool.InputSchema })),
@@ -253,6 +268,7 @@ export async function griddy(body: Partial<GriddyRequest>): Promise<GriddyReply>
     maxTokens: 16000,
   });
   const actions = toActions(uses, req.context);
+  const text = forCoach(said);
   if (!text && !actions.length) return { text: "I didn't catch that. Try saying it another way.", actions };
   return { text, actions };
 }
