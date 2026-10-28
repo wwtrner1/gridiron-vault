@@ -360,7 +360,7 @@ export function SeasonGrid() {
               <Icon name="wristband" size={15} /> Wristbands
             </Link>
           </Tooltip>
-          <Tooltip title="Game Day" hint="A sideline view of this grid: pick the down and distance, see the calls that fit, and log what you called." side="bottom">
+          <Tooltip title="Game Day" hint="This sheet on the sideline: tap the down, distance, hash and field zone and see the calls you planned for it, grouped by section." side="bottom">
             <Link to={`/game/${sheet.id}`} className="btn btn-ghost btn-sm">
               <Icon name="play" size={15} /> Game Day
             </Link>

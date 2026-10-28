@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
-import { api } from "../../lib/api";
 import { loadRoster, saveRoster } from "../../lib/roster";
 import {
   DEPTH_LIMITS,
@@ -16,6 +15,7 @@ import {
   type HubPlayer,
   type HubTeam,
 } from "../../lib/teamHub";
+import { hubSource, type TeamSource } from "../../lib/teamSource";
 import { useToast } from "../../lib/toast";
 
 const STRING = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
@@ -29,8 +29,9 @@ type Drag = { playerId: string; from: string | null };
  * 1st string first; drag them between spots or use the arrow buttons.
  * Changes save a moment after the last one.
  */
-export function DepthTab({ team }: { team: HubTeam }) {
+export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "name">; source?: TeamSource }) {
   const toast = useToast();
+  const source = useMemo(() => given ?? hubSource(team.id), [given, team.id]);
   const [players, setPlayers] = useState<HubPlayer[] | null>(null);
   const [charts, setCharts] = useState<Record<DepthUnit, DepthSlot[]> | null>(null);
   const [unit, setUnit] = useState<DepthUnit>("offense");
@@ -40,7 +41,7 @@ export function DepthTab({ team }: { team: HubTeam }) {
   const [failed, setFailed] = useState("");
 
   useEffect(() => {
-    Promise.all([api.roster(team.id), api.depthCharts(team.id)])
+    Promise.all([source.roster(), source.depthCharts()])
       .then(([r, d]) => {
         setPlayers(r.players);
         const by = { offense: [], defense: [], special: [] } as Record<DepthUnit, DepthSlot[]>;
@@ -49,7 +50,7 @@ export function DepthTab({ team }: { team: HubTeam }) {
       })
       .catch((e: Error) => setFailed(e.message));
     return () => Object.values(timers.current).forEach((t) => window.clearTimeout(t));
-  }, [team.id]);
+  }, [source]);
 
   const byId = useMemo(() => new Map((players ?? []).map((p) => [p.id, p])), [players]);
   const slots = useMemo(() => (charts?.[unit] ?? []).map((s) => ({ ...s, playerIds: s.playerIds.filter((id) => byId.has(id)) })), [charts, unit, byId]);
@@ -64,8 +65,8 @@ export function DepthTab({ team }: { team: HubTeam }) {
     window.clearTimeout(timers.current[forUnit]);
     timers.current[forUnit] = window.setTimeout(() => {
       setState("saving");
-      api
-        .saveDepth(team.id, forUnit, next)
+      source
+        .saveDepth(forUnit, next)
         .then(() => setState("saved"))
         .catch((e: Error) => {
           setState("saved");
