@@ -9,6 +9,7 @@ import { ExportDialog } from "../components/ExportDialog";
 import { Modal } from "../components/Modal";
 import { store, useStore } from "../lib/store";
 import { markUnsynced } from "../lib/playSync";
+import { deleteFromAccount } from "../lib/pendingDeletes";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -136,13 +137,8 @@ export function Vault() {
     store.removePlay(play.id);
     setPicked((list) => list.filter((x) => x !== play.id));
     toast(`${play.name || "Play"} deleted.`);
-    if (account && play.remote) {
-      try {
-        await api.deletePlay(play.id);
-      } catch {
-        /* already gone */
-      }
-    }
+    // With no signal it waits and goes through when the signal is back, so the play doesn't come back on the next pull.
+    if (account && play.remote) await deleteFromAccount("play", play.id);
   }
 
   // Saved play format: "Format on · click a play", from the canvas.

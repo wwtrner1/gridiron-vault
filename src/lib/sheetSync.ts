@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { api, type RemoteSheet } from "./api";
 import { store, type SheetDoc } from "./store";
 import { useAuth } from "./auth";
+import { deleteFromAccount } from "./pendingDeletes";
 
 /**
  * Call Sheets live in the browser first and are copied to the account whenever
@@ -86,7 +87,7 @@ export function SheetSync() {
     // A deleted sheet leaves the account too, or the next sign-in would bring it back.
     const offRemoved = store.onSheetRemoved((sheet) => {
       sent.delete(sheet.id);
-      if (sheet.remoteId) api.deleteSheet(sheet.remoteId).catch(() => undefined);
+      if (sheet.remoteId) void deleteFromAccount("sheet", sheet.remoteId);
     });
     // Pull first, so a fresh browser never pushes a blank sheet over the account's.
     pull()

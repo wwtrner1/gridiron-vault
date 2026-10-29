@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { api } from "./api";
 import { store, UUID, type LocalPlaybook } from "./store";
 import { useAuth } from "./auth";
+import { deleteFromAccount } from "./pendingDeletes";
 
 /**
  * Playbooks live in the browser first, like plays, and are copied to the
@@ -86,7 +87,7 @@ export function PlaybookSync() {
     const unwatch = store.onPlaybookRemoved((book) => {
       if (!book.cloudId) return;
       sent.delete(book.cloudId);
-      void api.deletePlaybook(book.cloudId).catch(() => {});
+      void deleteFromAccount("playbook", book.cloudId);
     });
 
     // Pull first, so a fresh browser never pushes an empty list over the account's playbooks.

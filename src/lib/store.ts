@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { StoredPlay } from "./types";
 import type { Playbook } from "./api";
+import { pendingDeletes } from "./pendingDeletes";
 
 /** `cloudId` is the playbook's id on the account once it has been saved there (see playbookSync.ts). */
 export type LocalPlaybook = Playbook & { playIds: string[]; cloudId?: string };
@@ -85,7 +86,9 @@ export const store = {
   },
   mergeRemotePlays(plays: StoredPlay[]) {
     const byId = new Map(state.plays.map((p) => [p.id, p]));
+    const deleted = pendingDeletes("play");
     for (const p of plays) {
+      if (deleted.has(p.id)) continue;
       const local = byId.get(p.id);
       if (!local || new Date(p.updatedAt) >= new Date(local.updatedAt)) byId.set(p.id, p);
     }
@@ -108,7 +111,9 @@ export const store = {
   /** Playbooks pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
   mergeRemotePlaybooks(remote: LocalPlaybook[]) {
     const books = [...state.playbooks];
+    const deleted = pendingDeletes("playbook");
     for (const r of remote) {
+      if (deleted.has(r.id)) continue;
       const at = books.findIndex((b) => b.cloudId === r.id || b.id === r.id);
       if (at < 0) {
         books.push({ ...r, cloudId: r.id });
@@ -151,7 +156,9 @@ export const store = {
   /** Call sheets pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
   mergeRemoteSheets(remote: SheetDoc[]) {
     const sheets = [...state.sheets];
+    const deleted = pendingDeletes("sheet");
     for (const r of remote) {
+      if (r.remoteId && deleted.has(r.remoteId)) continue;
       const at = sheets.findIndex((s) => s.remoteId === r.remoteId || s.id === r.remoteId);
       if (at < 0) {
         sheets.push(r);
