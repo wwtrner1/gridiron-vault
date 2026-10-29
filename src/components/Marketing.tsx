@@ -51,6 +51,8 @@ const FOOTER_COLUMNS: { id: string; title: string; links: [to: string, label: st
       ["/starters", "Route tree"],
       ["/guides/flag-football-plays-vs-zone/", "Plays that beat zone"],
       ["/guides/flag-football-plays-vs-man/", "Plays that beat man"],
+      ["/guides/flag-football-red-zone-plays/", "Red zone plays"],
+      ["/guides/beat-the-blitz-flag-football/", "Beat the blitz"],
       ["/guides/flag-football-install-plan/", "Install plan: 8 practices"],
       ["/guides/flag-football-glossary/", "Flag football glossary"],
       ["/pricing", "Plans"],
