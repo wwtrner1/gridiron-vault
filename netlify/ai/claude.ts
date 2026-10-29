@@ -27,6 +27,16 @@ export class AiError extends Error {
 
 const BUSY = "Griddy is busy right now. Try again in a minute.";
 const MISREAD = "Griddy couldn't read that just now. Try again, or draw it by hand.";
+const SLOW = "Griddy took too long to answer. Try again, or ask for less at once.";
+
+/**
+ * Netlify ends a synchronous function at 60 s and the coach then gets the
+ * platform's own error page. Every call (retries included) gives up before
+ * that, so the coach reads our words and we stop paying for an answer nobody
+ * will see.
+ */
+const DEADLINE_MS = 50_000;
+const deadline = () => ({ signal: AbortSignal.timeout(DEADLINE_MS) });
 
 let shared: Anthropic | null = null;
 function client(): Anthropic {
@@ -40,6 +50,10 @@ function client(): Anthropic {
 /** Log the provider's error for us; coaches get plain wording. */
 function plain(error: unknown): never {
   if (error instanceof AiError) throw error;
+  if (error instanceof Anthropic.APIUserAbortError || error instanceof Anthropic.APIConnectionTimeoutError) {
+    console.error("Claude API timed out", error.message);
+    throw new AiError(SLOW, 504);
+  }
   if (error instanceof Anthropic.RateLimitError) {
     console.error("Claude API rate limit", error.message);
     throw new AiError(BUSY, 503);
@@ -78,7 +92,7 @@ export async function callTool<T>(opts: {
       tools: [tool],
       tool_choice: { type: "tool", name: tool.name },
       messages: [{ role: "user", content: opts.content }],
-    });
+    }, deadline());
   } catch (error) {
     plain(error);
   }
@@ -116,7 +130,7 @@ export async function converse(opts: {
         tools: opts.tools,
         tool_choice: { type: "auto" },
         messages: opts.messages,
-      })
+      }, deadline())
       .finalMessage();
   } catch (error) {
     plain(error);

@@ -292,7 +292,8 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         if (monthly) return monthly;
         if (!(await spend(me, "assistant")))
           return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
-        return json({ reply: await griddy(await req.json()) });
+        const ask = await req.json();
+        return json({ reply: await chargedOnSuccess(me, "assistant", () => griddy(ask)) });
       }
       if (id === "assistant") return await assistant(me, await req.json());
       if (id === "photo") return await photo(me, await req.json());
@@ -828,6 +829,21 @@ async function spend(me: Session, kind: keyof typeof DAILY_AI) {
   return me.owner || (row?.count ?? 0) <= DAILY_AI[kind];
 }
 
+/**
+ * Runs an AI call already counted by `spend`, and gives the count back when
+ * the call ended in an AiError (Claude busy, timed out or unreachable, or a
+ * request Griddy turned away before calling it), so a coach isn't charged a
+ * use for an answer they never got.
+ */
+async function chargedOnSuccess<T>(me: Session, kind: keyof typeof DAILY_AI, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof AiError) await refund(me, kind).catch(() => undefined);
+    throw error;
+  }
+}
+
 /** Gives back a call that never happened (e.g. Twilio refused to send). */
 async function refund(me: Session, kind: keyof typeof DAILY_AI) {
   const day = new Date().toISOString().slice(0, 10);
@@ -856,13 +872,15 @@ async function assistant(me: Session, body: Partial<AssistantRequest>) {
   } else if (!(await spend(me, "assistant")))
     return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
 
-  const raw = await callTool<AssistantRead>({
-    model: MODELS.assistant,
-    system: assistantSystem({ call, game, terms }),
-    content: [{ type: "text", text: call }],
-    tool: ASSISTANT_TOOL,
-    maxTokens: 900,
-  });
+  const raw = await chargedOnSuccess(me, body.bulk ? "import" : "assistant", () =>
+    callTool<AssistantRead>({
+      model: MODELS.assistant,
+      system: assistantSystem({ call, game, terms }),
+      content: [{ type: "text", text: call }],
+      tool: ASSISTANT_TOOL,
+      maxTokens: 900,
+    }),
+  );
 
   return json({ read: cleanRead(raw, game, call) });
 }
@@ -883,16 +901,18 @@ async function scan(me: Session, body: Partial<ScanRequest>) {
   if (monthly) return monthly;
   if (!(await spend(me, "scan")))
     return fail(`That's ${DAILY_AI.scan} scanned pages today — the daily limit. It resets at midnight UTC.`, 429);
-  const raw = await callTool<{ plays?: unknown; reason?: unknown }>({
-    model: MODELS.photo,
-    system: SCAN_SYSTEM,
-    content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
-      { type: "text", text: "Find every play diagram on this page." },
-    ],
-    tool: SCAN_TOOL,
-    maxTokens: 1500,
-  });
+  const raw = await chargedOnSuccess(me, "scan", () =>
+    callTool<{ plays?: unknown; reason?: unknown }>({
+      model: MODELS.photo,
+      system: SCAN_SYSTEM,
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+        { type: "text", text: "Find every play diagram on this page." },
+      ],
+      tool: SCAN_TOOL,
+      maxTokens: 1500,
+    }),
+  );
   const plays: ScanBox[] = cleanBoxes(raw.plays);
   return json({ plays, reason: plays.length ? undefined : String(raw.reason ?? "").slice(0, 200) || undefined });
 }
@@ -913,16 +933,18 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
   if (!(await spend(me, "photo")))
     return fail(`That's ${DAILY_AI.photo} photo reviews today — the daily limit. It resets at midnight UTC.`, 429);
 
-  const raw = await callTool<PhotoRead>({
-    model: MODELS.photo,
-    system: photoSystem({ game, terms }),
-    content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
-      { type: "text", text: "Rebuild the play in this photo." },
-    ],
-    tool: PHOTO_TOOL,
-    maxTokens: 2000,
-  });
+  const raw = await chargedOnSuccess(me, "photo", () =>
+    callTool<PhotoRead>({
+      model: MODELS.photo,
+      system: photoSystem({ game, terms }),
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+        { type: "text", text: "Rebuild the play in this photo." },
+      ],
+      tool: PHOTO_TOOL,
+      maxTokens: 2000,
+    }),
+  );
 
   const letter = (v: unknown) => String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
   const read: PhotoRead = {
