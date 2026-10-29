@@ -49,6 +49,13 @@ footer.mkt a:focus-visible,
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* A screen that failed to draw (components/ErrorBoundary). */
+.crash { min-height: 70vh; display: grid; place-items: center; padding: 32px 16px; background: var(--paper); }
+.crash-card { max-width: 520px; padding: 28px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--white); }
+.crash-card h1 { margin: 4px 0 10px; font-family: var(--display); font-size: 28px; }
+.crash-card p { color: var(--muted); }
+.crash-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
 /* A screen still loading (lib/lazyPage): a thin bar along the top, shown only if it takes a moment. */
 .page-loading { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 2000; overflow: hidden; pointer-events: none; }
 .page-loading-bar { display: block; height: 100%; width: 40%; background: var(--cyan); opacity: 0; animation: page-loading 1.1s ease-in-out 0.25s infinite; }
