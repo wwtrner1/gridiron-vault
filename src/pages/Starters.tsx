@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
-import { ExportDialog } from "../components/ExportDialog";
+import { lazyPage } from "../lib/lazyPage";
 import { FREE_SAMPLE_NUMBERS, STARTERS, starterScene, type StarterSpec } from "../lib/starters";
 import { bestAgainst, WHY_IT_WORKS } from "../lib/starterIntel";
 import { explainPlay } from "../lib/explain";
@@ -15,6 +15,9 @@ import { store, useStore } from "../lib/store";
 import { useToast } from "../lib/toast";
 import { uid } from "../lib/types";
 import type { StoredPlay } from "../lib/types";
+
+// PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
+const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 
 const TYPES: { id: string; label: string }[] = [
   { id: "all", label: "Everything" },
@@ -385,13 +388,15 @@ export function Starters() {
       )}
 
       {exporting && (
-        <ExportDialog
-          plays={pickedPlays}
-          tier={tier}
-          onClose={() => setExporting(false)}
-          onUpgrade={() => navigate("/pricing")}
-          onDone={(kind) => toast(`${pickedPlays.length} ${pickedPlays.length === 1 ? "play" : "plays"} exported as ${kind.toUpperCase()}.`)}
-        />
+        <Suspense fallback={null}>
+          <ExportDialog
+            plays={pickedPlays}
+            tier={tier}
+            onClose={() => setExporting(false)}
+            onUpgrade={() => navigate("/pricing")}
+            onDone={(kind) => toast(`${pickedPlays.length} ${pickedPlays.length === 1 ? "play" : "plays"} exported as ${kind.toUpperCase()}.`)}
+          />
+        </Suspense>
       )}
     </Shell>
   );

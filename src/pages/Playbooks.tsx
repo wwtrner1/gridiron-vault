@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
-import { ExportDialog } from "../components/ExportDialog";
+import { lazyPage } from "../lib/lazyPage";
 import { PlayerLink } from "../components/PlayerLink";
 import { WorkTabs } from "../components/WorkTabs";
 import { store, useStore, type LocalPlaybook } from "../lib/store";
@@ -15,6 +15,9 @@ import { uid } from "../lib/types";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { rememberWork } from "../lib/workTabs";
+
+// PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
+const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 
 const COLORS = [
   { hex: "#16C8E8", name: "Cyan" },
@@ -515,13 +518,15 @@ export function Playbooks() {
       )}
 
       {exportBook && (
-        <ExportDialog
-          plays={exportBook.playIds.map((id) => playsById.get(id)).filter((p): p is NonNullable<typeof p> => Boolean(p))}
-          tier={tier}
-          onClose={() => setExporting(null)}
-          onUpgrade={() => navigate("/pricing")}
-          onDone={(kind) => toast(`${exportBook.name} exported as ${kind.toUpperCase()}.`)}
-        />
+        <Suspense fallback={null}>
+          <ExportDialog
+            plays={exportBook.playIds.map((id) => playsById.get(id)).filter((p): p is NonNullable<typeof p> => Boolean(p))}
+            tier={tier}
+            onClose={() => setExporting(null)}
+            onUpgrade={() => navigate("/pricing")}
+            onDone={(kind) => toast(`${exportBook.name} exported as ${kind.toUpperCase()}.`)}
+          />
+        </Suspense>
       )}
     </Shell>
   );

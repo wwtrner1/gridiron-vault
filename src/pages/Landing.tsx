@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
@@ -7,9 +7,21 @@ import { PLAYBOOK_NAV } from "../lib/nav";
 import { PUBLIC_TIERS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
 import { useTier } from "../lib/tier";
-import { DesignerTour } from "./home/DesignerTour";
-import { FeatureSection } from "./home/FeatureSection";
+import { lazyPage } from "../lib/lazyPage";
 import "../styles/home.css";
+
+// The Designer slides and feature illustrations are about 120 KB of canvas markup, all below the fold: they load
+// right after the hero, so every other screen's first download doesn't carry them.
+const DesignerTour = lazyPage(() => import("./home/DesignerTour"), "DesignerTour");
+const FeatureSection = lazyPage(() => import("./home/FeatureSection"), "FeatureSection");
+
+/** Scrolls to the address's #section once the sections above it have drawn (they arrive a moment after the page). */
+function ScrollToHash({ hash }: { hash: string }) {
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash]);
+  return null;
+}
 
 const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
 
@@ -158,70 +170,73 @@ export function Landing() {
           <p>Draw a play once. It shows up in the Vault, drops into your call sheet, and prints at any size.</p>
         </section>
 
-        <DesignerTour />
+        <Suspense fallback={<div className="home-lazy" aria-hidden="true" />}>
+          <DesignerTour />
 
-        <FeatureSection
-          id="call-sheet"
-          visual="callSheet"
-          ground="white"
-          eyebrow="The call sheet"
-          title="A call sheet that adapts to you"
-          body="Easy to pick up, built around the way you call a game. Filter down to the calls you need — third and short, red zone, left hash — in one click. Tap any call to see the diagram, add a note or flag it. Then drag calls up and down the sheet, or between situations, until the order matches how you want to call it on Saturday."
-          points={[
-            "Filter by down, distance, hash, field zone or play type",
-            "Drag calls to reorder them or move them between situations",
-            "Rename columns, color-code rows and let it learn your shorthand",
-          ]}
-          cta={{ to: "/grid", label: "Build a call sheet" }}
-        />
+          <FeatureSection
+            id="call-sheet"
+            visual="callSheet"
+            ground="white"
+            eyebrow="The call sheet"
+            title="A call sheet that adapts to you"
+            body="Easy to pick up, built around the way you call a game. Filter down to the calls you need — third and short, red zone, left hash — in one click. Tap any call to see the diagram, add a note or flag it. Then drag calls up and down the sheet, or between situations, until the order matches how you want to call it on Saturday."
+            points={[
+              "Filter by down, distance, hash, field zone or play type",
+              "Drag calls to reorder them or move them between situations",
+              "Rename columns, color-code rows and let it learn your shorthand",
+            ]}
+            cta={{ to: "/grid", label: "Build a call sheet" }}
+          />
 
-        <FeatureSection
-          id="export"
-          visual="exportPrint"
-          ground="paper"
-          eyebrow="Export and print"
-          title="From a wristband to a binder"
-          body="One diagram, every size. Six, eight or ten plays on a wristband card. Full 8.5 × 11 landscape with the coaching notes underneath for the three-ring binder. PNG at 600 DPI when you want it on a banner."
-          points={[
-            "Wristband cards at 6, 8 or 10 per sheet",
-            "Letter PDFs with notes under the diagram",
-            "High-resolution PNG, JPEG and raw SVG",
-          ]}
-          cta={{ to: "/starters", label: "See the starter plays" }}
-        />
+          <FeatureSection
+            id="export"
+            visual="exportPrint"
+            ground="paper"
+            eyebrow="Export and print"
+            title="From a wristband to a binder"
+            body="One diagram, every size. Six, eight or ten plays on a wristband card. Full 8.5 × 11 landscape with the coaching notes underneath for the three-ring binder. PNG at 600 DPI when you want it on a banner."
+            points={[
+              "Wristband cards at 6, 8 or 10 per sheet",
+              "Letter PDFs with notes under the diagram",
+              "High-resolution PNG, JPEG and raw SVG",
+            ]}
+            cta={{ to: "/starters", label: "See the starter plays" }}
+          />
 
-        <FeatureSection
-          id="vault"
-          visual="vault"
-          ground="white"
-          eyebrow="The Vault"
-          title="Every play your program has ever drawn"
-          body="Search by name, formation, personnel or the labels you made up yourself. Check off twelve plays and export them as one packet. Share a book with your staff so the 8U coach installs the same Trips Flood you do."
-          points={[
-            "Filter by formation, type and label",
-            "Multi-select then export as a packet",
-            "Copy any shared play into your Vault",
-          ]}
-          cta={{ to: "/vault", label: "Look inside the Vault" }}
-        />
+          <FeatureSection
+            id="vault"
+            visual="vault"
+            ground="white"
+            eyebrow="The Vault"
+            title="Every play your program has ever drawn"
+            body="Search by name, formation, personnel or the labels you made up yourself. Check off twelve plays and export them as one packet. Share a book with your staff so the 8U coach installs the same Trips Flood you do."
+            points={[
+              "Filter by formation, type and label",
+              "Multi-select then export as a packet",
+              "Copy any shared play into your Vault",
+            ]}
+            cta={{ to: "/vault", label: "Look inside the Vault" }}
+          />
 
-        <FeatureSection
-          id="film"
-          visual="film"
-          ground="paper"
-          wide
-          eyebrow="Game film"
-          title="Put the film next to the play"
-          body="Upload practice or game video and attach it to any play in the Vault. Mark the snap once and Run play animates every route in time with the clip, so your players see the drawing and the real rep side by side — the first read, the break, the throw. It turns film review into install."
-          points={[
-            "Upload a video file or paste a Hudl or YouTube link",
-            "Mark the snap once — the clip and the drawing stay in sync",
-            "Slow it to 0.5×, scrub, or step a tenth of a second at a time",
-            "One main clip per play, with extra reps listed underneath",
-            "Wristbands and binder pages still print the clean diagram",
-          ]}
-          cta={{ to: "/build", label: "See Run play" }}
-        />
+          <FeatureSection
+            id="film"
+            visual="film"
+            ground="paper"
+            wide
+            eyebrow="Game film"
+            title="Put the film next to the play"
+            body="Upload practice or game video and attach it to any play in the Vault. Mark the snap once and Run play animates every route in time with the clip, so your players see the drawing and the real rep side by side — the first read, the break, the throw. It turns film review into install."
+            points={[
+              "Upload a video file or paste a Hudl or YouTube link",
+              "Mark the snap once — the clip and the drawing stay in sync",
+              "Slow it to 0.5×, scrub, or step a tenth of a second at a time",
+              "One main clip per play, with extra reps listed underneath",
+              "Wristbands and binder pages still print the clean diagram",
+            ]}
+            cta={{ to: "/build", label: "See Run play" }}
+          />
+          <ScrollToHash hash={hash} />
+        </Suspense>
 
         <section className="home-how" id="how" aria-labelledby="how-h">
           <div className="home-band-head">

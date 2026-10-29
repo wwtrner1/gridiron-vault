@@ -376,3 +376,8 @@
 
 /* The shield badge above the hero headline; its square background fades into the hero. */
 .home-hero-badge { display: block; width: clamp(150px, 16vw, 220px); height: auto; margin: -12px 0 -6px -12px; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
+
+/* Holds the Designer and feature rows' place for the moment their chunk loads (below the fold). */
+.home-lazy {
+  min-height: 100vh;
+}

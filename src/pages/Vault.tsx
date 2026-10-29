@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { GettingStarted } from "../components/GettingStarted";
 import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayThumb } from "../components/PlayThumb";
-import { ExportDialog } from "../components/ExportDialog";
+import { lazyPage } from "../lib/lazyPage";
 import { Modal } from "../components/Modal";
 import { store, useStore } from "../lib/store";
 import { markUnsynced } from "../lib/playSync";
@@ -24,6 +24,9 @@ import { addReadyPlaybook, READY_BOOK_NAME, READY_PLAYS } from "../lib/readyPlay
 import type { Scene } from "../lib/types";
 import "../styles/vault.css";
 import type { StoredPlay } from "../lib/types";
+
+// PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
+const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 
 type Sort = "recent" | "name" | "formation" | "popular";
 
@@ -509,16 +512,18 @@ export function Vault() {
       </div>
 
       {exporting && pickedPlays.length > 0 && (
-        <ExportDialog
-          plays={pickedPlays}
-          tier={tier}
-          onClose={() => setExporting(false)}
-          onUpgrade={() => navigate("/pricing")}
-          onDone={(kind) => {
-            track("play_exported", { kind, count: pickedPlays.length });
-            toast(`${pickedPlays.length} play${pickedPlays.length === 1 ? "" : "s"} exported.`);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ExportDialog
+            plays={pickedPlays}
+            tier={tier}
+            onClose={() => setExporting(false)}
+            onUpgrade={() => navigate("/pricing")}
+            onDone={(kind) => {
+              track("play_exported", { kind, count: pickedPlays.length });
+              toast(`${pickedPlays.length} play${pickedPlays.length === 1 ? "" : "s"} exported.`);
+            }}
+          />
+        </Suspense>
       )}
 
       {addingTo && (
