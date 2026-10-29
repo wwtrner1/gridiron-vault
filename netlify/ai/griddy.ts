@@ -74,6 +74,7 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       tags: (Array.isArray(p?.tags) ? p.tags : []).slice(0, 8).map((t) => str(t, 30)),
       books: (Array.isArray(p?.books) ? p.books : []).slice(0, 6).map((b) => str(b, 120)),
       routes: str(p?.routes, 160),
+      beats: str(p?.beats, 140),
     })),
     playbooks: (Array.isArray(c.playbooks) ? c.playbooks : []).slice(0, 60).map((b) => ({
       id: str(b?.id, 64),
