@@ -215,4 +215,20 @@ locked; the scale anchor grid announces position in words
   sorting and painting are all reachable by keyboard, so the grid is usable
   without a mouse, but reordering is not. This needs a keyboard reorder mode
   and is the largest remaining gap.
-- Automated audits (axe, Lighthouse) were not run; the build was not executed.
+- Automated audits: see "axe sweep (2026-10-29)" below. Lighthouse has not been run.
+- The Designer sets `maximum-scale=1` on the viewport while it is open, on purpose, so a pinch zooms the play rather than the toolbars. The Designer has its own zoom (− Fit +) and the page zoom comes back on leaving. axe flags this, and it is a known trade-off.
+
+## axe sweep (2026-10-29)
+
+axe-core 4.10 (WCAG 2.0/2.1 A and AA rules) was run on the production build at 1366 and 390 px. It covered 25 routes and 14 open states: Griddy panel, New play setup, Designer with a play, Extras, Export, Coverage check, tour card, ? help, Call Sheet, Coverage report, Assignments, Practice, and the Vault with plays. What it found and the fixes:
+
+- **Extras menu** was `role="menu"` but held selects and had no arrow-key support. It is now a disclosure group of plain buttons (`aria-expanded` on the trigger; toggles use `aria-pressed`).
+- **Designer brand link** had no name on phones, where the wordmark is hidden. It now has `aria-label`.
+- **Pricing compare table** scrolls sideways but couldn't take focus. It is now a focusable labelled region.
+- **Coverage check "Covered" pill**: dark text on red was 4.3:1. It is now white on a deeper red (6.5:1); the field ring keeps the bright red.
+- **Wristbands layout chips**: the play count was faded to 2.9:1. It is now 0.85 opacity.
+- **Export**: the preview is now `role="img"` with its label. The formation/type text on printed PDFs was 3.9:1 grey and is now #58635c (6:1), with the preview matching.
+- **Guide pages**: the white text on cyan buttons was 3.0:1. They now use the app's on-cyan ink.
+- **Getting started**: finished steps no longer fade their description text.
+
+After the fixes, everything passes except the deliberate viewport setting above.

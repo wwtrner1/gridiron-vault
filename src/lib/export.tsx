@@ -362,7 +362,7 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
       if (meta) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(small ? 6.5 : 8);
-        doc.setTextColor(120, 132, 124);
+        doc.setTextColor(88, 99, 92); // #58635c, 6:1 on white (the export preview matches)
         doc.text(meta, x + cellW, y + titleH * 0.72, { align: "right" });
       }
     }

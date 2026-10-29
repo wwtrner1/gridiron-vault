@@ -272,7 +272,7 @@ export function CoverageCheck({
                         <td>{r.route}</td>
                         <td>{yards(r.sep)} yds</td>
                         <td>
-                          <span className="cov-pill" style={{ background: STATUS_COLOR[r.status] }}>
+                          <span className={`cov-pill is-${r.status}`} style={{ background: STATUS_COLOR[r.status] }}>
                             {r.status}
                           </span>
                         </td>

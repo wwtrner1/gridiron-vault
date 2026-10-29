@@ -1830,7 +1830,7 @@ export function Builder() {
         >
           <Icon name="multiselect" size={15} /> Tools
         </button>
-        <Link to="/" className="dz-brand">
+        <Link to="/" className="dz-brand" aria-label="GridIronVault home">
           <Mark size={30} />
           <b>GridIronVault</b>
         </Link>
@@ -1931,7 +1931,6 @@ export function Builder() {
                 onClick={() => setMoreOpen((v) => !v)}
                 aria-expanded={moreOpen}
                 aria-controls="dz-more-menu"
-                aria-haspopup="menu"
               >
                 Extras <Icon name="chevron" size={13} />
               </button>
@@ -1942,30 +1941,30 @@ export function Builder() {
                 <div
                   className="dz-more-menu"
                   id="dz-more-menu"
-                  role="menu"
+                  role="group"
                   aria-label="Extras"
                   onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}
                 >
-                  <p className="dz-more-head" role="presentation">Edit</p>
+                  <p className="dz-more-head">Edit</p>
                   <div className="dz-more-pair" role="group" aria-label="Undo and redo" data-tour="dz-more-edit">
-                    <button type="button" role="menuitem" onClick={undo} disabled={!past.current.length}>
+                    <button type="button" onClick={undo} disabled={!past.current.length}>
                       <Icon name="undo" size={15} /> Undo <kbd>⌘Z</kbd>
                     </button>
-                    <button type="button" role="menuitem" onClick={redo} disabled={!future.current.length}>
+                    <button type="button" onClick={redo} disabled={!future.current.length}>
                       <Icon name="redo" size={15} /> Redo <kbd>⇧⌘Z</kbd>
                     </button>
                   </div>
-                  <button type="button" role="menuitem" onClick={cleanUpLines} disabled={!hasLines} data-tour="dz-more-edit">
+                  <button type="button" onClick={cleanUpLines} disabled={!hasLines} data-tour="dz-more-edit">
                     <Icon name="sparkle" size={15} /> Clean up lines
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={depths} onClick={toggleDepths} data-tour="dz-more-edit">
+                  <button type="button" aria-pressed={depths} onClick={toggleDepths} data-tour="dz-more-edit">
                     Route depths: {depths ? "on" : "off"}
                   </button>
-                  <button type="button" role="menuitem" onClick={selectAll} data-tour="dz-more-edit">
+                  <button type="button" onClick={selectAll} data-tour="dz-more-edit">
                     Select all
                   </button>
 
-                  <p className="dz-more-head" role="presentation">Field</p>
+                  <p className="dz-more-head">Field</p>
                   <label className="dz-more-field" onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
                     <span>Field</span>
                     <select
@@ -1984,30 +1983,29 @@ export function Builder() {
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}
                   </label>
-                  <button type="button" role="menuitem" onClick={() => setFieldOpen(true)} data-tour="dz-more-field">
+                  <button type="button" onClick={() => setFieldOpen(true)} data-tour="dz-more-field">
                     Field controls: grid, hashes, rule lines
                   </button>
 
-                  <p className="dz-more-head" role="presentation">Play</p>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
+                  <p className="dz-more-head">Play</p>
+                  <button type="button" className="is-wide-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
                     Play details
                   </button>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
+                  <button type="button" className="is-wide-dup" onClick={() => setRunning(true)}>
                     Run play
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setCovering(true)} data-tour="dz-coverage">
+                  <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
                     Coverage check: who gets open
                   </button>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
+                  <button type="button" className="is-wide-dup" onClick={() => setExporting(true)}>
                     Export · print · wristband
                   </button>
-                  <button type="button" role="menuitem" onClick={newPlay} data-tour="dz-play">
+                  <button type="button" onClick={newPlay} data-tour="dz-play">
                     New play…
                   </button>
                   <button
                     type="button"
-                    role="menuitemcheckbox"
-                    aria-checked={setupOn}
+                    aria-pressed={setupOn}
                     data-tour="dz-play"
                     onClick={() => {
                       setSetupWanted(!setupOn);
@@ -2017,44 +2015,44 @@ export function Builder() {
                     New play setup: {setupOn ? "on" : "off"}
                   </button>
                   {liveId ? (
-                    <button type="button" role="menuitem" onClick={() => void save()} data-tour="dz-play">
+                    <button type="button" onClick={() => void save()} data-tour="dz-play">
                       Save a copy to my Vault
                     </button>
                   ) : (
-                    <button type="button" role="menuitem" onClick={() => void startLive()} data-tour="dz-play">
+                    <button type="button" onClick={() => void startLive()} data-tour="dz-play">
                       <Icon name="users" size={15} /> Draw this live with my staff
                     </button>
                   )}
-                  <button type="button" role="menuitem" onClick={() => void flipToCopy()} data-tour="dz-play">
+                  <button type="button" onClick={() => void flipToCopy()} data-tour="dz-play">
                     Flip and save as a new play
                   </button>
 
-                  <p className="dz-more-head" role="presentation">Go to</p>
+                  <p className="dz-more-head">Go to</p>
                   {workTabs(loadWork(), playbooks, sheets, new Set(plays.map((p) => p.id)))
                     .filter((t) => t.id !== "designer")
                     .map((t) => (
-                      <button key={t.id} type="button" role="menuitem" className="is-tabs-dup" onClick={() => void openFromTree(t.href)}>
+                      <button key={t.id} type="button" className="is-tabs-dup" onClick={() => void openFromTree(t.href)}>
                         {t.label}
                       </button>
                     ))}
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/upload")} data-tour="dz-more-goto">
+                  <button type="button" onClick={() => void openFromTree("/upload")} data-tour="dz-more-goto">
                     <Icon name="upload" size={15} /> Upload a whiteboard photo
                   </button>
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/tools")} data-tour="dz-more-goto">
+                  <button type="button" onClick={() => void openFromTree("/tools")} data-tour="dz-more-goto">
                     More tools
                   </button>
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/vault")} data-tour="dz-more-goto">
+                  <button type="button" onClick={() => void openFromTree("/vault")} data-tour="dz-more-goto">
                     Back to the Vault
                   </button>
 
-                  <p className="dz-more-head" role="presentation">Help</p>
-                  <button type="button" role="menuitem" onClick={() => setGuideOpen(true)} data-tour="dz-more-help">
+                  <p className="dz-more-head">Help</p>
+                  <button type="button" onClick={() => setGuideOpen(true)} data-tour="dz-more-help">
                     Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setTourOpen(true)} data-tour="dz-more-help">
+                  <button type="button" onClick={() => setTourOpen(true)} data-tour="dz-more-help">
                     How the designer works
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
+                  <button type="button" aria-pressed={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
                     Coach tips: {tipsOn ? "on" : "off"}
                   </button>
                 </div>

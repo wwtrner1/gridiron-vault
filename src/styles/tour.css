@@ -85,7 +85,7 @@
 .start-meter span { display: block; height: 100%; background: var(--cyan); transition: width .3s ease; }
 .start-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .start-steps li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: var(--radius-md); background: var(--paper); }
-.start-steps li.is-done { opacity: .72; }
+.start-steps li.is-done .start-tick, .start-steps li.is-done b { opacity: .8; }
 .start-steps li.is-done b { text-decoration: line-through; text-decoration-color: var(--cyan); }
 .start-tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%; background: var(--white); color: var(--on-cyan); }
 .is-done .start-tick { border-color: var(--cyan); background: var(--cyan); }
