@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "griddy:live": "tsx scripts/griddy-live.ts",
+    "stripe:setup": "tsx scripts/stripe-setup.ts",
     "bands:matrix": "node scripts/wristband-matrix/run.mjs"
   },
   "dependencies": {
