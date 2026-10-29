@@ -33,6 +33,8 @@ export const profiles = pgTable("profiles", {
   planEndsAt: timestamp("plan_ends_at"),
   /** A paused subscription (Season over? Pause instead of cancel): Sideline until this date, when Stripe resumes billing. */
   pausedUntil: timestamp("paused_until"),
+  /** Stripe couldn't take the last payment (past_due or unpaid): Sideline until a paid invoice, and the app asks the coach to update the card. */
+  paymentFailedAt: timestamp("payment_failed_at"),
 });
 
 /**

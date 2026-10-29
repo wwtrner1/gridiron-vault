@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, SECURITY_EVENT, type Security } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { deviceLabel } from "../lib/device";
-import { setBilling, syncPlan } from "../lib/tier";
+import { setBilling, setPaymentFailed, syncPlan } from "../lib/tier";
 
 /**
  * One login, one coach. Once phone verification is switched on (the Twilio
@@ -28,6 +28,7 @@ export function PhoneGate() {
       // The one /me call after sign-in also brings the account's plan.
       void syncPlan(res.plan, res.trialEndsAt);
       setBilling(Boolean(res.billing));
+      setPaymentFailed(Boolean(res.paymentFailed));
     } catch {
       /* the next API call will ask again */
     }
