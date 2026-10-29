@@ -297,7 +297,7 @@ export const GUIDES: Guide[] = [
         heading: "Keyboard",
         steps: [
           { title: "Pick tools", text: "V select · L straight route · A 3-point arc · F freehand · 1–9, 0 the line and shape tools · X text · Esc back to Select." },
-          { title: "Edit", text: "Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C / Ctrl+V copy and paste (even onto another play) · Ctrl+D duplicate · Delete removes · Ctrl+Alt+C / Ctrl+Alt+V copy and paste a style." },
+          { title: "Edit", text: "Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C / Ctrl+V copy and paste (even onto another play) · Ctrl+D duplicate · Delete removes · Ctrl+Alt+C / Ctrl+Alt+V copy and paste a style · N / Shift+N select the next or previous element on the field · arrow keys move what is selected, its routes with it (Shift for a bigger step)." },
           { title: "Move around", text: "[ and ] previous and next play · Ctrl + scroll zoom · Ctrl+\\ hide or show both panels · Enter finishes a line." },
         ],
       },

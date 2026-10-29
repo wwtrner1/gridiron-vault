@@ -213,8 +213,12 @@ locked; the scale anchor grid announces position in words
 - Call Sheet reordering works from the keyboard (2026-10-29). Each row has
   Move up / Move down buttons. Each column's grip is a button: ← and → move
   the column, focus stays on the grip, and a polite live region says the new
-  spot ("Play Name moved to column 4 of 11"). Dragging tokens onto the field is
-  still pointer-only.
+  spot ("Play Name moved to column 4 of 11").
+- Designer field from the keyboard (2026-10-29). N and Shift+N step through
+  what is on the field (players left to right first), and the status line reads
+  "Selected Receiver X, 1 of 11". Arrow keys move the selection 4 units, or 20
+  with Shift; routes and assignment lines ride along as they do on a drag. A run
+  of presses is one undo step. Drawing a new route still needs a pointer.
 - Automated audits: see "axe sweep (2026-10-29)" below. Lighthouse has not been run.
 - The Designer sets `maximum-scale=1` on the viewport while it is open, on purpose, so a pinch zooms the play rather than the toolbars. The Designer has its own zoom (− Fit +) and the page zoom comes back on leaving. axe flags this, and it is a known trade-off.
 
