@@ -233,7 +233,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         ))}
       </div>
 
-      <div className="ex-preview" aria-label={`Print preview, ${size.w} by ${size.h} inches`}>
+      <div className="ex-preview" role="img" aria-label={`Print preview, ${size.w} by ${size.h} inches`}>
         <div
           className="ex-page"
           style={{ width: Math.round(Math.min(360, (300 * size.w) / size.h)), aspectRatio: `${size.w} / ${size.h}` }}

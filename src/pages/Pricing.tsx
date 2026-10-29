@@ -223,7 +223,7 @@ export function Pricing() {
             <h2 id="compare-h">What is different</h2>
             <p>Hover any row for the plain-English version.</p>
           </div>
-          <div className="compare-wrap">
+          <div className="compare-wrap" tabIndex={0} role="region" aria-labelledby="compare-h">
             <table className="compare">
               <thead>
                 <tr>
