@@ -847,25 +847,3 @@ export function tourHref(g: Guide) {
 export function allSteps() {
   return GUIDES.flatMap((g) => g.sections.flatMap((s) => s.steps.map((step) => ({ guide: g, section: s.heading, step }))));
 }
-
-/* ------------------------------------------------------------- seen marks */
-
-const KEY = "grid1ronvault.guides.v1";
-
-export function guidesSeen(): string[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-export function markGuideSeen(id: string) {
-  try {
-    const seen = guidesSeen();
-    if (!seen.includes(id)) localStorage.setItem(KEY, JSON.stringify([...seen, id]));
-  } catch {
-    /* storage blocked: the ? keeps its dot */
-  }
-}

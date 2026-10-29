@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { Modal } from "./Modal";
 import { Icon } from "./Icon";
-import { clipOf, guideById, guideFor, guidesSeen, markGuideSeen, stepsOf, type Guide, type GuideStep } from "../lib/guides";
+import type { Guide, GuideStep } from "../lib/guides";
+import { guidesSeen, markGuideSeen } from "../lib/guideSeen";
 import "../styles/tour.css";
 
 /**
@@ -12,9 +13,31 @@ import "../styles/tour.css";
  * and the Tutorials page show. A step whose button isn't on screen is
  * skipped; `open` buttons are clicked first to bring a menu or dialog up.
  * `?tour=<id>` in the address starts one (the Tutorials page links that way).
+ * The guides' text (lib/guides.ts) is loaded the first time a screen asks for
+ * it, not with the app, so the first download stays small.
  */
 
-type Ctx = { start: (id: string) => void; running: boolean };
+type Guides = typeof import("../lib/guides");
+let guidesMod: Guides | null = null;
+let guidesLoad: Promise<Guides> | null = null;
+const loadGuides = () =>
+  (guidesLoad ??= import("../lib/guides").then((m) => (guidesMod = m)).catch((e) => ((guidesLoad = null), Promise.reject(e))));
+
+/** The guides once loaded; starts the load on first use. */
+function useGuides(): Guides | null {
+  const [mod, setMod] = useState(guidesMod);
+  useEffect(() => {
+    if (mod) return;
+    let live = true;
+    loadGuides().then((m) => live && setMod(m), () => {});
+    return () => {
+      live = false;
+    };
+  }, [mod]);
+  return mod;
+}
+
+type Ctx = { start: (id: string) => void | Promise<void>; running: boolean };
 const TourCtx = createContext<Ctx>({ start: () => {}, running: false });
 export const useTour = () => useContext(TourCtx);
 
@@ -71,10 +94,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const started = useRef("");
 
-  const start = useCallback((id: string) => {
-    const guide = guideById(id);
+  const start = useCallback(async (id: string) => {
+    let guides: Guides;
+    try {
+      guides = await loadGuides();
+    } catch {
+      return; // no signal and not cached: the tour just doesn't start
+    }
+    const guide = guides.guideById(id);
     if (!guide) return;
-    const steps = stepsOf(guide).flatMap((s) => s.steps);
+    const steps = guides.stepsOf(guide).flatMap((s) => s.steps);
     // Steps that can never show here (no target on screen and nothing to open) are left out up front, so the count is honest.
     const reachable = steps.filter((s) => !s.target || s.open?.length || visible(s.target));
     setRun({ guide, steps: reachable.length ? reachable : steps, at: 0 });
@@ -315,11 +344,14 @@ export function PageHelp({
   extra?: { label: string; run: () => void };
 }) {
   const { pathname, search } = useLocation();
-  const guide = guideFor(pathname, search);
+  const guides = useGuides();
+  const guide = guides ? guides.guideFor(pathname, search) : null;
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(() => (guide ? guidesSeen().includes(guide.id) : true));
   const { start } = useTour();
   useEffect(() => setSeen(guide ? guidesSeen().includes(guide.id) : true), [guide]);
+  // Hold the button's place while the guides load, so the top bar doesn't shift.
+  if (!guides) return <span className={`page-help-btn is-${tone}`} aria-hidden="true" style={{ visibility: "hidden" }} />;
   if (!guide) return null;
 
   const show = () => {
@@ -379,7 +411,8 @@ export function PageHelp({
 
 /** The screen's recorded tour, if it has one. Loads nothing until the coach presses play. */
 export function GuideClip({ guide }: { guide: Guide }) {
-  const clip = clipOf(guide);
+  const guides = useGuides();
+  const clip = guides?.clipOf(guide);
   if (!clip) return null;
   return (
     <video className="guide-clip" src={clip.src} poster={clip.poster} controls muted playsInline preload="none" aria-label={`Video: the ${guide.title} tour`}>
@@ -390,11 +423,13 @@ export function GuideClip({ guide }: { guide: Guide }) {
 
 /** A guide's buttons as a reference list: section headings, then name and what it does. */
 export function GuideList({ guide, shell = false, clip = false }: { guide: Guide; shell?: boolean; clip?: boolean }) {
+  const guides = useGuides();
+  if (!guides) return null;
   return (
     <div className="guide-list">
       <p className="guide-intro">{guide.intro}</p>
       {clip && <GuideClip guide={guide} />}
-      {stepsOf(guide, shell).map((s) => (
+      {guides.stepsOf(guide, shell).map((s) => (
         <section key={s.heading}>
           <h3>{s.heading}</h3>
           <dl>
