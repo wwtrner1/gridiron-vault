@@ -3,6 +3,7 @@ import { api, toStoredPlay } from "./api";
 import { store } from "./store";
 import { useAuth } from "./auth";
 import { useToast } from "./toast";
+import { flushDeletes } from "./pendingDeletes";
 import type { StoredPlay } from "./types";
 
 /**
@@ -77,7 +78,9 @@ export function PlaySync() {
     if (!id) return;
     let alive = true;
     const run = () =>
-      void syncPlays().then((n) => {
+      void flushDeletes()
+        .then(syncPlays)
+        .then((n) => {
         if (alive && n) toast(n === 1 ? "Back online: 1 play went to your account." : `Back online: ${n} plays went to your account.`);
       });
     run();
