@@ -236,3 +236,5 @@ axe-core 4.10 (WCAG 2.0/2.1 A and AA rules) was run on the production build at 1
 - **Getting started**: finished steps no longer fade their description text.
 
 After the fixes, everything passes except the deliberate viewport setting above.
+
+A follow-up pass ran axe's best-practice rules too. In the Designer, the top bar was `role="toolbar"` on a `<header>`, which isn't allowed. It is now a plain banner holding the page's h1. The tools rail's heading lived only in the phone sheet header, so on wider screens the order jumped from h1 to h3; a screen-reader-only "Drawing tools" h2 fixes that. On Pricing, the scrolling table region had the same label as its section and now has its own. All routes and open states pass the best-practice rules at 1366 and 390 px.
