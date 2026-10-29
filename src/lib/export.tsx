@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { brandStore, hasBrand, hexToRgb, luminance } from "./brand";
-import { jsPDF } from "jspdf";
+// jsPDF is loaded only when a PDF is made, so it stays out of the first download.
+import type { jsPDF } from "jspdf";
 import { FieldBackground, RuleLinesLayer } from "./field";
 import { loadRules, ruleSet } from "./rules";
 import { DepthLayer, drawOrder, MarkerDefs, NodeLayer, strokeColors } from "./render";
@@ -329,6 +330,7 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
   const size = sheetSize(options);
   const look = options.look ?? FULL_LOOK;
   const landscape = size.w > size.h;
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     unit: "in",
     format: [size.w, size.h],

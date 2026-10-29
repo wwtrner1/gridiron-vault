@@ -66,7 +66,9 @@ export function Landing() {
           <div className="home-hero-copy">
             <img
               className="home-hero-badge"
-              src="/brand/shield.webp"
+              src="/brand/shield-440.webp"
+              srcSet="/brand/shield-440.webp 440w, /brand/shield.webp 1254w"
+              sizes="(min-width: 1375px) 220px, (min-width: 938px) 16vw, 150px"
               width={220}
               height={220}
               alt="GridIronVault — Your playbook. Anywhere."
