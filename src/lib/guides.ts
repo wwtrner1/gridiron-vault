@@ -542,7 +542,7 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Column headers",
-            text: "Click a header to sort (Back to my order undoes it), rename it, drag the dots to move it, minimize it to a thin strip, or remove it.",
+            text: "Click a header to sort (Back to my order undoes it), rename it, drag the dots to move it (or Tab to the dots and press ← →), minimize it to a thin strip, or remove it.",
             target: ".grid-wrap thead",
           },
           {
