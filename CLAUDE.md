@@ -178,6 +178,9 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 ### Copy style
 - `lib/styleCopy.ts`: Ctrl+Alt+C copies one element's look (colors, weight, size; never labels, points, first read or tags), Ctrl+Alt+V (or "Paste style" in the right-click menu) puts it on every selected element of the same kind and skips locked ones. The copied style is kept in `grid1ronvault.styleclip.v1`.
 
+### Guides (SEO articles)
+- `public/guides/` holds static HTML articles (hub, plays that beat zone, plays that beat man) with inline SVG diagrams, JSON-LD (Article + FAQ) and `guides.css`; no scripts, so the CSP holds. Netlify serves them before the SPA rewrite; link to them with a plain `<a href>` (the marketing footer does), never a router `Link`. `public/sw.js` skips `/guides` so a guide never replaces the cached app shell. List new pages in `public/sitemap.xml` (`public/robots.txt` points to it).
+
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.

@@ -28,6 +28,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/.netlify/") || url.pathname.startsWith("/__forms")) return;
+  // The guide articles are their own static pages, never the app shell: don't let one replace the cached shell.
+  if (url.pathname.startsWith("/guides")) return;
 
   if (req.mode === "navigate") {
     event.respondWith(
