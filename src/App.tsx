@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
@@ -10,36 +10,40 @@ import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
 import { Landing } from "./pages/Landing";
-import { Pricing } from "./pages/Pricing";
-import { Builder } from "./pages/Builder";
-import { Vault } from "./pages/Vault";
-import { Playbooks } from "./pages/Playbooks";
-import { SeasonGrid } from "./pages/SeasonGrid";
-import { Starters } from "./pages/Starters";
-import { Account } from "./pages/Account";
-import { SignIn } from "./pages/SignIn";
 import { NotFound } from "./pages/NotFound";
-import { Help } from "./pages/Help";
-import { Privacy, Terms } from "./pages/Legal";
-import { Wristbands } from "./pages/Wristbands";
-import { PlaybookLanguage } from "./pages/PlaybookLanguage";
-import { Upload } from "./pages/Upload";
-import { Assignments } from "./pages/Assignments";
-import { Practice } from "./pages/Practice";
-import { Coverage } from "./pages/Coverage";
-import { Team } from "./pages/Team";
-import { Join } from "./pages/Join";
-import { Admin } from "./pages/Admin";
 import { useFreePrint } from "./lib/guard";
 import { useTier } from "./lib/tier";
 import { notePage } from "./lib/lastPage";
 import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
-import { Tools } from "./pages/Tools";
-import { FrontOffice } from "./pages/FrontOffice";
-import { MyTeam } from "./pages/MyTeam";
-import { Tutorials } from "./pages/Tutorials";
 import { TourProvider } from "./components/Tour";
+import { lazyPage, PageLoading, warmPages } from "./lib/lazyPage";
+
+// Every screen but the home page loads on first visit (see lib/lazyPage).
+const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
+const Builder = lazyPage(() => import("./pages/Builder"), "Builder");
+const Vault = lazyPage(() => import("./pages/Vault"), "Vault");
+const Playbooks = lazyPage(() => import("./pages/Playbooks"), "Playbooks");
+const SeasonGrid = lazyPage(() => import("./pages/SeasonGrid"), "SeasonGrid");
+const Starters = lazyPage(() => import("./pages/Starters"), "Starters");
+const Account = lazyPage(() => import("./pages/Account"), "Account");
+const SignIn = lazyPage(() => import("./pages/SignIn"), "SignIn");
+const Help = lazyPage(() => import("./pages/Help"), "Help");
+const Wristbands = lazyPage(() => import("./pages/Wristbands"), "Wristbands");
+const PlaybookLanguage = lazyPage(() => import("./pages/PlaybookLanguage"), "PlaybookLanguage");
+const Upload = lazyPage(() => import("./pages/Upload"), "Upload");
+const Assignments = lazyPage(() => import("./pages/Assignments"), "Assignments");
+const Practice = lazyPage(() => import("./pages/Practice"), "Practice");
+const Coverage = lazyPage(() => import("./pages/Coverage"), "Coverage");
+const Team = lazyPage(() => import("./pages/Team"), "Team");
+const Join = lazyPage(() => import("./pages/Join"), "Join");
+const Admin = lazyPage(() => import("./pages/Admin"), "Admin");
+const Tools = lazyPage(() => import("./pages/Tools"), "Tools");
+const FrontOffice = lazyPage(() => import("./pages/FrontOffice"), "FrontOffice");
+const MyTeam = lazyPage(() => import("./pages/MyTeam"), "MyTeam");
+const Tutorials = lazyPage(() => import("./pages/Tutorials"), "Tutorials");
+const Privacy = lazyPage(() => import("./pages/Legal"), "Privacy");
+const Terms = lazyPage(() => import("./pages/Legal"), "Terms");
 
 const TITLES: Record<string, string> = {
   "/": "GridIronVault — Flag Football Playbook Studio",
@@ -130,6 +134,10 @@ function RouteChrome() {
 
 export function App() {
   useFreePrint(useTier().watermark);
+  useEffect(() => {
+    const t = window.setTimeout(warmPages, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
   return (
     <ToastProvider>
       <GriddyProvider>
@@ -142,6 +150,7 @@ export function App() {
       <SheetSync />
       <PhoneGate />
       <NewPassword />
+      <Suspense fallback={<PageLoading />}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/build" element={<Builder />} />
@@ -179,6 +188,7 @@ export function App() {
         <Route path="/login" element={<Navigate to="/signin" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       </TourProvider>
       </GriddyProvider>
     </ToastProvider>
