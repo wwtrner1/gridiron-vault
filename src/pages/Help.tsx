@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { RESPONSE_TIME, SUPPORT_EMAIL } from "../lib/site";
 import "../styles/home.css";
@@ -185,6 +186,14 @@ export function Help() {
           </div>
 
           <div className="help-side">
+            <div className="help-card">
+              <p className="home-eyebrow">Tutorials</p>
+              <h2 className="help-card-title">Learn every button</h2>
+              <p className="help-muted">Every screen, every button and what it does, with a guided tour of each. The ? at the top of any screen shows that screen's list.</p>
+              <Link to="/tutorials" className="btn btn-primary btn-sm">
+                Open the tutorials
+              </Link>
+            </div>
             <div className="help-card">
               <p className="home-eyebrow">Contact us</p>
               <h2 className="help-card-title">Talk to a person</h2>

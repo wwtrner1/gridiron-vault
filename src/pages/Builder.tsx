@@ -22,6 +22,7 @@ import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
 import { CoverageCheck } from "../components/CoverageCheck";
+import { PageHelp, useTour } from "../components/Tour";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
 import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
@@ -1205,11 +1206,14 @@ export function Builder() {
   const [tourOpen, setTourOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const setupShowing = !!setup;
+  // A guided tour (the ? help, or a Tutorials link with ?tour=) replaces the slides on this visit.
+  const guided = useTour().running;
+  const tourLink = useRef(new URLSearchParams(location.search).has("tour"));
   useEffect(() => {
-    if (tourSeen() || setupShowing) return;
+    if (tourSeen() || setupShowing || guided || tourLink.current) return;
     const t = window.setTimeout(() => setTourOpen(true), 700);
     return () => window.clearTimeout(t);
-  }, [setupShowing]);
+  }, [setupShowing, guided]);
   const prefs = useToolPrefs();
   const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
   const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;
@@ -1880,17 +1884,17 @@ export function Builder() {
             </button>
           </Tooltip>
           <Tooltip title="Run play" hint="Animates every route from the snap, and can sit beside game film to check timing." side="bottom">
-            <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)}>
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)} data-tour="dz-run">
               Run play
             </button>
           </Tooltip>
           <Tooltip title="Export" hint="Download the play as a picture or PDF, or print it as a wristband card." side="bottom">
-            <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)}>
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)} data-tour="dz-export">
               Export
             </button>
           </Tooltip>
           {liveId ? (
-            <span className="dz-saved" role="status" title={live.problem || "Everything you draw is shared with your staff a moment later."}>
+            <span className="dz-saved" role="status" data-tour="dz-save" title={live.problem || "Everything you draw is shared with your staff a moment later."}>
               <Icon name="users" size={14} />{" "}
               {live.state === "live"
                 ? live.here.length
@@ -1904,12 +1908,12 @@ export function Builder() {
             </span>
           ) : dirty || saving ? (
             <Tooltip title="Save play" hint="Keeps it in your Vault. Signed in, it also goes to your account so it's on every device." side="bottom">
-              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving} data-tour="dz-save">
                 {saving ? "Saving…" : "Save play"}
               </button>
             </Tooltip>
           ) : (
-            <span className="dz-saved" role="status">
+            <span className="dz-saved" role="status" data-tour="dz-save">
               <Icon name="check" size={14} /> Saved
             </span>
           )}
@@ -1939,7 +1943,7 @@ export function Builder() {
                   onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}
                 >
                   <p className="dz-more-head" role="presentation">Edit</p>
-                  <div className="dz-more-pair" role="group" aria-label="Undo and redo">
+                  <div className="dz-more-pair" role="group" aria-label="Undo and redo" data-tour="dz-more-edit">
                     <button type="button" role="menuitem" onClick={undo} disabled={!past.current.length}>
                       <Icon name="undo" size={15} /> Undo <kbd>⌘Z</kbd>
                     </button>
@@ -1947,18 +1951,18 @@ export function Builder() {
                       <Icon name="redo" size={15} /> Redo <kbd>⇧⌘Z</kbd>
                     </button>
                   </div>
-                  <button type="button" role="menuitem" onClick={cleanUpLines} disabled={!hasLines}>
+                  <button type="button" role="menuitem" onClick={cleanUpLines} disabled={!hasLines} data-tour="dz-more-edit">
                     <Icon name="sparkle" size={15} /> Clean up lines
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={depths} onClick={toggleDepths}>
+                  <button type="button" role="menuitemcheckbox" aria-checked={depths} onClick={toggleDepths} data-tour="dz-more-edit">
                     Route depths: {depths ? "on" : "off"}
                   </button>
-                  <button type="button" role="menuitem" onClick={selectAll}>
+                  <button type="button" role="menuitem" onClick={selectAll} data-tour="dz-more-edit">
                     Select all
                   </button>
 
                   <p className="dz-more-head" role="presentation">Field</p>
-                  <label className="dz-more-field" onClick={(e) => e.stopPropagation()}>
+                  <label className="dz-more-field" onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
                     <span>Field</span>
                     <select
                       className="dz-top-select"
@@ -1972,34 +1976,35 @@ export function Builder() {
                       ))}
                     </select>
                   </label>
-                  <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()}>
+                  <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}
                   </label>
-                  <button type="button" role="menuitem" onClick={() => setFieldOpen(true)}>
+                  <button type="button" role="menuitem" onClick={() => setFieldOpen(true)} data-tour="dz-more-field">
                     Field controls: grid, hashes, rule lines
                   </button>
 
                   <p className="dz-more-head" role="presentation">Play</p>
-                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)}>
+                  <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
                     Play details
                   </button>
                   <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
                     Run play
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setCovering(true)}>
+                  <button type="button" role="menuitem" onClick={() => setCovering(true)} data-tour="dz-coverage">
                     Coverage check: who gets open
                   </button>
                   <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
                     Export · print · wristband
                   </button>
-                  <button type="button" role="menuitem" onClick={newPlay}>
+                  <button type="button" role="menuitem" onClick={newPlay} data-tour="dz-play">
                     New play…
                   </button>
                   <button
                     type="button"
                     role="menuitemcheckbox"
                     aria-checked={setupOn}
+                    data-tour="dz-play"
                     onClick={() => {
                       setSetupWanted(!setupOn);
                       setSetupOn(!setupOn);
@@ -2008,15 +2013,15 @@ export function Builder() {
                     New play setup: {setupOn ? "on" : "off"}
                   </button>
                   {liveId ? (
-                    <button type="button" role="menuitem" onClick={() => void save()}>
+                    <button type="button" role="menuitem" onClick={() => void save()} data-tour="dz-play">
                       Save a copy to my Vault
                     </button>
                   ) : (
-                    <button type="button" role="menuitem" onClick={() => void startLive()}>
+                    <button type="button" role="menuitem" onClick={() => void startLive()} data-tour="dz-play">
                       <Icon name="users" size={15} /> Draw this live with my staff
                     </button>
                   )}
-                  <button type="button" role="menuitem" onClick={() => void flipToCopy()}>
+                  <button type="button" role="menuitem" onClick={() => void flipToCopy()} data-tour="dz-play">
                     Flip and save as a new play
                   </button>
 
@@ -2028,30 +2033,31 @@ export function Builder() {
                         {t.label}
                       </button>
                     ))}
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/upload")}>
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/upload")} data-tour="dz-more-goto">
                     <Icon name="upload" size={15} /> Upload a whiteboard photo
                   </button>
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/tools")}>
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/tools")} data-tour="dz-more-goto">
                     More tools
                   </button>
-                  <button type="button" role="menuitem" onClick={() => void openFromTree("/vault")}>
+                  <button type="button" role="menuitem" onClick={() => void openFromTree("/vault")} data-tour="dz-more-goto">
                     Back to the Vault
                   </button>
 
                   <p className="dz-more-head" role="presentation">Help</p>
-                  <button type="button" role="menuitem" onClick={() => setGuideOpen(true)}>
+                  <button type="button" role="menuitem" onClick={() => setGuideOpen(true)} data-tour="dz-more-help">
                     Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setTourOpen(true)}>
+                  <button type="button" role="menuitem" onClick={() => setTourOpen(true)} data-tour="dz-more-help">
                     How the designer works
                   </button>
-                  <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)}>
+                  <button type="button" role="menuitemcheckbox" aria-checked={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
                     Coach tips: {tipsOn ? "on" : "off"}
                   </button>
                 </div>
               </>
             )}
           </div>
+          <PageHelp tone="dark" extra={{ label: "Watch the 6 quick moves", run: () => setTourOpen(true) }} />
         </div>
       </header>
 

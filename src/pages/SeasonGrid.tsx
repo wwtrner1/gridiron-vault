@@ -355,7 +355,7 @@ export function SeasonGrid() {
       actions={
         <>
           <Tooltip title="Print the call sheet" hint="Prints what you see, landscape, with the paint colours intact. Minimized rows and columns stay off the page." side="bottom">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.print()}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.print()} data-tour="sheet-print">
               <Icon name="print" size={15} /> Print
             </button>
           </Tooltip>
@@ -368,13 +368,13 @@ export function SeasonGrid() {
               <Icon name="wristband" size={15} /> Wristbands
             </Link>
           </Tooltip>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={newGrid}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={newGrid} data-tour="sheet-save">
             <Icon name="plus" size={15} /> New sheet
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={deleteSheet} aria-label={`Delete ${sheet.name}`}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={deleteSheet} aria-label={`Delete ${sheet.name}`} data-tour="sheet-save">
             <Icon name="trash" size={15} /> Delete
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={syncUp} disabled={saving}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={syncUp} disabled={saving} data-tour="sheet-save">
             <Icon name="save" size={15} /> {saving ? "Saving…" : "Save sheet"}
           </button>
         </>
@@ -418,11 +418,12 @@ export function SeasonGrid() {
               className={`btn btn-sm ${painting ? "btn-dark" : "btn-ghost"}`}
               onClick={() => setPainting((v) => !v)}
               aria-pressed={painting}
+              data-tour="sheet-paint"
             >
               <Icon name="paint" size={15} /> {painting ? "Paint mode on" : "Paint cells"}
             </button>
           </Tooltip>
-          <div className="paint-row">
+          <div className="paint-row" data-tour="sheet-paint">
             {PAINTS.map((p) => (
               <Tooltip key={p.id} title={p.label} hint={p.id ? "Click a cell to fill it with this colour." : "Clears the fill from a cell."} side="bottom">
                 <button
@@ -446,34 +447,34 @@ export function SeasonGrid() {
             aria-label="Find in this call sheet"
           />
           <Tooltip title="Compact rows" hint="Tighter rows so more of the sheet fits on screen." side="bottom">
-            <button type="button" className={`btn btn-sm ${view.compact ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ compact: !view.compact })} aria-pressed={view.compact}>
+            <button type="button" className={`btn btn-sm ${view.compact ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ compact: !view.compact })} aria-pressed={view.compact} data-tour="sheet-view">
               Compact
             </button>
           </Tooltip>
           <Tooltip title="Hide empty rows" hint="Hides rows with nothing typed in them. They are still there; turn this off to see them." side="bottom">
-            <button type="button" className={`btn btn-sm ${view.hideEmpty ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ hideEmpty: !view.hideEmpty })} aria-pressed={view.hideEmpty}>
+            <button type="button" className={`btn btn-sm ${view.hideEmpty ? "btn-dark" : "btn-ghost"}`} onClick={() => changeView({ hideEmpty: !view.hideEmpty })} aria-pressed={view.hideEmpty} data-tour="sheet-view">
               Hide empty
             </button>
           </Tooltip>
           <Tooltip title="Minimize every row" hint="Folds each row down to one line. Click a row to open it again." side="bottom">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => changeView({ rows: view.rows.length >= sheet.rows.length ? [] : sheet.rows.map((r) => r.id) })}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => changeView({ rows: view.rows.length >= sheet.rows.length ? [] : sheet.rows.map((r) => r.id) })} data-tour="sheet-view">
               {view.rows.length >= sheet.rows.length ? "Open all rows" : "Minimize rows"}
             </button>
           </Tooltip>
           <Tooltip title="Renumber" hint="Numbers the # column 1, 2, 3 in your order, so wristband numbers match." side="bottom">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={renumber}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={renumber} data-tour="sheet-renumber">
               Renumber
             </button>
           </Tooltip>
           <Tooltip title="Ask Griddy" hint="Griddy builds a call sheet from your Vault by situation. You review it before anything is saved." side="bottom">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={askGriddy}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={askGriddy} data-tour="sheet-griddy">
               <Icon name="sparkle" size={14} /> Ask Griddy
             </button>
           </Tooltip>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={addColumn}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={addColumn} data-tour="sheet-add">
             <Icon name="plus" size={14} /> Add column
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={addRow}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={addRow} data-tour="sheet-add">
             <Icon name="plus" size={14} /> Add row
           </button>
           {sortBy && (

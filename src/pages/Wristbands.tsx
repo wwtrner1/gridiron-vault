@@ -357,7 +357,7 @@ export function Wristbands() {
               </p>
             </div>
 
-            <label className="wb-field">
+            <label className="wb-field" data-tour="wb-source">
               <span>Pull plays from</span>
               <select className="select" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
                 {sources.map((s) => (
