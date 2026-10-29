@@ -627,7 +627,6 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
  */
 function CallSheetCard({ id, name: suggested, lines }: { id: string; name: string; lines: CallSheetLine[] }) {
   const { outcomes, setOutcome, setOpen, dance } = useGriddy();
-  const { account } = useAuth();
   const tier = useTier();
   const toast = useToast();
   const navigate = useNavigate();
@@ -650,15 +649,8 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
     setBusy(true);
     try {
       const sheet = gridFromPlays(name.trim() || "Game plan", rows.map((r) => ({ play: r.play, ...r.line })));
+      // SheetSync copies it to the account while signed in (writing it here too could make two).
       store.upsertSheet(sheet);
-      if (account) {
-        try {
-          const res = await api.createSheet({ name: sheet.name, columns: sheet.columns, rows: sheet.rows });
-          store.upsertSheet({ ...sheet, remoteId: res.sheet.id });
-        } catch (e) {
-          toast(e instanceof Error ? e.message : "The call sheet is saved in this browser. It syncs the next time you save it.", true);
-        }
-      }
       setOutcome(id, `The coach created the Call Sheet "${sheet.name}" with ${rows.length} plays.`);
       toast(`${sheet.name} is ready in your Call Sheet.`);
       dance();

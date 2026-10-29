@@ -9,7 +9,8 @@ import { Modal } from "../components/Modal";
 import { PlayThumb } from "../components/PlayThumb";
 import { playNamed, store, useStore, type SheetColumn, type SheetDoc, type SheetRow } from "../lib/store";
 import { learn, suggest } from "../lib/autofill";
-import { api } from "../lib/api";
+import { coachError, isOffline } from "../lib/api";
+import { pushSheetNow } from "../lib/sheetSync";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateGrid } from "../lib/plan";
@@ -334,12 +335,10 @@ export function SeasonGrid() {
     }
     setSaving(true);
     try {
-      const payload = { name: sheet.name, columns: sheet.columns, rows: sheet.rows };
-      const res = sheet.remoteId ? await api.updateSheet(sheet.remoteId, payload) : await api.createSheet(payload);
-      update({ remoteId: res.sheet.id });
-      toast("Call sheet saved to your account.");
-    } catch (error) {
-      toast(error instanceof Error ? error.message : "The call sheet did not reach the cloud. It is safe in this browser.", true);
+      const res = await pushSheetNow(sheet.id);
+      if (res.ok) toast("Call sheet saved to your account.");
+      else if (isOffline(res.error)) toast("No signal, so the call sheet is in this browser for now. It goes to your account as soon as you're back online.", true);
+      else toast(`${coachError(res.error, "The call sheet didn't reach your account.")} It is safe in this browser.`, true);
     } finally {
       setSaving(false);
     }
