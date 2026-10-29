@@ -5,6 +5,7 @@ import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
 import { PlaybookSync } from "./lib/playbookSync";
 import { MyTeamSync } from "./lib/teamSource";
+import { BrandSync } from "./lib/brand";
 import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
@@ -132,6 +133,7 @@ export function App() {
       <CarryOver />
       <PlaybookSync />
       <MyTeamSync />
+      <BrandSync />
       <SheetSync />
       <PhoneGate />
       <NewPassword />

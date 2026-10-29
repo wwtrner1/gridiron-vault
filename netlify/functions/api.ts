@@ -9,6 +9,7 @@ import {
   callSheets,
   events,
   myTeams,
+  teamBrands,
   organizations,
   orgMembers,
   playbookPlays,
@@ -49,6 +50,7 @@ import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam } from "../../src/lib/teamHub.js";
+import { cleanBrand } from "../../src/lib/brandData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
@@ -457,6 +459,27 @@ async function route(req: Request, deviceId: string): Promise<Response> {
           .values({ ownerId: me.id, data: team, updatedAt: new Date() })
           .onConflictDoUpdate({ target: myTeams.ownerId, set: { data: team, updatedAt: new Date() } });
         return mine({ team });
+      }
+    }
+
+    /* ---------------------------------------------------- team brand --- */
+    if (resource === "brand" && !id) {
+      const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
+      if (!me) return req.method === "GET" ? mine({ brand: null }) : fail("Sign in to keep your team branding on your account.", 401);
+      if (req.method === "GET") {
+        const [row] = await db.select().from(teamBrands).where(eq(teamBrands.ownerId, me.id));
+        return mine({ brand: row ? cleanBrand(row.data) : null });
+      }
+      if (req.method === "PUT") {
+        await ensureProfile(me);
+        const body = (await req.json().catch(() => ({}))) as { brand?: unknown };
+        const brand = cleanBrand(body.brand);
+        if (!brand.updatedAt) brand.updatedAt = new Date().toISOString();
+        await db
+          .insert(teamBrands)
+          .values({ ownerId: me.id, data: brand, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: teamBrands.ownerId, set: { data: brand, updatedAt: new Date() } });
+        return mine({ brand });
       }
     }
 
@@ -1061,6 +1084,7 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
+    await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
     await tx.delete(events).where(eq(events.ownerId, me.id));

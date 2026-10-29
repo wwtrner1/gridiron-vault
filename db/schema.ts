@@ -559,3 +559,14 @@ export const myTeams = pgTable("my_teams", {
   data: jsonb().$type<unknown>().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/**
+ * Team branding (name, logo as a small PNG data URL, two colors): one row per
+ * coach holding the whole `TeamBrand` (src/lib/brandData.ts), cleaned by
+ * `cleanBrand`, so it follows the coach to every device. Owner only.
+ */
+export const teamBrands = pgTable("team_brands", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

@@ -43,7 +43,7 @@ export function TeamBrand({ teamName }: { teamName: string }) {
     <section className="hub-panel brand-panel" aria-labelledby="brand-h">
       <div className="brand-form">
         <h3 id="brand-h">Team branding</h3>
-        <p className="hint">Your logo and colors on the field, wristbands and PDFs. Saved in this browser.</p>
+        <p className="hint">Your logo and colors on the field, wristbands and PDFs. Saved in this browser, and on your account when you sign in.</p>
 
         <label className="field">
           <span>Name on the field and prints</span>

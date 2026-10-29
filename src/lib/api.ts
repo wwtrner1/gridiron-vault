@@ -7,6 +7,7 @@ import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
 import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, TextSignup } from "./teamHub";
+import type { TeamBrand } from "./brandData";
 
 export type ApiPlay = {
   id: string;
@@ -141,6 +142,8 @@ export const api = {
 
   /* My team: the coach's own roster and depth chart, one per account. */
   myTeam: () => request<{ team: MyTeamDoc | null }>("my-team"),
+  brand: () => request<{ brand: TeamBrand | null }>("brand"),
+  saveBrand: (brand: TeamBrand) => request<{ brand: TeamBrand | null }>("brand", { method: "PUT", body: JSON.stringify({ brand }) }),
   saveMyTeam: (team: MyTeamDoc) => request<{ team: MyTeamDoc }>("my-team", { method: "PUT", body: JSON.stringify({ team }) }),
   /* Team hub: teams and rosters, for the director and each team's staff. */
   hub: (orgId: string) => request<HubState>(`hub/${orgId}`),
