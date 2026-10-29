@@ -12,9 +12,12 @@ import { lazy, type ComponentType } from "react";
 const loaders: (() => Promise<unknown>)[] = [];
 const RELOADED = "grid1ronvault.reloaded";
 
+/** Also for heavy parts of a screen that open on a click (the export dialog); the component keeps its prop types. */
 export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K) {
   loaders.push(load);
-  return lazy(() =>
+  // A screen loaded after the warm-up started still gets its parts fetched for offline use.
+  if (warmed) idle(pump);
+  return lazy<M[K] extends ComponentType<any> ? M[K] : ComponentType<any>>(() =>
     load().then(
       (m) => {
         try {
@@ -22,7 +25,7 @@ export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K) 
         } catch {
           /* storage off: nothing to clear */
         }
-        return { default: m[name] as ComponentType<any> };
+        return { default: m[name] as any };
       },
       (err) => {
         let again = false;
@@ -43,23 +46,34 @@ export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K) 
 }
 
 let warmed = false;
+let fetched = 0;
+let pumping = false;
+
+const idle = (fn: () => void) => {
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(fn, { timeout: 4000 });
+  else setTimeout(fn, 1500);
+};
+
+/** Fetches the next few not yet fetched, then the next few once the browser is idle again. */
+function pump() {
+  if (pumping) return;
+  const batch = loaders.slice(fetched, fetched + 3);
+  if (!batch.length) return;
+  pumping = true;
+  fetched += batch.length;
+  Promise.allSettled(batch.map((l) => l())).then(() => {
+    pumping = false;
+    idle(pump);
+  });
+}
+
 /** Fetch every screen once the browser is idle, a few at a time. */
 export function warmPages() {
   if (warmed) return;
-  warmed = true;
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
   if (conn?.saveData) return;
-  const idle = (fn: () => void) => {
-    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(fn, { timeout: 4000 });
-    else setTimeout(fn, 1500);
-  };
-  const queue = [...loaders];
-  const next = () => {
-    const batch = queue.splice(0, 3);
-    if (!batch.length) return;
-    Promise.allSettled(batch.map((l) => l())).then(() => idle(next));
-  };
-  idle(next);
+  warmed = true;
+  idle(pump);
 }
 
 /** What shows for the moment a screen is still loading. */

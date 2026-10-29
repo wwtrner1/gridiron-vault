@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
@@ -9,7 +9,7 @@ import { DesignerTour, tourSeen } from "../components/DesignerTour";
 import { RAIL_GROUPS, useToolPrefs } from "../lib/toolPrefs";
 import { coachTips, useTipsEnabled } from "../lib/coachTips";
 import { Inspector } from "../components/Inspector";
-import { ExportDialog } from "../components/ExportDialog";
+import { lazyPage } from "../lib/lazyPage";
 import { Mark } from "../components/Shell";
 import { TokenGlyph } from "../components/TokenGlyph";
 import { FormationLibrary } from "../components/FormationLibrary";
@@ -89,6 +89,9 @@ import { loadWork, rememberWork, workTabs } from "../lib/workTabs";
 import { WorkTabs } from "../components/WorkTabs";
 import { letterColor } from "../lib/colors";
 import "../styles/designer.css";
+
+// PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
+const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 
 const blankMeta: PlayMeta = {
   name: "",
@@ -2662,16 +2665,18 @@ export function Builder() {
       )}
 
       {exporting && (
-        <ExportDialog
-          plays={exportables}
-          tier={tier}
-          onClose={() => setExporting(false)}
-          onUpgrade={() => navigate("/pricing")}
-          onDone={(kind) => {
-            track("play_exported", { kind });
-            toast("Export downloaded. Check your browser's downloads folder.");
-          }}
-        />
+        <Suspense fallback={null}>
+          <ExportDialog
+            plays={exportables}
+            tier={tier}
+            onClose={() => setExporting(false)}
+            onUpgrade={() => navigate("/pricing")}
+            onDone={(kind) => {
+              track("play_exported", { kind });
+              toast("Export downloaded. Check your browser's downloads folder.");
+            }}
+          />
+        </Suspense>
       )}
 
       <CoachTip />
