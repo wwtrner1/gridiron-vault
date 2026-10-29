@@ -9,6 +9,7 @@ import { useOwner } from "../lib/owner";
 import { PLAYBOOK_NAV, type NavItem } from "../lib/nav";
 import { PlaybookTree } from "./PlaybookTree";
 import { PaymentBanner } from "./PaymentBanner";
+import { PageHelp } from "./Tour";
 
 type Props = {
   title: string;
@@ -21,6 +22,7 @@ type Props = {
 const ACCOUNT_NAV: NavItem[] = [
   { to: "/pricing", icon: "sparkle", label: "Plans", hint: "Compare plans and see what your plan includes." },
   { to: "/account", icon: "user", label: "Your account", hint: "Your name, plan, exports and data." },
+  { to: "/tutorials", icon: "play", label: "Tutorials", hint: "Every screen and every button, with a guided tour of each." },
   { to: "/help", icon: "help", label: "Help & feedback", hint: "Get help, report a problem or tell us what to improve." },
 ];
 
@@ -153,6 +155,7 @@ export function Shell({ title, actions, tabs, children }: Props) {
           <h1>{title}</h1>
           <div className="spacer" />
           {actions}
+          <PageHelp />
         </header>
         <PaymentBanner />
         {tabs}

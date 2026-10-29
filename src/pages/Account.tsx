@@ -117,7 +117,7 @@ export function Account() {
       </div>
 
       <div className="acct-grid">
-        <section className="card">
+        <section className="card" data-tour="acct-profile">
           <h3>Coach profile</h3>
           {account ? (
             <>
@@ -159,7 +159,7 @@ export function Account() {
         {account && <DevicesCard />}
         <InstallCard />
 
-        <section className="card">
+        <section className="card" data-tour="acct-plan">
           <div className="card-head">
             <h3>Your plan</h3>
             <span className={`pill${tier.id === "beta" || tier.id === "master" ? " pill-cyan" : ""}`}>{tier.name}</span>
@@ -246,7 +246,7 @@ export function Account() {
           )}
         </section>
 
-        <section className="card">
+        <section className="card" data-tour="acct-usage">
           <h3>What you have used</h3>
           {usage.map((u) => (
             <div className="meter" key={u.label}>
@@ -312,7 +312,7 @@ export function Account() {
           )}
         </section>
 
-        <section className="card">
+        <section className="card" data-tour="acct-data">
           <h3>Your data</h3>
           <p>
             Plays, playbooks and Call Sheets live in this browser first and sync to your account when you

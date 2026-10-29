@@ -186,6 +186,11 @@ There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm
 ### Guides (SEO articles)
 - `public/guides/` holds static HTML articles (hub, plays that beat zone, plays that beat man, an 8-practice install plan, a glossary) with inline SVG diagrams, JSON-LD (Article + FAQ) and `guides.css`; no scripts, so the CSP holds. Netlify serves them before the SPA rewrite; link to them with a plain `<a href>` (the marketing footer does), never a router `Link`. `public/sw.js` skips `/guides` so a guide never replaces the cached app shell. List new pages in `public/sitemap.xml` (`public/robots.txt` points to it).
 
+### Tutorials (every button, guided tours)
+- `src/lib/guides.ts` is the one list of every screen's buttons and what they do (`GUIDES`; steps grouped in sections, each with a CSS `target`, usually `data-tour="…"` via `tour()`). It drives the ? button in every Shell top bar and the Designer's top bar (`PageHelp` in `components/Tour.tsx`, guide picked by `guideFor(pathname, search)`), the spotlight tour (`TourProvider` in `App.tsx`; `?tour=<id>` starts one, `start(id)` from `useTour()`), and `/tutorials` (`pages/Tutorials.tsx`, with a button finder). Shell screens get the shared `SHELL` steps (side menu, ?, Griddy) at the end.
+- The tour skips a step whose target isn't on screen (signed out, phone layout, a bar that only shows while drawing) and keeps it in the ? list. `open` buttons are clicked to bring a menu, sheet or dialog up first (the Designer's Extras, the phone tools sheet, Griddy, Coverage check) and `close` puts it away when the tour moves on. The Designer's animated slides (`DesignerTour`) stay as "Watch the 6 quick moves" and don't auto-open on a guided-tour visit. Seen guides are in `grid1ronvault.guides.v1` (the ? shows a dot until then).
+- When you add or rename a button, update its guide step; when you add a screen, add a guide (and a `data-tour` on anything without a stable selector).
+
 ### Routing and shell
 - `src/App.tsx` defines routes; `/build/:id` and `/grid/:id` are deep-linkable, so `netlify.toml` rewrites `/*` → `/index.html`. Placeholder routes come from `COMING_SOON` in `pages/ComingSoon.tsx`.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.

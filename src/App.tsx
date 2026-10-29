@@ -38,6 +38,8 @@ import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 import { Tools } from "./pages/Tools";
 import { FrontOffice } from "./pages/FrontOffice";
 import { MyTeam } from "./pages/MyTeam";
+import { Tutorials } from "./pages/Tutorials";
+import { TourProvider } from "./components/Tour";
 
 const TITLES: Record<string, string> = {
   "/": "GridIronVault — Flag Football Playbook Studio",
@@ -64,6 +66,7 @@ const TITLES: Record<string, string> = {
   "/tools": "More tools — GridIronVault",
   "/front-office": "Front Office — GridIronVault",
   "/roster": "My team — GridIronVault",
+  "/tutorials": "Tutorials — GridIronVault",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
 };
 
@@ -92,6 +95,7 @@ const NAMES: Record<string, string> = {
   "/tools": "More tools",
   "/front-office": "Front Office",
   "/roster": "My team",
+  "/tutorials": "Tutorials",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
 
@@ -129,6 +133,7 @@ export function App() {
   return (
     <ToastProvider>
       <GriddyProvider>
+      <TourProvider>
       <RouteChrome />
       <CarryOver />
       <PlaybookSync />
@@ -164,6 +169,7 @@ export function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/front-office" element={<FrontOffice />} />
         <Route path="/roster" element={<MyTeam />} />
+        <Route path="/tutorials" element={<Tutorials />} />
         {/* Game Day was retired: old links open the Call Sheet they pointed at. */}
         <Route path="/game" element={<Navigate to="/grid" replace />} />
         <Route path="/game/:id" element={<GameDayMoved />} />
@@ -173,6 +179,7 @@ export function App() {
         <Route path="/login" element={<Navigate to="/signin" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </TourProvider>
       </GriddyProvider>
     </ToastProvider>
   );

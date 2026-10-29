@@ -114,7 +114,7 @@ export function Playbooks() {
           <Link to="/vault" className="btn btn-quiet btn-sm">
             <Icon name="board" size={15} /> The Vault
           </Link>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setDraft(blankDraft())}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setDraft(blankDraft())} data-tour="new-playbook">
             <Icon name="plus" size={15} /> New playbook
           </button>
         </>

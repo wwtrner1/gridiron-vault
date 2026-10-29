@@ -226,7 +226,7 @@ export function Vault() {
       }
     >
       <div className="page">
-        <div className="tab-row" style={{ maxWidth: 360 }} role="group" aria-label="Which plays to show">
+        <div className="tab-row" style={{ maxWidth: 360 }} role="group" aria-label="Which plays to show" data-tour="vault-tabs">
           <button
             type="button"
             aria-pressed={tab === "mine"}
