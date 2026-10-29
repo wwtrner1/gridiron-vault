@@ -16,8 +16,10 @@ const PUSH_DELAY_MS = 1500;
 
 /** What the account has for each sheet (by local id), so an unchanged one isn't sent again. */
 const sent = new Map<string, string>();
-/** Sheets whose first save to the account is under way. */
-const creating = new Set<string>();
+/** Sheets whose first save to the account is under way, so a second push waits for it instead of making a copy. */
+const creating = new Map<string, Promise<unknown>>();
+/** Why each sheet's last push failed, for the Call Sheet's own "Save to account" button. */
+const failed = new Map<string, unknown>();
 
 const fingerprint = (s: SheetDoc) => JSON.stringify([s.name, s.columns, s.rows]);
 
@@ -46,14 +48,20 @@ async function push() {
     if (sent.get(sheet.id) === print) continue;
     const payload = { name: sheet.name, columns: sheet.columns, rows: sheet.rows };
     if (!sheet.remoteId) {
-      if (creating.has(sheet.id)) continue;
-      creating.add(sheet.id);
+      const under = creating.get(sheet.id);
+      if (under) {
+        await under;
+        continue;
+      }
+      const job = api.createSheet(payload);
+      creating.set(sheet.id, job.catch(() => undefined));
       try {
-        const res = await api.createSheet(payload);
+        const res = await job;
         store.patchSheet(sheet.id, { remoteId: res.sheet.id, updatedAt: res.sheet.updatedAt });
         sent.set(sheet.id, print);
-      } catch {
-        /* still saved in this browser (a plan limit lands here too); the next change tries again */
+        failed.delete(sheet.id);
+      } catch (e) {
+        failed.set(sheet.id, e); // still saved in this browser (a plan limit lands here too); the next change or the signal coming back tries again
       } finally {
         creating.delete(sheet.id);
       }
@@ -63,11 +71,25 @@ async function push() {
       const res = await api.updateSheet(sheet.remoteId, payload);
       store.patchSheet(sheet.id, { updatedAt: res.sheet.updatedAt });
       sent.set(sheet.id, print);
+      failed.delete(sheet.id);
     } catch (e) {
+      failed.set(sheet.id, e);
       // The account doesn't have it (a different account's copy, or removed elsewhere): save it again as new.
       if (e instanceof Error && /isn't in your account/.test(e.message)) store.patchSheet(sheet.id, { remoteId: null });
     }
   }
+}
+
+/**
+ * Sends this sheet now (the Call Sheet's "Save to account"), through the same
+ * push as the automatic sync so the two never both create it. Resolves to the
+ * error when it didn't reach the account.
+ */
+export async function pushSheetNow(id: string): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  await push();
+  const sheet = store.get().sheets.find((s) => s.id === id);
+  if (sheet && sheet.remoteId && sent.get(id) === fingerprint(sheet)) return { ok: true };
+  return { ok: false, error: failed.get(id) };
 }
 
 /** Mounted once, under the sign-in provider. */
@@ -97,9 +119,13 @@ export function SheetSync() {
       .finally(() => {
         if (alive) void push();
       });
+    // Edits made with no signal go up as soon as it comes back, not only on the next edit.
+    const online = () => void push();
+    window.addEventListener("online", online);
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      window.removeEventListener("online", online);
       unsubscribe();
       offRemoved();
     };
