@@ -1852,9 +1852,8 @@ export function Builder() {
 
   return (
     <div className="builder dz">
-      <h1 className="sr-only">Play designer — {meta.name.trim() || "untitled play"}</h1>
-
-      <header className="dz-top" role="toolbar" aria-label="Play actions">
+      <header className="dz-top" aria-label="Play actions">
+        <h1 className="sr-only">Play designer — {meta.name.trim() || "untitled play"}</h1>
         <button
           type="button"
           className={`dz-top-btn dz-sheet-only${railOpen ? " is-on" : ""}`}
@@ -2144,6 +2143,8 @@ export function Builder() {
           {!sideOpen && <span>Play</span>}
         </button>
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} id="dz-tools" aria-label="Drawing tools">
+          {/* The sheet header carries the heading on phones; on wider screens this keeps the heading order h1 → h2 → h3. */}
+          <h2 className="dz-wide-h">Drawing tools</h2>
           <div className="dz-sheet-head">
             <span className="dz-sheet-grip" aria-hidden="true" />
             <h2>Tools</h2>
