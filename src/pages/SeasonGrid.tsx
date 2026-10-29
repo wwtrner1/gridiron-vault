@@ -338,6 +338,14 @@ export function SeasonGrid() {
     setActiveId(sheetDoc.id);
   };
 
+  const deleteSheet = () => {
+    if (!window.confirm(`Delete "${sheet.name}"? It leaves this browser${account ? " and your account" : ""}. Your plays stay in the Vault.`)) return;
+    const next = sheets.find((s) => s.id !== sheet.id);
+    store.removeSheet(sheet.id);
+    setActiveId(next?.id ?? null);
+    toast(`${sheet.name} deleted.`);
+  };
+
   /* ---------------------------------------------------------------- render */
 
   return (
@@ -362,6 +370,9 @@ export function SeasonGrid() {
           </Tooltip>
           <button type="button" className="btn btn-ghost btn-sm" onClick={newGrid}>
             <Icon name="plus" size={15} /> New sheet
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={deleteSheet} aria-label={`Delete ${sheet.name}`}>
+            <Icon name="trash" size={15} /> Delete
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={syncUp} disabled={saving}>
             <Icon name="save" size={15} /> {saving ? "Saving…" : "Save sheet"}
