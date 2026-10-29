@@ -70,7 +70,8 @@ import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
 import { useFieldPrefs } from "../lib/fieldPrefs";
 import { FieldControls } from "../components/FieldControls";
-import { api, toStoredPlay } from "../lib/api";
+import { api, isOffline, toStoredPlay } from "../lib/api";
+import { PLAY_ID_EVENT, type PlayIdChange } from "../lib/playSync";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateSave, gateTool } from "../lib/plan";
@@ -494,6 +495,18 @@ export function Builder() {
   const loadedId = useRef<string | undefined>(id);
 
   useCaptureGuard(tier.watermark);
+
+  // A play saved with no signal reaches the account later under a new id: follow it, keeping the canvas as it is.
+  useEffect(() => {
+    const follow = (e: Event) => {
+      const { from, to } = (e as CustomEvent<PlayIdChange>).detail;
+      if (from !== loadedId.current) return;
+      loadedId.current = to;
+      navigate(`/build/${to}${window.location.search}`, { replace: true });
+    };
+    window.addEventListener(PLAY_ID_EVENT, follow);
+    return () => window.removeEventListener(PLAY_ID_EVENT, follow);
+  }, [navigate]);
 
   // Swap the canvas when the route points at a different play.
   useEffect(() => {
@@ -1469,7 +1482,9 @@ export function Builder() {
       preview: "",
       saveCount: existing?.saveCount ?? 0,
       updatedAt: new Date().toISOString(),
-      remote: false,
+      // An account play stays an account play if this save can't reach the account (so the next one updates it, never a duplicate).
+      remote: existing?.remote ?? false,
+      ...(account ? { unsynced: true } : {}),
     };
     store.upsertPlay(record);
     // A new play goes in the playbook picked in the setup, else the one it was started from (the tree's +, ?book=).
@@ -1508,8 +1523,18 @@ export function Builder() {
       }
       track("play_created", { formation: record.formation, type: record.playType });
     } catch (error) {
-      toast(error instanceof Error ? error.message : "The save did not reach the cloud. It is safe in this browser.", true);
+      toast(
+        isOffline(error)
+          ? "No signal, so this save is in this browser for now. It goes to your account as soon as you're back online."
+          : error instanceof Error
+            ? `${error.message} The play is safe in this browser.`
+            : "The save did not reach your account. It is safe in this browser.",
+        true,
+      );
+      fileIn.current = null;
       setDirty(false);
+      // Point the address at the browser copy, so the next save updates it instead of starting another play.
+      if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
     } finally {
       setSaving(false);
     }

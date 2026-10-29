@@ -37,12 +37,24 @@ export const SECURITY_EVENT = "grid1ronvault:security";
 /** A team's family texts link and the people who signed up on it. */
 export type TextList = { token: string; signups: TextSignup[]; sms: boolean };
 
+/** What a coach reads when a request never reached us (no signal, or the connection dropped). */
+export const OFFLINE_MESSAGE = "No signal right now. Try again when you're back online.";
+
+/** True when an API error was the connection, not the server saying no. */
+export const isOffline = (e: unknown) => e instanceof Error && e.message === OFFLINE_MESSAGE;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api/${path}`, {
-    credentials: "include",
-    ...init,
-    headers: { "Content-Type": "application/json", "X-Device": deviceId() },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/${path}`, {
+      credentials: "include",
+      ...init,
+      headers: { "Content-Type": "application/json", "X-Device": deviceId() },
+    });
+  } catch {
+    // fetch only throws when nothing came back: never show the browser's own "Failed to fetch".
+    throw new Error(OFFLINE_MESSAGE);
+  }
   const text = await res.text();
   let data: { error?: string; code?: string } & Record<string, unknown> = {};
   try {
