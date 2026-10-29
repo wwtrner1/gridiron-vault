@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { brandStore, hasBrand, hexToRgb, inkOn, luminance, type TeamBrand } from "./brand";
 import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
 import { CARD_LOOK, FULL_LOOK, lettersFit, type PrintLook } from "./printLook";
@@ -130,7 +131,7 @@ export type NumberSize = keyof typeof NUMBER_SIZES;
 export type NumberStyle = "tab" | "band";
 
 /** Words in the header and border text that fill in per card. */
-export const BAND_TOKENS = ["{role}", "{card}", "{source}", "{count}"] as const;
+export const BAND_TOKENS = ["{role}", "{card}", "{source}", "{count}", "{team}"] as const;
 
 export type BandOptions = {
   card: { w: number; h: number };
@@ -168,12 +169,22 @@ export function entryFromPlay(p: StoredPlay, number = ""): BandEntry {
 }
 
 /** Fill the {tokens} in a header or footer line. */
-export function fillBandText(text: string, vars: { role: string; card: string; source: string; count: number }) {
+export function fillBandText(text: string, vars: { role: string; card: string; source: string; count: number; team?: string }) {
   return text
+    .replace(/\{team\}/gi, vars.team ?? (brandStore.get().name.trim() || "My team"))
     .replace(/\{role\}/gi, vars.role)
     .replace(/\{card\}/gi, vars.card)
     .replace(/\{source\}/gi, vars.source)
     .replace(/\{count\}/gi, String(vars.count));
+}
+
+/** The card header's fill, text color and logo: team branding when it is on for prints. Shared with the preview. */
+export function bandHead(brand: TeamBrand = brandStore.get()): { fill: string; ink: string; logo: string | null } {
+  if (!brand.prints || !hasBrand(brand)) return { fill: "#0B1524", ink: "#16C8E8", logo: null };
+  const ink = inkOn(brand.primary);
+  // The secondary color for the words when it reads on the primary, else plain white or ink.
+  const words = Math.abs(luminance(brand.secondary) - luminance(brand.primary)) > 0.35 ? brand.secondary : ink;
+  return { fill: brand.primary, ink: words, logo: brand.logo };
 }
 
 /** Header and footer band heights, in inches, shared by the PDF and the preview. */
@@ -224,12 +235,20 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
   doc.setLineWidth(0.01);
   doc.rect(x, y, CARD_W, CARD_H);
   if (headH) {
-    doc.setFillColor(11, 21, 36);
+    // Team colors and logo when the coach has branding on prints; GridIronVault ink and cyan otherwise.
+    const head = bandHead();
+    doc.setFillColor(...hexToRgb(head.fill));
     doc.rect(x, y, CARD_W, headH, "F");
+    let textX = x + 0.06;
+    if (head.logo) {
+      const s = headH - 0.03;
+      doc.addImage(head.logo, "PNG", x + 0.04, y + 0.015, s, s, "team-logo", "FAST");
+      textX += s + 0.02;
+    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
-    doc.setTextColor(22, 200, 232);
-    doc.text(fillBandText(o.header.left, vars).toUpperCase(), x + 0.06, y + 0.135);
+    doc.setTextColor(...hexToRgb(head.ink));
+    doc.text(fillBandText(o.header.left, vars).toUpperCase(), textX, y + 0.135);
     doc.text(fillBandText(o.header.right, vars).toUpperCase(), x + CARD_W - 0.06, y + 0.135, { align: "right" });
   }
   if (footH) {

@@ -1,4 +1,5 @@
 import { HASHES, useFieldPrefs, type FieldContrast, type HashStyle } from "./fieldPrefs";
+import { hasBrand, tint, useBrand } from "./brand";
 import type { Box } from "./geometry";
 import type { FieldView } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
@@ -47,6 +48,8 @@ const CHALKS: Record<FieldContrast, Chalk> = {
   high: { band: "#EEF3F7", chalk: "#8FA6BB", soft: "#B4C5D3", numbers: "#4F6478", numbersPrint: "#33475B" },
 };
 const NAVY = "#0B1524"; // --ink
+/** Team logo at midfield, in canvas units. */
+const LOGO_SIZE = 220;
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
 
@@ -82,6 +85,7 @@ function labelled(lines: YardLine[], gap: number, size: number, frame?: Box): Ya
 
 export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame, hashes, contrast }: Props) {
   const prefs = useFieldPrefs();
+  const brand = useBrand();
   const { band: BAND, chalk: CHALK, soft: CHALK_SOFT, numbers: NUMBERS, numbersPrint: NUMBERS_PRINT } = CHALKS[contrast ?? prefs.contrast];
   const hashAt = HASHES.find((h) => h.id === (hashes ?? prefs.hashes))?.at ?? 0;
   // On paper: does lettering of this size read, and how wide must a line be to print.
@@ -141,6 +145,8 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
   const inset = fieldInset(view);
   const top = fieldTop(view);
   const lines = yardLines(view, losY, top);
+  const teamEnds = brand.endZones && hasBrand(brand);
+  const logo = brand.logoOnField && !ptPerUnit ? brand.logo : null;
   // Hash marks every yard; flag fields have none.
   const showHashes = hashAt > 0 && view !== "flag" && reads(15);
   const perYard = gap / 5;
@@ -184,17 +190,38 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
             strokeWidth={chalk(3)}
           />
 
-          {/* End zone shading */}
+          {/* End zone shading: team colors and name when the coach has set them */}
           {(view === "redzone" || view === "flag") && (
             <>
-              <rect x={inset} y={14} width={CANVAS_W - inset * 2} height={68} fill="#EDF5F9" />
+              <rect x={inset} y={14} width={CANVAS_W - inset * 2} height={68} fill={teamEnds ? tint(brand.primary, 0.16) : "#EDF5F9"} />
               <line x1={inset} x2={CANVAS_W - inset} y1={82} y2={82} stroke={CHALK} strokeWidth={chalk(3)} />
               {reads(19) && (
-                <text x={CANVAS_W / 2} y={54} textAnchor="middle" fontSize={19} fill={NUMBERS} fontWeight={800} letterSpacing="7">
-                  END ZONE
+                <text
+                  x={CANVAS_W / 2}
+                  y={54}
+                  textAnchor="middle"
+                  fontSize={19}
+                  fill={teamEnds ? tint(brand.primary, 0.85) : NUMBERS}
+                  fontWeight={800}
+                  letterSpacing="7"
+                >
+                  {teamEnds && brand.name.trim() ? brand.name.trim().toUpperCase() : "END ZONE"}
                 </text>
               )}
             </>
+          )}
+
+          {/* Team logo at midfield, faint so the play reads on top. Screen and full-field images only: prints crop to the play. */}
+          {logo && (
+            <image
+              href={logo}
+              x={CANVAS_W / 2 - LOGO_SIZE / 2}
+              y={(top + CANVAS_H - 14) / 2 - LOGO_SIZE / 2}
+              width={LOGO_SIZE}
+              height={LOGO_SIZE}
+              opacity={0.12}
+              preserveAspectRatio="xMidYMid meet"
+            />
           )}
 
           {/* Yard lines every 5 yards from the line of scrimmage, each marked with its distance */}

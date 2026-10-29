@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { brandStore, hasBrand, hexToRgb, luminance } from "./brand";
 import { jsPDF } from "jspdf";
 import { FieldBackground, RuleLinesLayer } from "./field";
 import { loadRules, ruleSet } from "./rules";
@@ -335,6 +336,8 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
     compress: true,
   });
   const slots = pdfSlots(plays, options);
+  const team = brandStore.get();
+  const brand = team.prints && hasBrand(team) ? team : null;
 
   for (let i = 0; i < plays.length; i++) {
     const play = plays[i];
@@ -343,10 +346,18 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
     if (i > 0 && i % options.perPage === 0) doc.addPage([size.w, size.h], landscape ? "landscape" : "portrait");
 
     if (options.includeName) {
+      // Team logo ahead of the name, and the name in the team's color, when branding is on for prints.
+      let nameX = x;
+      if (brand && brand.logo) {
+        const s = titleH * 0.9;
+        doc.addImage(brand.logo, "PNG", x, y + (titleH - s) / 2, s, s, "team-logo", "FAST");
+        nameX += s + 0.06;
+      }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(small ? 10 : 13);
-      doc.setTextColor(22, 33, 28);
-      doc.text(play.name || "Untitled play", x, y + titleH * 0.72);
+      if (brand && luminance(brand.primary) < 0.5) doc.setTextColor(...hexToRgb(brand.primary));
+      else doc.setTextColor(22, 33, 28);
+      doc.text(play.name || "Untitled play", nameX, y + titleH * 0.72);
       const meta = [play.formation, play.playType].filter(Boolean).join(" · ").toUpperCase();
       if (meta) {
         doc.setFont("helvetica", "normal");
@@ -381,7 +392,7 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
     }
   }
 
-  doc.setProperties({ title });
+  doc.setProperties({ title: brand?.name.trim() ? `${title} · ${brand.name.trim()}` : title });
   return doc;
 }
 

@@ -27,7 +27,7 @@ export const PLAYBOOK_NAV: NavItem[] = [
     to: "/roster",
     icon: "users",
     label: "My team",
-    hint: "Your roster and depth chart. Send the starters to Assignments so position sheets print with their names.",
+    hint: "Your roster, depth chart and team branding: logo and colors on the field, wristbands and PDFs.",
   },
   {
     to: "/front-office",
