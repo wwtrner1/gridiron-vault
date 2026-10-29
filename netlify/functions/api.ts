@@ -36,7 +36,7 @@ import {
 } from "../security/phone.js";
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { emailKey, isDisposable, isInternetNumber, phoneKey, trialsOn } from "../security/trial.js";
-import { billingOn, expireSeason, handleWebhook, openPortal, startCheckout } from "../billing/stripe.js";
+import { billingOn, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
@@ -194,16 +194,33 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
       const state = await planState(me);
-      return json({ user: { id: me.id, email: me.email, name: me.name }, owner: me.owner, billing: billingOn(), ownerHint: me.owner ? undefined : me.ownerHint, plan: state.tier.id, trialEndsAt: state.trialEndsAt?.toISOString(), security: await securityOf(me, deviceId) });
+      return json({
+        user: { id: me.id, email: me.email, name: me.name },
+        owner: me.owner,
+        billing: billingOn(),
+        ownerHint: me.owner ? undefined : me.ownerHint,
+        plan: state.tier.id,
+        trialEndsAt: state.trialEndsAt?.toISOString(),
+        subscribed: state.subscribed,
+        pausedUntil: state.pausedUntil?.toISOString(),
+        security: await securityOf(me, deviceId),
+      });
     }
 
     /* -------------------------------------------------------- billing --- */
-    if (resource === "billing" && req.method === "POST" && (id === "checkout" || id === "portal")) {
+    if (resource === "billing" && req.method === "POST" && (id === "checkout" || id === "portal" || id === "pause" || id === "resume")) {
       if (!me) return fail("Sign in first.", 401);
       if (me.owner) return fail("Your account is All-Access Master. There's nothing to buy.", 403);
       await ensureProfile(me);
-      const body = id === "checkout" ? await req.json().catch(() => ({})) : {};
-      const out = id === "checkout" ? await startCheckout(me, String((body as Record<string, unknown>).offer ?? "")) : await openPortal(me);
+      const body = (id === "checkout" || id === "pause" ? await req.json().catch(() => ({})) : {}) as Record<string, unknown>;
+      const out =
+        id === "checkout"
+          ? await startCheckout(me, String(body.offer ?? ""))
+          : id === "pause"
+            ? await pauseSubscription(me, body.months)
+            : id === "resume"
+              ? await resumeSubscription(me)
+              : await openPortal(me);
       return "error" in out ? fail(out.error, 400) : json(out);
     }
 
@@ -676,23 +693,24 @@ async function planOf(me: Session): Promise<Tier> {
 }
 
 /** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
-async function planState(me: Session): Promise<{ tier: Tier; trialEndsAt: Date | null }> {
+async function planState(me: Session): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null }> {
   if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
   const [row] = await db
-    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId })
+    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil })
     .from(profiles)
     .where(eq(profiles.id, me.id));
+  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null };
   // A one-time Season Pass that has run out, with no subscription behind it, is Sideline from this request on.
   if (row?.plan === "solo" && row.planEndsAt && !row.sub && row.planEndsAt.getTime() <= Date.now()) {
     await expireSeason(me.id);
-    return { tier: TIERS.free, trialEndsAt: null };
+    return { tier: TIERS.free, trialEndsAt: null, ...billed };
   }
   if (row?.plan === "trial") {
     if (row.trialEndsAt && row.trialEndsAt.getTime() > Date.now()) return { tier: TIERS.trial, trialEndsAt: row.trialEndsAt };
     await db.update(profiles).set({ plan: "free", trialEndsAt: null }).where(and(eq(profiles.id, me.id), eq(profiles.plan, "trial")));
     return { tier: TIERS.free, trialEndsAt: null };
   }
-  return { tier: tierFor(row?.plan), trialEndsAt: null };
+  return { tier: tierFor(row?.plan), trialEndsAt: null, ...billed };
 }
 
 const planFail = (gate: Extract<Gate, { ok: false }>) => json({ error: gate.reason, code: "plan_limit", cta: gate.cta }, 403);
