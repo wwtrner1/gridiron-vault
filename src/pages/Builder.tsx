@@ -75,6 +75,8 @@ import { gateSave, gateTool } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { copyStyle, pasteStyle, styleClip } from "../lib/styleCopy";
 import { useCaptureGuard } from "../lib/guard";
+import { useLivePlay } from "../lib/liveSync";
+import { applyPatch } from "../lib/live";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
@@ -194,6 +196,8 @@ export function Builder() {
   const playbooks = useStore((s) => s.playbooks);
   const sheets = useStore((s) => s.sheets);
   const [params] = useSearchParams();
+  /** A play the Front Office is drawing together: the scene follows the server instead of the Vault. */
+  const liveId = params.get("live");
   const location = useLocation();
   const offense = usePositionTokens();
 
@@ -206,6 +210,7 @@ export function Builder() {
    * playbook, unless the coach turned it off or came here to have Griddy draw.
    */
   const askSetup = () => {
+    if (liveId) return null;
     const state = location.state as { skipSetup?: boolean; setup?: boolean } | null;
     const ask = state?.setup || (!state?.skipSetup && setupWanted());
     return ask ? lastChoice(params.get("book"), playbooks) : null;
@@ -478,7 +483,9 @@ export function Builder() {
       return !k;
     });
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [dirtyRaw, setDirty] = useState(false);
+  // A live play saves itself to the Front Office, so leaving it never asks about unsaved changes or files a stray copy.
+  const dirty = dirtyRaw && !liveId;
 
   const past = useRef<Scene[]>([]);
   const future = useRef<Scene[]>([]);
@@ -552,6 +559,31 @@ export function Builder() {
     setScene(next);
     setStatus("Redone.");
   }, []);
+
+  // Drawing together: other coaches' changes arrive as nodes, and every undo step is brought up to date with them so Undo never takes their work away.
+  const live = useLivePlay(
+    liveId,
+    () => sceneRefValue.current,
+    (next, name, others) => {
+      if (others) {
+        past.current = past.current.map((sc) => applyPatch(sc, others));
+        future.current = future.current.map((sc) => applyPatch(sc, others));
+      }
+      sceneRefValue.current = next;
+      setScene(next);
+      setSelection((sel) => sel.filter((nid) => next.nodes.some((n) => n.id === nid)));
+      if (name) setMeta((m) => (m.name === name ? m : { ...m, name }));
+    },
+  );
+
+  const startLive = async () => {
+    try {
+      const { play } = await api.startLive(meta.name.trim() || "Untitled play", reconcileConnections(sceneRefValue.current));
+      navigate(`/build?live=${play.id}`);
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  };
 
   /* ------------------------------------------------------------- placements */
 
@@ -1857,7 +1889,20 @@ export function Builder() {
               Export
             </button>
           </Tooltip>
-          {dirty || saving ? (
+          {liveId ? (
+            <span className="dz-saved" role="status" title={live.problem || "Everything you draw is shared with your staff a moment later."}>
+              <Icon name="users" size={14} />{" "}
+              {live.state === "live"
+                ? live.here.length
+                  ? `Live with ${live.here.join(", ")}`
+                  : "Live · just you"
+                : live.state === "blocked"
+                  ? "Can't open live"
+                  : live.state === "offline"
+                    ? "Reconnecting…"
+                    : "Opening…"}
+            </span>
+          ) : dirty || saving ? (
             <Tooltip title="Save play" hint="Keeps it in your Vault. Signed in, it also goes to your account so it's on every device." side="bottom">
               <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
                 {saving ? "Saving…" : "Save play"}
@@ -1962,6 +2007,15 @@ export function Builder() {
                   >
                     New play setup: {setupOn ? "on" : "off"}
                   </button>
+                  {liveId ? (
+                    <button type="button" role="menuitem" onClick={() => void save()}>
+                      Save a copy to my Vault
+                    </button>
+                  ) : (
+                    <button type="button" role="menuitem" onClick={() => void startLive()}>
+                      <Icon name="users" size={15} /> Draw this live with my staff
+                    </button>
+                  )}
                   <button type="button" role="menuitem" onClick={() => void flipToCopy()}>
                     Flip and save as a new play
                   </button>

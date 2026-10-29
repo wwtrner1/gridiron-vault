@@ -570,3 +570,28 @@ export const teamBrands = pgTable("team_brands", {
   data: jsonb().$type<unknown>().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/**
+ * A play the Staff plan's coaches draw together (src/lib/live.ts). One row
+ * per play: the whole scene, a revision that goes up with every accepted
+ * patch, and who has been looking at it lately. Access follows the
+ * organisation (its director and active coaches); nothing here is public.
+ */
+export const livePlays = pgTable(
+  "live_plays",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    scene: jsonb().$type<unknown>().notNull(),
+    rev: integer().notNull().default(0),
+    seen: jsonb().$type<Record<string, { name: string; at: number }>>().notNull().default({}),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("live_plays_org_idx").on(t.orgId)],
+);

@@ -8,6 +8,7 @@ import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
 import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, TextSignup } from "./teamHub";
 import type { TeamBrand } from "./brandData";
+import type { LivePatch, LivePlay } from "./live";
 
 export type ApiPlay = {
   id: string;
@@ -139,6 +140,13 @@ export const api = {
   removeMember: (memberId: string) => request<FrontOfficeState>(`org-members/${memberId}`, { method: "DELETE" }),
   openOrgShare: (shareId: string) => request<{ share: OrgShareDetail }>(`org-shares/${shareId}`),
   unshareFromOrg: (shareId: string) => request<FrontOfficeState>(`org-shares/${shareId}`, { method: "DELETE" }),
+
+  /* Live plays: Staff coaches drawing one play together (src/lib/live.ts). */
+  livePlays: (orgId: string) => request<{ plays: LivePlay[]; live: boolean }>(`live?org=${orgId}`),
+  startLive: (name: string, scene: Scene, orgId?: string) => request<{ play: LivePlay }>("live", { method: "POST", body: JSON.stringify({ name, scene, orgId }) }),
+  openLive: (id: string, since?: number) => request<{ rev: number; same?: boolean; name?: string; scene?: Scene; here: string[] }>(`live/${id}${since === undefined ? "" : `?since=${since}`}`),
+  pushLive: (id: string, patch: LivePatch) => request<{ rev: number; scene: Scene; here: string[] }>(`live/${id}`, { method: "PUT", body: JSON.stringify({ patch }) }),
+  deleteLive: (id: string) => request<{ ok: true }>(`live/${id}`, { method: "DELETE" }),
 
   /* My team: the coach's own roster and depth chart, one per account. */
   myTeam: () => request<{ team: MyTeamDoc | null }>("my-team"),

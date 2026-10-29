@@ -43,6 +43,7 @@ import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from ".
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
+import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
@@ -488,6 +489,13 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await hubRoute(me, req, resource, id, action);
+    }
+
+    /* ------------------------------------------- live plays (Staff plan) --- */
+    if (resource === "live") {
+      if (!me) return fail("Sign in to draw with your staff.", 401);
+      await ensureProfile(me);
+      return await liveRoute(me, req, id);
     }
 
     /* ------------------------------------------------------ playbooks --- */
