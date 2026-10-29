@@ -28,16 +28,20 @@ export type Format = "5v5" | "7v7" | "11";
 /** Steps per second of simulated time. */
 const FPS = 30;
 /** Yards per second, by job (youth speeds; the ratios are what matter). */
-const SPEED = { route: 6, man: 5.7, zone: 5, rush: 4.4, lineRush: 0.8, qb: 3 };
+const SPEED = { route: 6, man: 5.85, zone: 5, rush: 4.4, lineRush: 0.8, qb: 3 };
 /** Seconds before a defender reacts to the snap. */
-const REACT = { zone: 0.15, man: 0.1, read: 0.45, deepRead: 0.75 };
+const REACT = { zone: 0.15, man: 0.1, read: 0.45, deepRead: 0.6 };
 /** How far behind his man a man defender trails, in seconds of the receiver's run. */
-const TRAIL = 0.3;
+const TRAIL = 0.25;
+/** A man defender who runs into another receiver (a rub, the heart of Mesh) loses speed: within this many yards, at this share of his speed. */
+const RUB = { yards: 1.8, slow: 0.3, seconds: 0.45 };
 /** Space, in yards, that makes a receiver open or tight. */
 export const OPEN_YARDS = 2.5;
 export const TIGHT_YARDS = 1.2;
 /** How far an underneath zone defender will carry a receiver past his spot, in yards. */
-const UNDER_DEPTH = 2;
+const UNDER_DEPTH = 1.5;
+/** An underneath defender lets a receiver go once he is this many yards past his spot. */
+const PASS_OFF = 2;
 /** Receivers short of this many yards downfield are checkdowns. */
 export const CHECKDOWN_YARDS = 1;
 /** A rusher this close to the quarterback (yards) has got home. */
@@ -297,6 +301,9 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
       d.job = "man";
       const r = offsets.find((o) => o.dx === line.to.dx && o.dy === line.to.dy);
       d.manOf = r?.id;
+      // Man defenders line up on their man, a cushion off and a step inside, whatever spot the stock look drew.
+      const man = r && receivers.find((p) => p.id === r.id);
+      if (man) d.start = { x: man.x + Math.sign(ball.x - man.x) * 0.8 * scale.x, y: Math.min(man.y, scene.losY) - (format === "5v5" ? 5 : 4) * scale.y };
     }
   }
   // A zone defender with no drop line (the 11-man underneath set covers them all) holds his spot.
@@ -306,6 +313,7 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
   const qbPts = qb ? off.get(qb.id)! : null;
   const dt = 1 / FPS;
   let sackAt: number | null = null;
+  const picked = defenders.map(() => 0);
   for (let k = 1; k <= frames; k++) {
     const time = k * dt;
     const prev = def[k - 1];
@@ -321,7 +329,12 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
         const pts = d.manOf ? off.get(d.manOf) : null;
         if (!pts || time < REACT.man) return at;
         const seen = pts[Math.max(0, k - Math.round(TRAIL * FPS))];
-        return step(at, { x: seen.x, y: seen.y - 0.5 * scale.y }, SPEED.man * dt, 0, scale);
+        // Running into another receiver costs him a beat to fight through the traffic.
+        const traffic =
+          receivers.some((r) => r.id !== d.manOf && yardsApart(at, off.get(r.id)![k], scale) < RUB.yards) ||
+          prev.some((o, j) => j !== i && defenders[j].job === "man" && yardsApart(at, o, scale) < RUB.yards);
+        if (traffic) picked[i] = time + RUB.seconds;
+        return step(at, { x: seen.x, y: seen.y - 0.5 * scale.y }, SPEED.man * (time < picked[i] ? RUB.slow : 1) * dt, 0, scale);
       }
       if (time < REACT.zone || !d.landmark) return at;
       // Squeeze the receiver nearest the zone's middle, staying on top of him if deep.
@@ -329,14 +342,16 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
       let best = Infinity;
       if (time >= (d.deep ? REACT.deepRead : REACT.read)) for (const r of eligible) {
         const p = off.get(r.id)![k];
+        // Underneath defenders pass a receiver off to the deep zone once he is past them.
+        if (!d.deep && p.y < d.landmark.y - PASS_OFF * scale.y) continue;
         const ex = (p.x - d.landmark.x) / d.reach!.rx;
         const ey = (p.y - d.landmark.y) / d.reach!.ry;
         const inside = ex * ex + ey * ey;
         if (inside < 1 && inside < best) {
           best = inside;
           goal = d.deep
-            ? { x: d.landmark.x + (p.x - d.landmark.x) * 0.6, y: Math.min(p.y - 1.5 * scale.y, d.landmark.y + (p.y - d.landmark.y) * 0.6) }
-            : { x: d.landmark.x + (p.x - d.landmark.x) * 0.75, y: Math.max(d.landmark.y - UNDER_DEPTH * scale.y, d.landmark.y + (p.y - d.landmark.y) * 0.85) };
+            ? { x: d.landmark.x + (p.x - d.landmark.x) * 0.8, y: Math.min(p.y - 1.5 * scale.y, d.landmark.y + (p.y - d.landmark.y) * 0.8) }
+            : { x: d.landmark.x + (p.x - d.landmark.x) * 0.75, y: Math.max(d.landmark.y - UNDER_DEPTH * scale.y, d.landmark.y + (p.y - d.landmark.y) * 0.5) };
         }
       }
       return step(at, goal, SPEED.zone * dt, 0, scale);
