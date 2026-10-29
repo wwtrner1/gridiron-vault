@@ -48,6 +48,12 @@ export const PLAYBOOK_NAV: NavItem[] = [
     hint: "Your game plan. Sort it, paint it, collapse it, print it.",
   },
   {
+    to: "/coverage",
+    icon: "eye",
+    label: "Coverage report",
+    hint: "Run every pass play against Cover 1, 2, 3, 4 and man. See what each beats and your best call against each look.",
+  },
+  {
     to: "/practice",
     icon: "board",
     label: "Practice",

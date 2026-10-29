@@ -18,12 +18,15 @@ export function RunPlay({
   scene,
   name,
   onFilm,
+  onCoverage,
   onClose,
 }: {
   scene: Scene;
   name: string;
   /** Saves the film link and snap mark onto the play. */
   onFilm: (film: Scene["film"]) => void;
+  /** Opens the Coverage check: the same play against a live defense. */
+  onCoverage?: () => void;
   onClose: () => void;
 }) {
   const tl = useMemo(() => buildTimeline(scene), [scene]);
@@ -115,6 +118,11 @@ export function RunPlay({
         <h2 id="rp-h">
           Run play <span>{name || "Untitled play"}</span>
         </h2>
+        {onCoverage && (
+          <button type="button" className="btn btn-outline-dark btn-sm rp-cov" onClick={onCoverage}>
+            Run it against a defense
+          </button>
+        )}
         <button type="button" className="btn btn-outline-dark btn-sm" onClick={onClose}>
           Back to drawing
         </button>
