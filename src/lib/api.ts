@@ -70,11 +70,13 @@ export const api = {
   scan: (body: ScanRequest) =>
     request<ScanFind>("ai/scan", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; security?: Security }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; security?: Security }>("me"),
 
   /** During beta a coach picks their own plan; the server enforces it. */
   checkout: (offer: string) => request<{ url: string }>("billing/checkout", { method: "POST", body: JSON.stringify({ offer }) }),
   billingPortal: () => request<{ url: string }>("billing/portal", { method: "POST", body: "{}" }),
+  pausePlan: (months: number) => request<{ pausedUntil: string }>("billing/pause", { method: "POST", body: JSON.stringify({ months }) }),
+  resumePlan: () => request<{ ok: true }>("billing/resume", { method: "POST", body: "{}" }),
   setPlan: (plan: string) => request<{ plan: string }>("me/plan", { method: "PUT", body: JSON.stringify({ plan }) }),
 
   /** start / check (add or change the number), device-start / device-check, forget-others. */

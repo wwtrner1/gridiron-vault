@@ -5,7 +5,7 @@ import { profiles } from "../../db/schema.js";
 import type { TierId } from "../../src/lib/plan.js";
 
 /**
- * Billing through Stripe: Checkout to pay, the customer portal to cancel or change a card, and a
+ * Billing through Stripe: Checkout to pay, a pause for the off-season, the customer portal to cancel or change a card, and a
  * webhook that is the only thing that moves a paying coach's plan. Off until STRIPE_SECRET_KEY is set.
  * STRIPE_PRICES maps what we sell to Stripe price ids (not secret), as JSON:
  *   {"solo_month":"price_…","solo_year":"price_…","season":"price_…","crew_month":"…","crew_year":"…","program_month":"…","program_year":"…","founding":"price_…"}
@@ -78,18 +78,64 @@ export async function openPortal(me: Who): Promise<{ url: string } | { error: st
 // past_due and unpaid are deliberately not here: a failed payment drops the coach to Sideline at once, and the next paid invoice (status active) restores the plan.
 const PAYING = new Set(["active", "trialing"]);
 
+/** When a paused subscription starts charging again, or null when it isn't paused. */
+const resumesAt = (sub: Stripe.Subscription) => (sub.pause_collection ? (sub.pause_collection.resumes_at ? new Date(sub.pause_collection.resumes_at * 1000) : new Date("2100-01-01T00:00:00Z")) : null);
+
 async function applySubscription(sub: Stripe.Subscription) {
   const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   const offer = offerOfPrice(sub.items.data[0]?.price.id);
-  const live = PAYING.has(sub.status) && offer;
+  const paused = PAYING.has(sub.status) && sub.pause_collection ? resumesAt(sub) : null;
+  const live = PAYING.has(sub.status) && offer && !paused;
   const [row] = await db.select({ planEndsAt: profiles.planEndsAt }).from(profiles).where(eq(profiles.stripeCustomerId, customer));
   if (!row) return;
-  // A season pass paid earlier still counts after a subscription ends.
+  // A season pass paid earlier still counts after a subscription ends or while it is paused.
   const season = row.planEndsAt && row.planEndsAt.getTime() > Date.now();
   await db
     .update(profiles)
-    .set(live ? { plan: PLAN_OF[offer], stripeSubscriptionId: sub.id } : { plan: season ? "solo" : "free", stripeSubscriptionId: null })
+    .set(
+      live
+        ? { plan: PLAN_OF[offer], stripeSubscriptionId: sub.id, pausedUntil: null }
+        : paused
+          ? // Paused: Sideline until Stripe resumes it, and the subscription is kept so the coach can resume early.
+            { plan: season ? "solo" : "free", stripeSubscriptionId: sub.id, pausedUntil: paused }
+          : { plan: season ? "solo" : "free", stripeSubscriptionId: null, pausedUntil: null },
+    )
     .where(eq(profiles.stripeCustomerId, customer));
+}
+
+/** How long a coach can pause, in months. */
+export const PAUSE_MONTHS = [1, 2, 3, 6] as const;
+
+/**
+ * Season over? Pause instead of cancel: no charges until the date picked, the
+ * coach is on Sideline meanwhile (every play kept), and Stripe starts billing
+ * again on its own. Monthly plans only: a yearly plan is already paid for.
+ */
+export async function pauseSubscription(me: Who, months: unknown): Promise<{ pausedUntil: string } | { error: string }> {
+  if (!billingOn()) return { error: "Billing isn't open yet." };
+  const n = Number(months);
+  if (!PAUSE_MONTHS.includes(n as (typeof PAUSE_MONTHS)[number])) return { error: "Pick 1, 2, 3 or 6 months." };
+  const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.id, me.id));
+  if (!row?.sub) return { error: "There's no monthly plan on this account to pause." };
+  const sub = await stripe().subscriptions.retrieve(row.sub);
+  if (!PAYING.has(sub.status)) return { error: "This plan isn't active, so there's nothing to pause. Pick a plan to start again." };
+  if (sub.items.data[0]?.price.recurring?.interval !== "month") return { error: "A yearly plan is already paid for the year, so there's nothing to pause. Use Manage billing to stop it renewing." };
+  const until = new Date();
+  until.setMonth(until.getMonth() + n);
+  const updated = await stripe().subscriptions.update(row.sub, { pause_collection: { behavior: "void", resumes_at: Math.floor(until.getTime() / 1000) } });
+  await applySubscription(updated);
+  return { pausedUntil: until.toISOString() };
+}
+
+/** Back on the paid plan today; Stripe bills from the next period. */
+export async function resumeSubscription(me: Who): Promise<{ ok: true } | { error: string }> {
+  if (!billingOn()) return { error: "Billing isn't open yet." };
+  const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.id, me.id));
+  if (!row?.sub) return { error: "There's no paused plan on this account." };
+  // An empty string clears pause_collection in Stripe's API.
+  const updated = await stripe().subscriptions.update(row.sub, { pause_collection: "" });
+  await applySubscription(updated);
+  return { ok: true };
 }
 
 async function applyCheckout(s: Stripe.Checkout.Session) {
@@ -127,7 +173,13 @@ export async function handleWebhook(req: Request): Promise<Response> {
   }
   try {
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") await applyCheckout(event.data.object);
-    else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted")
+    else if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted" ||
+      event.type === "customer.subscription.paused" ||
+      event.type === "customer.subscription.resumed"
+    )
       await applySubscription(event.data.object);
   } catch {
     // Stripe retries a 500, so a database blip doesn't lose a payment.

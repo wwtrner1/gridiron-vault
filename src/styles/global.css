@@ -1168,6 +1168,8 @@ table.compare tbody tr:last-child td { border-bottom: 0; }
   color: var(--ink);
   margin-bottom: 10px;
 }
+.pause-plan { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--border-2); }
+.pause-plan .hint { margin: 0 0 8px; }
 .acct-grid .card > p {
   font-size: 14px;
   line-height: 1.6;

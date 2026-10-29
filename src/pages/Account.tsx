@@ -6,6 +6,7 @@ import { Modal } from "../components/Modal";
 import { Tooltip } from "../components/Tooltip";
 import { DevicesCard } from "../components/DevicesCard";
 import { InstallCard } from "../components/InstallCard";
+import { PausePlan } from "../components/PausePlan";
 import { useAuth } from "../lib/auth";
 import { PUBLIC_TIERS, TIERS, type TierId } from "../lib/plan";
 import { choosePlan, goToBilling, setBilling, syncPlan, useBilling, useTier } from "../lib/tier";
@@ -210,6 +211,7 @@ export function Account() {
                 </button>
               </div>
               <small className="hint">Cancel, change your card or download receipts on Stripe's page. You keep your plan until the period you paid for ends.</small>
+              {account && <PausePlan />}
             </div>
           ) : (
           <div className="field">

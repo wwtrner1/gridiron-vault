@@ -31,6 +31,8 @@ export const profiles = pgTable("profiles", {
   stripeSubscriptionId: text("stripe_subscription_id"),
   /** End of a one-time Season Pass. Past it, with no subscription, the coach is back on Sideline. */
   planEndsAt: timestamp("plan_ends_at"),
+  /** A paused subscription (Season over? Pause instead of cancel): Sideline until this date, when Stripe resumes billing. */
+  pausedUntil: timestamp("paused_until"),
 });
 
 /**
