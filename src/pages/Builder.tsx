@@ -72,6 +72,7 @@ import { useFieldPrefs } from "../lib/fieldPrefs";
 import { FieldControls } from "../components/FieldControls";
 import { api, isOffline, toStoredPlay } from "../lib/api";
 import { PLAY_ID_EVENT, type PlayIdChange } from "../lib/playSync";
+import { clearDraft, draftFor, saveDraft, type DesignerDraft } from "../lib/designerDraft";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateSave, gateTool } from "../lib/plan";
@@ -216,7 +217,8 @@ export function Builder() {
    * playbook, unless the coach turned it off or came here to have Griddy draw.
    */
   const askSetup = () => {
-    if (liveId) return null;
+    // Unsaved changes to a new play come first: the setup would start over on top of them.
+    if (liveId || draftFor(null)) return null;
     const state = location.state as { skipSetup?: boolean; setup?: boolean } | null;
     const ask = state?.setup || (!state?.skipSetup && setupWanted());
     return ask ? lastChoice(params.get("book"), playbooks) : null;
@@ -527,7 +529,41 @@ export function Builder() {
     pastLabels.current = [];
     futureLabels.current = [];
     setDirty(false);
+    setRecover(liveId ? null : draftFor(id ?? null, existing?.updatedAt));
   }, [id, existing]);
+
+  // Unsaved changes from a tab that closed (or a screen that broke) before Save: offered back once.
+  const [recover, setRecover] = useState<DesignerDraft | null>(() => (liveId ? null : draftFor(id ?? null, existing?.updatedAt)));
+  useEffect(() => {
+    if (!dirty || recover) return;
+    const t = window.setTimeout(() => saveDraft({ playId: id ?? null, meta, scene, at: new Date().toISOString() }), 800);
+    return () => window.clearTimeout(t);
+  }, [dirty, recover, id, meta, scene]);
+  // Closing the tab with changes asks first (phones mostly skip this, which is what the draft is for).
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  function restoreDraft() {
+    if (!recover) return;
+    past.current = [...past.current.slice(-59), sceneRefValue.current];
+    pastLabels.current = [...pastLabels.current.slice(-59), "Restore unsaved changes"];
+    setScene(recover.scene);
+    setMeta(recover.meta);
+    setRecover(null);
+    setDirty(true);
+    toast("Your unsaved changes are back. Save the play to keep them.");
+  }
+  function discardDraft() {
+    clearDraft();
+    setRecover(null);
+    if (!id) setSetup(askSetup());
+  }
 
   const sceneRefValue = useRef(scene);
   sceneRefValue.current = scene;
@@ -1490,6 +1526,7 @@ export function Builder() {
       ...(account ? { unsynced: true } : {}),
     };
     store.upsertPlay(record);
+    clearDraft(); // the play is in this browser now, so the safety copy isn't needed
     // A new play goes in the playbook picked in the setup, else the one it was started from (the tree's +, ?book=).
     const fromBook = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
     const target: FileTarget | null = isNew ? (fileIn.current ?? (fromBook ? { id: fromBook.id } : null)) : null;
@@ -2478,6 +2515,21 @@ export function Builder() {
               </button>
               <button type="button" className="dz-drawbar-exit" onClick={() => (setTool("select"), setMode(null))}>
                 Exit drawing<span className="dz-kbd-only"> · </span><kbd>Esc</kbd>
+              </button>
+            </div>
+          )}
+
+          {recover && (
+            <div className="dz-draftbar" role="region" aria-label="Unsaved changes">
+              <p>
+                <b>Unsaved changes from {new Date(recover.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</b>
+                <span> This play was changed and not saved before the page closed.</span>
+              </p>
+              <button type="button" className="btn btn-primary btn-sm" onClick={restoreDraft}>
+                Bring them back
+              </button>
+              <button type="button" className="btn btn-quiet btn-sm" onClick={discardDraft}>
+                Discard
               </button>
             </div>
           )}
