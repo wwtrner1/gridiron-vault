@@ -536,6 +536,21 @@ footer.mkt a:hover { color: var(--cyan); }
 @media (max-width: 900px) { .only-narrow { display: inline-flex; } }
 @media (max-width: 1180px) { .only-mid { display: inline-flex; } }
 @media (min-width: 1181px) { .only-mid { display: none; } }
+
+/*
+ * Touch screens. iOS zooms the whole page into any text box under 16px when it
+ * gets focus, and doesn't zoom back out, so on touch every typing field is 16px.
+ * Small icon buttons and checkboxes get a 24px tap target (WCAG 2.5.8).
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea { font-size: 16px !important; }
+  .play-pick { width: 26px; height: 26px; }
+  .play-pick input { width: 24px; height: 24px; margin: 0; }
+  .th-sort { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
+  .row-tools .th-sort { height: 24px; }
+}
 @media print {
   .rail, .topbar, .builder-rail, .builder-side, .builder-bar, .bulk-bar, .mkt-nav { display: none !important; }
   .shell { display: block; }
