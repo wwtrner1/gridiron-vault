@@ -1214,6 +1214,10 @@ export function Builder() {
     const t = window.setTimeout(() => setTourOpen(true), 700);
     return () => window.clearTimeout(t);
   }, [setupShowing, guided]);
+  // The slides would sit under the spotlight, so a guided tour closes them.
+  useEffect(() => {
+    if (guided) setTourOpen(false);
+  }, [guided]);
   const prefs = useToolPrefs();
   const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
   const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;

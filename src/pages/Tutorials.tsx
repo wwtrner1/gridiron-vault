@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
-import { GuideList } from "../components/Tour";
+import { GuideClip, GuideList } from "../components/Tour";
 import { allSteps, guideById, GUIDES, tourHref, type Guide } from "../lib/guides";
 
 /** The order a new coach meets the screens in: draw, file, plan, print. */
@@ -93,6 +93,7 @@ export function Tutorials() {
         {GUIDES.map((g) => (
           <article key={g.id} className="card tut-card" aria-labelledby={`tut-${g.id}`}>
             <h3 id={`tut-${g.id}`}>{g.title}</h3>
+            <GuideClip guide={g} />
             <p>{g.intro}</p>
             <p className="tut-when">{g.when}</p>
             <div className="tut-acts">

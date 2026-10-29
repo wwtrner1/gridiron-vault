@@ -60,7 +60,7 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
             key={c}
             className="wb-card"
             style={{ width: actualSize ? `${w}in` : "100%", aspectRatio: `${w} / ${h}` }}
-            aria-label={`Card ${cardLetter(c)}, ${slice.length} plays, ${w} by ${h.toFixed(2)} inches`}
+            aria-label={`Card ${cardLetter(c)}, ${slice.length} ${slice.length === 1 ? "play" : "plays"}, ${w} by ${h.toFixed(2)} inches`}
           >
             {headH > 0 && (
               <button

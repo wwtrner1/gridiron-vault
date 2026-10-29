@@ -111,8 +111,8 @@ export function FrontOffice() {
       const local = saved.filter((p) => !p.remote).length;
       toast(
         local
-          ? `${saved.length} plays cloned into "${book}". ${local} are on this device only for now; open and save them to put them on your account.`
-          : `${saved.length} plays cloned into "${book}". They're yours to change.`,
+          ? `${saved.length} ${saved.length === 1 ? "play" : "plays"} cloned into "${book}". ${local} are on this device only for now; open and save them to put them on your account.`
+          : `${saved.length} ${saved.length === 1 ? "play" : "plays"} cloned into "${book}". They're yours to change.`,
       );
     });
     setPreview(null);

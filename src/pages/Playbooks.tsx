@@ -164,7 +164,7 @@ export function Playbooks() {
               <div className="book-body">
                 <div className="book-head">
                   <h3>{book.name}</h3>
-                  <span className="pill">{book.playIds.length} plays</span>
+                  <span className="pill">{book.playIds.length} {book.playIds.length === 1 ? "play" : "plays"}</span>
                 </div>
                 <p>{book.description || "No description yet."}</p>
                 <div className="book-strip">

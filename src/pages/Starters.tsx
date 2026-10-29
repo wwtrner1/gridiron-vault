@@ -390,7 +390,7 @@ export function Starters() {
           tier={tier}
           onClose={() => setExporting(false)}
           onUpgrade={() => navigate("/pricing")}
-          onDone={(kind) => toast(`${pickedPlays.length} plays exported as ${kind.toUpperCase()}.`)}
+          onDone={(kind) => toast(`${pickedPlays.length} ${pickedPlays.length === 1 ? "play" : "plays"} exported as ${kind.toUpperCase()}.`)}
         />
       )}
     </Shell>

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { Modal } from "./Modal";
 import { Icon } from "./Icon";
-import { guideById, guideFor, guidesSeen, markGuideSeen, stepsOf, type Guide, type GuideStep } from "../lib/guides";
+import { clipOf, guideById, guideFor, guidesSeen, markGuideSeen, stepsOf, type Guide, type GuideStep } from "../lib/guides";
 import "../styles/tour.css";
 
 /**
@@ -362,7 +362,7 @@ export function PageHelp({
               </>
             }
           >
-            <GuideList guide={guide} />
+            <GuideList guide={guide} clip />
           </Modal>,
           document.body,
         )}
@@ -370,11 +370,23 @@ export function PageHelp({
   );
 }
 
+/** The screen's recorded tour, if it has one. Loads nothing until the coach presses play. */
+export function GuideClip({ guide }: { guide: Guide }) {
+  const clip = clipOf(guide);
+  if (!clip) return null;
+  return (
+    <video className="guide-clip" src={clip.src} poster={clip.poster} controls muted playsInline preload="none" aria-label={`Video: the ${guide.title} tour`}>
+      The {guide.title} tour, recorded. Your browser can't play it here; take the tour instead.
+    </video>
+  );
+}
+
 /** A guide's buttons as a reference list: section headings, then name and what it does. */
-export function GuideList({ guide, shell = false }: { guide: Guide; shell?: boolean }) {
+export function GuideList({ guide, shell = false, clip = false }: { guide: Guide; shell?: boolean; clip?: boolean }) {
   return (
     <div className="guide-list">
       <p className="guide-intro">{guide.intro}</p>
+      {clip && <GuideClip guide={guide} />}
       {stepsOf(guide, shell).map((s) => (
         <section key={s.heading}>
           <h3>{s.heading}</h3>
