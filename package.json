@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "griddy:live": "tsx scripts/griddy-live.ts",
-    "bands:matrix": "node scripts/wristband-matrix/run.mjs"
+    "bands:matrix": "node scripts/wristband-matrix/run.mjs",
+    "coverage:concepts": "tsx scripts/coverage-concepts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
