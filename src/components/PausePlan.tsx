@@ -15,14 +15,14 @@ const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month
  */
 export function PausePlan() {
   const toast = useToast();
-  const [state, setState] = useState<{ subscribed: boolean; pausedUntil?: string } | null>(null);
+  const [state, setState] = useState<{ subscribed: boolean; pausedUntil?: string; paymentFailed?: boolean } | null>(null);
   const [months, setMonths] = useState<(typeof MONTHS)[number]>(3);
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
     try {
       const me = await api.me();
-      setState({ subscribed: !!me.subscribed, pausedUntil: me.pausedUntil });
+      setState({ subscribed: !!me.subscribed, pausedUntil: me.pausedUntil, paymentFailed: me.paymentFailed });
       void syncPlan(me.plan, me.trialEndsAt);
     } catch {
       /* offline: the card stays hidden */
@@ -33,7 +33,8 @@ export function PausePlan() {
     void refresh();
   }, []);
 
-  if (!state?.subscribed) return null;
+  // A failed payment is fixed in Stripe (the banner at the top), not paused.
+  if (!state?.subscribed || state.paymentFailed) return null;
 
   const run = async (fn: () => Promise<string>) => {
     setBusy(true);

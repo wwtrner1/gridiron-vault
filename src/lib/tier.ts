@@ -64,6 +64,21 @@ export function setBilling(on: boolean) {
   billingListeners.forEach((l) => l());
 }
 
+/** Stripe couldn't take the last payment: the coach is on Sideline until the card is fixed. */
+let paymentFailed = false;
+const failedListeners = new Set<() => void>();
+export const usePaymentFailed = () =>
+  useSyncExternalStore(
+    (l) => (failedListeners.add(l), () => failedListeners.delete(l)),
+    () => paymentFailed,
+    () => false,
+  );
+export function setPaymentFailed(on: boolean) {
+  if (on === paymentFailed) return;
+  paymentFailed = on;
+  failedListeners.forEach((l) => l());
+}
+
 /** Off to Stripe's page for an offer ("solo_month", "season", …), or Stripe's portal when none is named. */
 export async function goToBilling(offer?: string) {
   const { url } = offer ? await api.checkout(offer) : await api.billingPortal();

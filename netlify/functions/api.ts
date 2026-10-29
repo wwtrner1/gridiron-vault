@@ -206,6 +206,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         trialEndsAt: state.trialEndsAt?.toISOString(),
         subscribed: state.subscribed,
         pausedUntil: state.pausedUntil?.toISOString(),
+        paymentFailed: state.paymentFailed,
         security: await securityOf(me, deviceId),
       });
     }
@@ -724,13 +725,15 @@ async function planOf(me: Session): Promise<Tier> {
 }
 
 /** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
-async function planState(me: Session): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null }> {
+async function planState(
+  me: Session,
+): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null; paymentFailed?: boolean }> {
   if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
   const [row] = await db
-    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil })
+    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil, failed: profiles.paymentFailedAt })
     .from(profiles)
     .where(eq(profiles.id, me.id));
-  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null };
+  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed) };
   // A one-time Season Pass that has run out, with no subscription behind it, is Sideline from this request on.
   if (row?.plan === "solo" && row.planEndsAt && !row.sub && row.planEndsAt.getTime() <= Date.now()) {
     await expireSeason(me.id);

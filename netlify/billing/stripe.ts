@@ -86,7 +86,12 @@ async function applySubscription(sub: Stripe.Subscription) {
   const offer = offerOfPrice(sub.items.data[0]?.price.id);
   const paused = PAYING.has(sub.status) && sub.pause_collection ? resumesAt(sub) : null;
   const live = PAYING.has(sub.status) && offer && !paused;
-  const [row] = await db.select({ planEndsAt: profiles.planEndsAt }).from(profiles).where(eq(profiles.stripeCustomerId, customer));
+  // A failed payment: Sideline now, but the subscription is kept so the coach can fix the card and get the plan straight back.
+  const failed = !live && !paused && (sub.status === "past_due" || sub.status === "unpaid");
+  const [row] = await db
+    .select({ planEndsAt: profiles.planEndsAt, paymentFailedAt: profiles.paymentFailedAt })
+    .from(profiles)
+    .where(eq(profiles.stripeCustomerId, customer));
   if (!row) return;
   // A season pass paid earlier still counts after a subscription ends or while it is paused.
   const season = row.planEndsAt && row.planEndsAt.getTime() > Date.now();
@@ -94,11 +99,13 @@ async function applySubscription(sub: Stripe.Subscription) {
     .update(profiles)
     .set(
       live
-        ? { plan: PLAN_OF[offer], stripeSubscriptionId: sub.id, pausedUntil: null }
+        ? { plan: PLAN_OF[offer], stripeSubscriptionId: sub.id, pausedUntil: null, paymentFailedAt: null }
         : paused
           ? // Paused: Sideline until Stripe resumes it, and the subscription is kept so the coach can resume early.
-            { plan: season ? "solo" : "free", stripeSubscriptionId: sub.id, pausedUntil: paused }
-          : { plan: season ? "solo" : "free", stripeSubscriptionId: null, pausedUntil: null },
+            { plan: season ? "solo" : "free", stripeSubscriptionId: sub.id, pausedUntil: paused, paymentFailedAt: null }
+          : failed
+            ? { plan: season ? "solo" : "free", stripeSubscriptionId: sub.id, pausedUntil: null, paymentFailedAt: row.paymentFailedAt ?? new Date() }
+            : { plan: season ? "solo" : "free", stripeSubscriptionId: null, pausedUntil: null, paymentFailedAt: null },
     )
     .where(eq(profiles.stripeCustomerId, customer));
 }
