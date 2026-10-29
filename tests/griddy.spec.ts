@@ -52,3 +52,30 @@ test("a server error reads as coach-facing words, and the coach can try again", 
   await box.press("Enter");
   await expect(page.locator(".gd-msg.is-griddy").last()).toContainText("Back now.");
 });
+
+test("no signal, a timeout or an odd reply never shows a script error, and the message stays in the box", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  let calls = 0;
+  await signIn(context, async (route, path) => {
+    if (path !== "ai/griddy") return;
+    calls++;
+    if (calls === 1) await route.abort("internetdisconnected");
+    else if (calls === 2) await route.fulfill({ status: 504, contentType: "text/html", body: "<html>Gateway Timeout</html>" });
+    else await route.fulfill({ json: { reply: { text: "half" } } });
+    return true;
+  });
+  await page.goto("/vault");
+  await ask(page, "draw me a slant");
+  const box = page.locator(".gd-panel textarea").first();
+  const err = page.locator(".gd-panel .gd-error");
+  await expect(err).toContainText("No signal, so Griddy can't answer right now.");
+  await expect(box).toHaveValue("draw me a slant");
+  await box.press("Enter");
+  await expect(err).toContainText("didn't get an answer in time");
+  await expect(box).toHaveValue("draw me a slant");
+  await box.press("Enter");
+  await expect(err).toContainText("Griddy couldn't answer just now.");
+  await expect(box).toHaveValue("draw me a slant");
+  await expect(page.locator(".gd-msg.is-coach")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

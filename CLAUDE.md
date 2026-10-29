@@ -41,7 +41,7 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 - One function mounted at `/api/*`, hand-routed by path segments `[resource, id, action]`. Resources: `me`, `plays` (incl. `POST plays/:id/copy`), `playbooks` (incl. `POST playbooks/:id/plays`), `call-sheets`, `ai` (`griddy`, `assistant`, `photo`; see Griddy below).
 - `PUT /api/plays/:id` only writes the fields it is sent (`sanitisePlayPatch`), so scene-only updates from bulk edits keep the play's name and tags.
 - Auth comes from `getUser()` (`@netlify/identity`) server-side; writes are scoped with `ownerId = me.id` in the `WHERE` clause. `ensureProfile` upserts a `profiles` row on first write.
-- Errors are returned as `{ error }` with coach-facing wording; `src/lib/api.ts` throws `data.error` so the UI can toast it directly.
+- Errors are returned as `{ error }` with coach-facing wording; `src/lib/api.ts` throws `data.error` as an `ApiError` (with `status`) so the UI can toast it directly; a 502/504 without our JSON reads "didn't get an answer in time". For a catch that can also see library or script errors (exports, Griddy), show `coachError(e, fallback)`, which passes only `ApiError` and offline wording through.
 - `track()` beacons to `/api/events`; the function stores the three known events for signed-in coaches (`events` table) and answers 204 to everything else.
 - Client wrapper: `src/lib/api.ts`. Add a resource by adding a branch in the function and a method on `api`.
 

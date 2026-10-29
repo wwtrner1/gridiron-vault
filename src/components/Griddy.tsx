@@ -1,7 +1,7 @@
 import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { onboarding } from "../lib/onboarding";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiError, isOffline } from "../lib/api";
 import { trustSaidLetters } from "../lib/assistant";
 import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
@@ -176,6 +176,8 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
         });
+        // A reply without its parts (a cut-off or odd answer) reads as "try again", never a script error.
+        if (!reply || typeof reply.text !== "string" || !Array.isArray(reply.actions)) throw new Error("bad reply");
         aiUsage.add("assistant");
         // The coach's own letters win over Griddy's guess, as they did in the Play assistant.
         const actions: GriddyAction[] = reply.actions.map((a) => (a.tool === "draw_play" ? { ...a, read: trustSaidLetters(a.read) } : a));
@@ -183,7 +185,14 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
         return true;
       } catch (e) {
         setTurns(before);
-        setError({ text: e instanceof Error ? e.message : `${GRIDDY} couldn't answer just now. Try again.` });
+        // Only the API's own words reach the coach; a failed download or a script error gets plain wording. The message stays in the box.
+        setError({
+          text: isOffline(e)
+            ? `No signal, so ${GRIDDY} can't answer right now. Your message is still in the box: send it when you're back online.`
+            : e instanceof ApiError
+              ? e.message
+              : `${GRIDDY} couldn't answer just now. Your message is still in the box: try sending it again.`,
+        });
         return false;
       } finally {
         setBusy(false);
