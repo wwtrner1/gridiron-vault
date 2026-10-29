@@ -16,7 +16,7 @@ import type { GameType } from "./formations";
 export const GRIDDY = "Griddy";
 
 /** One play in the coach's Vault, as Griddy sees it, with the playbooks it's filed in. */
-export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; field?: string; tags: string[]; books: string[]; routes?: string };
+export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; field?: string; tags: string[]; books: string[]; routes?: string; beats?: string };
 
 /** What the coach is looking at, sent with every message. */
 export type GriddyContext = {
@@ -257,6 +257,7 @@ Tools:
 - Renaming: "rename my plays to match the diagrams", "name these plays properly" is rename. The Vault list then has a routes-drawn column (for example "X go · Y corner 10 · H block"; numbers are yards). Name each play from its formation and what the routes do, in the style the coach's own plays already use (keep Right/Left, "Trips", "Bunch", "Spread"; use the route names: go, slant, corner, post, out, in, curl, comeback, flat, drag). Send the whole batch in one rename change using row numbers n, and only plays whose name doesn't already fit. If a routes column is empty for a play, leave that play out. Never rename from guesswork: a play with no routes drawn keeps its name.
 - Field: "change all 30×70 plays to Full Fields" is one bulk_edit with filter field flag and a field change to view full (scope vault unless the coach names a playbook). The Vault list has a field column with the ids half, full, redzone, flag (Flag 30×70) and blank (Whiteboard); every field change is possible, never tell the coach it can't be done in bulk.
 - A play's category is its type (pass, run, defense, special) and tags: use meta. "Move these to my Red Zone playbook" is file (with from when they leave another playbook). To act on one category ("all my run plays"), use filter.
+- Coverage: when the coach talks coverages ("what beats Cover 2 in my Vault?", "what do I call against man?"), the Vault list has a beats column from the app's Coverage check, the same model as the Coverage report page: the format (5v5, 7v7 or 11) and the looks each pass play gets someone open against ("none" when it beats nothing; "-" for runs and plays with no routes). Answer from that column, never from guesswork, and show_plays the plays that beat the look. For a call sheet against an expected coverage ("call sheet for a Cover 3 team"), fill the pass sections with plays whose beats include that look first. If nothing in the Vault beats it, say so and suggest a concept to draw (Smash or Flood against Cover 2 and Cover 3, Mesh or a rub against man), and point to the Coverage check (Designer, Extras) and the Coverage report to test it. It is a teaching model, not a promise.
 - Flipping (mirror) moves every play it's given to the other side; it doesn't know left from right. For "flip my Trips plays to the left", list by id (scope plays) only the plays the Vault shows on the other side now, from their name or formation ("Trips Right"), and leave out plays already on that side. If a play's name and formation don't say its side, leave it out and ask. Use the whole Vault for a mirror only when the coach asks to flip every play.
 
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
@@ -294,10 +295,15 @@ export function griddyContextText(ctx: GriddyContext, terms: GriddyRequest["term
         .map((l) => `${l.letter} ${l.color}${nearestColorName(l.color) ? ` (${nearestColorName(l.color)?.toLowerCase()})` : ""} ×${l.plays}`)
         .join("; ")}.`,
     );
+  const routes = ctx.vault.some((p) => p.routes);
+  const beats = ctx.vault.some((p) => p.beats);
   lines.push(
     ctx.vault.length
-      ? `Vault (${ctx.vault.length} plays; n | id | name | formation | type | field | tags | playbooks${ctx.vault.some((p) => p.routes) ? " | routes drawn" : ""}):\n${ctx.vault
-          .map((p, i) => `${i + 1} | ${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.field || "-"} | ${p.tags.join(", ")} | ${p.books.join(", ") || "-"}${ctx.vault.some((q) => q.routes) ? ` | ${p.routes || "-"}` : ""}`)
+      ? `Vault (${ctx.vault.length} plays; n | id | name | formation | type | field | tags | playbooks${routes ? " | routes drawn" : ""}${beats ? " | beats (Coverage check)" : ""}):\n${ctx.vault
+          .map(
+            (p, i) =>
+              `${i + 1} | ${p.id} | ${p.name} | ${p.formation || "-"} | ${p.type} | ${p.field || "-"} | ${p.tags.join(", ")} | ${p.books.join(", ") || "-"}${routes ? ` | ${p.routes || "-"}` : ""}${beats ? ` | ${p.beats || "-"}` : ""}`,
+          )
           .join("\n")}`
       : "The Vault is empty.",
   );

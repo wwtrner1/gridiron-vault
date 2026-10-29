@@ -13,10 +13,12 @@ import type { GriddyAction, GriddyContext, GriddyTurn } from "../lib/griddy";
 import { currentGame } from "../lib/griddyVault";
 import { gateAi } from "../lib/plan";
 import type { TokenPreset } from "../lib/presets";
+import { loadRules } from "../lib/rules";
+import { reconcileConnections } from "../lib/scene";
 import { store } from "../lib/store";
 import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
-import type { PlayMeta, Scene, SceneNode } from "../lib/types";
+import type { PlayMeta, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { GriddyActionCard } from "./GriddyCards";
 import { GriddyMascot } from "./GriddyMascot";
 import { Icon } from "./Icon";
@@ -65,9 +67,25 @@ export function useGriddy() {
 }
 
 const NEEDS_ROUTES = /\b(renam|name|label|diagram|route|describe|identify|called)\w*/i;
+const NEEDS_COVERAGE = /\b(cover(age)?s?|zones?|man|blitz\w*|beats?|beaten|against|quarters|tampa)\b|\bc[0-4]\b/i;
+
+/** What a pass play beats in the Coverage check, cached per play version (each run is a few milliseconds). */
+const beatsCache = new Map<string, { at: string; text: string }>();
+function beatsOf(p: StoredPlay, rushYards: number, check: typeof import("../lib/coverage")): string {
+  if (p.playType !== "pass") return "";
+  const hit = beatsCache.get(p.id);
+  if (hit && hit.at === p.updatedAt) return hit.text;
+  const report = check.checkAll(reconcileConnections(p.scene), { rushYards });
+  const text = report.results.some((r) => r.rows.length)
+    ? `${report.format}: ${report.results.filter(check.wins).map((r) => r.look.name).join(", ") || "none"}`
+    : "";
+  beatsCache.set(p.id, { at: p.updatedAt, text });
+  return text;
+}
 
 /** Plays and playbooks Griddy can search, newest first, and the player looks across all of them. */
-function vaultContext(withRoutes: boolean): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
+function vaultContext(withRoutes: boolean, check?: typeof import("../lib/coverage")): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
+  const rush = loadRules().rush || 7;
   const { plays, playbooks } = store.get();
   const books = new Map<string, string[]>();
   for (const b of playbooks) for (const id of b.playIds) books.set(id, [...(books.get(id) ?? []), b.name]);
@@ -75,7 +93,7 @@ function vaultContext(withRoutes: boolean): Pick<GriddyContext, "vault" | "playb
     vault: [...plays]
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
       .slice(0, GRIDDY_LIMITS.vault)
-      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, field: p.scene.view, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(withRoutes ? { routes: routeSummary(p.scene).slice(0, 140) } : {}) })),
+      .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, field: p.scene.view, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(withRoutes ? { routes: routeSummary(p.scene).slice(0, 140) } : {}), ...(check ? { beats: beatsOf(p, rush, check) } : {}) })),
     playbooks: playbooks.map((b) => ({ id: b.id, name: b.name, plays: b.playIds.length })),
     looks: vaultLooks(plays),
   };
@@ -134,6 +152,9 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
       setBusy(true);
       setError(null);
       try {
+        const recent = turnsNow.slice(-6).filter((t) => t.role === "coach");
+        // What each pass play beats in the Coverage check goes along only while the coach is talking coverages (it costs tokens and time).
+        const check = recent.some((t) => NEEDS_COVERAGE.test(t.text)) ? await import("../lib/coverage") : undefined;
         const { reply } = await api.griddy({
           turns: turnsNow.slice(-GRIDDY_LIMITS.turns),
           context: {
@@ -141,7 +162,7 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
             game: currentGame(),
             play: d?.play ?? null,
             // What each diagram draws goes along only while the coach is talking about names or routes (it costs tokens).
-            ...vaultContext(turnsNow.slice(-6).some((t) => t.role === "coach" && NEEDS_ROUTES.test(t.text))),
+            ...vaultContext(recent.some((t) => NEEDS_ROUTES.test(t.text)), check),
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
         });
@@ -255,7 +276,8 @@ export const QUICK_PICKS: { label: string; text: string }[] = [
   { label: "Call sheet", text: "Build a call sheet for Saturday: 4 openers, 3 red zone, 2 goal line" },
   { label: "Find plays", text: "Find my plays with a " },
   { label: "Paste a playbook", text: "Add these plays to my Vault:\n" },
-  { label: "Ask the coach", text: "What beats Cover 2 in 5v5?" },
+  { label: "What beats it", text: "What in my Vault beats Cover 2?" },
+  { label: "Game plan", text: "Build a call sheet for a Cover 3 team: 4 openers, 3 third down, 2 red zone" },
 ];
 
 /** **bold** in Griddy's answers; everything else is plain text. */
