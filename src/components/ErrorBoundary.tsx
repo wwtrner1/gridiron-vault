@@ -33,8 +33,9 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.failed) return this.props.children;
     const app = this.props.scope === "app";
     return (
-      <div className="crash" role="alert">
-        <div className="crash-card">
+      // The crash card replaces the whole screen (Shell included), so it is the page's main landmark.
+      <main id="main" className="crash">
+        <div className="crash-card" role="alert">
           <p className="eyebrow">Something broke</p>
           <h1>{app ? "GridIronVault hit a problem" : "This screen hit a problem"}</h1>
           <p>
@@ -54,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </a>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 }

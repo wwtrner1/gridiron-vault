@@ -335,9 +335,11 @@ footer.mkt a:focus-visible,
 .play-body h4 { font-size: 16px; margin-bottom: 3px; }
 .play-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .play-pick {
-  position: absolute; top: 9px; left: 9px; width: 22px; height: 22px; border-radius: var(--radius-sm);
+  position: absolute; top: 9px; left: 9px; width: 26px; height: 26px; border-radius: var(--radius-sm);
   border: 1.5px solid var(--border); background: rgba(255,255,255,.94); display: grid; place-items: center; color: transparent; z-index: 2;
 }
+/* It sits over the diagram (another target), so it needs the full 24px (WCAG 2.5.8). */
+.play-pick input { width: 24px; height: 24px; margin: 0; }
 .play-pick.is-on { background: var(--cyan); border-color: var(--cyan); color: var(--on-cyan); }
 .play-acts { display: flex; gap: 6px; margin-top: 11px; }
 .bulk-bar {
@@ -363,12 +365,17 @@ table.sheet thead th {
   white-space: nowrap; user-select: none;
 }
 .th-inner { display: flex; align-items: center; gap: 4px; padding: 7px 8px; }
+.th-inner .tip-anchor { flex: none; }
 .th-inner input {
   flex: 1; min-width: 40px; border: none; background: none; font: inherit; letter-spacing: inherit;
   text-transform: inherit; color: var(--ink); padding: 2px 3px; border-radius: var(--radius-xs);
 }
 .th-inner input:hover { background: var(--white); }
-.th-sort { color: var(--muted-2); padding: 2px; border-radius: var(--radius-xs); flex: none; }
+/* 24px targets (WCAG 2.5.8): the header packs three of them side by side. */
+.th-sort {
+  color: var(--muted-2); padding: 2px; border-radius: var(--radius-xs); flex: none;
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px;
+}
 .th-sort:hover, .th-sort.is-on { color: var(--cyan); background: var(--white); }
 .th-drag { cursor: grab; color: var(--muted); opacity: .7; flex: none; padding: 0 1px; letter-spacing: 0; background: none; border: 0; font: inherit; border-radius: var(--radius-xs); }
 .th-drag:hover { opacity: 1; }
@@ -555,9 +562,6 @@ footer.mkt a:hover { color: var(--cyan); }
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   select,
   textarea { font-size: 16px !important; }
-  .play-pick { width: 26px; height: 26px; }
-  .play-pick input { width: 24px; height: 24px; margin: 0; }
-  .th-sort { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
   .row-tools .th-sort { height: 24px; }
   .th-drag { min-width: 24px; min-height: 24px; }
 }
