@@ -363,7 +363,9 @@ table.sheet thead th {
 .th-inner input:hover { background: var(--white); }
 .th-sort { color: var(--muted-2); padding: 2px; border-radius: var(--radius-xs); flex: none; }
 .th-sort:hover, .th-sort.is-on { color: var(--cyan); background: var(--white); }
-.th-drag { cursor: grab; color: #b6c8d6; flex: none; padding: 0 1px; letter-spacing: 0; }
+.th-drag { cursor: grab; color: var(--muted); opacity: .7; flex: none; padding: 0 1px; letter-spacing: 0; background: none; border: 0; font: inherit; border-radius: var(--radius-xs); }
+.th-drag:hover { opacity: 1; }
+.th-drag:focus-visible { opacity: 1; color: var(--cyan-ink); outline: 2px solid var(--cyan); outline-offset: 1px; }
 th.is-drop { box-shadow: inset 3px 0 0 var(--cyan); }
 table.sheet tbody td { padding: 0; height: 34px; }
 table.sheet tbody tr:hover td { background: rgba(14, 162, 190, .045); }
@@ -550,6 +552,7 @@ footer.mkt a:hover { color: var(--cyan); }
   .play-pick input { width: 24px; height: 24px; margin: 0; }
   .th-sort { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
   .row-tools .th-sort { height: 24px; }
+  .th-drag { min-width: 24px; min-height: 24px; }
 }
 @media print {
   .rail, .topbar, .builder-rail, .builder-side, .builder-bar, .bulk-bar, .mkt-nav { display: none !important; }

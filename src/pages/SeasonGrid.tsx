@@ -137,6 +137,15 @@ export function SeasonGrid() {
     });
   }, [sheet, sortBy, query, view.hideEmpty]);
 
+  // Keyboard column moves: the grip keeps focus after its column moves (see nudgeColumn).
+  const [movedCol, setMovedCol] = useState<string | null>(null);
+  const [spoken, setSpoken] = useState("");
+  useEffect(() => {
+    if (!movedCol) return;
+    document.querySelector<HTMLElement>(`[data-col-grip="${CSS.escape(movedCol)}"]`)?.focus();
+    setMovedCol(null);
+  }, [movedCol, sheet?.columns]);
+
   if (!sheet) {
     return (
       <Shell title="Call Sheet" tabs={<WorkTabs current="sheet" />}>
@@ -269,6 +278,16 @@ export function SeasonGrid() {
     next.splice(to, 0, item);
     update({ rows: next });
     setSortBy(null);
+  };
+
+  /** Keyboard reorder for columns: one step left or right, focus stays on the column's grip, and the new spot is spoken. */
+  const nudgeColumn = (colId: string, step: -1 | 1) => {
+    const from = sheet.columns.findIndex((c) => c.id === colId);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= sheet.columns.length) return;
+    moveColumn(from, to);
+    setMovedCol(colId);
+    setSpoken(`${sheet.columns[from].label || "Column"} moved to column ${to + 1} of ${sheet.columns.length}.`);
   };
 
   /** One step up or down in the coach's own order (any sort is cleared so the move is visible). */
@@ -483,6 +502,9 @@ export function SeasonGrid() {
             </button>
           )}
         </div>
+        <p className="sr-only" role="status" aria-live="polite">
+          {spoken}
+        </p>
         {(folded > 0 || query || view.hideEmpty) && (
           <p className="hint sheet-status" role="status">
             Showing {rows.length} of {sheet.rows.length} rows
@@ -536,16 +558,24 @@ export function SeasonGrid() {
                     }}
                   >
                     <div className="th-inner">
-                      <Tooltip title="Drag to reorder" hint="Grab the dots and slide the column to where you read it." side="bottom">
-                        <span
+                      <Tooltip title="Drag to reorder" hint="Grab the dots and slide the column to where you read it, or focus them and press ← →." side="bottom">
+                        <button
+                          type="button"
                           className="th-drag"
+                          data-col-grip={col.id}
                           draggable
                           onDragStart={() => setDragCol(index)}
                           onDragEnd={() => (setDragCol(null), setDropCol(null))}
-                          aria-label={`Reorder ${col.label}`}
+                          onKeyDown={(e) => {
+                            const step = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                            if (!step) return;
+                            e.preventDefault();
+                            nudgeColumn(col.id, step);
+                          }}
+                          aria-label={`Move ${col.label || "column"}, column ${index + 1} of ${sheet.columns.length}. Left and right arrows move it.`}
                         >
                           ⠿
-                        </span>
+                        </button>
                       </Tooltip>
                       <input
                         value={col.label}
