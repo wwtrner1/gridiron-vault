@@ -39,3 +39,11 @@ h2 { margin: 36px 0 10px; font: 700 28px/1.15 var(--display); }
 .g-link { margin-left: 12px; color: #7fd8ea; font-weight: 600; }
 .g-foot { padding: 20px 16px 32px; border-top: 1px solid var(--border); text-align: center; font-size: 14px; color: var(--muted); }
 :focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.g-terms { margin: 24px 0; }
+.g-terms > div { padding: 12px 0; border-top: 1px solid var(--border); scroll-margin-top: 16px; }
+.g-terms dt { font-weight: 700; color: var(--ink); }
+.g-terms dd { margin: 4px 0 0; color: var(--ink-3); }
+.g-steps { padding-left: 0; list-style: none; counter-reset: step; }
+.g-steps li { position: relative; padding: 12px 0 12px 48px; counter-increment: step; }
+.g-steps li::before { content: counter(step); position: absolute; left: 0; top: 10px; width: 32px; height: 32px; border-radius: 50%; background: var(--cyan-ink); color: #fff; font-weight: 700; display: grid; place-items: center; }
+.g-steps h2 { font-size: 1.25rem; margin: 0 0 4px; line-height: 32px; }
