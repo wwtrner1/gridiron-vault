@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useBrand } from "../lib/brand";
 import { PrintDiagram } from "../lib/export";
 import {
   bandChrome,
   cardLetter,
   cellType,
   diagramBox,
+  bandHead,
   fillBandText,
   type BandEntry,
   type BandOptions,
@@ -38,6 +40,7 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
   const { headH, footH } = bandChrome(o);
   const { cellW, cellH, strip, numPt, bigPt, namePt } = cellType(o);
   const art = diagramBox(o);
+  const head = bandHead(useBrand());
   // Type sizes in container units, so text keeps the printed proportion at any preview width.
   const cq = (pt: number) => `${((pt / 72) / w) * 100}cqw`;
 
@@ -63,10 +66,11 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
               <button
                 type="button"
                 className="wb-card-head"
-                style={{ height: pct(headH, h), fontSize: cq(7) }}
+                style={{ height: pct(headH, h), fontSize: cq(7), background: head.fill, color: head.ink }}
                 onClick={onEditHeader}
                 title="Edit the header text"
               >
+                {head.logo && <img className="wb-card-logo" src={head.logo} alt="" />}
                 <span>{fillBandText(o.header.left, vars)}</span>
                 <span>{fillBandText(o.header.right, vars)}</span>
               </button>

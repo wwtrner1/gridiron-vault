@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Shell } from "../components/Shell";
+import { TeamBrand } from "../components/TeamBrand";
 import { HUB_LIMITS } from "../lib/teamHub";
 import { useAuth } from "../lib/auth";
 import { loadMyTeam, localSource, MY_TEAM_ID, onMyTeam, saveMyTeam } from "../lib/teamSource";
@@ -96,6 +97,8 @@ export function MyTeam() {
           <span className="pill">{count}</span> {count === 1 ? "player" : "players"}
         </p>
       </section>
+
+      <TeamBrand teamName={team.name} />
 
       <div className="chip-row hub-tabs" role="tablist" aria-label="My team sections">
         {TABS.map((t) => (
