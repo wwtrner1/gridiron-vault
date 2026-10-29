@@ -11,7 +11,9 @@ import "../styles/legal.css";
  * Drafted without a lawyer — have one review before charging for plans.
  */
 
-const UPDATED = "October 28, 2026";
+const UPDATED = "October 29, 2026";
+/** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
+const COMPANY = "Vaultline Sports LLC";
 
 function Contact() {
   return SUPPORT_EMAIL ? (
@@ -37,6 +39,9 @@ function LegalPage({ eyebrow, title, children }: { eyebrow: string; title: strin
           <p className="home-eyebrow">{eyebrow}</p>
           <h1 id="legal-h">{title}</h1>
           <p>Last updated {UPDATED}. Written in plain words — if anything is unclear, ask us.</p>
+          <p>
+            GridIronVault is run by {COMPANY}, a Tennessee company. "We" and "us" on this page mean {COMPANY}.
+          </p>
         </section>
         <article className="legal-body">{children}</article>
       </main>
