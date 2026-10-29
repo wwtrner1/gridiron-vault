@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { onboarding } from "../lib/onboarding";
 import { checkAll, FORMAT_NAME, grade, simulate, STATUS_COLOR, THROW_AT, verdict, wins, yards } from "../lib/coverage";
 import type { Result } from "../lib/coverage";
 import { DEFENSE_INK, ZONE_FILL, ZONE_STROKE } from "../lib/defense";
@@ -36,6 +37,7 @@ export function CoverageCheck({
   onClose: () => void;
 }) {
   const report = useMemo(() => checkAll(scene, { rushYards }), [scene, rushYards]);
+  useEffect(() => onboarding.mark("coverage"), []);
   const format = report.format;
   const [lookId, setLookId] = useState(() => report.worst?.look.id ?? report.results[0]?.look.id ?? "");
   const [throwAt, setThrowAt] = useState(THROW_AT[format]);

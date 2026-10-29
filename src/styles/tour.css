@@ -76,3 +76,23 @@
 
 /* Recorded tours. */
 .guide-clip { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: var(--radius-lg); background: var(--ink); }
+
+/* Getting started checklist (components/GettingStarted.tsx). */
+.start { padding: 16px; margin: 0 0 18px; }
+.start-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 12px; }
+.start-head h2 { margin: 2px 0 0; font-size: 24px; }
+.start-meter { flex: 1; min-width: 120px; max-width: 260px; height: 8px; margin-left: auto; border-radius: 99px; background: var(--border-2); overflow: hidden; }
+.start-meter span { display: block; height: 100%; background: var(--cyan); transition: width .3s ease; }
+.start-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.start-steps li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: var(--radius-md); background: var(--paper); }
+.start-steps li.is-done { opacity: .72; }
+.start-steps li.is-done b { text-decoration: line-through; text-decoration-color: var(--cyan); }
+.start-tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%; background: var(--white); color: var(--on-cyan); }
+.is-done .start-tick { border-color: var(--cyan); background: var(--cyan); }
+.start-text { flex: 1; min-width: 0; }
+.start-text p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+.start-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+@media (max-width: 600px) {
+  .start-steps li { flex-wrap: wrap; }
+  .start-acts { width: 100%; justify-content: flex-start; padding-left: 36px; }
+}

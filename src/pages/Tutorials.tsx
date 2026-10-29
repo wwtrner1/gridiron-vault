@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { GettingStarted } from "../components/GettingStarted";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
@@ -40,6 +41,8 @@ export function Tutorials() {
           </p>
         </div>
       </div>
+
+      <GettingStarted always />
 
       <div className="search-box tut-find">
         <Icon name="search" size={16} />

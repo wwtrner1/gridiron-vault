@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { onboarding } from "../lib/onboarding";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { trustSaidLetters } from "../lib/assistant";
@@ -138,6 +139,7 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
         setError({ text: `Sign in to talk to ${GRIDDY}. He comes with every plan.`, signIn: true });
         return false;
       }
+      onboarding.mark("griddy");
       const gate = gateAi(tier, "assistant", aiUsage.used("assistant"));
       if (!gate.ok) {
         setError({ text: gate.reason, plans: true });

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { onboarding } from "../lib/onboarding";
 import { Link, useSearchParams } from "react-router-dom";
 import { rememberWork } from "../lib/workTabs";
 import { Shell } from "../components/Shell";
@@ -272,6 +273,7 @@ export function Wristbands() {
       const doc = await wristbandSheets(entries, opts);
       doc.save(`${slug(`${sheetOnly ? "call-sheet" : "wristbands"}-${sourceName}`)}.pdf`);
       track("play_exported", { kind: sheetOnly ? "call_sheet" : "wristband" });
+      if (!sheetOnly) onboarding.mark("wristband");
       toast(
         sheetOnly
           ? "Call sheet downloaded. Its numbers match the wristband cards as they're set up now."

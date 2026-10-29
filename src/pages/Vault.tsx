@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { GettingStarted } from "../components/GettingStarted";
 import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
@@ -244,6 +245,8 @@ export function Vault() {
             Shared by coaches
           </button>
         </div>
+
+        {tab === "mine" && <GettingStarted />}
 
         {tab === "mine" && !hasReady && (
           <div className="vault-note vault-ready">
