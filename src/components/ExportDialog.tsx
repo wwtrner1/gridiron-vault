@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { coachError } from "../lib/api";
 import { Modal } from "./Modal";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -167,7 +168,9 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
       onDone?.(kind);
       onClose();
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : "The export did not finish. Try a smaller size.");
+      // jsPDF, svg2pdf and pptxgenjs throw their own wording; the coach gets ours (the console keeps theirs).
+      console.error("Export failed", error);
+      setProblem(coachError(error, "The export did not finish. Try a smaller size, or reload the page and try again."));
     } finally {
       setBusy(false);
     }

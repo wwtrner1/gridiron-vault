@@ -43,6 +43,16 @@ export const OFFLINE_MESSAGE = "No signal right now. Try again when you're back 
 /** True when an API error was the connection, not the server saying no. */
 export const isOffline = (e: unknown) => e instanceof Error && e.message === OFFLINE_MESSAGE;
 
+/** The API (or the platform in front of it) answered with an error; `message` is always coach-facing. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+/** The words to show a coach for a caught error: the API's own (written for coaches), else `fallback`, never a library's text. */
+export const coachError = (e: unknown, fallback: string) => (e instanceof ApiError || isOffline(e) ? (e as Error).message : fallback);
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -65,7 +75,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 429 && !data.error) data.error = "That's a lot of requests at once. Wait a minute, then try again.";
   if (!res.ok) {
     if (data.code === "phone_required" || data.code === "device_unverified") window.dispatchEvent(new Event(SECURITY_EVENT));
-    throw new Error(data.error ?? "The playbook service is unavailable right now.");
+    // 502/504 without our JSON: the platform gave up waiting on the function.
+    const fallback = res.status === 502 || res.status === 504 ? "That didn't get an answer in time. Try again in a minute." : "The playbook service is unavailable right now.";
+    throw new ApiError(data.error ?? fallback, res.status);
   }
   return data as T;
 }
@@ -207,10 +219,12 @@ export const api = {
       credentials: "include",
       headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Device": deviceId() },
       body: file,
+    }).catch(() => {
+      throw new Error(OFFLINE_MESSAGE);
     });
     const data = (await res.json().catch(() => ({}))) as { folders?: HubFolder[]; used?: number; error?: string };
     if (res.status === 413 && !data.error) data.error = "That file is too big to upload. Keep files under 5 MB.";
-    if (!res.ok) throw new Error(data.error ?? "That file didn't upload. Try again in a minute.");
+    if (!res.ok) throw new ApiError(data.error ?? "That file didn't upload. Try again in a minute.", res.status);
     return data as { folders: HubFolder[]; used: number };
   },
   deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
@@ -230,8 +244,10 @@ export const api = {
 
   /** The owner's CSV of every signup, as a file the browser can save. */
   adminUsersCsv: async () => {
-    const res = await fetch("/api/admin/users.csv", { credentials: "include", headers: { "X-Device": deviceId() } });
-    if (!res.ok) throw new Error("The export didn't download. Try again in a minute.");
+    const res = await fetch("/api/admin/users.csv", { credentials: "include", headers: { "X-Device": deviceId() } }).catch(() => {
+      throw new Error(OFFLINE_MESSAGE);
+    });
+    if (!res.ok) throw new ApiError("The export didn't download. Try again in a minute.", res.status);
     return res.blob();
   },
 };
