@@ -18,6 +18,7 @@ import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 import { TourProvider } from "./components/Tour";
 import { lazyPage, PageLoading, warmPages } from "./lib/lazyPage";
+import { applySeo } from "./lib/seo";
 
 // Every screen but the home page loads on first visit (see lib/lazyPage).
 const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
@@ -122,6 +123,7 @@ function RouteChrome() {
     notePage(pathname);
     const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/join/") ? "/join" : pathname;
     document.title = TITLES[key] ?? "GridIronVault";
+    applySeo(key, document.title);
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
   }, [pathname]);

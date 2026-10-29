@@ -1,4 +1,5 @@
-import { jsPDF } from "jspdf";
+// jsPDF is loaded only when a sheet is made, so it stays out of the first download.
+import type { jsPDF } from "jspdf";
 import { brandStore, hasBrand, hexToRgb, inkOn, luminance, type TeamBrand } from "./brand";
 import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
@@ -489,6 +490,7 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
   const perCard = o.grid.cols * o.grid.rows;
   const { paper, slots } = sheetSlots(o);
   const orient = paper.w > paper.h ? "landscape" : "portrait";
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "in", format: [paper.w, paper.h], orientation: orient, compress: true });
   const cards: BandEntry[][] = [];
   for (let i = 0; i < entries.length; i += perCard) cards.push(entries.slice(i, i + perCard));

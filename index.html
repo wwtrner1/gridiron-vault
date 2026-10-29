@@ -19,6 +19,32 @@
     <meta property="og:image:alt" content="GridIronVault — Flag football playbook studio" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://gridiron-vault.com/social-card.png" />
+    <!-- Who we are and what the app is, for search results. Not a script the CSP runs; it is data. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://gridiron-vault.com/#org",
+            "name": "GridIronVault",
+            "url": "https://gridiron-vault.com/",
+            "logo": "https://gridiron-vault.com/icon-512.png",
+            "email": "support@gridiron-vault.com"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "GridIronVault",
+            "url": "https://gridiron-vault.com/",
+            "applicationCategory": "SportsApplication",
+            "operatingSystem": "Any (web browser)",
+            "description": "A flag football playbook studio: draw plays, organise them into playbooks, plan games on a Call Sheet, check plays against coverages and print QB wristbands.",
+            "publisher": { "@id": "https://gridiron-vault.com/#org" },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Sideline plan" }
+          }
+        ]
+      }
+    </script>
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
