@@ -20,12 +20,13 @@ npm ci                 # install
 npm run dev            # Vite dev server (frontend only — /api and Identity are not served)
 netlify dev            # full stack locally: Vite + functions + Identity (needs Netlify CLI + linked site)
 npm run build          # production build to dist/
+npm run test:e2e       # Playwright browser tests (tests/) against the production build
 npx tsc -p .           # typecheck (tsconfig has noEmit; there is no lint or test script)
 npm run db:generate    # drizzle-kit: generate a migration from db/schema.ts
 npm run griddy:live    # Griddy against the real Claude API with a fixture Vault (needs ANTHROPIC_API_KEY; --dry scores ideal replies, --runs N, --only flip,sheet)
 ```
 
-There is no test suite, linter, or formatter configured. `npx tsc -p .` and `npm run build` are the checks to run before pushing; the `Checks` workflow (`.github/workflows/ci.yml`) runs both on every PR.
+There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run build` are the checks to run before pushing. `npm run test:e2e` runs the Playwright browser tests in `tests/` against the production build (it builds and starts `vite preview` on 4173, or reuses one already running; in the cloud sandbox set `PW_CHROMIUM=/opt/pw-browsers/chromium`). They cover every screen opening, save (signed out and signed in, with `/api` and Identity mocked by `signIn` in `tests/helpers.ts`), PDF and wristband export, offline screens, the crash card, and Griddy's cards and errors. The `Checks` workflow (`.github/workflows/ci.yml`) runs typecheck, build and the browser tests on every PR. When you change a flow they cover, update the test in the same PR.
 
 ## Architecture
 
