@@ -18,6 +18,7 @@ import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 import { TourProvider } from "./components/Tour";
 import { lazyPage, PageLoading, warmPages } from "./lib/lazyPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { applySeo } from "./lib/seo";
 
 // Every screen but the home page loads on first visit (see lib/lazyPage).
@@ -135,6 +136,7 @@ function RouteChrome() {
 }
 
 export function App() {
+  const { pathname } = useLocation();
   useFreePrint(useTier().watermark);
   useEffect(() => {
     const t = window.setTimeout(warmPages, 2500);
@@ -152,6 +154,8 @@ export function App() {
       <SheetSync />
       <PhoneGate />
       <NewPassword />
+      {/* One screen failing shows a way back instead of a blank page; Griddy and the rest stay up. */}
+      <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<PageLoading />}>
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -191,6 +195,7 @@ export function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
       </TourProvider>
       </GriddyProvider>
     </ToastProvider>
