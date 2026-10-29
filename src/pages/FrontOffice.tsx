@@ -15,14 +15,16 @@ import { useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import type { StoredPlay } from "../lib/types";
 import { Hub, type HubTab } from "./frontOffice/Hub";
+import { LiveTab } from "./frontOffice/LiveTab";
 import "../styles/frontOffice.css";
 
 /** A question before a change: Leave, Remove, Stop sharing, Close, or a new name (`input`). */
 type Ask = { title: string; body: string; label: string; danger?: boolean; input?: string; onYes: (value: string) => void };
 
 /** The Front Office's tabs: the playbook sharing it started with, then the team hub. */
-const TABS: { id: "playbooks" | HubTab; label: string; icon: string }[] = [
+const TABS: { id: "playbooks" | "live" | HubTab; label: string; icon: string }[] = [
   { id: "playbooks", label: "Playbooks & coaches", icon: "folder" },
+  { id: "live", label: "Draw together", icon: "users" },
   { id: "roster", label: "Roster", icon: "users" },
   { id: "depth", label: "Depth chart", icon: "ladder" },
   { id: "schedule", label: "Schedule", icon: "calendar" },
@@ -213,7 +215,9 @@ export function FrontOffice() {
             </div>
           )}
 
-          {tab !== "playbooks" && orgId ? (
+          {tab === "live" && orgId ? (
+            <LiveTab orgId={orgId} />
+          ) : tab !== "playbooks" && tab !== "live" && orgId ? (
             <Hub orgId={orgId} tab={tab} teamId={params.get("team") ?? ""} onTeam={(team) => choose({ team })} />
           ) : (
           <>

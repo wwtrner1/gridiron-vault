@@ -279,3 +279,7 @@
 @media print {
   .myteam-info, .myteam-foot, .hub-tabs, .brand-panel { display: none !important; }
 }
+
+/* Draw together: the name field and its button on one line. */
+.fo-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+.fo-row .input { flex: 1 1 220px; min-width: 0; }

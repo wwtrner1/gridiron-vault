@@ -197,6 +197,7 @@ export const TIERS: Record<TierId, Tier> = {
       "Everything in Head Coach",
       "600-DPI print for booklets",
       "Practice-plan and install exports",
+      "Draw together: your 3 coaches edit one play at the same time",
       "Front Office: hand master playbooks to your 3 coaches",
     ],
   },
