@@ -90,7 +90,14 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     const url = new URL(window.location.href);
     url.searchParams.delete("tour");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-    const t = window.setTimeout(() => start(id), 700);
+    // Screens load on first visit, so wait for this one to be up (at most 10 s), then let it draw.
+    let t = 0;
+    let tries = 0;
+    const go = () => {
+      if (document.querySelector("[data-page-loading]") && ++tries < 50) t = window.setTimeout(go, 200);
+      else t = window.setTimeout(() => start(id), 700);
+    };
+    go();
     return () => window.clearTimeout(t);
   }, [location, start]);
 
