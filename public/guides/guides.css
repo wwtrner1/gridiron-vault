@@ -1,0 +1,41 @@
+/* Guide pages (public/guides): static articles outside the app, in the GridIronVault look. */
+:root {
+  --ink: #0b1524;
+  --ink-3: #33475b;
+  --muted: #5b6f82;
+  --cyan: #0ea2be;
+  --cyan-ink: #087a90;
+  --paper: #f5f8fa;
+  --border: #dce6ee;
+  --display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: var(--ink); font: 17px/1.65 var(--body); }
+a { color: var(--cyan-ink); }
+.g-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--ink); }
+.g-brand { display: inline-flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; font: 800 22px/1 var(--display); }
+.g-top nav { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.g-top nav a { color: #cfe3ec; text-decoration: none; font-weight: 600; font-size: 15px; }
+.g-btn { display: inline-block; padding: 8px 16px; border-radius: 8px; background: var(--cyan); color: #fff !important; font: 700 15px/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+.g-main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+.g-kicker { margin: 0; font: 700 13px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--cyan-ink); }
+h1 { margin: 8px 0 12px; font: 800 clamp(32px, 6vw, 46px)/1.05 var(--display); }
+h2 { margin: 36px 0 10px; font: 700 28px/1.15 var(--display); }
+.g-lede { font-size: 20px; color: var(--ink-3); }
+.g-play figure { margin: 0 0 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); }
+.g-play svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+.g-play figcaption { margin-top: 8px; font-size: 15px; color: var(--muted); }
+.g-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 24px; }
+.g-card { display: block; padding: 18px; border: 1px solid var(--border); border-radius: 12px; color: var(--ink); text-decoration: none; background: var(--paper); }
+.g-card:hover, .g-card:focus-visible { border-color: var(--cyan); }
+.g-card h2 { margin: 0 0 6px; font-size: 24px; }
+.g-card p { margin: 0; color: var(--ink-3); }
+.g-faq details { padding: 12px 0; border-top: 1px solid var(--border); }
+.g-faq summary { cursor: pointer; font-weight: 700; }
+.g-faq p { margin: 8px 0 0; color: var(--ink-3); }
+.g-cta { margin-top: 40px; padding: 20px; border-radius: 12px; background: var(--ink); color: #e8f1f6; }
+.g-cta h2 { margin-top: 0; color: #fff; }
+.g-link { margin-left: 12px; color: #7fd8ea; font-weight: 600; }
+.g-foot { padding: 20px 16px 32px; border-top: 1px solid var(--border); text-align: center; font-size: 14px; color: var(--muted); }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }

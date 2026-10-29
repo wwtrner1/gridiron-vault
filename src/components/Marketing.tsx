@@ -46,7 +46,13 @@ const FOOTER_COLUMNS: { id: string; title: string; links: [to: string, label: st
   {
     id: "foot-learn",
     title: "Learn",
-    links: [["/starters", "Starter plays"], ["/starters", "Route tree"], ["/pricing", "Plans"]],
+    links: [
+      ["/starters", "Starter plays"],
+      ["/starters", "Route tree"],
+      ["/guides/flag-football-plays-vs-zone/", "Plays that beat zone"],
+      ["/guides/flag-football-plays-vs-man/", "Plays that beat man"],
+      ["/pricing", "Plans"],
+    ],
   },
   {
     id: "foot-account",
@@ -77,11 +83,18 @@ export function MarketingFooter() {
           {FOOTER_COLUMNS.map((col) => (
             <nav key={col.id} aria-labelledby={col.id}>
               <h3 id={col.id}>{col.title}</h3>
-              {col.links.map(([to, label]) => (
-                <Link key={label} to={to}>
-                  {label}
-                </Link>
-              ))}
+              {col.links.map(([to, label]) =>
+                // The guides are static pages outside the app, so they need a full page load.
+                to.startsWith("/guides/") ? (
+                  <a key={label} href={to}>
+                    {label}
+                  </a>
+                ) : (
+                  <Link key={label} to={to}>
+                    {label}
+                  </Link>
+                ),
+              )}
             </nav>
           ))}
         </div>
