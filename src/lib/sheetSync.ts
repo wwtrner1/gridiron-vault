@@ -83,6 +83,11 @@ export function SheetSync() {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => void push(), PUSH_DELAY_MS);
     });
+    // A deleted sheet leaves the account too, or the next sign-in would bring it back.
+    const offRemoved = store.onSheetRemoved((sheet) => {
+      sent.delete(sheet.id);
+      if (sheet.remoteId) api.deleteSheet(sheet.remoteId).catch(() => undefined);
+    });
     // Pull first, so a fresh browser never pushes a blank sheet over the account's.
     pull()
       .catch(() => {
@@ -95,6 +100,7 @@ export function SheetSync() {
       alive = false;
       window.clearTimeout(timer);
       unsubscribe();
+      offRemoved();
     };
   }, [id]);
 

@@ -38,6 +38,7 @@ const KEY = "snapline.workspace.v1";
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const removedBooks = new Set<(book: LocalPlaybook) => void>();
+const removedSheets = new Set<(sheet: SheetDoc) => void>();
 
 const empty: State = { plays: [], playbooks: [], sheets: [] };
 
@@ -161,7 +162,14 @@ export const store = {
     commit({ ...state, sheets });
   },
   removeSheet(id: string) {
+    const gone = state.sheets.find((s) => s.id === id);
     commit({ ...state, sheets: state.sheets.filter((s) => s.id !== id) });
+    if (gone) removedSheets.forEach((cb) => cb(gone));
+  },
+  /** Called when the coach deletes a call sheet (not when the whole local workspace is cleared). */
+  onSheetRemoved(cb: (sheet: SheetDoc) => void) {
+    removedSheets.add(cb);
+    return () => removedSheets.delete(cb);
   },
   reset() {
     commit(empty);
