@@ -238,3 +238,11 @@ axe-core 4.10 (WCAG 2.0/2.1 A and AA rules) was run on the production build at 1
 After the fixes, everything passes except the deliberate viewport setting above.
 
 A follow-up pass ran axe's best-practice rules too. In the Designer, the top bar was `role="toolbar"` on a `<header>`, which isn't allowed. It is now a plain banner holding the page's h1. The tools rail's heading lived only in the phone sheet header, so on wider screens the order jumped from h1 to h3; a screen-reader-only "Drawing tools" h2 fixes that. On Pricing, the scrolling table region had the same label as its section and now has its own. All routes and open states pass the best-practice rules at 1366 and 390 px.
+
+### Signed-in screens and WCAG 2.2 target size (2026-10-29)
+
+The same sweep then ran signed in, with Identity and `/api` mocked, on 17 screens at 1366 and 390 px. It added the WCAG 2.2 AA rules (2.5.8 target size). Three things failed, and all now pass:
+
+- **Call Sheet column headers**: sort, minimize and remove were 17 px and as narrow as 9 px when squeezed. On a mouse they were only 24 px on touch screens. They are now at least 24 × 24 px everywhere, and their tooltip wrappers no longer shrink, so a column is about 18 px wider.
+- **Starters select boxes** were the browser's 13 px checkbox over the diagram, which is a target too. The box is now 24 px, the same as on touch screens. The Vault's pick button grew to match.
+- **The crash card** (`ErrorBoundary`) replaces the whole screen, Shell included, so the page had no main landmark. The card now sits in `<main id="main">`, and the alert role is on the inner card.
