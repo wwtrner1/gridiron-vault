@@ -137,6 +137,8 @@ export type StoredPlay = PlayMeta & {
   saveCount: number;
   updatedAt: string;
   remote: boolean;
+  /** Saved while signed in but the account didn't get it yet (no signal): PlaySync sends it when the coach is back online. */
+  unsynced?: boolean;
 };
 
 export const CANVAS_W = 1040;

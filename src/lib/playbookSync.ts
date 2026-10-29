@@ -98,9 +98,14 @@ export function PlaybookSync() {
         if (alive) void push();
       });
 
+    // Changes made with no signal go up as soon as it comes back, not only on the next edit.
+    const online = () => void push();
+    window.addEventListener("online", online);
+
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      window.removeEventListener("online", online);
       unsubscribe();
       unwatch();
     };

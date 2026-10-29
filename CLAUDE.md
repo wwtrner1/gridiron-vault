@@ -34,6 +34,7 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 - `src/lib/store.ts` is the app's source of truth: a hand-rolled external store (`useSyncExternalStore`) persisted to `localStorage` under `snapline.workspace.v1`, holding plays, playbooks and call sheets.
 - Every save writes to the local store first, then — only if signed in — calls the API and replaces the local record with the server copy (`toStoredPlay`, `remote: true`). Signed-out coaches keep working entirely in the browser. See the save flow in `src/pages/Builder.tsx`.
 - `store.mergeRemotePlays` reconciles server rows by `updatedAt` (newer wins).
+- No signal: `api.ts` turns a failed `fetch` into `OFFLINE_MESSAGE` (`isOffline`). A signed-in save that can't reach the account keeps `remote` and is marked `unsynced` (Vault pill "Not synced yet"; `markUnsynced` for scene-only updates from the Vault and Griddy cards). `PlaySync` (`src/lib/playSync.ts`, mounted in `App.tsx`) sends unsynced plays on sign-in and on the window `online` event, and fires `PLAY_ID_EVENT` when a browser play gets its account id so an open Designer follows it instead of saving a copy. `PlaybookSync` also pushes on `online`.
 - Other per-browser stores: `tier.ts` (`nextplay.tier.v1`), `track.ts` (`nextplay.events.v1`), `autofill.ts` (`nextplay.autofill.v1`).
 
 ### API (`netlify/functions/api.ts`)

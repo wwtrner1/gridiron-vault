@@ -8,6 +8,7 @@ import { PlayThumb } from "../components/PlayThumb";
 import { ExportDialog } from "../components/ExportDialog";
 import { Modal } from "../components/Modal";
 import { store, useStore } from "../lib/store";
+import { markUnsynced } from "../lib/playSync";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -156,7 +157,7 @@ export function Vault() {
       try {
         await api.updatePlay(p.id, { scene });
       } catch {
-        /* the local copy is already updated; it syncs on the next save */
+        markUnsynced(p.id); // the local copy is already updated; it goes to the account once the signal is back
       }
     }
   }
@@ -188,7 +189,7 @@ export function Vault() {
         try {
           await api.updatePlay(p.id, { scene: p.scene });
         } catch {
-          /* the local copy is already updated; it syncs on the next save */
+          markUnsynced(p.id); // the local copy is already updated; it goes to the account once the signal is back
         }
       }
     }
@@ -433,7 +434,12 @@ export function Vault() {
                         </span>
                       ))}
                     {p.saveCount > 0 && <span className="pill pill-cyan">{p.saveCount} copies</span>}
-                    {!p.remote && <span className="pill pill-amber">This browser</span>}
+                    {!p.remote && !p.unsynced && <span className="pill pill-amber">This browser</span>}
+                    {p.unsynced && (
+                      <span className="pill pill-amber" title="Saved with no signal. It goes to your account when you're back online.">
+                        Not synced yet
+                      </span>
+                    )}
                   </div>
                   <div className="play-acts">
                     {tab === "mine" ? (

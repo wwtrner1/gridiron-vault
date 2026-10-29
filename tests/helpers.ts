@@ -14,7 +14,7 @@ export async function seedReady(page: Page) {
 
 /** The coach's local workspace, as the store saved it. */
 export function workspace(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("snapline.workspace.v1") ?? "{}") as { plays?: { id: string; name: string; remote?: boolean; updatedAt: string; scene: { nodes: { id: string; x: number; y: number; label?: string }[] } }[]; playbooks?: { id: string; name: string }[] });
+  return page.evaluate(() => JSON.parse(localStorage.getItem("snapline.workspace.v1") ?? "{}") as { plays?: { id: string; name: string; remote?: boolean; unsynced?: boolean; updatedAt: string; scene: { nodes: { id: string; x: number; y: number; label?: string }[] } }[]; playbooks?: { id: string; name: string }[] });
 }
 
 const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");

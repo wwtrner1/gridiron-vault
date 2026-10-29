@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { markUnsynced } from "../lib/playSync";
 import { api } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
@@ -400,7 +401,7 @@ async function writePlays(plays: StoredPlay[], signedIn: boolean) {
     try {
       await api.updatePlay(p.id, { scene: p.scene, fieldView: p.scene.view, name: p.name, formation: p.formation, playType: p.playType, tags: p.tags });
     } catch {
-      /* the local copy is already updated; it syncs on the next save */
+      markUnsynced(p.id); // the local copy is already updated; it goes to the account once the signal is back
     }
   }
 }
