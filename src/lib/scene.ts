@@ -41,6 +41,23 @@ export function cloneNodes(nodes: SceneNode[], dx = 0, dy = 0): SceneNode[] {
   });
 }
 
+/**
+ * Arrow-key nudge: moves the unlocked nodes in `ids`. As with a drag, a moved
+ * player's routes and assignment lines ride along, and auto-connect lines
+ * stay glued to their tokens.
+ */
+export function moveNodes(scene: Scene, ids: string[], dx: number, dy: number): Scene {
+  const moving = new Set(scene.nodes.filter((n) => ids.includes(n.id) && !n.locked).map((n) => n.id));
+  const riders = scene.nodes.filter(
+    (n) => n.kind === "path" && !n.toId && !moving.has(n.id) && ((n.fromId && moving.has(n.fromId)) || (n.assignOf && moving.has(n.assignOf))),
+  );
+  for (const r of riders) moving.add(r.id);
+  return reconcileConnections({
+    ...scene,
+    nodes: scene.nodes.map((n) => (moving.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n)),
+  });
+}
+
 /** Keep auto-connect lines glued to the tokens they were drawn between. */
 export function reconcileConnections(scene: Scene): Scene {
   const byId = new Map(scene.nodes.map((n) => [n.id, n]));

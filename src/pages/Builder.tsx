@@ -44,6 +44,7 @@ import {
   cleanUpPaths,
   cloneNodes,
   describe,
+  moveNodes,
   extendToSideline,
   flipNodes,
   nextZ,
@@ -1288,6 +1289,7 @@ export function Builder() {
       return next;
     });
   const drawingTool = DRAW_TOOLS.includes(tool);
+  const lastNudge = useRef({ key: "", at: 0 });
 
   /* -------------------------------------------------------------- shortcuts */
 
@@ -1364,6 +1366,38 @@ export function Builder() {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         deleteSelection();
+        return;
+      }
+      // Keyboard drawing: N / Shift+N steps through what's on the field, the arrows move it (Shift for a bigger step).
+      if ((e.key === "n" || e.key === "N") && !e.altKey) {
+        const order = [...scene.nodes.filter((n) => !n.hidden)].sort(
+          (a, b) => Number(b.kind === "player") - Number(a.kind === "player") || a.x - b.x || a.y - b.y,
+        );
+        if (!order.length) return;
+        e.preventDefault();
+        const at = order.findIndex((n) => n.id === selection[selection.length - 1]);
+        const next = order[(at + (e.shiftKey ? -1 : 1) + order.length) % order.length];
+        setSelection([next.id]);
+        setStatus(`Selected ${describe(next)}, ${order.indexOf(next) + 1} of ${order.length}. Arrow keys move it; Delete removes it.`);
+        return;
+      }
+      const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      // A focused tab strip, menu or slider uses its own arrows.
+      if (arrow && selection.length && !e.altKey && !e.defaultPrevented && !el?.closest?.('[role="tablist"], [role="menu"], [role="radiogroup"], [role="tree"], [role="slider"], [role="listbox"]')) {
+        e.preventDefault();
+        const step = e.shiftKey ? 20 : 4;
+        const key = selection.join(",");
+        const now = Date.now();
+        // A run of presses on the same selection is one undo step.
+        const fresh = lastNudge.current.key !== key || now - lastNudge.current.at > 1200;
+        lastNudge.current = { key, at: now };
+        const moved = selection.filter((id) => scene.nodes.some((n) => n.id === id && !n.locked));
+        if (!moved.length) {
+          setStatus("That's locked. Unlock it to move it.");
+          return;
+        }
+        applyScene(moveNodes(scene, moved, arrow[0] * step, arrow[1] * step), fresh ? "Move" : undefined);
+        setStatus(`Moved ${moved.length === 1 ? describe(scene.nodes.find((n) => n.id === moved[0])!) : `${moved.length} elements`}.`);
         return;
       }
       if (e.key === "Escape") {
