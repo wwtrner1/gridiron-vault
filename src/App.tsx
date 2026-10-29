@@ -25,6 +25,7 @@ import { PlaybookLanguage } from "./pages/PlaybookLanguage";
 import { Upload } from "./pages/Upload";
 import { Assignments } from "./pages/Assignments";
 import { Practice } from "./pages/Practice";
+import { Coverage } from "./pages/Coverage";
 import { Team } from "./pages/Team";
 import { Join } from "./pages/Join";
 import { Admin } from "./pages/Admin";
@@ -57,6 +58,7 @@ const TITLES: Record<string, string> = {
   "/team": "Your playbook — GridIronVault",
   "/join": "Team texts sign-up — GridIronVault",
   "/practice": "Practice — GridIronVault",
+  "/coverage": "Coverage report — GridIronVault",
   "/admin": "Admin — GridIronVault",
   "/tools": "More tools — GridIronVault",
   "/front-office": "Front Office — GridIronVault",
@@ -84,6 +86,7 @@ const NAMES: Record<string, string> = {
   "/team": "Player playbook",
   "/join": "Team texts sign-up",
   "/practice": "Practice",
+  "/coverage": "Coverage report",
   "/admin": "Admin",
   "/tools": "More tools",
   "/front-office": "Front Office",
@@ -154,6 +157,7 @@ export function App() {
         <Route path="/team/:token" element={<Team />} />
         <Route path="/join/:token" element={<Join />} />
         <Route path="/practice" element={<Practice />} />
+        <Route path="/coverage" element={<Coverage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/front-office" element={<FrontOffice />} />

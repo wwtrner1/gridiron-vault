@@ -21,6 +21,7 @@ import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolb
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
+import { CoverageCheck } from "../components/CoverageCheck";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
 import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
@@ -1599,6 +1600,8 @@ export function Builder() {
   const exportables = [{ ...meta, scene }];
 
   const [running, setRunning] = useState(false);
+  const [covering, setCovering] = useState(false);
+  const coverScene = useMemo(() => (covering ? reconcileConnections(scene) : scene), [covering, scene]);
 
   // Saved play format (canvas): save this play's look, or give this play the saved look.
   const playFormat = usePlayFormat();
@@ -1939,6 +1942,9 @@ export function Builder() {
                   <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setRunning(true)}>
                     Run play
                   </button>
+                  <button type="button" role="menuitem" onClick={() => setCovering(true)}>
+                    Coverage check: who gets open
+                  </button>
                   <button type="button" role="menuitem" className="is-wide-dup" onClick={() => setExporting(true)}>
                     Export · print · wristband
                   </button>
@@ -2000,7 +2006,18 @@ export function Builder() {
           scene={scene}
           name={meta.name}
           onFilm={(film) => applyScene({ ...scene, film }, "Film")}
+          onCoverage={() => (setRunning(false), setCovering(true))}
           onClose={() => setRunning(false)}
+        />
+      )}
+      {covering && (
+        <CoverageCheck
+          scene={coverScene}
+          name={meta.name}
+          playType={meta.playType}
+          rushYards={rules.rush || 7}
+          onShowLook={pickOverlay}
+          onClose={() => setCovering(false)}
         />
       )}
 

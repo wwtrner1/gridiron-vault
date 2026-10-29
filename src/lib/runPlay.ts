@@ -11,7 +11,7 @@ import type { PathNode, PlayerNode, Point, Scene } from "./types";
 const SPEED = 170;
 const BALL_FLIGHT = 0.55;
 
-export type Track = { playerId: string; pts: Point[]; lengths: number[]; total: number; delay: number };
+export type Track = { playerId: string; pathId: string; pts: Point[]; lengths: number[]; total: number; delay: number };
 export type Timeline = { tracks: Track[]; duration: number; throwAt: number | null; qbId: string | null; targetId: string | null };
 
 /** A line's points in field coordinates. */
@@ -40,7 +40,7 @@ export function buildTimeline(scene: Scene): Timeline {
     const total = lengths.reduce((a, b) => a + b, 0);
     if (total < 4) continue;
     // Motion happens before the snap; everyone else goes on it.
-    tracks.push({ playerId: p.id, pts, lengths, total, delay: 0 });
+    tracks.push({ playerId: p.id, pathId: path.id, pts, lengths, total, delay: 0 });
     if (path.firstRead) read = p;
   }
   const runFor = Math.max(2.5, ...tracks.map((t) => t.total / SPEED));

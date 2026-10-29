@@ -56,7 +56,7 @@ function sentence(scene: Scene, who: PlayerNode, line: PathNode, sign: 1 | -1): 
 }
 
 /** One route in a word a coach would call it: go, slant, corner, post, out, in, curl, comeback, flat, block, motion. */
-function routeWord(scene: Scene, who: PlayerNode, line: PathNode, sign: 1 | -1): { word: string; depth: number } | null {
+export function routeWord(scene: Scene, who: PlayerNode, line: PathNode, sign: 1 | -1): { word: string; depth: number } | null {
   const perYard = unitsPerYard(scene.view);
   const pts = line.points.map((p) => toWorld(line, p));
   if (pts.length < 2 || !perYard) return null;
