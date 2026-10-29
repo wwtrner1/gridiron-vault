@@ -73,3 +73,6 @@
   .tut-grid { grid-template-columns: 1fr; }
 }
 .modal-foot .spacer { flex: 1; }
+
+/* Recorded tours. */
+.guide-clip { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: var(--radius-lg); background: var(--ink); }

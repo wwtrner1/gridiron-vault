@@ -348,7 +348,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Show it on the field",
-            text: "Lays this defense under your play (Vs defense) so you can adjust a route against it. Done closes the check.",
+            text: "The Show … on the field button lays this defense under your play (Vs defense) so you can adjust a route against it. Back to drawing closes the check.",
             target: ".cov .rp-top",
             open: [EXTRAS, tour("dz-coverage")],
             close: ".cov .rp-top button",
@@ -829,6 +829,16 @@ export function guideFor(pathname: string, search = ""): Guide | null {
 }
 
 /** Where a guide's tour starts: its screen with `tour=<id>` added. */
+/**
+ * Screens with a recorded how-to clip in public/clips/ (<id>.webm and an <id>.jpg poster).
+ * The clips are the tours themselves, recorded from the built app; re-record after a big layout change.
+ */
+const CLIPS = new Set(["designer", "coverage-check", "griddy", "vault", "playbooks", "callsheet", "wristbands"]);
+
+export function clipOf(g: Guide) {
+  return CLIPS.has(g.id) ? { src: `/clips/${g.id}.webm`, poster: `/clips/${g.id}.jpg` } : null;
+}
+
 export function tourHref(g: Guide) {
   return `${g.path}${g.path.includes("?") ? "&" : "?"}tour=${g.id}`;
 }

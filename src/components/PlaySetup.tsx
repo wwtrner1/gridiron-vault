@@ -157,7 +157,7 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
 
         <label className="switch ps-skip">
           <input type="checkbox" checked={skipNext} onChange={(e) => setSkipNext(e.target.checked)} />
-          <span>Skip this next time and open a blank field (turn it back on from More in the Designer)</span>
+          <span>Skip this next time and open a blank field (turn it back on from Extras in the Designer)</span>
         </label>
       </form>
     </Modal>

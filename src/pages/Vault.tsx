@@ -542,7 +542,7 @@ export function Vault() {
                   <span className="radio-dot" />
                   <span>
                     <strong>{b.name}</strong>
-                    <small>{b.playIds.length} plays</small>
+                    <small>{b.playIds.length} {b.playIds.length === 1 ? "play" : "plays"}</small>
                   </span>
                   <span className="dim">Add {picked.length}</span>
                 </button>

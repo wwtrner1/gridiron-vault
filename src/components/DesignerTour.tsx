@@ -161,7 +161,7 @@ const SLIDES: Slide[] = [
 
 /**
  * The designer walkthrough: six short animated slides covering the moves a
- * coach makes most. Opens by itself the first time, and from More or the
+ * coach makes most. Opens by itself the first time, and from Extras or the
  * Tools guide whenever it's wanted.
  */
 export function DesignerTour({ onClose }: { onClose: () => void }) {

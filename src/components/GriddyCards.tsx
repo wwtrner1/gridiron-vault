@@ -288,7 +288,7 @@ function ImportCard({ id, plays, playbook }: { id: string; plays: ImportItem[]; 
         id,
         `The coach saved ${saved.length} plays to the Vault${where}.${left.length ? ` Not saved: ${left.map((r) => `"${r.name}"${r.problem ? ` (${r.problem})` : ""}`).join(", ")}.` : ""}`,
       );
-      toast(`${saved.length} plays saved to your Vault.`);
+      toast(`${saved.length} ${saved.length === 1 ? "play" : "plays"} saved to your Vault.`);
       dance();
     } finally {
       setSaving(false);
@@ -301,7 +301,7 @@ function ImportCard({ id, plays, playbook }: { id: string; plays: ImportItem[]; 
   return (
     <div className="gd-card gd-import">
       <p className="pa-kicker">
-        {plays.length} plays from your list · {readCount} drawn
+        {plays.length} {plays.length === 1 ? "play" : "plays"} from your list · {readCount} drawn
       </p>
       <ol className="gd-import-list">
         {rows.map((r) => (
@@ -668,7 +668,7 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
 
   return (
     <div className="gd-card gd-sheet">
-      <p className="pa-kicker">Call sheet · {rows.length} plays</p>
+      <p className="pa-kicker">Call sheet · {rows.length} {rows.length === 1 ? "play" : "plays"}</p>
       <label className="gd-import-book">
         <span>Name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} disabled={Boolean(done)} />
