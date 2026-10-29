@@ -7,6 +7,8 @@ import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
 import { ExportDialog } from "../components/ExportDialog";
 import { FREE_SAMPLE_NUMBERS, STARTERS, starterScene, type StarterSpec } from "../lib/starters";
+import { bestAgainst, WHY_IT_WORKS } from "../lib/starterIntel";
+import { explainPlay } from "../lib/explain";
 import { gateSave } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { store, useStore } from "../lib/store";
@@ -370,6 +372,7 @@ export function Starters() {
               </div>
             </dl>
             <p className="preview-note">{preview.description}</p>
+            <StarterIntel spec={preview} />
             <div className="play-tags">
               {preview.tags.map((t) => (
                 <span className="chip" key={t}>
@@ -391,5 +394,49 @@ export function Starters() {
         />
       )}
     </Shell>
+  );
+}
+
+/** Why it works, what it beats (from the Coverage check for pass plays) and who does what. */
+function StarterIntel({ spec }: { spec: StarterSpec }) {
+  const best = useMemo(() => bestAgainst(spec), [spec]);
+  const jobs = useMemo(() => explainPlay(starterScene(spec)).split("\n").filter(Boolean), [spec]);
+  const why = WHY_IT_WORKS[spec.n];
+  return (
+    <div className="starter-intel">
+      {why && (
+        <section>
+          <h4>Why it works</h4>
+          <p>{why}</p>
+        </section>
+      )}
+      {(best.looks.length > 0 || best.words || best.format) && (
+        <section>
+          <h4>Best against</h4>
+          {best.looks.length > 0 && (
+            <div className="play-tags">
+              {best.looks.map((l) => (
+                <span className="pill pill-pass" key={l}>
+                  {l}
+                </span>
+              ))}
+            </div>
+          )}
+          {best.format && !best.looks.length && <p>Nothing in the {best.format} looks yet. Copy it and adjust the routes in the Coverage check.</p>}
+          {best.words && <p>{best.words}</p>}
+          {best.format && <p className="hint">From the Coverage check: the play run against every {best.format} look. A teaching model, not a promise.</p>}
+        </section>
+      )}
+      {jobs.length > 0 && (
+        <section>
+          <h4>Who does what</h4>
+          <ul>
+            {jobs.map((j, i) => (
+              <li key={i}>{j}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
