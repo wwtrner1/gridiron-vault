@@ -1,11 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { onboarding } from "../lib/onboarding";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { trustSaidLetters } from "../lib/assistant";
 import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
-import { vaultLooks } from "../lib/bulkEdit";
 import { routeSummary } from "../lib/explain";
 import { useAuth } from "../lib/auth";
 import { useDictation } from "../lib/dictation";
@@ -20,9 +19,13 @@ import { store } from "../lib/store";
 import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
 import type { PlayMeta, Scene, SceneNode, StoredPlay } from "../lib/types";
-import { GriddyActionCard } from "./GriddyCards";
 import { GriddyMascot } from "./GriddyMascot";
 import { Icon } from "./Icon";
+import { lazyPage } from "../lib/lazyPage";
+
+// The cards (and the bulk edit, import and wristband code behind them) load with Griddy's first answer, not with every page.
+// lazyPage also reloads once after a release and fetches it in the background with the screens.
+const GriddyActionCard = lazyPage(() => import("./GriddyCards"), "GriddyActionCard");
 
 /** The Designer, when it's open: where Griddy's plays can be drawn straight onto the field. */
 export type GriddyDrawer = {
@@ -85,7 +88,11 @@ function beatsOf(p: StoredPlay, rushYards: number, check: typeof import("../lib/
 }
 
 /** Plays and playbooks Griddy can search, newest first, and the player looks across all of them. */
-function vaultContext(withRoutes: boolean, check?: typeof import("../lib/coverage")): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
+function vaultContext(
+  vaultLooks: typeof import("../lib/bulkEdit").vaultLooks,
+  withRoutes: boolean,
+  check?: typeof import("../lib/coverage"),
+): Pick<GriddyContext, "vault" | "playbooks" | "looks"> {
   const rush = loadRules().rush || 7;
   const { plays, playbooks } = store.get();
   const books = new Map<string, string[]>();
@@ -157,6 +164,7 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
         const recent = turnsNow.slice(-6).filter((t) => t.role === "coach");
         // What each pass play beats in the Coverage check goes along only while the coach is talking coverages (it costs tokens and time).
         const check = recent.some((t) => NEEDS_COVERAGE.test(t.text)) ? await import("../lib/coverage") : undefined;
+        const { vaultLooks } = await import("../lib/bulkEdit");
         const { reply } = await api.griddy({
           turns: turnsNow.slice(-GRIDDY_LIMITS.turns),
           context: {
@@ -164,7 +172,7 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
             game: currentGame(),
             play: d?.play ?? null,
             // What each diagram draws goes along only while the coach is talking about names or routes (it costs tokens).
-            ...vaultContext(recent.some((t) => NEEDS_ROUTES.test(t.text)), check),
+            ...vaultContext(vaultLooks, recent.some((t) => NEEDS_ROUTES.test(t.text)), check),
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
         });
@@ -367,9 +375,13 @@ function GriddyPanel() {
                   <Rich text={t.text} />
                 </div>
               )}
-              {t.actions.map((a) => (
-                <GriddyActionCard key={a.id} action={a} />
-              ))}
+              {t.actions.length > 0 && (
+                <Suspense fallback={<p className="gd-msg is-griddy">Getting the card ready…</p>}>
+                  {t.actions.map((a) => (
+                    <GriddyActionCard key={a.id} action={a} />
+                  ))}
+                </Suspense>
+              )}
             </div>
           ),
         )}
