@@ -187,7 +187,8 @@ export async function handleWebhook(req: Request): Promise<Response> {
       event.type === "customer.subscription.paused" ||
       event.type === "customer.subscription.resumed"
     )
-      await applySubscription(event.data.object);
+      // Events can arrive out of order, so act on the subscription as Stripe has it now; the payload is the fallback.
+      await applySubscription(await stripe().subscriptions.retrieve(event.data.object.id).catch(() => event.data.object));
   } catch {
     // Stripe retries a 500, so a database blip doesn't lose a payment.
     return new Response("try again", { status: 500 });
