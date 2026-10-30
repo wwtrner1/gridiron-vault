@@ -130,6 +130,11 @@ export const GUIDES: Guide[] = [
             target: tour("dz-export"),
           },
           {
+            title: "Undo and redo",
+            text: "Takes back the last change, a whole drag at a time, and puts it back again (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z; ⌘ on a Mac). The floating tools and Extras have them too.",
+            target: tour("dz-undo"),
+          },
+          {
             title: "Save play",
             text: "Keeps the play in your Vault. Signed in, it also goes to your account so it's on every device. It reads Saved when nothing has changed, and Live with … when you're drawing with your staff.",
             target: tour("dz-save"),
