@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
 import {
@@ -60,6 +61,9 @@ export function RosterTab({
   const source = useMemo(() => given ?? hubSource(team.id), [given, team.id]);
   const [players, setPlayers] = useState<HubPlayer[] | null>(null);
   const [failed, setFailed] = useState("");
+  // Print shows a preview of the printed page first.
+  const [previewing, setPreviewing] = useState(false);
+  const closePreview = useCallback(() => setPreviewing(false), []);
   const [find, setFind] = useState("");
   const [status, setStatus] = useState<PlayerStatus | "all">("all");
   const [open, setOpen] = useState<HubPlayer | "new" | null>(null);
@@ -120,7 +124,7 @@ export function RosterTab({
           <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => download(`${team.name} roster.csv`, rosterCsv([...players].sort(byJersey)))}>
             <Icon name="download" size={14} /> Download CSV
           </button>
-          <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => window.print()}>
+          <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => setPreviewing(true)}>
             <Icon name="print" size={14} /> Print contact sheet
           </button>
         </div>
@@ -256,6 +260,7 @@ export function RosterTab({
           }}
         />
       )}
+      {previewing && <PagePreview title={`${team.name} roster`} onClose={closePreview} />}
     </section>
   );
 }

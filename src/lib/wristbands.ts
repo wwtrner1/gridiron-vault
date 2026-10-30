@@ -3,7 +3,7 @@ import type { jsPDF } from "jspdf";
 import { brandStore, hasBrand, hexToRgb, inkOn, luminance, type TeamBrand } from "./brand";
 import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
-import { CARD_LOOK, FULL_LOOK, lettersFit, type PrintLook } from "./printLook";
+import { CARD_LOOK, FULL_LOOK, cutOffs, lettersFit, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
 
 /**
@@ -152,7 +152,66 @@ export type BandOptions = {
   watermark: string | null;
   dpi: number;
   vector: boolean;
+  /** The coach's own card colors; anything left out follows team branding or the GridIronVault look. */
+  colors?: Partial<BandColors> | null;
 };
+
+/** Every color on a printed card, as hex. */
+export type BandColors = {
+  /** Header band fill and its words. */
+  head: string;
+  headText: string;
+  /** Number tab (or the gray strip in the "band" style) and its number. */
+  tab: string;
+  tabText: string;
+  /** Card border and box lines. */
+  line: string;
+};
+
+/** One-click card colors on the Wristbands page; "Team colors" comes from branding instead. */
+export const BAND_COLOR_PRESETS: { id: string; label: string; colors: BandColors | null }[] = [
+  { id: "auto", label: "GridIronVault", colors: null },
+  { id: "mono", label: "Black and white", colors: { head: "#000000", headText: "#FFFFFF", tab: "#000000", tabText: "#FFFFFF", line: "#000000" } },
+  { id: "navy", label: "Navy and gold", colors: { head: "#14213D", headText: "#FCA311", tab: "#14213D", tabText: "#FCA311", line: "#14213D" } },
+  { id: "red", label: "Red", colors: { head: "#B3202A", headText: "#FFFFFF", tab: "#B3202A", tabText: "#FFFFFF", line: "#5A1015" } },
+  { id: "green", label: "Green", colors: { head: "#1E6B3A", headText: "#FFFFFF", tab: "#1E6B3A", tabText: "#FFFFFF", line: "#123F22" } },
+  { id: "purple", label: "Purple", colors: { head: "#4B2A85", headText: "#FFFFFF", tab: "#4B2A85", tabText: "#FFFFFF", line: "#2B184D" } },
+  { id: "orange", label: "Orange", colors: { head: "#E0620D", headText: "#0B1524", tab: "#E0620D", tabText: "#0B1524", line: "#0B1524" } },
+];
+
+const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
+
+/**
+ * The card's colors as they print: the coach's picks first, then team branding
+ * on the header, then the GridIronVault ink and cyan. Shared by the PDF and the
+ * preview, so the screen shows the colors the printer gets.
+ */
+export function bandPalette(
+  o: Pick<BandOptions, "colors" | "numberStyle">,
+  brand: TeamBrand = brandStore.get(),
+): BandColors & { strip: string; grid: string; logo: string | null } {
+  const head = bandHead(brand);
+  const c = o.colors ?? {};
+  const tab = isHex(c.tab) ? c.tab : o.numberStyle === "band" ? "#D9DEE3" : "#0B1524";
+  return {
+    head: isHex(c.head) ? c.head : head.fill,
+    headText: isHex(c.headText) ? c.headText : head.ink,
+    tab,
+    tabText: isHex(c.tabText) ? c.tabText : o.numberStyle === "band" ? "#0B1524" : "#FFFFFF",
+    line: isHex(c.line) ? c.line : "#0B1524",
+    grid: isHex(c.line) ? boxLine(c.line) : "#96A4B2",
+    // The gray strip style keeps its gray unless the coach picks a tab color.
+    strip: tab,
+    logo: head.logo,
+  };
+}
+
+/** Box lines a shade lighter than the border, so the card edge still reads as the cut line. */
+export function boxLine(line: string): string {
+  const [r, g, b] = hexToRgb(line);
+  const mix = (v: number) => Math.round(v + (255 - v) * 0.45);
+  return `#${[mix(r), mix(g), mix(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
 
 export const defaultBandText = {
   left: "{role} · Card {card} · {source}",
@@ -231,13 +290,15 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
   const { w: CARD_W, h: CARD_H } = o.card;
   const { headH, footH } = bandChrome(o);
   const perCard = cols * rows;
+  // The coach's card colors, then team branding, then GridIronVault ink and cyan.
+  const pal = bandPalette(o);
+  const grid = hexToRgb(pal.grid);
 
-  doc.setDrawColor(11, 21, 36);
+  doc.setDrawColor(...hexToRgb(pal.line));
   doc.setLineWidth(0.01);
   doc.rect(x, y, CARD_W, CARD_H);
   if (headH) {
-    // Team colors and logo when the coach has branding on prints; GridIronVault ink and cyan otherwise.
-    const head = bandHead();
+    const head = { fill: pal.head, ink: pal.headText, logo: pal.logo };
     doc.setFillColor(...hexToRgb(head.fill));
     doc.rect(x, y, CARD_W, headH, "F");
     let textX = x + 0.06;
@@ -255,9 +316,9 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
   if (footH) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
-    doc.setTextColor(11, 21, 36);
+    doc.setTextColor(...hexToRgb(pal.line));
     doc.text(fillBandText(o.footer, vars).toUpperCase(), x + CARD_W / 2, y + CARD_H - 0.05, { align: "center" });
-    doc.setDrawColor(11, 21, 36);
+    doc.setDrawColor(...hexToRgb(pal.line));
     doc.line(x, y + CARD_H - footH, x + CARD_W, y + CARD_H - footH);
   }
 
@@ -265,7 +326,7 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
   for (let i = 0; i < perCard; i++) {
     const cx = x + (i % cols) * cellW;
     const cy = y + headH + Math.floor(i / cols) * cellH;
-    doc.setDrawColor(150, 164, 178);
+    doc.setDrawColor(...grid);
     doc.setLineWidth(0.008);
     doc.rect(cx, cy, cellW, cellH);
     const e = entries[i];
@@ -284,20 +345,20 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
     doc.setFontSize(numPt);
     if (o.numberStyle === "band") {
       // Gray strip across the top with the number centred, like most printed wristbands.
-      doc.setFillColor(...BAND_GRAY);
+      doc.setFillColor(...hexToRgb(pal.strip));
       doc.rect(cx, cy, cellW, strip, "F");
-      doc.setDrawColor(150, 164, 178);
+      doc.setDrawColor(...grid);
       doc.line(cx, cy + strip, cx + cellW, cy + strip);
-      doc.setTextColor(11, 21, 36);
+      doc.setTextColor(...hexToRgb(pal.tabText));
       const label = o.shows.name ? `${e.number} · ${e.name.toUpperCase()}` : e.number;
       fitSize(doc, label, cellW - 0.08, numPt, numPt * 0.7);
       doc.text(fitText(doc, label, cellW - 0.08), cx + cellW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
     } else {
       // Number in a solid tab, name beside it, diagram filling the rest of the cell.
       const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
-      doc.setFillColor(11, 21, 36);
+      doc.setFillColor(...hexToRgb(pal.tab));
       doc.rect(cx, cy, tabW, strip, "F");
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(...hexToRgb(pal.tabText));
       doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
       if (o.shows.name) {
         const name = e.name.toUpperCase();
@@ -356,6 +417,23 @@ export function tightBoxes(entries: BandEntry[], o: Pick<BandOptions, "card" | "
   if (!o.shows.diagram || o.shows.numberOnly) return [];
   const art = diagramBox(o);
   return entries.filter((e) => e.scene && !lettersFit(e.scene, o.look, art.w, art.h)).map((e) => e.number);
+}
+
+/** A box whose play loses something on paper: its number, name and what gets cut. */
+export type BandCut = { number: string; name: string; parts: string[] };
+
+/**
+ * Boxes whose diagram runs past its printed frame (a player or route dragged
+ * off the field) or has to leave a label off, so the coach hears about it
+ * before printing rather than on the sideline.
+ */
+export function bandCutOffs(entries: BandEntry[], o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize" | "look" | "shows">): BandCut[] {
+  if (!o.shows.diagram || o.shows.numberOnly) return [];
+  const art = diagramBox(o);
+  return entries.flatMap((e) => {
+    const parts = e.scene ? cutOffs(e.scene, o.look, art.w, art.h) : [];
+    return parts.length ? [{ number: e.number, name: e.name, parts }] : [];
+  });
 }
 
 /**

@@ -30,6 +30,13 @@ export type PrintLook = {
   depths?: boolean;
   /** The coach's league rule lines (rush line, no-run zone) from Rules in the Designer. Default off. */
   rules?: boolean;
+  /**
+   * Canvas units across every box shows, so a set of plays prints at one scale:
+   * players, routes and yard lines the same size in every box. Set by `matchLook`.
+   */
+  span?: number;
+  /** How far tokens may grow before the most crowded play in the set runs together. Set by `matchLook`. */
+  room?: number;
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: "auto", field: "full" };
@@ -41,11 +48,13 @@ export const ICON_STEPS: { value: number; label: string }[] = [
   { value: 0.8, label: "Small" },
   { value: 1, label: "Medium" },
   { value: 1.3, label: "Large" },
+  { value: 1.6, label: "X-large" },
 ];
 export const LINE_STEPS: { value: number; label: string }[] = [
   { value: 0.7, label: "Thin" },
   { value: 1, label: "Medium" },
   { value: 1.5, label: "Thick" },
+  { value: 2, label: "X-thick" },
 ];
 
 export const WEIGHT_STEPS: (number | "auto")[] = ["auto", 1, 1.5, 2, 2.5, 3];
@@ -129,6 +138,8 @@ export type Boost = {
   dots?: boolean;
   /** Points per canvas unit on paper; lifts route tags and text to a readable size. */
   ptPerUnit?: number;
+  /** Room between tokens to use instead of this play's own, so a set of plays keeps one token size. */
+  room?: number;
 };
 
 /** How much a label of `size` canvas units must grow to print at least MIN_TEXT_PT. */
@@ -141,9 +152,9 @@ const textBoost = (size: number, ptPerUnit?: number) =>
  * until they print at a readable size. Positions don't move.
  */
 export function boostScene(scene: Scene, b: Boost): Scene {
-  const { line, token, fit = false, floor = 1, dots = false, ptPerUnit } = b;
+  const { line, token, fit = false, floor = 1, dots = false, ptPerUnit, room } = b;
   if (line === 1 && token === 1 && !dots && !ptPerUnit) return scene;
-  const tokenK = fit ? Math.max(Math.min(token, floor), Math.min(token, tokenRoom(scene))) : token;
+  const tokenK = fit ? Math.max(Math.min(token, floor), Math.min(token, room ?? tokenRoom(scene))) : token;
   const tagK = textBoost(TAG_SIZE, ptPerUnit);
   // Only auto weights drop letters; a size the coach picked keeps them.
   const tooSmall = (size: number) => fit && !!ptPerUnit && (size * ptPerUnit) / 72 < LETTER_TOKEN_IN;
@@ -268,7 +279,7 @@ function weightsFor(look: PrintLook, unitsAcross: number, inches: number, height
   const lines = look.lines ?? 1;
   if (look.weight !== "auto") return { line: look.weight * lines, token: look.weight * icons, dots: look.dots, ptPerUnit };
   const auto = autoWeight(unitsAcross, inches, heightIn);
-  return { line: auto.line * lines, token: auto.token * icons, floor: auto.floor * icons, fit: true, dots: look.dots, ptPerUnit };
+  return { line: auto.line * lines, token: auto.token * icons, floor: auto.floor * icons, fit: true, dots: look.dots, ptPerUnit, room: look.room };
 }
 
 /** Shrink (zoom in) or grow (zoom out) a box about its centre. */
@@ -301,11 +312,13 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   if (!raw) return { scene: boostScene(scene, { line: 1, token: 1, dots: look.dots }), box: whole, weight: 1, ptPerUnit: ppu(whole) };
   // Weight depends on the zoom and the zoom on the (heavier) tokens, so settle it in two passes.
   let box = toAspect(pad(raw, PAD), aspect);
-  const w = weightsFor(look, Math.max(box.w, MIN_FRAME_W), wIn, hIn);
+  // A matched set frames every play the same width across, so they all print at one scale.
+  const across = Math.max(MIN_FRAME_W, look.span ?? 0);
+  const w = weightsFor(look, Math.max(box.w, across), wIn, hIn);
   const boosted = boostScene(scene, w);
   const play = pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2));
   box = toAspect(play, aspect);
-  if (box.w < MIN_FRAME_W) box = toAspect({ ...box, x: box.x + box.w / 2 - MIN_FRAME_W / 2, w: MIN_FRAME_W }, aspect);
+  if (box.w < across) box = toAspect({ ...box, x: box.x + box.w / 2 - across / 2, w: across }, aspect);
   box = keepPlay(zoomBox(box, look.zoom), play, aspect);
   return { scene: boosted, box, weight: w.line, ptPerUnit: ppu(box) };
 }
@@ -321,4 +334,54 @@ export function lettersFit(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   if (look.dots) return true;
   const printed = frameScene(scene, look, wIn, hIn).scene.nodes;
   return scene.nodes.every((n, i) => n.kind !== "player" || !n.label || n.hidden || (printed[i]?.kind === "player" && !!printed[i].label));
+}
+
+/**
+ * One look for a set of plays printed in same-sized boxes: every box shows as
+ * much field as the widest play needs and tokens grow as far as the typical
+ * play allows, so players, routes and yard lines print the same size
+ * in every box (Football Play Card's single Play Zoom and Player Circle Size).
+ * Zoom still applies on top. A single play, or none, keeps the look as it is.
+ */
+export function matchLook(scenes: Scene[], look: PrintLook, wIn: number, hIn: number): PrintLook {
+  if (scenes.length < 2) return look;
+  const plain: PrintLook = { ...look, zoom: 1, span: undefined, room: undefined };
+  // The typical play's room, not the most crowded one's: one tight bunch set shouldn't shrink every player on the card.
+  // Tokens in that bunch may touch, and their white rings keep them apart.
+  const rooms = scenes.map(tokenRoom).sort((a, b) => a - b);
+  const room = rooms[Math.floor(rooms.length / 2)];
+  const span = look.fit === "play" ? Math.max(...scenes.map((s) => frameScene(s, { ...plain, room }, wIn, hIn).box.w)) : undefined;
+  return { ...look, span, room };
+}
+
+/** Bounds a node may overrun the frame by (an arrowhead tip, a stroke's edge) before it counts as cut off. */
+const CUT_SLACK = 6;
+
+/**
+ * What of a play gets cut off at `wIn` × `hIn` inches: players, routes, zones
+ * and labels that run past the printed frame, usually because they were
+ * dragged off the field in the Designer (only the field is ever drawn). Plain
+ * words for the warning before print; empty when the whole play prints.
+ */
+export function cutOffs(scene: Scene, look: PrintLook, wIn: number, hIn: number): string[] {
+  const framed = frameScene(scene, look, wIn, hIn);
+  const f = framed.box;
+  const player = (id: string | null) => scene.nodes.find((n) => n.id === id && n.kind === "player");
+  const out: string[] = [];
+  framed.scene.nodes.forEach((n, i) => {
+    if (n.hidden) return;
+    const b = worldBox(n);
+    const inside =
+      b.x >= f.x - CUT_SLACK && b.y >= f.y - CUT_SLACK && b.x + b.w <= f.x + f.w + CUT_SLACK && b.y + b.h <= f.y + f.h + CUT_SLACK;
+    if (inside) return;
+    // Printed tokens may have lost their letter (solid dots); the coach knows the player by the drawn one.
+    const drawn = scene.nodes[i];
+    if (n.kind === "player") out.push(drawn?.kind === "player" && drawn.label ? drawn.label : "a player");
+    else if (n.kind === "path") {
+      const p = player(n.fromId);
+      out.push(p?.kind === "player" && p.label ? `${p.label}'s route` : "a route");
+    } else if (n.kind === "text") out.push(n.text.trim() ? `the label "${n.text.trim()}"` : "a label");
+    else out.push("a zone");
+  });
+  return [...new Set(out)];
 }
