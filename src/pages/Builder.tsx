@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { AddToPlaybook } from "../components/AddToPlaybook";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
 import { CoachTip } from "../components/CoachTip";
@@ -437,6 +438,8 @@ export function Builder() {
   );
   const [status, setStatus] = useState("Drop a formation, then draw the routes. Hover any tool to see how it works.");
   const [exporting, setExporting] = useState(false);
+  // Extras → Add to playbook: null closed, true opened on the new-playbook name.
+  const [filing, setFiling] = useState<boolean | null>(null);
   const [sideOpen, setSideOpen] = useState(() => wideScreen() && readPanels().side);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
   const [lists, setLists] = useState<"formations" | "defense" | "layers" | null>(null);
@@ -1657,6 +1660,16 @@ export function Builder() {
     toast(`Saved ${saved.name}${homeBook ? ` in ${homeBook.name}` : ""}. You're on the flipped copy now.`);
     navigate(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
   };
+  /** Extras → Add to playbook: the play is saved first (a new one gets its id), then filed. */
+  const addToBook = async (newFirst: boolean) => {
+    if (saving) return;
+    if (liveId) {
+      toast("Save a copy to your Vault first, then add that copy to a playbook.", true);
+      return;
+    }
+    if ((dirty || !existing) && !(await save())) return;
+    setFiling(newFirst);
+  };
   /** Extras → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
   const newPlay = () => {
     if (dirty && !window.confirm("Start a new play? This one has changes you haven't saved.")) return;
@@ -2140,6 +2153,16 @@ export function Builder() {
                   <button type="button" onClick={() => void flipToCopy()} data-tour="dz-play">
                     Flip and save as a new play
                   </button>
+                  {!liveId && (
+                    <>
+                      <button type="button" onClick={() => void addToBook(false)} data-tour="dz-add-book">
+                        <Icon name="folder" size={15} /> Add to playbook…
+                      </button>
+                      <button type="button" onClick={() => void addToBook(true)} data-tour="dz-add-book">
+                        <Icon name="plus" size={15} /> Add to a new playbook…
+                      </button>
+                    </>
+                  )}
 
                   <p className="dz-more-head">Go to</p>
                   {workTabs(loadWork(), playbooks, sheets, new Set(plays.map((p) => p.id)))
@@ -2177,6 +2200,9 @@ export function Builder() {
         </div>
       </header>
 
+      {filing !== null && existing && (
+        <AddToPlaybook count={1} plays={() => [existing.id]} newFirst={filing} onClose={() => setFiling(null)} />
+      )}
       {running && (
         <RunPlay
           scene={scene}

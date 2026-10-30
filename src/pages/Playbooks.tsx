@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
+import { AddToPlaybook } from "../components/AddToPlaybook";
 import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
 import { lazyPage } from "../lib/lazyPage";
@@ -59,6 +60,7 @@ export function Playbooks() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [filingUnfiled, setFilingUnfiled] = useState(false);
 
   const playsById = useMemo(() => new Map(plays.map((p) => [p.id, p])), [plays]);
   const current = books.find((b) => b.id === openBook) ?? null;
@@ -262,9 +264,14 @@ export function Playbooks() {
 
       {unfiled.length > 0 && (
         <section className="unfiled">
-          <h3>
-            Not in a playbook yet <span className="pill">{unfiled.length}</span>
-          </h3>
+          <div className="unfiled-head">
+            <h3>
+              Not in a playbook yet <span className="pill">{unfiled.length}</span>
+            </h3>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilingUnfiled(true)} data-tour="pb-file-unfiled">
+              <Icon name="plus" size={14} /> Add {unfiled.length === 1 ? "it" : `all ${unfiled.length}`} to a new playbook
+            </button>
+          </div>
           <div className="unfiled-row">
             {unfiled.slice(0, 12).map((p) => (
               <button
@@ -279,6 +286,10 @@ export function Playbooks() {
             ))}
           </div>
         </section>
+      )}
+
+      {filingUnfiled && (
+        <AddToPlaybook count={unfiled.length} plays={() => unfiled.map((p) => p.id)} newFirst onClose={() => setFilingUnfiled(false)} />
       )}
 
       {draft && (

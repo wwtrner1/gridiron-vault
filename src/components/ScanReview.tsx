@@ -63,6 +63,7 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
   const [reading, setReading] = useState(false);
   const [checking, setChecking] = useState<string | null>(null);
   const [target, setTarget] = useState("new");
+  const [newName, setNewName] = useState(() => bookName(files));
   const live = useRef(true);
 
   const left = () => Math.max(0, tier.photoReviews - aiUsage.used("photo"));
@@ -208,7 +209,7 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
     made.forEach((p) => store.upsertPlay(p));
     if (target !== "none") {
       const existing = playbooks.find((b) => b.id === target);
-      const book = existing ?? { id: uid("book"), name: bookName(files), description: `Read from ${source}`, color: "#16C8E8", isPublic: false, playIds: [] };
+      const book = existing ?? { id: uid("book"), name: newName.trim() || bookName(files), description: `Read from ${source}`, color: "#16C8E8", isPublic: false, playIds: [] };
       store.upsertPlaybook({ ...book, playIds: [...book.playIds, ...made.map((p) => p.id)], updatedAt: now });
     }
     toast(`${made.length} ${made.length === 1 ? "play" : "plays"} saved to your Vault. Open any one to fine-tune it.`);
@@ -384,7 +385,7 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
               <label className="up-field">
                 <span>Add to playbook</span>
                 <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
-                  <option value="new">{bookName(files)} (new)</option>
+                  <option value="new">New playbook…</option>
                   {playbooks.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
@@ -393,6 +394,12 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
                   <option value="none">Don’t add to a playbook</option>
                 </select>
               </label>
+              {target === "new" && (
+                <label className="up-field">
+                  <span>New playbook name</span>
+                  <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={bookName(files)} maxLength={80} />
+                </label>
+              )}
             </div>
             {!saveGate.ok && (
               <p className="up-gate" role="note">
