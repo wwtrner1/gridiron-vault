@@ -216,6 +216,7 @@ function DeckReview({ deck, onBack }: { deck: Deck; onBack: () => void }) {
   const [format, setFormat] = useState<ImportOptions["format"]>("vault");
   const deckName = deck.name.replace(/\.pptx$/i, "");
   const [target, setTarget] = useState<string>("new");
+  const [newName, setNewName] = useState(deckName);
   const unknown = useMemo(
     () => [...new Set(found.flatMap((s) => s.letters))].filter((l) => !KNOWN.has(l) && !/^\d+$/.test(l)),
     [found],
@@ -258,7 +259,7 @@ function DeckReview({ deck, onBack }: { deck: Deck; onBack: () => void }) {
     made.forEach((p) => store.upsertPlay(p));
     if (target !== "none") {
       const existing = playbooks.find((b) => b.id === target);
-      const book = existing ?? { id: uid("book"), name: deckName, description: `Imported from ${deck.name}`, color: "#16C8E8", isPublic: false, playIds: [] };
+      const book = existing ?? { id: uid("book"), name: newName.trim() || deckName, description: `Imported from ${deck.name}`, color: "#16C8E8", isPublic: false, playIds: [] };
       store.upsertPlaybook({ ...book, playIds: [...book.playIds, ...made.map((p) => p.id)], updatedAt: now });
     }
     toast(`${made.length} ${made.length === 1 ? "play" : "plays"} imported into your Vault. Open any one to check it.`);
@@ -353,7 +354,7 @@ function DeckReview({ deck, onBack }: { deck: Deck; onBack: () => void }) {
               <label className="up-field">
                 <span>Add to playbook</span>
                 <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
-                  <option value="new">{deckName} (new)</option>
+                  <option value="new">New playbook…</option>
                   {playbooks.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
@@ -362,6 +363,12 @@ function DeckReview({ deck, onBack }: { deck: Deck; onBack: () => void }) {
                   <option value="none">Don’t add to a playbook</option>
                 </select>
               </label>
+              {target === "new" && (
+                <label className="up-field">
+                  <span>New playbook name</span>
+                  <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={deckName} maxLength={80} />
+                </label>
+              )}
               {unknown.length > 0 && (
                 <div className="up-field">
                   <span>Letters</span>

@@ -6,7 +6,7 @@ import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayThumb } from "../components/PlayThumb";
 import { lazyPage } from "../lib/lazyPage";
-import { Modal } from "../components/Modal";
+import { AddToPlaybook } from "../components/AddToPlaybook";
 import { store, useStore } from "../lib/store";
 import { markUnsynced } from "../lib/playSync";
 import { deleteFromAccount } from "../lib/pendingDeletes";
@@ -55,7 +55,7 @@ export function Vault() {
   const [remote, setRemote] = useState<StoredPlay[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [addingTo, setAddingTo] = useState(false);
+  const [addingTo, setAddingTo] = useState<{ ids: string[]; newFirst: boolean; bulk: boolean } | null>(null);
 
   // Pull the shared Vault, and merge the coach's own cloud plays once signed in.
   useEffect(() => {
@@ -459,6 +459,16 @@ export function Vault() {
                         >
                           <Icon name="download" size={13} /> Export
                         </button>
+                        <Tooltip title="Add to a playbook" hint="Pick one you have, or name a new one.">
+                          <button
+                            type="button"
+                            className="btn btn-quiet btn-sm"
+                            onClick={() => setAddingTo({ ids: [p.id], newFirst: false, bulk: false })}
+                            aria-label={`Add ${p.name} to a playbook`}
+                          >
+                            <Icon name="folder" size={14} />
+                          </button>
+                        </Tooltip>
                         <button type="button" className="btn btn-quiet btn-sm" onClick={() => remove(p)} aria-label={`Delete ${p.name}`}>
                           <Icon name="trash" size={14} />
                         </button>
@@ -498,8 +508,15 @@ export function Vault() {
             <b aria-hidden="true">{picked.length}</b>
             <span aria-hidden="true">play{picked.length === 1 ? "" : "s"} selected</span>
             <span className="spacer" />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAddingTo(true)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAddingTo({ ids: picked, newFirst: false, bulk: true })}>
               <Icon name="folder" size={14} /> Add to playbook
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setAddingTo({ ids: picked, newFirst: true, bulk: true })}
+            >
+              <Icon name="plus" size={14} /> Add to new playbook
             </button>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => setExporting(true)}>
               <Icon name="print" size={14} /> Export or print
@@ -527,39 +544,13 @@ export function Vault() {
       )}
 
       {addingTo && (
-        <Modal title="Add to a playbook" onClose={() => setAddingTo(false)}>
-          {playbooks.length === 0 ? (
-            <>
-              <p className="lede">You have no playbooks yet. A playbook is just a folder with an install order.</p>
-              <Link to="/playbooks" className="btn btn-primary" style={{ marginTop: 14 }}>
-                Build your first playbook
-              </Link>
-            </>
-          ) : (
-            <div className="size-list">
-              {playbooks.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  className="size-opt"
-                  onClick={() => {
-                    store.upsertPlaybook({ ...b, playIds: [...new Set([...b.playIds, ...picked])] });
-                    setAddingTo(false);
-                    setPicked([]);
-                    toast(`Added to ${b.name}.`);
-                  }}
-                >
-                  <span className="radio-dot" />
-                  <span>
-                    <strong>{b.name}</strong>
-                    <small>{b.playIds.length} {b.playIds.length === 1 ? "play" : "plays"}</small>
-                  </span>
-                  <span className="dim">Add {picked.length}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </Modal>
+        <AddToPlaybook
+          count={addingTo.ids.length}
+          plays={() => addingTo.ids}
+          newFirst={addingTo.newFirst}
+          onClose={() => setAddingTo(null)}
+          onDone={() => addingTo.bulk && setPicked([])}
+        />
       )}
     </Shell>
   );

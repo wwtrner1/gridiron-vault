@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
+import { AddToPlaybook } from "../components/AddToPlaybook";
 import { PlayThumb } from "../components/PlayThumb";
 import { Tooltip } from "../components/Tooltip";
 import { lazyPage } from "../lib/lazyPage";
@@ -56,6 +57,8 @@ export function Starters() {
   const [picked, setPicked] = useState<number[]>([]);
   const [preview, setPreview] = useState<StarterSpec | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Starters headed for a playbook: copied into the Vault when the coach picks the playbook.
+  const [filing, setFiling] = useState<{ specs: StarterSpec[]; newFirst: boolean; bulk: boolean } | null>(null);
 
   const formations = useMemo(
     () => ["all", ...[...new Set(STARTERS.map((s) => s.formation))]],
@@ -93,19 +96,27 @@ export function Starters() {
     if (play) navigate(`/build/${play.id}`);
   };
 
-  const copyPicked = () => {
-    let added = 0;
-    for (const n of picked) {
-      const spec = STARTERS.find((s) => s.n === n);
-      if (!spec || locked(spec)) continue;
-      const gate = gateSave(tier, plays.length + added);
+  /** Copies starters into the Vault until it is full. Returns the new plays' ids. */
+  const copySpecs = (specs: StarterSpec[]) => {
+    const ids: string[] = [];
+    for (const spec of specs) {
+      if (locked(spec)) continue;
+      const gate = gateSave(tier, plays.length + ids.length);
       if (!gate.ok) {
         toast(gate.reason);
         break;
       }
-      store.upsertPlay(toPlay(spec, "GridIronVault starters"));
-      added += 1;
+      const play = toPlay(spec, "GridIronVault starters");
+      store.upsertPlay(play);
+      ids.push(play.id);
     }
+    return ids;
+  };
+
+  const pickedSpecs = () => picked.map((n) => STARTERS.find((s) => s.n === n)).filter((s): s is StarterSpec => Boolean(s) && !locked(s!));
+
+  const copyPicked = () => {
+    const added = copySpecs(pickedSpecs()).length;
     if (added) {
       toast(`${added} ${added === 1 ? "play" : "plays"} copied into your Vault.`);
       setPicked([]);
@@ -293,6 +304,17 @@ export function Starters() {
                       <Icon name="cursor" size={14} /> Edit
                     </button>
                   </Tooltip>
+                  <Tooltip title="Copy to a playbook" hint="Copies it to your Vault and files it in a playbook you have, or a new one you name.">
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      disabled={isLocked}
+                      onClick={() => setFiling({ specs: [spec], newFirst: false, bulk: false })}
+                      aria-label={`Copy ${spec.name} to a playbook`}
+                    >
+                      <Icon name="folder" size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
               </article>
             );
@@ -310,6 +332,14 @@ export function Starters() {
           </span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={copyPicked}>
             <Icon name="copy" size={15} /> Copy to Vault
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setFiling({ specs: pickedSpecs(), newFirst: true, bulk: true })}
+            disabled={!pickedSpecs().length}
+          >
+            <Icon name="plus" size={15} /> Copy to new playbook
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => setExporting(true)}>
             <Icon name="print" size={15} /> Export or print
@@ -340,6 +370,14 @@ export function Starters() {
                 }}
               >
                 Copy to Vault
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={locked(preview)}
+                onClick={() => (setFiling({ specs: [preview], newFirst: false, bulk: false }), setPreview(null))}
+              >
+                Copy to a playbook
               </button>
               <button
                 type="button"
@@ -397,6 +435,18 @@ export function Starters() {
             onDone={(kind) => toast(`${pickedPlays.length} ${pickedPlays.length === 1 ? "play" : "plays"} exported as ${kind.toUpperCase()}.`)}
           />
         </Suspense>
+      )}
+      {filing && (
+        <AddToPlaybook
+          count={filing.specs.length}
+          plays={() => {
+            const ids = copySpecs(filing.specs);
+            return ids.length ? ids : null;
+          }}
+          newFirst={filing.newFirst}
+          onClose={() => setFiling(null)}
+          onDone={() => filing.bulk && setPicked([])}
+        />
       )}
     </Shell>
   );

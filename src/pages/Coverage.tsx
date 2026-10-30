@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
+import { Icon } from "../components/Icon";
+import { AddToPlaybook } from "../components/AddToPlaybook";
 import { checkAll, FORMAT_NAME, grade, LOOKS, STATUS_COLOR, wins, yards } from "../lib/coverage";
 import type { Format, Report } from "../lib/coverage";
 import { loadRules } from "../lib/rules";
@@ -23,6 +25,7 @@ export function Coverage() {
   const plays = useStore((s) => s.plays);
   const books = useStore((s) => s.playbooks);
   const [bookId, setBookId] = useState("");
+  const [filing, setFiling] = useState<{ ids: string[]; name: string } | null>(null);
   const rush = useMemo(() => loadRules().rush || 7, []);
 
   const rows = useMemo(() => {
@@ -113,6 +116,15 @@ export function Coverage() {
                     ) : (
                       <p className="cvr-none">Nothing beats it yet. Try a Smash or Flood concept.</p>
                     )}
+                    {best.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-quiet btn-sm cvr-file"
+                        onClick={() => setFiling({ ids: best.map((r) => r.play.id), name: `Beats ${look.name}` })}
+                      >
+                        <Icon name="plus" size={13} /> Add to a new playbook
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -170,6 +182,9 @@ export function Coverage() {
           Each cell is the throw: the first open receiver in the read order (first read, then deep to short) and his yards of space when the ball comes out. Open a play
           and choose Extras, then Coverage check, to watch it run. A teaching model for comparing plays: real kids, real leverage and real rush lanes will vary.
         </p>
+      )}
+      {filing && (
+        <AddToPlaybook count={filing.ids.length} plays={() => filing.ids} newFirst suggest={filing.name} onClose={() => setFiling(null)} />
       )}
     </Shell>
   );

@@ -183,6 +183,13 @@ export const GUIDES: Guide[] = [
             close: EXTRAS,
           },
           {
+            title: "Add to playbook",
+            text: "Add to playbook… files this play in a playbook you have. Add to a new playbook… lets you type a name, makes the playbook and puts the play in it in one step. A play with unsaved changes is saved first.",
+            target: tour("dz-add-book"),
+            open: [EXTRAS],
+            close: EXTRAS,
+          },
+          {
             title: "Go to",
             text: "Upload a whiteboard photo, More tools and Back to the Vault. On narrow screens the work tabs live here too.",
             target: tour("dz-more-goto"),
@@ -468,12 +475,12 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Play card",
-            text: "The check box picks the play for a batch. Open edits it in the Designer, Export downloads or prints it, and the bin deletes it (a signed-in delete is kept for 30 days). This browser means it isn't on your account yet: sign in and save it.",
+            text: "The check box picks the play for a batch. Open edits it in the Designer, Export downloads or prints it, the folder adds it to a playbook (one you have or a new one you name), and the bin deletes it (a signed-in delete is kept for 30 days). This browser means it isn't on your account yet: sign in and save it.",
             target: ".play-grid .play-card",
           },
           {
             title: "Batch bar",
-            text: "Pick plays and this bar appears: Add to playbook, Export or print them together, or Clear the picks.",
+            text: "Pick plays and this bar appears: Add to playbook, Add to new playbook (type a name and they go straight in), Export or print them together, or Clear the picks.",
             target: ".bulk-bar",
           },
         ],
@@ -511,6 +518,11 @@ export const GUIDES: Guide[] = [
             target: ".book-actions",
           },
           { title: "Rename and delete", text: "Delete removes the book only. The plays stay in your Vault.", target: ".book-actions" },
+          {
+            title: "Not in a playbook yet",
+            text: "Plays that aren't in any book. Add them all to a new playbook names one and files every one of them in it.",
+            target: tour("pb-file-unfiled"),
+          },
         ],
       },
     ],
@@ -644,7 +656,7 @@ export const GUIDES: Guide[] = [
         heading: "Read the report",
         steps: [
           { title: "Plays from", text: "Run the whole Vault or one playbook.", target: ".cvr-book" },
-          { title: "Best calls per look", text: "For each format (11-man, 7v7, 5v5) and each coverage, your best three calls.", target: ".cvr-best" },
+          { title: "Best calls per look", text: "For each format (11-man, 7v7, 5v5) and each coverage, your best three calls. Add to a new playbook files those calls in a book named for the look (change the name if you like).", target: ".cvr-best" },
           { title: "Every play", text: "Each play and the looks it beats. Click a name to open it in the Designer and run its Coverage check.", target: ".cvr-table" },
         ],
       },
@@ -759,8 +771,8 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Search and filter", text: "Search names and concepts; filter by type.", target: ".search-box" },
           { title: "Preview", text: "Click a play for Why it works, Best against (from the Coverage check) and Who does what.", target: ".play-grid .play-thumb" },
-          { title: "Copy or open", text: "Copy to your Vault makes an editable copy; Open in the designer copies it and opens it. The starter itself never changes.", target: ".play-grid .play-actions" },
-          { title: "Batch", text: "Pick several, then Copy them all or Export them together.", target: ".bulk-bar" },
+          { title: "Copy or open", text: "Copy to your Vault makes an editable copy; Open in the designer copies it and opens it; the folder copies it into a playbook you have or a new one you name. The starter itself never changes.", target: ".play-grid .play-actions" },
+          { title: "Batch", text: "Pick several, then Copy them all, Copy to new playbook (name it and they land in it), or Export them together.", target: ".bulk-bar" },
         ],
       },
     ],
