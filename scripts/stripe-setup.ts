@@ -28,6 +28,10 @@ const EVENTS: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
+  "customer.subscription.paused",
+  "customer.subscription.resumed",
+  "charge.refunded",
+  "charge.dispute.created",
 ];
 
 /** What we sell. Amounts are in cents; `product` groups a monthly and yearly price under one product. */
