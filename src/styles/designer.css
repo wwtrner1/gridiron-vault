@@ -69,6 +69,8 @@
 .dz-top-btn:hover:not(:disabled) { border-color: var(--ink-4); color: var(--white); }
 .dz-top-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .dz-top-btn.is-on { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
+.dz-top-undo { display: inline-flex; flex: none; gap: 4px; }
+.dz-top-undo .dz-top-btn { padding: 0 8px; }
 .dz-zoom { display: inline-flex; flex: none; align-items: center; gap: 6px; }
 .dz-zoom input { width: 72px; accent-color: var(--cyan); }
 .dz-zoom span { min-width: 34px; font-family: var(--mono); font-size: var(--fs-mono); color: var(--muted-2); }

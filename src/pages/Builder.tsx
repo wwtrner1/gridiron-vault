@@ -572,9 +572,10 @@ export function Builder() {
   const pastLabels = useRef<string[]>([]);
   const futureLabels = useRef<string[]>([]);
 
-  const applyScene = useCallback((next: Scene, label?: string) => {
+  // A drag sends the field along unlabelled while the finger moves, then its label at the end with `before`, the play as it was when the drag began.
+  const applyScene = useCallback((next: Scene, label?: string, before?: Scene) => {
     if (label) {
-      past.current = [...past.current.slice(-59), sceneRefValue.current];
+      past.current = [...past.current.slice(-59), before ?? sceneRefValue.current];
       pastLabels.current = [...pastLabels.current.slice(-59), label];
       future.current = [];
       futureLabels.current = [];
@@ -594,6 +595,7 @@ export function Builder() {
     future.current = [sceneRefValue.current, ...future.current.slice(0, 59)];
     sceneRefValue.current = prev;
     setScene(prev);
+    setDirty(true);
     setStatus(label ? `Undid ${label.toLowerCase()}.` : "Undone.");
     coachTips.undid(label, (l) => {
       const key = Object.keys(UNDO_TIPS).find((k) => l === k || l.startsWith(`${k} `));
@@ -611,6 +613,7 @@ export function Builder() {
     pastLabels.current = [...pastLabels.current, label];
     sceneRefValue.current = next;
     setScene(next);
+    setDirty(true);
     setStatus("Redone.");
   }, []);
 
@@ -1995,6 +1998,19 @@ export function Builder() {
               Export
             </button>
           </Tooltip>
+          {/* Undo and redo stay on the bar as well as in the floating tools and Extras, where coaches look for them first. */}
+          <div className="dz-top-undo dz-wide" role="group" aria-label="Undo and redo">
+            <Tooltip title="Undo" hint="Takes back the last change. Ctrl+Z (⌘Z on a Mac)." side="bottom">
+              <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo" data-tour="dz-undo">
+                <Icon name="undo" size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip title="Redo" hint="Puts back what Undo took. Ctrl+Y or Ctrl+Shift+Z (⇧⌘Z on a Mac)." side="bottom">
+              <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length} aria-label="Redo">
+                <Icon name="redo" size={16} />
+              </button>
+            </Tooltip>
+          </div>
           {liveId ? (
             <span className="dz-saved" role="status" data-tour="dz-save" title={live.problem || "Everything you draw is shared with your staff a moment later."}>
               <Icon name="users" size={14} />{" "}

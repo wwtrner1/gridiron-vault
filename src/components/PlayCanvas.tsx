@@ -70,7 +70,8 @@ type Props = {
   anchor: Anchor;
   zoom: number;
   watermark?: string | null;
-  onScene: (next: Scene, label?: string) => void;
+  /** `before` is how the play looked when a drag began, so Undo takes the whole drag back. */
+  onScene: (next: Scene, label?: string, before?: Scene) => void;
   onSelection: (ids: string[]) => void;
   /** Back to Select: `placed` after something was drawn or dropped (the Designer may keep the tool out), else Esc. */
   onToolDone: (placed?: boolean) => void;
@@ -935,12 +936,13 @@ export function PlayCanvas({
       if (d.kind === "move" || d.kind === "rotate" || d.kind === "scale") {
         // A tap that only selected something is not a step to undo.
         const changed = !pressStart.current || sceneRef.current !== pressStart.current.scene;
-        if (changed) onScene(sceneRef.current, d.kind === "move" ? "Move" : d.kind === "rotate" ? "Rotate" : "Scale");
+        if (changed) onScene(sceneRef.current, d.kind === "move" ? "Move" : d.kind === "rotate" ? "Rotate" : "Scale", pressStart.current?.scene);
         return;
       }
 
       if (d.kind === "vertex" || d.kind === "handle") {
-        onScene(sceneRef.current, d.kind === "vertex" ? "Move point" : "Curve");
+        const changed = !pressStart.current || sceneRef.current !== pressStart.current.scene;
+        if (changed) onScene(sceneRef.current, d.kind === "vertex" ? "Move point" : "Curve", pressStart.current?.scene);
       }
     };
 
