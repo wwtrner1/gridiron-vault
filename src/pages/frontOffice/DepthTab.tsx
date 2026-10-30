@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { loadRoster, saveRoster } from "../../lib/roster";
 import {
@@ -39,6 +40,9 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
   const [drag, setDrag] = useState<Drag | null>(null);
   const timers = useRef<Partial<Record<DepthUnit, number>>>({});
   const [failed, setFailed] = useState("");
+  // Print shows a preview of the printed page first.
+  const [previewing, setPreviewing] = useState(false);
+  const closePreview = useCallback(() => setPreviewing(false), []);
 
   useEffect(() => {
     Promise.all([source.roster(), source.depthCharts()])
@@ -130,7 +134,7 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           <button type="button" className="btn btn-quiet btn-sm" onClick={toAssignments} disabled={!slots.length}>
             <Icon name="user" size={14} /> Starters to Assignments
           </button>
-          <button type="button" className="btn btn-quiet btn-sm" onClick={() => window.print()} disabled={!slots.length}>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPreviewing(true)} disabled={!slots.length}>
             <Icon name="print" size={14} /> Print
           </button>
         </div>
@@ -272,6 +276,7 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           </ul>
         </div>
       )}
+      {previewing && <PagePreview title={`${team.name} depth chart`} onClose={closePreview} />}
     </section>
   );
 }

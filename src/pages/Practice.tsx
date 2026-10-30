@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
+import { PagePreview } from "../components/PrintPreview";
 import { clockTimes, loadScript, newPeriod, saveScript, totalMinutes, type Period, type Script } from "../lib/practice";
 import { useStore } from "../lib/store";
 import "../styles/practice.css";
@@ -25,18 +26,7 @@ export function Practice() {
   const byId = useMemo(() => new Map(plays.map((p) => [p.id, p])), [plays]);
   const times = clockTimes(script);
 
-  // Print the chosen layout, then return to the editor.
-  useEffect(() => {
-    if (!out) return;
-    const done = () => setOut(null);
-    window.addEventListener("afterprint", done, { once: true });
-    const t = window.setTimeout(() => window.print(), 150);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("afterprint", done);
-    };
-  }, [out]);
-
+  const closeOut = useCallback(() => setOut(null), []);
   const cards = script.periods.flatMap((p) => p.playIds.map((id) => ({ period: p, play: byId.get(id) })).filter((c) => c.play));
   const any = script.periods.some((p) => p.playIds.length);
 
@@ -165,6 +155,8 @@ export function Practice() {
           ))}
         </div>
       )}
+      {/* The chosen layout shows as it prints, then the editor comes back. */}
+      {out && <PagePreview title={out === "script" ? "Practice script" : "Scout cards"} onClose={closeOut} />}
     </Shell>
   );
 }

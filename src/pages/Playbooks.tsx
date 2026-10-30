@@ -17,6 +17,9 @@ import { useAuth } from "../lib/auth";
 import { rememberWork } from "../lib/workTabs";
 
 // PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
+/** The book's play list draws each diagram this size, in inches, cropped to the play so it reads at a glance. */
+const LIST_THUMB = { w: 2.6, h: 1.45 };
+
 const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 
 const COLORS = [
@@ -389,7 +392,7 @@ export function Playbooks() {
                   <li key={id}>
                     <b>{String(i + 1).padStart(2, "0")}</b>
                     <span className="book-list-thumb">
-                      <PlayThumb scene={play.scene} label={play.name} />
+                      <PlayThumb scene={play.scene} label={play.name} zoom={LIST_THUMB} />
                     </span>
                     <div>
                       <h3>{play.name}</h3>

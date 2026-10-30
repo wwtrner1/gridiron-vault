@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
+import { PagePreview } from "../components/PrintPreview";
 import { useStore } from "../lib/store";
 import { assignmentsFor, lettersIn } from "../lib/assignments";
 import { loadRoster, saveRoster, who, type Roster } from "../lib/roster";
@@ -51,17 +52,12 @@ export function Assignments() {
     saveRoster(next);
   };
 
-  // Print every offensive player's sheet, one per page, then go back to the one-player view.
-  useEffect(() => {
-    if (!everyone) return;
-    const done = () => setEveryone(false);
-    window.addEventListener("afterprint", done, { once: true });
-    const t = window.setTimeout(() => window.print(), 150);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("afterprint", done);
-    };
-  }, [everyone]);
+  // Print preview of one sheet, or every offensive player's (one per page); closing it goes back to the one-player view.
+  const [preview, setPreview] = useState(false);
+  const closePreview = useCallback(() => {
+    setPreview(false);
+    setEveryone(false);
+  }, []);
 
   const choose = (next: { book?: string; player?: string }) => {
     const p = new URLSearchParams(params);
@@ -78,10 +74,13 @@ export function Assignments() {
       title="Assignments"
       actions={
         <>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEveryone(true)} disabled={!offense.length}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+              setEveryone(true);
+              setPreview(true);
+            }} disabled={!offense.length}>
             <Icon name="print" size={15} /> Print every player
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()} disabled={!jobs.length}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setPreview(true)} disabled={!jobs.length}>
             <Icon name="print" size={15} /> Print this sheet
           </button>
         </>
@@ -222,6 +221,7 @@ export function Assignments() {
           })}
         </div>
       )}
+      {preview && <PagePreview title={everyone ? "Every player's sheet" : "Position sheet"} onClose={closePreview} />}
     </Shell>
   );
 }

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
 import { api } from "../../lib/api";
@@ -48,6 +49,9 @@ export function ScheduleTab({ hub, team }: { hub: HubState; team: HubTeam }) {
   const sheets = useStore((s) => s.sheets);
   const [events, setEvents] = useState<HubEvent[] | null>(null);
   const [failed, setFailed] = useState("");
+  // Print shows a preview of the printed page first.
+  const [previewing, setPreviewing] = useState(false);
+  const closePreview = useCallback(() => setPreviewing(false), []);
   const [view, setView] = useState<"month" | "list">("month");
   const [allTeams, setAllTeams] = useState(false);
   const [month, setMonth] = useState(() => {
@@ -133,7 +137,7 @@ export function ScheduleTab({ hub, team }: { hub: HubState; team: HubTeam }) {
           <button type="button" className="btn btn-quiet btn-sm" disabled={!mine.length} onClick={() => download(`${allTeams ? hub.org.name : team.name} schedule.ics`, scheduleIcs(allTeams ? hub.org.name : team.name, mine))}>
             <Icon name="calendar" size={14} /> Add to my calendar (.ics)
           </button>
-          <button type="button" className="btn btn-quiet btn-sm" onClick={() => window.print()}>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPreviewing(true)}>
             <Icon name="print" size={14} /> Print
           </button>
         </div>
@@ -304,6 +308,7 @@ export function ScheduleTab({ hub, team }: { hub: HubState; team: HubTeam }) {
           }
         />
       )}
+      {previewing && <PagePreview title={allTeams ? `${hub.org.name} calendar` : `${team.name} schedule`} onClose={closePreview} />}
     </section>
   );
 }

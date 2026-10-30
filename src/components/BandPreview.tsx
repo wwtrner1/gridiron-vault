@@ -3,10 +3,10 @@ import { useBrand } from "../lib/brand";
 import { PrintDiagram } from "../lib/export";
 import {
   bandChrome,
+  bandPalette,
   cardLetter,
   cellType,
   diagramBox,
-  bandHead,
   fillBandText,
   type BandEntry,
   type BandOptions,
@@ -15,7 +15,7 @@ import {
 type Props = {
   /** Entries in print order. */
   entries: BandEntry[];
-  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "numberStyle" | "header" | "footer" | "source">;
+  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "numberStyle" | "header" | "footer" | "source" | "colors" | "watermark">;
   /** Draw at the card's real size in inches instead of filling the column. */
   actualSize: boolean;
   /** Move the entry at `from` to position `to` in print order. */
@@ -40,7 +40,9 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
   const { headH, footH } = bandChrome(o);
   const { cellW, cellH, strip, numPt, bigPt, namePt } = cellType(o);
   const art = diagramBox(o);
-  const head = bandHead(useBrand());
+  // The same colors the PDF uses: the coach's picks, then team branding, then GridIronVault.
+  const pal = bandPalette(o, useBrand());
+  const grid = pal.grid;
   // Type sizes in container units, so text keeps the printed proportion at any preview width.
   const cq = (pt: number) => `${((pt / 72) / w) * 100}cqw`;
 
@@ -59,18 +61,18 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
           <div
             key={c}
             className="wb-card"
-            style={{ width: actualSize ? `${w}in` : "100%", aspectRatio: `${w} / ${h}` }}
+            style={{ width: actualSize ? `${w}in` : "100%", aspectRatio: `${w} / ${h}`, borderColor: pal.line, ["--wb-line" as string]: grid }}
             aria-label={`Card ${cardLetter(c)}, ${slice.length} ${slice.length === 1 ? "play" : "plays"}, ${w} by ${h.toFixed(2)} inches`}
           >
             {headH > 0 && (
               <button
                 type="button"
                 className="wb-card-head"
-                style={{ height: pct(headH, h), fontSize: cq(7), background: head.fill, color: head.ink }}
+                style={{ height: pct(headH, h), fontSize: cq(7), background: pal.head, color: pal.headText }}
                 onClick={onEditHeader}
                 title="Edit the header text"
               >
-                {head.logo && <img className="wb-card-logo" src={head.logo} alt="" />}
+                {pal.logo && <img className="wb-card-logo" src={pal.logo} alt="" />}
                 <span>{fillBandText(o.header.left, vars)}</span>
                 <span>{fillBandText(o.header.right, vars)}</span>
               </button>
@@ -114,12 +116,12 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                   {diagram ? (
                     <>
                       {o.numberStyle === "band" ? (
-                        <div className="wb-cell-band" style={{ height: pct(strip, cellH), fontSize: cq(numPt) }}>
+                        <div className="wb-cell-band" style={{ height: pct(strip, cellH), fontSize: cq(numPt), background: pal.strip, color: pal.tabText }}>
                           {o.shows.name ? `${e.number} · ${e.name}` : e.number}
                         </div>
                       ) : (
                         <div className="wb-cell-top" style={{ height: pct(strip, cellH) }}>
-                          <b style={{ fontSize: cq(numPt) }}>{e.number}</b>
+                          <b style={{ fontSize: cq(numPt), background: pal.tab, color: pal.tabText }}>{e.number}</b>
                           {o.shows.name && <span style={{ fontSize: cq(Math.max(5.5, numPt * 0.66)) }}>{e.name}</span>}
                         </div>
                       )}
@@ -130,6 +132,7 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                           widthIn={art.w}
                           heightIn={art.h}
                           label={e.name}
+                          watermark={o.watermark}
                         />
                       </div>
                     </>
@@ -156,7 +159,7 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
               );
             })}
             {footH > 0 && (
-              <div className="wb-card-foot" style={{ height: pct(footH, h), fontSize: cq(6.5) }}>
+              <div className="wb-card-foot" style={{ height: pct(footH, h), fontSize: cq(6.5), color: pal.line, borderColor: pal.line }}>
                 {fillBandText(o.footer, vars)}
               </div>
             )}

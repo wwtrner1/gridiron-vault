@@ -525,7 +525,7 @@ export const GUIDES: Guide[] = [
       {
         heading: "Top bar",
         steps: [
-          { title: "Print", text: "Prints what you see, landscape, with the paint colors. Minimized rows and columns stay off the page.", target: tour("sheet-print") },
+          { title: "Print", text: "Shows a print preview first: the sheet on landscape paper, with the paint colors and every column fitted to the page. Minimized rows and columns stay off. Print from the bar at the top, or Close.", target: tour("sheet-print") },
           { title: "Wristbands", text: "Opens the wristband builder with this sheet's calls, numbered as they are here.", target: '.topbar a[href^="/wristbands"]' },
           { title: "New sheet, Delete, Save sheet", text: "Start another sheet, delete this one, or save it to your account so it's on every device.", target: tour("sheet-save") },
         ],
@@ -569,8 +569,8 @@ export const GUIDES: Guide[] = [
       {
         heading: "Print",
         steps: [
-          { title: "Download call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands.", target: ".wb-head-actions" },
-          { title: "Print cards", text: "Builds the wristband PDF from your settings.", target: ".wb-head-actions" },
+          { title: "Call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands. Opens in the print preview, where you print or download it.", target: ".wb-head-actions" },
+          { title: "Print cards", text: "Opens the print preview: every page of the real PDF, exactly as it prints, with a warning if a player or route will be cut off. Print or Download PDF from there.", target: tour("wb-print") },
         ],
       },
       {
@@ -581,7 +581,8 @@ export const GUIDES: Guide[] = [
           { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
           { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
           { title: "Plays per card", text: "Columns × rows. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), zoom, line weight, field markings and rule lines.", target: '[aria-labelledby="wb-look"]' },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
+          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
           { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
           { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
         ],
@@ -590,8 +591,8 @@ export const GUIDES: Guide[] = [
         heading: "Preview",
         steps: [
           {
-            title: "Print preview",
-            text: "Drag a box to move a call, or use the arrows. Click a header to edit its text. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
+            title: "Card layout",
+            text: "Shown at actual size. Drag a box to move a call, or use the arrows. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
             target: ".wb-body > :last-child",
           },
         ],
@@ -627,7 +628,7 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Playbook and player", text: "Pick a playbook (or the whole Vault), then a letter. His routes are spotlighted and everyone else is greyed out.", target: ".asg-pick" },
           { title: "Roster", text: "Who wears each letter: a name and number print on that player's sheet. My team can fill it from your depth chart.", target: ".asg-roster" },
-          { title: "Print every player and Print", text: "Print prints this player's sheet; Print every player prints one sheet per offensive player.", target: ".topbar" },
+          { title: "Print every player and Print", text: "Print previews this player's sheet; Print every player previews one sheet per offensive player. Print from the bar at the top.", target: ".topbar" },
         ],
       },
     ],
@@ -662,7 +663,7 @@ export const GUIDES: Guide[] = [
           { title: "Script name and start time", text: "Each period gets a clock time from the start time and the minutes before it.", target: ".pr-top" },
           { title: "Periods", text: "Name each period, set its minutes, add a coaching point, then add plays one at a time or a whole playbook. Remove takes the period out.", target: ".pr-period" },
           { title: "Add period", text: "A new 10-minute period at the end.", target: ".pr-add" },
-          { title: "Print script and scout cards", text: "Print script prints the timed plan. Print scout cards prints one diagram card per play, two per row, for the scout team.", target: ".topbar" },
+          { title: "Print script and scout cards", text: "Print script previews the timed plan. Print scout cards previews one diagram card per play, two per row, for the scout team. Print from the bar at the top.", target: ".topbar" },
         ],
       },
     ],

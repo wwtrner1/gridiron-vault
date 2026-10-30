@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { onboarding } from "../lib/onboarding";
 import { Link, useSearchParams } from "react-router-dom";
 import { rememberWork } from "../lib/workTabs";
@@ -6,6 +6,7 @@ import { Shell } from "../components/Shell";
 import { WorkTabs } from "../components/WorkTabs";
 import { Icon } from "../components/Icon";
 import { BandPreview } from "../components/BandPreview";
+import { lazyPage } from "../lib/lazyPage";
 import { playNamed, useStore } from "../lib/store";
 import type { SheetDoc } from "../lib/store";
 import { useTier } from "../lib/tier";
@@ -14,11 +15,15 @@ import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { slug } from "../lib/export";
 import { applyFormat, usePlayFormat } from "../lib/playFormat";
-import { FIELD_OPTIONS, FIT_OPTIONS, ICON_STEPS, LINE_STEPS, WEIGHT_STEPS, ZOOM_STEPS, type PrintLook } from "../lib/printLook";
+import { FIELD_OPTIONS, FIT_OPTIONS, ICON_STEPS, LINE_STEPS, WEIGHT_STEPS, ZOOM_STEPS, matchLook, type PrintLook } from "../lib/printLook";
 import { FormatPanel } from "../components/FormatPanel";
 import {
+  BAND_COLOR_PRESETS,
   BAND_CUSTOM_LIMITS,
   BAND_GRIDS,
+  bandCutOffs,
+  bandPalette,
+  diagramBox,
   BAND_PAPERS,
   BAND_SIZES,
   tightBoxes,
@@ -37,6 +42,7 @@ import {
   NUMBERING_MODES,
   numberEntries,
   wristbandSheets,
+  type BandColors,
   type BandCopies,
   type BandEntry,
   type BandNumbering,
@@ -53,7 +59,11 @@ import {
   bestLayout,
 } from "../lib/wristbands";
 import type { StoredPlay } from "../lib/types";
+import { hasBrand, useBrand } from "../lib/brand";
 import "../styles/wristbands.css";
+
+// The print preview (and PDF.js behind it) loads only when a coach opens it.
+const PdfPreview = lazyPage(() => import("../components/PrintPreview"), "PdfPreview");
 
 type Source = { id: string; label: string; entries: BandEntry[] };
 
@@ -100,6 +110,10 @@ type BandPrefs = {
   cutMarks: boolean;
   numbering: BandNumbering;
   coachSheet: CoachSheet;
+  /** Every box at one scale: players, routes and yard lines print the same size in each. */
+  sameSize: boolean;
+  /** The coach's card colors; null follows team branding or the GridIronVault look. */
+  colors: Partial<BandColors> | null;
 };
 
 const PREFS_KEY = BAND_PREFS_KEY;
@@ -118,6 +132,8 @@ const DEFAULT_PREFS: BandPrefs = {
   cutMarks: false,
   numbering: DEFAULT_NUMBERING,
   coachSheet: "list",
+  sameSize: false,
+  colors: null,
 };
 
 function loadPrefs(): BandPrefs {
@@ -170,8 +186,10 @@ export function Wristbands() {
   }, [sourceId]);
   const [picked, setPicked] = useState<string[]>([]);
   const [prefs, setPrefs] = useState<BandPrefs>(loadPrefs);
-  const [printing, setPrinting] = useState(false);
-  const [actualSize, setActualSize] = useState(false);
+  const [preview, setPreview] = useState<null | "cards" | "sheet">(null);
+  const brand = useBrand();
+  // Real inches by default, so the screen never shows a card bigger and easier to read than the one that prints.
+  const [actualSize, setActualSize] = useState(true);
   // Print order as indexes into the source's entries; reset when the source changes.
   const [order, setOrder] = useState<{ key: string; list: number[] } | null>(null);
 
@@ -240,11 +258,20 @@ export function Wristbands() {
   const gate = gateSheets(tier);
   const vector = gateVector(tier).ok;
 
+  const sized = { card, grid, header: prefs.header, footer: prefs.footer, numberSize: prefs.numberSize };
+  const art = diagramBox(sized);
+  // "Same size in every box": one scale for the whole set, so the PDF and the preview both draw every play alike.
+  const scenes = entries.flatMap((e) => (e.scene ? [e.scene] : []));
+  const matched = useRef<{ key: unknown[]; look: PrintLook } | null>(null);
+  const key = [prefs.sameSize, prefs.look, art.w, art.h, ...scenes];
+  if (!matched.current || matched.current.key.length !== key.length || key.some((k, i) => k !== matched.current!.key[i]))
+    matched.current = { key, look: prefs.sameSize ? matchLook(scenes, prefs.look, art.w, art.h) : prefs.look };
+  const look = matched.current.look;
   const options: BandOptions = {
     card,
     grid,
     shows: prefs.shows,
-    look: prefs.look,
+    look,
     numberSize: prefs.numberSize,
     numberStyle: prefs.numberStyle,
     header: prefs.header,
@@ -257,34 +284,53 @@ export function Wristbands() {
     watermark: tier.watermark ? "GRIDIRONVAULT" : null,
     dpi: cappedDpi(tier, 600),
     vector,
+    colors: prefs.colors,
   };
+  const palette = bandPalette(options, brand);
+  const setColor = (k: keyof BandColors, v: string) => setPrefs((p) => ({ ...p, colors: { ...(p.colors ?? {}), [k]: v } }));
+  const colorPresetOn = (c: BandColors | null) => JSON.stringify(prefs.colors ?? null) === JSON.stringify(c);
   const tight = tightBoxes(entries, options);
+  const cuts = bandCutOffs(entries, options);
   const boxes = boxCheck(options);
   const type = cellType(options);
   const printed = cards * (prefs.copies.qb + prefs.copies.center);
   const pages = prefs.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(options));
 
-  async function print(sheetOnly = false) {
-    if (!gate.ok || !entries.length) return;
-    setPrinting(true);
-    try {
-      // The call sheet on its own is the coach copy with no wristband cards.
-      const opts = sheetOnly ? { ...options, copies: { qb: 0, center: 0, coach: 1 } } : options;
-      const doc = await wristbandSheets(entries, opts);
-      doc.save(`${slug(`${sheetOnly ? "call-sheet" : "wristbands"}-${sourceName}`)}.pdf`);
-      track("play_exported", { kind: sheetOnly ? "call_sheet" : "wristband" });
-      if (!sheetOnly) onboarding.mark("wristband");
-      toast(
-        sheetOnly
-          ? "Call sheet downloaded. Its numbers match the wristband cards as they're set up now."
+  // Print and Download both open the print preview first: the real PDF, page by page.
+  const build = (sheetOnly: boolean) => () =>
+    // The call sheet on its own is the coach copy with no wristband cards.
+    wristbandSheets(entries, sheetOnly ? { ...options, copies: { qb: 0, center: 0, coach: 1 } } : options);
+  function exported(sheetOnly: boolean, how: "download" | "print") {
+    track("play_exported", { kind: sheetOnly ? "call_sheet" : "wristband" });
+    if (!sheetOnly) onboarding.mark("wristband");
+    toast(
+      sheetOnly
+        ? `Call sheet ${how === "print" ? "sent to the printer" : "downloaded"}. Its numbers match the wristband cards as they're set up now.`
+        : how === "print"
+          ? "Wristband cards sent to the printer. Keep the scale at 100% (Actual size), then cut along the borders."
           : "Wristband cards downloaded. Print at 100% scale (Actual size), then cut along the borders.",
-      );
-    } catch {
-      toast("The wristband PDF could not be built. Try again, or pick fewer plays.");
-    } finally {
-      setPrinting(false);
-    }
+    );
   }
+
+  const cutWarning = cuts.length > 0 && (
+    <div className="pp-warn" role="status">
+      <b>
+        {cuts.length === 1 ? "1 box will print with something cut off" : `${cuts.length} boxes will print with something cut off`}.
+      </b>{" "}
+      Usually a player or route was dragged past the edge of the field in the Designer. Pull it back on, or turn on Whole field and zoom out.
+      <ul>
+        {cuts.slice(0, 8).map((c) => (
+          <li key={`${c.number}-${c.name}`}>
+            <b>
+              {c.number} · {c.name}:
+            </b>{" "}
+            {c.parts.join(", ")}
+          </li>
+        ))}
+        {cuts.length > 8 && <li>and {cuts.length - 8} more</li>}
+      </ul>
+    </div>
+  );
 
   const setNumbering = (patch: Partial<BandNumbering>) => setPrefs((p) => ({ ...p, numbering: { ...p.numbering, ...patch } }));
 
@@ -312,11 +358,11 @@ export function Wristbands() {
             </p>
           </div>
           <div className="wb-head-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => print(true)} disabled={printing || !entries.length || !gate.ok}>
-              <Icon name="table" size={15} /> Download call sheet
+            <button type="button" className="btn btn-ghost" onClick={() => setPreview("sheet")} disabled={!entries.length || !gate.ok}>
+              <Icon name="table" size={15} /> Call sheet
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => print()} disabled={printing || !entries.length || !gate.ok}>
-              <Icon name="print" size={15} /> {printing ? "Building cards…" : "Print cards"}
+            <button type="button" className="btn btn-primary" onClick={() => setPreview("cards")} disabled={!entries.length || !gate.ok} data-tour="wb-print">
+              <Icon name="print" size={15} /> Print cards
             </button>
           </div>
         </div>
@@ -530,6 +576,15 @@ export function Wristbands() {
                   </button>
                 ))}
               </div>
+              <label className="switch" data-tour="wb-same">
+                <input type="checkbox" checked={prefs.sameSize} onChange={(e) => set({ sameSize: e.target.checked })} />
+                Same size in every box
+              </label>
+              <p className="wb-note">
+                {prefs.sameSize
+                  ? "Players, routes and yard lines print the same size on every play. The widest play sets how much field each box shows."
+                  : "Each play fills its own box, so players and routes can differ a little from box to box. Turn this on to match them."}
+              </p>
               <label className="wb-sub">
                 Line and player weight
                 <select
@@ -556,9 +611,9 @@ export function Wristbands() {
               </label>
               {(
                 [
-                  ["Zoom", "zoom", ZOOM_STEPS.map((z) => ({ value: z, label: `${Math.round(z * 100)}%` }))],
-                  ["Player icons", "icons", ICON_STEPS],
-                  ["Route lines", "lines", LINE_STEPS],
+                  ["Field size (zoom), every box", "zoom", ZOOM_STEPS.map((z) => ({ value: z, label: `${Math.round(z * 100)}%` }))],
+                  ["Player icons, every box", "icons", ICON_STEPS],
+                  ["Route lines, every box", "lines", LINE_STEPS],
                 ] as const
               ).map(([title, key, steps]) => (
                 <div key={key} className="wb-sub" role="group" aria-label={title}>
@@ -625,6 +680,43 @@ export function Wristbands() {
                   Numbers print at {Math.round(type.numPt * 10) / 10} pt in these boxes, so the strip never crowds out the play.
                 </p>
               )}
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-colors" data-tour="wb-colors">
+              <span id="wb-colors">Card colors</span>
+              <div className="chip-row">
+                {BAND_COLOR_PRESETS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`chip wb-swatch-chip${colorPresetOn(c.colors) ? " is-on" : ""}`}
+                    aria-pressed={colorPresetOn(c.colors)}
+                    onClick={() => set({ colors: c.colors })}
+                  >
+                    <i aria-hidden="true" style={{ background: c.colors?.head ?? bandPalette({ colors: null, numberStyle: prefs.numberStyle }, brand).head }} />
+                    {c.id === "auto" && brand.prints && hasBrand(brand) ? "Team colors" : c.label}
+                  </button>
+                ))}
+              </div>
+              <div className="wb-colors">
+                {(
+                  [
+                    ["head", "Header"],
+                    ["headText", "Header words"],
+                    ["tab", prefs.numberStyle === "band" ? "Number strip" : "Number tab"],
+                    ["tabText", "Numbers"],
+                    ["line", "Border and lines"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <label key={k} className="wb-color">
+                    <input type="color" value={palette[k].toLowerCase()} onChange={(e) => setColor(k, e.target.value.toUpperCase())} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <p className="wb-note">
+                Pick a set, then change any color. The preview and the printout use the same colors. Light colors save ink.
+              </p>
             </div>
 
             <div className="wb-field" role="group" aria-labelledby="wb-text">
@@ -741,7 +833,10 @@ export function Wristbands() {
             ) : (
               <>
                 <div className="wb-preview-bar">
-                  <p className="eyebrow">Print preview</p>
+                  <p className="eyebrow">Card layout</p>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreview("cards")} disabled={!gate.ok} data-tour="wb-preview">
+                    <Icon name="eye" size={14} /> Print preview
+                  </button>
                   <label className="switch">
                     <input type="checkbox" checked={actualSize} onChange={(e) => setActualSize(e.target.checked)} />
                     Actual size
@@ -752,7 +847,11 @@ export function Wristbands() {
                     </button>
                   )}
                 </div>
-                <p className="wb-note">Drag a box to move the call, or use the arrows. Click the header to edit its text.</p>
+                <p className="wb-note">
+                  Drag a box to move the call, or use the arrows. Click the header to edit its text. Print preview shows every page exactly as
+                  the PDF prints it.
+                </p>
+                {cutWarning}
                 <BandPreview
                   entries={entries}
                   options={options}
@@ -773,8 +872,8 @@ export function Wristbands() {
                     <p className="eyebrow" id="wb-sheet-title">
                       Coach's call sheet
                     </p>
-                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => print(true)} disabled={printing || !gate.ok}>
-                      <Icon name="download" size={13} /> Download
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPreview("sheet")} disabled={!gate.ok}>
+                      <Icon name="print" size={13} /> Preview and print
                     </button>
                   </div>
                   <div className="wb-sheet-scroll">
@@ -807,6 +906,19 @@ export function Wristbands() {
           </div>
         </div>
       </div>
+      {preview && (
+        <Suspense fallback={null}>
+          <PdfPreview
+            title={preview === "sheet" ? `Call sheet · ${sourceName}` : `Wristbands · ${sourceName}`}
+            build={build(preview === "sheet")}
+            filename={`${slug(`${preview === "sheet" ? "call-sheet" : "wristbands"}-${sourceName}`)}.pdf`}
+            note={preview === "cards" ? "Print at Actual size (100%), then cut along the borders." : undefined}
+            warnings={preview === "cards" ? cutWarning : undefined}
+            onDone={(how) => exported(preview === "sheet", how)}
+            onClose={() => setPreview(null)}
+          />
+        </Suspense>
+      )}
     </Shell>
   );
 }

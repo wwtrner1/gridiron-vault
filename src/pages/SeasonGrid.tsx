@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { rememberWork } from "../lib/workTabs";
 import { Shell } from "../components/Shell";
 import { WorkTabs } from "../components/WorkTabs";
+import { PagePreview } from "../components/PrintPreview";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { Modal } from "../components/Modal";
@@ -71,6 +72,9 @@ export function SeasonGrid() {
   const [sortBy, setSortBy] = useState<{ col: string; dir: 1 | -1 } | null>(null);
   const [paint, setPaint] = useState<string>("");
   const [painting, setPainting] = useState(false);
+  // Print shows a preview of the printed page first.
+  const [previewing, setPreviewing] = useState(false);
+  const closePreview = useCallback(() => setPreviewing(false), []);
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [dropCol, setDropCol] = useState<number | null>(null);
   const [dragRow, setDragRow] = useState<number | null>(null);
@@ -373,7 +377,7 @@ export function SeasonGrid() {
       actions={
         <>
           <Tooltip title="Print the call sheet" hint="Prints what you see, landscape, with the paint colours intact. Minimized rows and columns stay off the page." side="bottom">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.print()} data-tour="sheet-print">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewing(true)} data-tour="sheet-print">
               <Icon name="print" size={15} /> Print
             </button>
           </Tooltip>
@@ -894,6 +898,7 @@ export function SeasonGrid() {
           )}
         </Modal>
       )}
+      {previewing && <PagePreview title={`Call Sheet · ${sheet.name}`} landscape onClose={closePreview} />}
     </Shell>
   );
 }

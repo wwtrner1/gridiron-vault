@@ -20,7 +20,8 @@ import {
   type SheetOptions,
   type SizeChoice,
 } from "../lib/export";
-import { CARD_LOOK, FIELD_OPTIONS, FIT_OPTIONS, FULL_LOOK, WEIGHT_STEPS, type PrintLook } from "../lib/printLook";
+import { CARD_LOOK, FIELD_OPTIONS, FIT_OPTIONS, FULL_LOOK, WEIGHT_STEPS, cutOffs, type PrintLook } from "../lib/printLook";
+import { PdfPreview } from "./PrintPreview";
 import { cappedDpi, gateSheets, gateSize, gateVector, type Tier } from "../lib/plan";
 import type { StoredPlay } from "../lib/types";
 import { loadRules } from "../lib/rules";
@@ -87,6 +88,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const sheetGate = gateSheets(tier);
   const sizeGate = gateSize(tier, options.size);
@@ -134,8 +136,9 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
       // Images and slides take the page's shape so a zoomed play fills them edge to edge.
       const shaped = { look, widthIn: size.w, heightIn: look.fit === "play" ? size.h : (size.w * CANVAS_H) / CANVAS_W };
       if (kind === "pdf") {
-        const doc = await playsToPdf(ordered, { ...options, dpi, watermark, vector: vectorGate.ok }, title);
-        doc.save(`${stem}.pdf`);
+        // A PDF opens the print preview first; it downloads or prints from there.
+        setPreviewing(true);
+        return;
       } else if (kind === "png" || kind === "jpeg") {
         for (const play of ordered) {
           const url = await playToImage(play, {
@@ -180,6 +183,40 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const previewOptions: SheetOptions = { ...options, perPage: kind === "pdf" ? options.perPage : 1 };
   const previewSlots = pdfSlots(ordered.slice(0, previewOptions.perPage), previewOptions);
   const pct = (v: number, whole: number) => `${(v / whole) * 100}%`;
+  // Anything that runs past its printed frame, checked in every slot the PDF will draw.
+  const cuts = pdfSlots(ordered, previewOptions).flatMap((slot, i) => {
+    const parts = cutOffs(ordered[i].scene, look, slot.art.w, slot.art.h);
+    return parts.length ? [{ name: ordered[i].name || "Untitled play", parts }] : [];
+  });
+  const cutWarning = cuts.length > 0 && (
+    <div className="pp-warn" role="status">
+      <b>{cuts.length === 1 ? "1 play will print with something cut off" : `${cuts.length} plays will print with something cut off`}.</b>{" "}
+      Usually a player or route was dragged past the edge of the field in the Designer. Pull it back on, or pick Whole field.
+      <ul>
+        {cuts.slice(0, 8).map((c, i) => (
+          <li key={i}>
+            <b>{c.name}:</b> {c.parts.join(", ")}
+          </li>
+        ))}
+        {cuts.length > 8 && <li>and {cuts.length - 8} more</li>}
+      </ul>
+    </div>
+  );
+
+  if (previewing) {
+    const stem = slug(plays.length === 1 ? plays[0].name || "play" : "gridironvault-playbook");
+    return (
+      <PdfPreview
+        title={title}
+        build={() => playsToPdf(ordered, { ...options, dpi: cappedDpi(tier, options.dpi), watermark, vector: vectorGate.ok }, title)}
+        filename={`${stem}.pdf`}
+        warnings={cutWarning}
+        note={size.w < 5.5 && size.h < 5.5 ? "Print at Actual size (100%)." : undefined}
+        onDone={() => onDone?.("pdf")}
+        onClose={() => setPreviewing(false)}
+      />
+    );
+  }
   const cq = (pt: number) => `${(pt / 72 / size.w) * 100}cqw`;
 
   return (
@@ -193,7 +230,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
           </button>
           <button type="button" className="btn btn-primary" onClick={run} disabled={busy || !sizeGate.ok}>
             <Icon name={kind === "pdf" ? "print" : "download"} size={15} />
-            {busy ? "Building…" : kind === "pdf" ? "Build the PDF" : kind === "pptx" ? "Download the deck" : `Download ${kind.toUpperCase()}`}
+            {busy ? "Building…" : kind === "pdf" ? "Preview and print" : kind === "pptx" ? "Download the deck" : `Download ${kind.toUpperCase()}`}
           </button>
         </>
       }
@@ -537,6 +574,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
         </div>
       )}
 
+      {cutWarning}
       {problem && <p className="error-line">{problem}</p>}
     </Modal>
   );

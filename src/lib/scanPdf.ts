@@ -18,6 +18,8 @@ export async function renderPdf(data: Uint8Array, maxPages: number, edge: number
   const doc = await task.promise;
   try {
     const pages: HTMLCanvasElement[] = [];
+    // Each page's size in points, so a preview can show it at its real size.
+    const sizes: { w: number; h: number }[] = [];
     for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) {
       const page = await doc.getPage(n);
       const base = page.getViewport({ scale: 1 });
@@ -28,8 +30,9 @@ export async function renderPdf(data: Uint8Array, maxPages: number, edge: number
       await page.render({ canvas, viewport, background: "#FFFFFF" }).promise;
       page.cleanup();
       pages.push(canvas);
+      sizes.push({ w: base.width, h: base.height });
     }
-    return { pages, total: doc.numPages };
+    return { pages, sizes, total: doc.numPages };
   } finally {
     await task.destroy();
   }
