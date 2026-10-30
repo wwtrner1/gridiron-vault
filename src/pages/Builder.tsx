@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
@@ -73,6 +73,7 @@ import { FieldControls } from "../components/FieldControls";
 import { api, isOffline, toStoredPlay } from "../lib/api";
 import { PLAY_ID_EVENT, type PlayIdChange } from "../lib/playSync";
 import { clearDraft, draftFor, saveDraft, type DesignerDraft } from "../lib/designerDraft";
+import { SavePrompt } from "../components/SavePrompt";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateSave, gateTool } from "../lib/plan";
@@ -495,6 +496,35 @@ export function Builder() {
   // A live play saves itself to the Front Office, so leaving it never asks about unsaved changes or files a stray copy.
   const dirty = dirtyRaw && !liveId;
 
+  /*
+   * Leaving with unsaved changes (a work tab, a link, the browser's Back) asks
+   * first: name and save, leave without saving, or stay. The Designer's own
+   * moves (a new play getting its id, Next play after a save) go through `go`,
+   * which lets that one navigation pass.
+   */
+  const dirtyNow = useRef(dirty);
+  dirtyNow.current = dirty;
+  const passNav = useRef(false);
+  const go = useCallback(
+    (to: To, opts?: NavigateOptions) => {
+      passNav.current = true;
+      navigate(to, opts);
+    },
+    [navigate],
+  );
+  const leaveBlock = useBlocker(({ currentLocation, nextLocation }) => {
+    if (passNav.current) {
+      passNav.current = false;
+      return false;
+    }
+    return dirtyNow.current && currentLocation.pathname !== nextLocation.pathname;
+  });
+  useEffect(() => {
+    passNav.current = false;
+  }, [location.key]);
+  // Save pressed on a play with no name opens the same box instead of a dead-end message.
+  const [askName, setAskName] = useState(false);
+
   const past = useRef<Scene[]>([]);
   const future = useRef<Scene[]>([]);
   const loadedId = useRef<string | undefined>(id);
@@ -507,11 +537,11 @@ export function Builder() {
       const { from, to } = (e as CustomEvent<PlayIdChange>).detail;
       if (from !== loadedId.current) return;
       loadedId.current = to;
-      navigate(`/build/${to}${window.location.search}`, { replace: true });
+      go(`/build/${to}${window.location.search}`, { replace: true });
     };
     window.addEventListener(PLAY_ID_EVENT, follow);
     return () => window.removeEventListener(PLAY_ID_EVENT, follow);
-  }, [navigate]);
+  }, [go]);
 
   // Swap the canvas when the route points at a different play.
   useEffect(() => {
@@ -636,7 +666,7 @@ export function Builder() {
   const startLive = async () => {
     try {
       const { play } = await api.startLive(meta.name.trim() || "Untitled play", reconcileConnections(sceneRefValue.current));
-      navigate(`/build?live=${play.id}`);
+      go(`/build?live=${play.id}`);
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -1156,8 +1186,7 @@ export function Builder() {
                   section: "Player",
                   label: `${players[0].label.trim().toUpperCase()} on every play`,
                   run: async () => {
-                    if (dirty && !(await save())) return;
-                    navigate(`/assignments?${homeBook ? `book=${homeBook.id}&` : "book=vault&"}player=${encodeURIComponent(players[0].label.trim())}`);
+                    await leaveTo(`/assignments?${homeBook ? `book=${homeBook.id}&` : "book=vault&"}player=${encodeURIComponent(players[0].label.trim())}`);
                   },
                 },
               ]
@@ -1499,17 +1528,20 @@ export function Builder() {
 
   /* ------------------------------------------------------------------- save */
 
-  async function save(): Promise<boolean> {
-    if (!meta.name.trim()) {
-      toast("Give the play a name first — that is what you will search for later.", true);
+  /** `name` comes from the save box; `leaving` skips pointing the address at the new play, since the coach is on the way out. */
+  async function save(opts: { name?: string; leaving?: boolean } = {}): Promise<boolean> {
+    const name = (opts.name ?? meta.name).trim();
+    if (!name) {
+      setAskName(true);
       return false;
     }
+    if (opts.name !== undefined && opts.name !== meta.name) setMeta((m) => ({ ...m, name }));
     const isNew = !existing;
     if (isNew) {
       const gate = gateSave(tier, plays.length);
       if (!gate.ok) {
         toast(gate.reason, true);
-        navigate("/pricing");
+        if (!opts.leaving) go("/pricing");
         return false;
       }
     }
@@ -1517,6 +1549,7 @@ export function Builder() {
     const clean = reconcileConnections(scene);
     const record: StoredPlay = {
       ...meta,
+      name,
       id: existing?.id ?? uid("play"),
       ownerName: account?.name ?? "You",
       fieldView: clean.view,
@@ -1557,12 +1590,12 @@ export function Builder() {
         fileIn.current = null;
         setDirty(false);
         toast(`Saved to your Vault${filed ? ` in ${filed.name}` : ""} and your account.`);
-        if (!existing) navigate(`/build/${stored.id}${bookQuery}`, { replace: true });
+        if (!existing && !opts.leaving) go(`/build/${stored.id}${bookQuery}`, { replace: true });
       } else {
         fileIn.current = null;
         setDirty(false);
         toast(`Saved in this browser${filed ? ` in ${filed.name}` : ""}. Sign in to keep it across devices.`);
-        if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
+        if (!existing && !opts.leaving) go(`/build/${record.id}${bookQuery}`, { replace: true });
       }
       track("play_created", { formation: record.formation, type: record.playType });
     } catch (error) {
@@ -1577,7 +1610,7 @@ export function Builder() {
       fileIn.current = null;
       setDirty(false);
       // Point the address at the browser copy, so the next save updates it instead of starting another play.
-      if (!existing) navigate(`/build/${record.id}${bookQuery}`, { replace: true });
+      if (!existing && !opts.leaving) go(`/build/${record.id}${bookQuery}`, { replace: true });
     } finally {
       setSaving(false);
     }
@@ -1655,13 +1688,13 @@ export function Builder() {
       }
     }
     toast(`Saved ${saved.name}${homeBook ? ` in ${homeBook.name}` : ""}. You're on the flipped copy now.`);
-    navigate(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
+    go(`/build/${saved.id}${homeBook ? `?book=${homeBook.id}` : ""}`);
   };
   /** Extras → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
   const newPlay = () => {
     if (dirty && !window.confirm("Start a new play? This one has changes you haven't saved.")) return;
     if (id) {
-      navigate("/build", { state: { setup: true } });
+      go("/build", { state: { setup: true } });
       return;
     }
     applyScene(emptyScene(), "New play");
@@ -1671,6 +1704,17 @@ export function Builder() {
     setDirty(false);
     setSetup(lastChoice(params.get("book"), playbooks));
   };
+  /**
+   * Going to another screen or play: a named play with changes is saved on the way (as Next play always did);
+   * an unnamed one goes straight to the leave box, so the coach can name it, drop the changes or stay.
+   */
+  async function leaveTo(href: string) {
+    if (dirty && meta.name.trim()) {
+      if (await save()) go(href);
+      return;
+    }
+    navigate(href);
+  }
   const stepName = (step: 1 | -1) => {
     if (!lineup) return "";
     const n = lineup.ids.length;
@@ -1678,18 +1722,16 @@ export function Builder() {
   };
   const goPlay = async (step: 1 | -1) => {
     if (!lineup || saving) return;
-    if (dirty && !(await save())) return;
     const n = lineup.ids.length;
     const next = lineup.ids[(lineup.at + step + n) % n];
-    navigate(`/build/${next}${lineup.book ? `?book=${lineup.book.id}` : ""}`);
+    await leaveTo(`/build/${next}${lineup.book ? `?book=${lineup.book.id}` : ""}`);
   };
   const goPlayRef = useRef(goPlay);
   goPlayRef.current = goPlay;
   /** The Plays tab: unsaved changes are saved first, as stepping to the next play does. */
   const openFromTree = async (href: string) => {
     if (saving) return;
-    if (dirty && !(await save())) return;
-    navigate(href);
+    await leaveTo(href);
   };
 
   // Vs defense: a saved defense (or any play) faded under this one.
@@ -2026,7 +2068,7 @@ export function Builder() {
             </span>
           ) : dirty || saving ? (
             <Tooltip title="Save play" hint="Keeps it in your Vault. Signed in, it also goes to your account so it's on every device." side="bottom">
-              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving} data-tour="dz-save">
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => void save()} disabled={saving} data-tour="dz-save">
                 {saving ? "Saving…" : "Save play"}
               </button>
             </Tooltip>
@@ -2533,6 +2575,30 @@ export function Builder() {
                 Exit drawing<span className="dz-kbd-only"> · </span><kbd>Esc</kbd>
               </button>
             </div>
+          )}
+
+          {(leaveBlock.state === "blocked" || askName) && (
+            <SavePrompt
+              leaving={leaveBlock.state === "blocked"}
+              name={meta.name}
+              saving={saving}
+              onSave={async (name) => {
+                const leaving = leaveBlock.state === "blocked";
+                if (!(await save({ name, leaving }))) return;
+                setAskName(false);
+                if (leaving) leaveBlock.proceed?.();
+              }}
+              onLeave={() => {
+                clearDraft(); // the coach chose to drop these changes, so don't offer them back later
+                setDirty(false);
+                setAskName(false);
+                leaveBlock.proceed?.();
+              }}
+              onStay={() => {
+                setAskName(false);
+                leaveBlock.reset?.();
+              }}
+            />
           )}
 
           {recover && (

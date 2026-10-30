@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -16,15 +16,22 @@ import "./lib/install";
 const handingOff = (window as unknown as { __g1vHandoff?: boolean }).__g1vHandoff === true;
 
 if (!handingOff) {
+  // A data router (one catch-all route; App keeps its own <Routes>) so the Designer can ask before a coach leaves unsaved work.
+  const router = createBrowserRouter([
+    {
+      path: "*",
+      element: (
+        <ErrorBoundary scope="app">
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ErrorBoundary>
+      ),
+    },
+  ]);
   createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <ErrorBoundary scope="app">
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </ErrorBoundary>
-    </BrowserRouter>
+    <RouterProvider router={router} />
   </StrictMode>,
   );
 }
