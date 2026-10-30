@@ -167,6 +167,26 @@ async function applyCheckout(s: Stripe.Checkout.Session) {
   if (customer) await stripe().customers.update(customer, { metadata: { userId } }).catch(() => undefined);
 }
 
+/**
+ * A Season Pass that was refunded in full or disputed ends its access now. Only a one-time Checkout payment counts (subscription
+ * charges and part refunds are left alone); a subscription still running keeps its own plan.
+ */
+async function revokeSeason(chargeRef: string | Stripe.Charge) {
+  const charge = typeof chargeRef === "string" ? await stripe().charges.retrieve(chargeRef) : chargeRef;
+  const customer = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+  if (!customer || !intent) return;
+  const sessions = await stripe().checkout.sessions.list({ payment_intent: intent, limit: 1 });
+  const s = sessions.data[0];
+  if (!s || s.mode !== "payment" || s.metadata?.offer !== "season") return;
+  const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.stripeCustomerId, customer));
+  if (!row) return;
+  await db
+    .update(profiles)
+    .set(row.sub ? { planEndsAt: null } : { plan: "free", planEndsAt: null })
+    .where(eq(profiles.stripeCustomerId, customer));
+}
+
 /** One webhook from Stripe, checked against its signature. Anything else is refused. */
 export async function handleWebhook(req: Request): Promise<Response> {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -189,6 +209,9 @@ export async function handleWebhook(req: Request): Promise<Response> {
     )
       // Events can arrive out of order, so act on the subscription as Stripe has it now; the payload is the fallback.
       await applySubscription(await stripe().subscriptions.retrieve(event.data.object.id).catch(() => event.data.object));
+    else if (event.type === "charge.refunded") {
+      if (event.data.object.refunded) await revokeSeason(event.data.object);
+    } else if (event.type === "charge.dispute.created") await revokeSeason(event.data.object.charge);
   } catch {
     // Stripe retries a 500, so a database blip doesn't lose a payment.
     return new Response("try again", { status: 500 });
