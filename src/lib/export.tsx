@@ -11,6 +11,7 @@ import { FULL_LOOK, frameScene, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
 import { EXPORT_SIZES, type ExportSizeId } from "./tools";
+import { traceCode } from "./activity";
 
 const FONT_STACK =
   "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
@@ -394,7 +395,9 @@ export async function playsToPdf(plays: PdfPlay[], options: SheetOptions, title 
     }
   }
 
-  doc.setProperties({ title: brand?.name.trim() ? `${title} · ${brand.name.trim()}` : title });
+  // The account's trace code, so the owner can tell whose file a leaked PDF is (Admin → Activity → Find a PDF's owner).
+  const trace = await traceCode().catch(() => "");
+  doc.setProperties({ title: brand?.name.trim() ? `${title} · ${brand.name.trim()}` : title, ...(trace ? { keywords: trace } : {}) });
   return doc;
 }
 

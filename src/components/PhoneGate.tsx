@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, SECURITY_EVENT, type Security } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { deviceLabel } from "../lib/device";
-import { setBilling, setPaymentFailed, syncPlan } from "../lib/tier";
+import { setBilling, setPaymentFailed, setSuspended, syncPlan } from "../lib/tier";
 
 /**
  * One login, one coach. Once phone verification is switched on (the Twilio
@@ -21,7 +21,10 @@ export function PhoneGate() {
   const first = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    if (!account) return setSec(null);
+    if (!account) {
+      setSuspended(false);
+      return setSec(null);
+    }
     try {
       const res = await api.me();
       setSec(res.security ?? null);
@@ -29,6 +32,7 @@ export function PhoneGate() {
       void syncPlan(res.plan, res.trialEndsAt);
       setBilling(Boolean(res.billing));
       setPaymentFailed(Boolean(res.paymentFailed));
+      setSuspended(Boolean(res.suspended));
     } catch {
       /* the next API call will ask again */
     }

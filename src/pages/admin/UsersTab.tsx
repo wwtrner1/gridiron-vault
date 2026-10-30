@@ -6,7 +6,7 @@ export type AdminUser = {
   id: string; email: string; name: string; signedUpAt: string | null; confirmed: boolean; provider: string;
   lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none";
   deleted: boolean; deletedAt: string | null; plays: number; griddyMonth: number; griddyPeakDay: number;
-  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; flags: string[];
+  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; flags: string[];
 };
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -80,17 +80,17 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
           <thead>
             <tr>
               <th>Coach</th><th>Signed up</th><th>Last active</th><th>Plan</th><th>Phone</th>
-              <th>Plays</th><th>Griddy / mo</th><th>Exports</th><th>Devices</th><th>Flags</th>
+              <th>Plays</th><th>Griddy / mo</th><th>Exports</th><th>Captures / 7d</th><th>Devices</th><th>Flags</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((u) => (
-              <tr key={u.id} className={u.deleted ? "is-deleted" : undefined}>
+              <tr key={u.id} className={u.deleted || u.suspended ? "is-deleted" : undefined}>
                 <td>
                   <button type="button" className="adm-link" onClick={() => onOpen(u.id)}>
                     {u.email || u.id}
                   </button>
-                  <small>{u.name}{!u.confirmed && " · email not confirmed"}{u.deleted && ` · deleted ${when(u.deletedAt)}`}</small>
+                  <small>{u.name}{!u.confirmed && " · email not confirmed"}{u.deleted && ` · deleted ${when(u.deletedAt)}`}{u.suspended && " · switched off"}</small>
                 </td>
                 <td>{when(u.signedUpAt)}</td>
                 <td>{when(u.lastActiveAt ?? u.lastSignInAt)}</td>
@@ -99,12 +99,13 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 <td>{u.plays}</td>
                 <td>{u.griddyMonth}{u.griddyPeakDay > 0 && <small>peak {u.griddyPeakDay}/day</small>}</td>
                 <td>{u.exports}{u.exports24h > 0 && <small>{u.exports24h} today</small>}</td>
+                <td>{u.captures7d}</td>
                 <td>{u.devices}{u.devicePeers > 1 && <small>{u.devicePeers} accounts on one device</small>}</td>
                 <td>{u.flags.map((f) => <span key={f} className="pill pill-amber">{f}</span>)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={10}>{watch ? "Nothing flagged right now." : "No one matches that search."}</td></tr>
+              <tr><td colSpan={11}>{watch ? "Nothing flagged right now." : "No one matches that search."}</td></tr>
             )}
           </tbody>
         </table>

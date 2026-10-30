@@ -1,9 +1,10 @@
-import type { Config } from "@netlify/functions";
+import type { Config, Context } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
 import { randomBytes } from "node:crypto";
 import { and, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
+  accountActivity,
   accountLedger,
   aiUsage,
   callSheets,
@@ -36,11 +37,13 @@ import {
   SMS_PER_DAY,
 } from "../security/phone.js";
 import { isOwner, onOwnerList } from "../security/owner.js";
+import { SUPPORT_EMAIL } from "../../src/lib/site.js";
 import { emailKey, isDisposable, isInternetNumber, phoneKey, trialsOn } from "../security/trial.js";
-import { billingOn, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
+import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
+import { activityFeed, recordAccess, recordCapture, findTrace, type Origin } from "../admin/activity.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
@@ -169,23 +172,25 @@ const DEVICE_ID = /^[A-Za-z0-9-]{8,100}$/;
  * onto when it clears a site's saved data. So a confirmed phone stays
  * confirmed, and a coach isn't texted a new code after every clean-up.
  */
-export default async (req: Request) => {
+export default async (req: Request, context?: Context) => {
   noteHost(new URL(req.url).hostname);
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
   const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";
-  const res = await route(req, deviceId);
+  const res = await route(req, deviceId, { ip: context?.ip, geo: context?.geo });
   if (deviceId && deviceId !== fromCookie) {
     res.headers.append("Set-Cookie", `${DEVICE_COOKIE}=${deviceId}; Max-Age=${400 * 86400}; Path=/api; Secure; HttpOnly; SameSite=Lax`);
   }
   return res;
 };
 
-async function route(req: Request, deviceId: string): Promise<Response> {
+async function route(req: Request, deviceId: string, origin: Origin = {}): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
   const [resource, id, action] = parts;
   const me = await session();
+  // Where this request came from, for the owner's sign-in audit (netlify/admin/activity.ts).
+  const where = { ua: req.headers.get("user-agent") ?? "", deviceId, origin };
 
   try {
     if (resource === "me") {
@@ -196,6 +201,12 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return json({ user: null });
       await ensureProfile(me);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
+      // The browser reports a fresh sign-in; every other read of /me is an app open (one per device each half hour).
+      if (id === "signin" && req.method === "POST") {
+        await recordAccess(me.id, "sign_in", where);
+        return new Response(null, { status: 204 });
+      }
+      await recordAccess(me.id, "open", where);
       const state = await planState(me);
       return json({
         user: { id: me.id, email: me.email, name: me.name },
@@ -207,6 +218,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
         subscribed: state.subscribed,
         pausedUntil: state.pausedUntil?.toISOString(),
         paymentFailed: state.paymentFailed,
+        suspended: me.owner ? false : await isSuspended(me.id),
         security: await securityOf(me, deviceId),
       });
     }
@@ -216,6 +228,7 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       if (!me) return fail("Sign in first.", 401);
       if (me.owner) return fail("Your account is All-Access Master. There's nothing to buy.", 403);
       await ensureProfile(me);
+      if (id !== "portal" && (await isSuspended(me.id))) return suspendedFail();
       const body = (id === "checkout" || id === "pause" ? await req.json().catch(() => ({})) : {}) as Record<string, unknown>;
       const out =
         id === "checkout"
@@ -261,6 +274,9 @@ async function route(req: Request, deviceId: string): Promise<Response> {
       return new Response(null, { status: 204 });
     }
 
+    // An account the owner switched off: every other signed-in call is refused. Work in this browser stays.
+    if (me && !me.owner && (await isSuspended(me.id))) return suspendedFail();
+
     // Every other signed-in request: a verified phone, from a device confirmed with a code.
     if (me && phoneRequired()) {
       const sec = await securityOf(me, deviceId);
@@ -279,7 +295,19 @@ async function route(req: Request, deviceId: string): Promise<Response> {
     /* --------------------------------------------------------- events --- */
     if (resource === "events") {
       // track() beacons here; only signed-in coaches' events are kept, and nothing is ever an error for a beacon.
-      if (req.method === "POST" && me) await recordEvent(me, await req.text().catch(() => ""));
+      if (req.method === "POST" && me) {
+        const ev = await recordEvent(me, await req.text().catch(() => ""));
+        // An export also goes in the owner's capture audit, with the browser and place it came from.
+        if (ev?.name === "play_exported" && !me.owner)
+          await recordCapture(me.id, JSON.stringify([{ kind: "export", detail: ev.payload }]), where).catch(() => undefined);
+      }
+      return new Response(null, { status: 204 });
+    }
+
+    /* ------------------------------------------------------- activity --- */
+    if (resource === "activity") {
+      // Capture signals (print, screenshot keys, copy) from src/lib/captureLog.ts. The owner's own testing isn't logged.
+      if (req.method === "POST" && me && !me.owner) await recordCapture(me.id, await req.text().catch(() => ""), where).catch(() => undefined);
       return new Response(null, { status: 204 });
     }
 
@@ -678,6 +706,8 @@ async function adminRoute(me: Session, req: Request, path: string[]) {
   if (id === "users" && uid && UUID_OR_ID.test(uid)) {
     if (req.method === "GET" && !tail) return json(await userDetail(me, uid));
     if (req.method === "GET" && tail === "export") return json(await userExport(me, uid));
+    if (req.method === "POST" && tail === "delete") return await adminDeleteUser(me, uid, body);
+    if (req.method === "POST" && (tail === "suspend" || tail === "unsuspend")) return await adminSuspend(me, uid, tail === "suspend", body);
     if (req.method === "POST" && tail === "plan") {
       const r = await setUserPlan(me, uid, String(body.plan ?? ""));
       return r.error ? fail(r.error, r.status ?? 400) : json(r);
@@ -709,6 +739,17 @@ async function adminRoute(me: Session, req: Request, path: string[]) {
     return json(await visitorStats(days));
   }
   if (req.method === "GET" && id === "audit") return json({ entries: await recentAudit() });
+  if (req.method === "GET" && id === "activity") {
+    const q = new URL(req.url).searchParams;
+    const filter = q.get("kind") === "access" ? "access" : q.get("kind") === "capture" ? "capture" : "all";
+    const days = [1, 7, 30, 90].includes(Number(q.get("days"))) ? Number(q.get("days")) : 7;
+    return json(await activityFeed(filter, days));
+  }
+  if (req.method === "POST" && id === "trace") {
+    const hit = await findTrace(String(body.code ?? ""));
+    await audit(me, "trace_lookup", hit?.id ?? "", { code: String(body.code ?? "").slice(0, 20), found: Boolean(hit) });
+    return json({ account: hit });
+  }
   return fail("That address is not part of the playbook API.", 404);
 }
 
@@ -806,6 +847,7 @@ async function recordEvent(me: Session, raw: string) {
     else if (typeof v === "number" || typeof v === "boolean" || v === null) payload[k.slice(0, 40)] = v;
   }
   await db.insert(events).values({ ownerId: me.id, name, payload });
+  return { name, payload };
 }
 
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
@@ -1087,8 +1129,24 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
   const sec = await securityOf(me, deviceId);
   if (sec.verified && !sec.trusted) return json({ error: "Confirm this device with the code we text you first.", code: "device_unverified" }, 403);
 
-  // One transaction: if any delete fails, none of them happen, so a coach is
-  // never left with a profile and sign-in but no plays.
+  // A deleted account must never be billed again, so the subscription ends first; if Stripe can't be reached, nothing is deleted.
+  if ((await cancelBilling(me.id)) === "failed")
+    return fail("We couldn't stop your plan's billing just now, so nothing was deleted. Try again in a minute.", 502);
+  await eraseAccount(me);
+  try {
+    await admin.deleteUser(me.id);
+  } catch {
+    return fail("Your plays and details are deleted, but the sign-in could not be closed. Try Delete again in a minute.", 502);
+  }
+  return json({ ok: true });
+}
+
+/**
+ * Removes everything an account holds, in one transaction (if any delete fails, none of them happen, so a coach is never
+ * left with a profile and sign-in but no plays), and keeps the signup-history fingerprint in account_ledger. The sign-in
+ * itself (Identity) and billing are the caller's job. Used by the coach's own Delete and by the owner's console.
+ */
+async function eraseAccount(me: { id: string; email: string; name: string }) {
   const [prof] = await db.select().from(profiles).where(eq(profiles.id, me.id));
   // A director's team files: read where they are now, delete them once the rows are gone.
   const [ownOrg] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
@@ -1121,15 +1179,78 @@ async function deleteAccount(me: Session, deviceId: string, body: Record<string,
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
     await tx.delete(events).where(eq(events.ownerId, me.id));
+    await tx.delete(accountActivity).where(eq(accountActivity.ownerId, me.id));
     await tx.delete(profiles).where(eq(profiles.id, me.id));
   });
   await dropBlobs(fileKeys).catch((e) => console.error("team-files cleanup", e));
+}
+
+/* ----------------------------------------------- switched-off accounts --- */
+
+async function isSuspended(id: string) {
+  const [row] = await db.select({ at: profiles.suspendedAt }).from(profiles).where(eq(profiles.id, id));
+  return Boolean(row?.at);
+}
+
+const suspendedFail = () =>
+  json({ error: `This account is switched off. Write to ${SUPPORT_EMAIL} if you think that's a mistake. Plays in this browser are still here.`, code: "account_suspended" }, 403);
+
+/** The owner deletes a coach's account: billing stops, everything goes (no trash, the same as the coach's own Delete), the sign-in is closed. */
+async function adminDeleteUser(actor: Session, uid: string, body: Record<string, unknown>) {
+  const target = await accountOf(uid);
+  if (!target) return fail("There's no account with that id.", 404);
+  const refusal = protectedAccount(actor, target);
+  if (refusal) return fail(refusal, 403);
+  if (String(body.confirm ?? "").trim().toLowerCase() !== target.email.toLowerCase()) return fail("Type the coach's email exactly to confirm.");
+  const billing = await cancelBilling(uid);
+  if (billing === "failed") return fail("Stripe didn't cancel their plan, so nothing was deleted. Try again in a minute.", 502);
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, uid));
+  await eraseAccount(target);
+  let signIn = "closed";
   try {
-    await admin.deleteUser(me.id);
+    await admin.deleteUser(uid);
   } catch {
-    return fail("Your plays and details are deleted, but the sign-in could not be closed. Try Delete again in a minute.", 502);
+    signIn = "not closed";
   }
-  return json({ ok: true });
+  await audit(actor, "delete_account", uid, { email: target.email, plays: n, billing, signIn, reason: String(body.reason ?? "").slice(0, 300) });
+  return signIn === "closed"
+    ? json({ ok: true, billing })
+    : fail("Their data is deleted and billing stopped, but the sign-in could not be closed. Press Delete again in a minute.", 502);
+}
+
+/** Switches an account off (or back on). Nothing is deleted; with `cancelBilling` the subscription also ends now. */
+async function adminSuspend(actor: Session, uid: string, on: boolean, body: Record<string, unknown>) {
+  const target = await accountOf(uid);
+  if (!target) return fail("There's no account with that id.", 404);
+  const refusal = protectedAccount(actor, target);
+  if (refusal) return fail(refusal, 403);
+  const reason = String(body.reason ?? "").trim().slice(0, 300);
+  await db
+    .insert(profiles)
+    .values({ id: uid, email: target.email, displayName: target.name, plan: "free", suspendedAt: on ? new Date() : null, suspendedReason: on ? reason : "" })
+    .onConflictDoUpdate({ target: profiles.id, set: { suspendedAt: on ? new Date() : null, suspendedReason: on ? reason : "" } });
+  const billing = on && body.cancelBilling === true ? await cancelBilling(uid) : "kept";
+  await audit(actor, on ? "suspend_account" : "unsuspend_account", uid, { email: target.email, reason, billing });
+  return json({ ok: true, billing });
+}
+
+/** The account as the profile row or, failing that, the sign-in provider knows it. */
+async function accountOf(uid: string) {
+  const [p] = await db.select({ email: profiles.email, name: profiles.displayName, plan: profiles.plan }).from(profiles).where(eq(profiles.id, uid));
+  if (p) return { id: uid, email: p.email, name: p.name, plan: p.plan };
+  try {
+    const u = await admin.getUser(uid);
+    return { id: uid, email: u.email ?? "", name: u.name ?? "", plan: "" };
+  } catch {
+    return null;
+  }
+}
+
+/** The owner can't switch off or delete their own account or another owner-listed one from the console. */
+function protectedAccount(actor: Session, t: { id: string; email: string; plan: string }) {
+  if (t.id === actor.id) return "That's your own account. Delete it from Your account instead.";
+  if (t.plan === "master" || onOwnerList(t.email)) return "That's an owner account. Take it off the owner list first.";
+  return "";
 }
 
 async function securityOf(me: Session, deviceId: string): Promise<Security> {

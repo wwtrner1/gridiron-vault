@@ -35,6 +35,9 @@ export const profiles = pgTable("profiles", {
   pausedUntil: timestamp("paused_until"),
   /** Stripe couldn't take the last payment (past_due or unpaid): Sideline until a paid invoice, and the app asks the coach to update the card. */
   paymentFailedAt: timestamp("payment_failed_at"),
+  /** Switched off by the owner from /admin: every signed-in API call is refused until the owner switches it back on. */
+  suspendedAt: timestamp("suspended_at"),
+  suspendedReason: text("suspended_reason").notNull().default(""),
 });
 
 /**
@@ -80,6 +83,28 @@ export const auditLog = pgTable(
     at: timestamp().defaultNow(),
   },
   (t) => [index("audit_log_at_idx").on(t.at)],
+);
+
+/**
+ * Sign-ins, app opens and capture signals (print, screenshot keys, copy, exports) per account, for the owner's
+ * activity audit. The IP is stored with its last part dropped (`ipPrefix`) and rows older than ACTIVITY_DAYS go.
+ */
+export const accountActivity = pgTable(
+  "account_activity",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    kind: text().notNull(),
+    /** "Chrome on Windows", read from the user agent. */
+    browser: text().notNull().default(""),
+    deviceHash: text("device_hash").notNull().default(""),
+    ipPrefix: text("ip_prefix").notNull().default(""),
+    /** City, region and country from Netlify's geolocation. */
+    place: text().notNull().default(""),
+    detail: jsonb().$type<Record<string, string | number | boolean>>().notNull().default({}),
+    at: timestamp().defaultNow(),
+  },
+  (t) => [index("account_activity_owner_at_idx").on(t.ownerId, t.at), index("account_activity_at_idx").on(t.at)],
 );
 
 /**

@@ -5,6 +5,7 @@ import { placeDiagram } from "./export";
 import { playerNoteLines } from "./notes";
 import { CARD_LOOK, FULL_LOOK, cutOffs, lettersFit, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
+import { traceCode } from "./activity";
 
 /**
  * Wristband cards from the Grid1ron Design canvas (Wristbands · print
@@ -641,7 +642,9 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
     }
   }
 
-  doc.setProperties({ title: `Wristbands · ${o.source}` });
+  // The account's trace code, so the owner can tell whose file a leaked PDF is (Admin → Activity → Find a PDF's owner).
+  const trace = await traceCode().catch(() => "");
+  doc.setProperties({ title: `Wristbands · ${o.source}`, ...(trace ? { keywords: trace } : {}) });
   return doc;
 }
 

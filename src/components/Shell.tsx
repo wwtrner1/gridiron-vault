@@ -8,7 +8,7 @@ import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
 import { PLAYBOOK_NAV, type NavItem } from "../lib/nav";
 import { PlaybookTree } from "./PlaybookTree";
-import { PaymentBanner } from "./PaymentBanner";
+import { PaymentBanner, SuspendedBanner } from "./PaymentBanner";
 import { PageHelp } from "./Tour";
 
 type Props = {
@@ -157,6 +157,7 @@ export function Shell({ title, actions, tabs, children }: Props) {
           {actions}
           <PageHelp />
         </header>
+        <SuspendedBanner />
         <PaymentBanner />
         {tabs}
         <main id="main">{children}</main>

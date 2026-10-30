@@ -14,6 +14,7 @@ import {
 } from "../../db/schema.js";
 import { TIERS, type TierId } from "../../src/lib/plan.js";
 import { audit, type Actor } from "./admin.js";
+import { activityOf } from "./activity.js";
 
 /** How long a deleted play, playbook or Call Sheet can be put back. */
 export const TRASH_DAYS = 30;
@@ -41,7 +42,7 @@ export async function userDetail(actor: Actor, uid: string) {
   } catch {
     /* not in Identity (deleted) or Identity unreachable */
   }
-  const [playRows, bookRows, sheetRows, trashRows, devices, usage, history] = await Promise.all([
+  const [playRows, bookRows, sheetRows, trashRows, devices, usage, history, activity] = await Promise.all([
     db
       .select({ id: plays.id, name: plays.name, playType: plays.playType, formation: plays.formation, isPublic: plays.isPublic, updatedAt: plays.updatedAt })
       .from(plays)
@@ -65,6 +66,7 @@ export async function userDetail(actor: Actor, uid: string) {
       .where(and(eq(aiUsage.ownerId, uid), gte(aiUsage.day, day(14).toISOString().slice(0, 10))))
       .orderBy(desc(aiUsage.day)),
     db.select().from(auditLog).where(eq(auditLog.targetId, uid)).orderBy(desc(auditLog.at)).limit(30),
+    activityOf(uid),
   ]);
   await audit(actor, "view_user", uid);
   return {
@@ -79,6 +81,7 @@ export async function userDetail(actor: Actor, uid: string) {
     devices,
     usage,
     history,
+    activity,
     trashDays: TRASH_DAYS,
   };
 }

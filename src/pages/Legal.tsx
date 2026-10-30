@@ -11,7 +11,7 @@ import "../styles/legal.css";
  * Drafted without a lawyer — have one review before charging for plans.
  */
 
-const UPDATED = "October 29, 2026";
+const UPDATED = "October 30, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -73,6 +73,13 @@ export function Privacy() {
         <li>
           <b>Devices:</b> a random code each browser makes for itself, kept in that browser and in a cookie only our site can
           read, and stored on our side only as a one-way fingerprint, so we can recognise up to five devices you've confirmed.
+        </li>
+        <li>
+          <b>Sign-ins and account activity:</b> while you're signed in we record when you sign in or open the app, the browser and
+          device type, your approximate place (city and country) and your IP address with its last part removed, plus when a page
+          is printed, copied from, exported or a screenshot key is pressed. It's there to protect your account and the playbooks
+          coaches pay for, only the site owner sees it, it's kept for 180 days, and deleting your account deletes it. PDFs you
+          download carry a short code in the file's details that tells us which account made them.
         </li>
         <li>
           <b>Recently deleted work:</b> a play, playbook or Call Sheet you delete is kept for 30 days so it can be put back if
