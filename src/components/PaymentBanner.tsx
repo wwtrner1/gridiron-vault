@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { goToBilling, usePaymentFailed } from "../lib/tier";
+import { goToBilling, usePaymentFailed, useSuspended } from "../lib/tier";
+import { SUPPORT_EMAIL } from "../lib/site";
 import { useToast } from "../lib/toast";
 
 /**
@@ -32,6 +33,20 @@ export function PaymentBanner() {
       <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={fix}>
         {busy ? "Opening Stripe…" : "Update card"}
       </button>
+    </div>
+  );
+}
+
+/** The owner switched this account off: say so on every page, and that the plays in this browser are still here. */
+export function SuspendedBanner() {
+  const off = useSuspended();
+  if (!off) return null;
+  return (
+    <div className="pay-banner" role="status">
+      <p>
+        <strong>This account is switched off.</strong> Saving to your account, syncing and Griddy are paused. Plays in this browser are
+        still here. Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> if you think that's a mistake.
+      </p>
     </div>
   );
 }

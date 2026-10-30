@@ -79,6 +79,21 @@ export function setPaymentFailed(on: boolean) {
   failedListeners.forEach((l) => l());
 }
 
+/** The owner switched this account off: the server refuses its calls and the Shell says why. */
+let suspended = false;
+const suspendedListeners = new Set<() => void>();
+export const useSuspended = () =>
+  useSyncExternalStore(
+    (l) => (suspendedListeners.add(l), () => suspendedListeners.delete(l)),
+    () => suspended,
+    () => false,
+  );
+export function setSuspended(on: boolean) {
+  if (on === suspended) return;
+  suspended = on;
+  suspendedListeners.forEach((l) => l());
+}
+
 /** Off to Stripe's page for an offer ("solo_month", "season", …), or Stripe's portal when none is named. */
 export async function goToBilling(offer?: string) {
   const { url } = offer ? await api.checkout(offer) : await api.billingPortal();

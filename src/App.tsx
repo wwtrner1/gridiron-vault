@@ -21,6 +21,9 @@ import { TourProvider } from "./components/Tour";
 import { lazyPage, PageLoading, warmPages } from "./lib/lazyPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { applySeo } from "./lib/seo";
+import { useAuth } from "./lib/auth";
+import { useCaptureLog } from "./lib/captureLog";
+import { setTraceUser } from "./lib/activity";
 
 // Every screen but the home page loads on first visit (see lib/lazyPage).
 const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
@@ -138,7 +141,11 @@ function RouteChrome() {
 
 export function App() {
   const { pathname } = useLocation();
+  const { account } = useAuth();
   useFreePrint(useTier().watermark);
+  // The owner's audit: capture signals while signed in, and the trace code exported PDFs carry.
+  useCaptureLog(Boolean(account));
+  useEffect(() => setTraceUser(account?.id), [account?.id]);
   useEffect(() => {
     const t = window.setTimeout(warmPages, 2500);
     return () => window.clearTimeout(t);

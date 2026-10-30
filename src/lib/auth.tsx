@@ -11,6 +11,7 @@ import {
   signup as identitySignup,
   updateUser,
 } from "@netlify/identity";
+import { api } from "./api";
 
 export type Account = { id: string; email: string; name: string };
 
@@ -124,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const callback = await handleAuthCallback();
         if (callback?.user && alive) setAccount(toAccount(callback.user));
+        // Back from Google or an email confirmation link: that's a sign-in for the owner's audit.
+        if (callback?.user && callback.type !== "recovery") void api.reportSignIn().catch(() => undefined);
         if (callback?.type === "recovery" && alive) setRecovering(true);
         if (!callback) await restoreSession();
         const user = await getUser();
@@ -147,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const user = await identityLogin(email, password);
     await restoreSession(); // gives the new session's cookies a life past closing the browser
     setAccount(toAccount(user));
+    void api.reportSignIn().catch(() => undefined);
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, name: string) => {

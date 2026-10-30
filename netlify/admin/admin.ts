@@ -11,6 +11,7 @@ import {
   profiles,
   trustedDevices,
 } from "../../db/schema.js";
+import { captureCounts } from "./activity.js";
 
 /**
  * The owner's console. Everything here is reached only through api.ts after
@@ -40,6 +41,8 @@ export const WATCH = {
   deviceWindowDays: 7,
   /** Griddy messages on the day the account was made (someone burning a fresh trial). */
   griddyFirstDay: 20,
+  /** Prints, screenshot keys, copies and exports in 7 days (src/lib/captureLog.ts). */
+  captures: 30,
 } as const;
 
 export type UserRow = {
@@ -68,6 +71,10 @@ export type UserRow = {
   devicePeers: number;
   /** Griddy messages on the day the account was made. */
   griddyFirstDay: number;
+  /** Capture signals (print, screenshot key, copy, export) in the last 7 days. */
+  captures7d: number;
+  /** Switched off from the console. */
+  suspended: boolean;
   flags: string[];
 };
 
@@ -93,7 +100,7 @@ const count = (n: unknown) => Number(n ?? 0);
 export async function userRows(): Promise<{ users: UserRow[]; identity: boolean }> {
   const day = (n: number) => new Date(Date.now() - n * 86400_000);
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const [ident, profs, ledger, playN, devN, aiM, aiPeak, expN, exp24, devRows, aiDays] = await Promise.all([
+  const [ident, profs, ledger, playN, devN, aiM, aiPeak, expN, exp24, devRows, aiDays, captures] = await Promise.all([
     identityUsers(),
     db.select().from(profiles),
     db.select().from(accountLedger),
@@ -120,6 +127,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       .select({ id: aiUsage.ownerId, day: aiUsage.day, n: aiUsage.count })
       .from(aiUsage)
       .where(and(eq(aiUsage.kind, "assistant"), gte(aiUsage.day, day(60).toISOString().slice(0, 10)))),
+    captureCounts(),
   ]);
 
   const by = (rows: { id: string; n: unknown }[]) => new Map(rows.map((r) => [r.id, count(r.n)]));
@@ -173,6 +181,8 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       phoneSignups: p?.phone ? phoneUse.get(sha(p.phone)) ?? 1 : 0,
       devicePeers: peers(id),
       griddyFirstDay: signedUpAt ? griddyOn.get(`${id}|${signedUpAt.slice(0, 10)}`) ?? 0 : 0,
+      captures7d: captures.get(id) ?? 0,
+      suspended: Boolean(p?.suspendedAt),
       flags: [],
     };
     // The owner's own testing never raises a flag.
@@ -184,6 +194,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
     if (row.devices >= WATCH.devices) f.push("Many devices");
     if (row.griddyPeakDay >= WATCH.griddyDay) f.push("Near the daily Griddy cap");
     if (row.exports24h >= WATCH.exportsDay) f.push("Heavy exporting today");
+    if (row.captures7d >= WATCH.captures) f.push("Lots of prints, screenshots or copies this week");
     if (phone === "none" && signedUpAt && Date.now() - Date.parse(signedUpAt) > WATCH.noPhoneDays * 86400_000 && row.plays + row.griddyMonth > 0)
       f.push("Using the app with no verified phone");
     return row;
@@ -193,7 +204,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
     users.push({
       id: l.userId, email: l.email, name: l.name, signedUpAt: iso(l.signedUpAt), confirmed: true, provider: "", lastSignInAt: null,
       lastActiveAt: null, plan: l.lastPlan, phone: "none", deleted: true, deletedAt: iso(l.deletedAt), plays: l.playCount,
-      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0,
+      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0, captures7d: 0, suspended: false,
       phoneSignups: l.phoneHash ? phoneUse.get(l.phoneHash) ?? 1 : 0, flags: [],
     });
   }
@@ -212,9 +223,9 @@ export function usersCsv(users: UserRow[]) {
   const cols: [string, (u: UserRow) => unknown][] = [
     ["Email", (u) => u.email], ["Name", (u) => u.name], ["Signed up", (u) => u.signedUpAt], ["Email confirmed", (u) => u.confirmed ? "yes" : "no"],
     ["Sign-in method", (u) => u.provider], ["Last sign-in", (u) => u.lastSignInAt], ["Last active", (u) => u.lastActiveAt], ["Plan", (u) => u.plan],
-    ["Phone", (u) => u.phone], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : "active")], ["Plays", (u) => u.plays],
+    ["Phone", (u) => u.phone], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : u.suspended ? "switched off" : "active")], ["Plays", (u) => u.plays],
     ["Griddy this month", (u) => u.griddyMonth], ["Photo reviews this month", (u) => u.photosMonth], ["Exports", (u) => u.exports],
-    ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Accounts on one device (7 days)", (u) => u.devicePeers], ["Griddy on signup day", (u) => u.griddyFirstDay], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],
+    ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Accounts on one device (7 days)", (u) => u.devicePeers], ["Griddy on signup day", (u) => u.griddyFirstDay], ["Captures (7 days)", (u) => u.captures7d], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],
   ];
   return [cols.map(([h]) => cell(h)).join(","), ...users.map((u) => cols.map(([, f]) => cell(f(u))).join(","))].join("\r\n");
 }

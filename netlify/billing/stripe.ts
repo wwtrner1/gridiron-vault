@@ -226,3 +226,23 @@ export async function expireSeason(userId: string) {
     .set({ plan: "free", planEndsAt: null })
     .where(and(eq(profiles.id, userId), eq(profiles.plan, "solo")));
 }
+
+/**
+ * Stops billing an account for good: the subscription ends now (no proration refund; refunds stay a decision made in
+ * Stripe's Dashboard). Used when an account is deleted, by the coach or by the owner, and when the owner switches one off
+ * and asks for billing to stop. Returns what happened so the owner's audit log can say so.
+ */
+export async function cancelBilling(userId: string): Promise<"none" | "cancelled" | "off" | "failed"> {
+  const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.id, userId));
+  if (!row?.sub) return "none";
+  if (!billingOn()) return "off";
+  try {
+    const sub = await stripe().subscriptions.retrieve(row.sub);
+    if (sub.status !== "canceled") await stripe().subscriptions.cancel(row.sub);
+    await db.update(profiles).set({ stripeSubscriptionId: null, pausedUntil: null, paymentFailedAt: null }).where(eq(profiles.id, userId));
+    return "cancelled";
+  } catch (e) {
+    console.error("cancel billing", e);
+    return "failed";
+  }
+}

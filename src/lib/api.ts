@@ -74,7 +74,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 429 && !data.error) data.error = "That's a lot of requests at once. Wait a minute, then try again.";
   if (!res.ok) {
-    if (data.code === "phone_required" || data.code === "device_unverified") window.dispatchEvent(new Event(SECURITY_EVENT));
+    if (data.code === "phone_required" || data.code === "device_unverified" || data.code === "account_suspended") window.dispatchEvent(new Event(SECURITY_EVENT));
     // 502/504 without our JSON: the platform gave up waiting on the function.
     const fallback = res.status === 502 || res.status === 504 ? "That didn't get an answer in time. Try again in a minute." : "The playbook service is unavailable right now.";
     throw new ApiError(data.error ?? fallback, res.status);
@@ -96,7 +96,9 @@ export const api = {
   scan: (body: ScanRequest) =>
     request<ScanFind>("ai/scan", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; security?: Security }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; security?: Security }>("me"),
+  /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
+  reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
   /** During beta a coach picks their own plan; the server enforces it. */
   checkout: (offer: string) => request<{ url: string }>("billing/checkout", { method: "POST", body: JSON.stringify({ offer }) }),
