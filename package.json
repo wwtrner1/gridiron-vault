@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "griddy:live": "tsx scripts/griddy-live.ts",
     "stripe:setup": "tsx scripts/stripe-setup.ts",
+    "stripe:probe": "tsx scripts/stripe-probe.ts",
     "bands:matrix": "node scripts/wristband-matrix/run.mjs",
     "coverage:concepts": "tsx scripts/coverage-concepts.ts",
     "tutorials:record": "node scripts/record-tutorials.mjs",
