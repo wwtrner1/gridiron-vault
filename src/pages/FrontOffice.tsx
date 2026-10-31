@@ -4,7 +4,7 @@ import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { PlayThumb } from "../components/PlayThumb";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { cloneSharedPlay, ORG_LIMITS, parseEmails, type FrontOfficeState, type MyOrg, type OrgShareDetail, type OrgShareSummary } from "../lib/frontOffice";
 import { savePlays } from "../lib/griddyVault";
@@ -63,7 +63,7 @@ export function FrontOffice() {
       setData(await api.frontOffice());
       setFailed("");
     } catch (e) {
-      setFailed((e as Error).message);
+      setFailed(coachError(e, "The Front Office didn't load. Try again in a minute."));
     }
   }, []);
 

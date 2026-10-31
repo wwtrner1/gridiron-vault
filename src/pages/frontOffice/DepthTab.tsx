@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { coachError } from "../../lib/api";
 import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { loadRoster, saveRoster } from "../../lib/roster";
@@ -72,9 +73,9 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
       source
         .saveDepth(forUnit, next)
         .then(() => setState("saved"))
-        .catch((e: Error) => {
+        .catch((e: unknown) => {
           setState("saved");
-          toast(e.message);
+          toast(coachError(e, "The depth chart didn't save. Try again in a minute."), true);
         });
     }, SAVE_DELAY_MS);
   };

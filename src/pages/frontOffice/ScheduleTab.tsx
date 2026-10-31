@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
-import { api } from "../../lib/api";
+import { api, coachError } from "../../lib/api";
 import { useStore } from "../../lib/store";
 import {
   EVENT_KINDS,
@@ -348,7 +348,7 @@ function EventDialog({
     try {
       await work();
     } catch (e) {
-      setError((e as Error).message);
+      setError(coachError(e, "The event didn't save. Try again in a minute."));
     } finally {
       setBusy(false);
     }

@@ -141,3 +141,7 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## A play link this browser doesn't have (2026-10-31)
 
 `/build/:id` used to open a blank field under the play's own address when the play wasn't in this browser (a new device, a bookmark, a Call Sheet link before the Vault had loaded), and a save then made a second play. Now the Designer fetches it from the account first ("Finding this play on your account…"), and when it isn't there the draft bar says which case it is: "This play isn't in your Vault. It may have been deleted, or the link belongs to another account." (signed in), "This play isn't in this browser's Vault. Sign in to open plays from your account, or pick one from the Vault." (signed out) or "No signal, so this play can't come down from your account right now." Each ends "Anything you draw here saves as a new play." and offers Sign in / Open the Vault / Draw here.
+
+## Error paths, third pass: Front Office and live plays (2026-10-31)
+
+Every Front Office tab (Hub, Roster, Depth chart, Schedule, Messages, Family texts, Files, Draw together) and the Designer's "Draw this live with my staff" showed raw `Error.message`. All go through `coachError` now, so API and no-signal wording pass through and anything else reads as a coach sentence ("The team didn't save. Try again in a minute.", "The event didn't save…", "The roster didn't save…", "The depth chart didn't save…", "The message didn't go out…", "The live play didn't start…", "The Front Office didn't load…"). `TeamBrand` keeps its own `LogoError` wording.
