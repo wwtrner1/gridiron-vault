@@ -267,3 +267,7 @@ Lighthouse flagged WCAG 2.5.3 (label in name) on the home page and Starters:
 ### Field hints read as descriptions, not as part of the name (2026-10-31)
 
 Five `label.field` blocks wrapped their `small.hint` as well as the box, so the control's accessible name included the hint: "Password Eight characters or more. A short phrase works well." The hint now follows the label (`.field-hint`, same spot on screen) and the box points at it with `aria-describedby`, so a screen reader announces "Password, edit" and then the hint as a description. Sign in (Your name, Password), New play setup (Play name), New playbook (Playbook name) and Front Office (Invite coaches).
+
+### Dialogs answer Escape from their first frame (2026-10-31)
+
+`useDialogFocus` attached its Escape and Tab listener in a passive effect, which lands after paint. On a slow device that left a beat where an autofocused box (the new-password dialog's) already had focus but Escape did nothing; the browser tests caught it on the CI runner. The listener and the focus move now run in a layout effect, so a dialog answers the keyboard as soon as it is on screen.
