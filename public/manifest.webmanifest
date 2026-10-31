@@ -17,7 +17,7 @@
   ],
   "shortcuts": [
     { "name": "Draft a play", "url": "/build", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Season Grid", "url": "/grid", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Call Sheet", "url": "/grid", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Wristbands", "url": "/wristbands", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }
