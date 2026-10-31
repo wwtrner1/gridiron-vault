@@ -47,3 +47,23 @@ test("a screen whose file won't load shows a way back, and the next screen works
   await expect(page).toHaveTitle(/Playbooks/);
   await expect(page.locator(".crash")).toHaveCount(0);
 });
+
+test("a new release drops the chunks of earlier releases from the cache", async ({ page, context }) => {
+  // A chunk left by an earlier release, put in the cache before this release's worker installs.
+  await context.addInitScript(() => {
+    if (!("caches" in window)) return;
+    void caches.open("g1v-2").then((c) => c.put("/assets/Vault-oldrelease.js", new Response("stale", { headers: { "Content-Type": "text/javascript" } })));
+  });
+  await page.goto("/vault");
+  const sw = await page.evaluate(() => fetch("/sw.js").then((r) => r.text()));
+  expect(sw).toMatch(/const RELEASE = "[0-9a-f]{10}"/);
+  expect(sw).toContain("/assets/index-");
+  await expect.poll(() => page.evaluate(() => navigator.serviceWorker.ready.then((r) => Boolean(r.active)))).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => caches.open("g1v-2").then((c) => c.keys()).then((keys) => keys.map((k) => new URL(k.url).pathname))), { timeout: 15_000 })
+    .not.toContain("/assets/Vault-oldrelease.js");
+  // This release's own files stay (the screens warmPages fetched once the worker took over).
+  await expect
+    .poll(() => page.evaluate(() => caches.open("g1v-2").then((c) => c.keys()).then((keys) => keys.filter((k) => /\/assets\/(Wristbands|Practice|Coverage|SeasonGrid)-/.test(k.url)).length)), { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(1);
+});

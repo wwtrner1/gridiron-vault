@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -30,7 +31,32 @@ function pdfjsAssets(): Plugin {
   };
 }
 
+/**
+ * Stamps public/sw.js (copied to dist/sw.js) with this release's id and the
+ * list of /assets/ files it ships, so the service worker changes with every
+ * release and can drop the chunks of earlier ones from its cache.
+ */
+function swRelease(): Plugin {
+  let shipped: string[] = [];
+  return {
+    name: "sw-release",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      shipped = Object.keys(bundle)
+        .filter((name) => name.startsWith("assets/"))
+        .map((name) => `/${name}`)
+        .sort();
+    },
+    closeBundle() {
+      const file = join("dist", "sw.js");
+      const release = createHash("sha1").update(shipped.join("\n")).digest("hex").slice(0, 10);
+      const source = readFileSync(file, "utf8").replace("__RELEASE__", release).replace("__ASSETS__", JSON.stringify(shipped));
+      writeFileSync(file, source);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), pdfjsAssets()],
+  plugins: [react(), pdfjsAssets(), swRelease()],
   build: { outDir: "dist", sourcemap: false },
 });
