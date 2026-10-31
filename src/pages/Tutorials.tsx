@@ -3,7 +3,7 @@ import { GettingStarted } from "../components/GettingStarted";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
-import { GuideClip, GuideList } from "../components/Tour";
+import { GuideClip, GuideList } from "../components/GuideList";
 import { allSteps, guideById, GUIDES, tourHref, type Guide } from "../lib/guides";
 
 /** The order a new coach meets the screens in: draw, file, plan, print. */
