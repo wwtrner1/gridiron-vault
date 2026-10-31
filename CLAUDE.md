@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Canonical domain: **https://gridiron-vault.com** (Netlify DNS; www redirects to the apex). Use it for every absolute URL (Open Graph, Identity email templates, redirects). `gridiron-vault.netlify.app` only forwards to it.
 - Repo slug: **wwtrner1/gridiron-vault**.
 - Brand spelling: **GridIronVault** (capital I).
-- Saved plays live in `localStorage`, which belongs to one origin. `public/handoff.js` (loaded first from `index.html`) and `old-address/move.js` forward plays from the older addresses to the apex in `#carry=…`, and `src/components/CarryOver.tsx` merges them (newer wins; never `gotrue.*`).
+- Saved plays live in `localStorage`, which belongs to one origin. `public/handoff.js` (loaded first from `index.html`) and `old-address/move.js` forward plays from the older addresses to the apex in `#carry=…`, and `src/components/CarryOver.tsx` merges them (newer wins; never `gotrue.*`). `tests/carry-over.spec.ts` covers the merge (a newer carried play replacing the local one, an older one losing, a play and playbook only on the old address added, settings written only where this browser has none, then the one restart and its toast, `gotrue.*` and other apps' keys ignored, the hash taken out of the address, a gzip-packed link, and a link that can't be read saying so).
 
 ## What this is
 
