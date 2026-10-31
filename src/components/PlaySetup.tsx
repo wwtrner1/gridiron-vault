@@ -77,9 +77,10 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
             onChange={(e) => set({ name: e.target.value })}
             placeholder="Trips Right Smash"
             autoFocus
+            aria-describedby="ps-name-hint"
           />
-          <small className="hint">Optional now. You name it for good when you save.</small>
         </label>
+        <small className="hint field-hint" id="ps-name-hint">Optional now. You name it for good when you save.</small>
 
         <div className="ps-row">
           <label className="field">

@@ -142,6 +142,7 @@ export function SignIn() {
 
             <form onSubmit={submit} noValidate>
               {tab === "up" && (
+                <>
                 <label className="field">
                   <span>Your name</span>
                   <input
@@ -150,9 +151,11 @@ export function SignIn() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Coach Reyes"
                     autoComplete="name"
+                    aria-describedby="signin-name-hint"
                   />
-                  <small className="hint">Shows on plays you share with your staff.</small>
                 </label>
+                <small className="hint field-hint" id="signin-name-hint">Shows on plays you share with your staff.</small>
+                </>
               )}
               <label className="field">
                 <span>Email</span>
@@ -167,6 +170,7 @@ export function SignIn() {
                 />
               </label>
               {tab !== "reset" && (
+                <>
                 <label className="field">
                   <span>Password</span>
                   <input
@@ -177,9 +181,11 @@ export function SignIn() {
                     placeholder={tab === "up" ? "At least 8 characters" : "Your password"}
                     autoComplete={tab === "up" ? "new-password" : "current-password"}
                     required
+                    aria-describedby={tab === "up" ? "signin-password-hint" : undefined}
                   />
-                  {tab === "up" && <small className="hint">Eight characters or more. A short phrase works well.</small>}
                 </label>
+                {tab === "up" && <small className="hint field-hint" id="signin-password-hint">Eight characters or more. A short phrase works well.</small>}
+                </>
               )}
 
               <div role="alert">

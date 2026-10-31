@@ -200,12 +200,16 @@ footer.mkt a:focus-visible,
 .textarea { height: auto; min-height: 76px; padding: 8px 10px; resize: vertical; line-height: 1.45; }
 .input::placeholder, .textarea::placeholder { color: #a9bccb; }
 .hint { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+/* A hint that follows its .field (linked by aria-describedby, so it isn't read as part of the label): same spot as before, below the box. */
+.field-hint { display: block; margin: -7px 0 12px; }
 .error-line { margin: 8px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--red-bg); color: var(--red-fg); font-size: 13px; }
 .ok-line { margin: 8px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--green-bg); color: var(--green-fg); font-size: 13px; }
 .row { display: flex; gap: 10px; }
 .row > * { flex: 1; min-width: 0; }
 .switch { display: flex; align-items: center; gap: 9px; font-size: 13.5px; cursor: pointer; }
 .switch input { width: 16px; height: 16px; accent-color: var(--cyan); }
+/* A switch's second line ("Other coaches can find it…") sits under its name, not run into it. */
+.switch small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
 
 .tip-anchor { display: inline-flex; position: relative; }
 .tip {

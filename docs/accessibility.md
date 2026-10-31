@@ -263,3 +263,7 @@ Lighthouse flagged WCAG 2.5.3 (label in name) on the home page and Starters:
 
 - **Home feature slides**: the "← Prev" button was named "Previous feature". It is now "Prev feature", so a voice user who says "click Prev" hits it. "Next →" was already "Next feature".
 - **Play thumbnails inside a named button** (Starters preview, Vault format painter, Playbooks add, Assignments, the player page) let the diagram's yard numbers and letters join the button's text. `PlayThumb decorative` now hides that diagram from assistive tech; the button's own label ("Preview Route Tree 0–5") names the play. Lighthouse's heuristic still counts the SVG text on Starters, but axe passes and screen readers hear only the label.
+
+### Field hints read as descriptions, not as part of the name (2026-10-31)
+
+Five `label.field` blocks wrapped their `small.hint` as well as the box, so the control's accessible name included the hint: "Password Eight characters or more. A short phrase works well." The hint now follows the label (`.field-hint`, same spot on screen) and the box points at it with `aria-describedby`, so a screen reader announces "Password, edit" and then the hint as a description. Sign in (Your name, Password), New play setup (Play name), New playbook (Playbook name) and Front Office (Invite coaches).

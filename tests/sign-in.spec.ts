@@ -41,12 +41,12 @@ test("a coach signs in with email and password and lands in the Vault; a wrong p
   await page.goto("/signin");
   await expect(page.getByRole("heading", { name: "Welcome back, Coach" })).toBeVisible();
   await page.getByLabel("Email").fill("coach@example.com");
-  await page.getByLabel(/^Password/).fill("wrong-pass");
+  await page.getByLabel("Password").fill("wrong-pass");
   await page.locator("form button[type=submit]").click();
   await expect(page.getByRole("alert")).toContainText("That email and password do not match.");
   await expect(page).toHaveURL(/\/signin$/);
 
-  await page.getByLabel(/^Password/).fill("fourth-and-long!");
+  await page.getByLabel("Password").fill("fourth-and-long!");
   await page.locator("form button[type=submit]").click();
   await expect(page).toHaveURL(/\/vault$/);
   expect(calls).toContain("POST token");
@@ -68,16 +68,16 @@ test("creating an account and a password reset each tell the coach what happens 
 
   await page.goto("/signin");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await page.getByLabel(/^Your name/).fill("Coach Reyes");
+  await page.getByLabel("Your name").fill("Coach Reyes");
   await page.getByLabel("Email").fill("new@example.com");
-  await page.getByLabel(/^Password/).fill("short");
+  await page.getByLabel("Password").fill("short");
   await page.locator("form button[type=submit]").click();
   await expect(page.getByRole("alert")).toContainText("Use at least 8 characters.");
   expect(calls).not.toContain("POST signup");
 
   // An email that already has an account is told so, not "check the format".
   await page.getByLabel("Email").fill("taken@example.com");
-  await page.getByLabel(/^Password/).fill("fourth-and-long!");
+  await page.getByLabel("Password").fill("fourth-and-long!");
   await page.locator("form button[type=submit]").click();
   await expect(page.getByRole("alert")).toContainText("That email already has an account.");
 
