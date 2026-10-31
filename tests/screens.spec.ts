@@ -40,6 +40,24 @@ test("every screen opens with its title and no errors @phone", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+// The parts below the fold (the Designer tour, the feature rows) load as they scroll
+// into view, so the loop above never sees them; and a Pixel 7 is 412px wide while
+// the smallest phones are 360px. One pass to the bottom at 360px.
+test("the home page fits a 360px phone to the bottom @phone", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto("/");
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const next = page.getByRole("button", { name: "Next feature" });
+  await expect(next).toBeVisible();
+  await expect(page.locator(".home-feature-row")).toHaveCount(4);
+  // The tour's Next button used to run past the right edge and widen the page.
+  const box = await next.boundingBox();
+  expect(box && box.x + box.width, "Next feature runs off the screen").toBeLessThanOrEqual(360);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  expect(overflow, "the home page scrolls sideways").toBeLessThanOrEqual(0);
+});
+
 test("old Game Day links land on the Call Sheet", async ({ page }) => {
   await page.goto("/game/abc");
   await expect(page).toHaveURL(/\/grid\?sheet=abc$/);
