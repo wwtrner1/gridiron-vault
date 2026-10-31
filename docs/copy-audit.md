@@ -133,3 +133,7 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## Griddy when the AI Gateway fails (2026-10-31)
 
 `plain()` in `netlify/ai/claude.ts` turned every provider error it didn't recognise into "Griddy couldn't read that just now", which blames the coach's words for failures that had nothing to do with them. Now: a connection failure between the function and the API, a 529 or any 5xx reads "Griddy is busy right now. Try again in a minute."; a 402 (the gateway's credit ran out) joins 401/403 as "Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later." Only a 4xx about the request itself keeps "couldn't read that".
+
+## Storage full (2026-10-31)
+
+`store.commit` swallowed a refused `localStorage` write, so a signed-out coach whose browser was full kept drawing with nothing saved and found the Vault empty next time. `StorageWatch` now says once: "This browser's storage is full, so new work is gone when you close the tab. Sign in to keep plays on your account, or delete plays you don't need." (signed in: "...new changes live on your account only until you free up space here.").

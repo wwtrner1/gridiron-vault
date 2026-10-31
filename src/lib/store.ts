@@ -57,12 +57,31 @@ function read(): State {
 let state: State = read();
 const listeners = new Set<() => void>();
 
+/*
+ * When the browser refuses the write (storage full, or blocked in a private
+ * window), the session still works in memory, but anything new is gone when
+ * the tab closes. StorageWatch (App.tsx) tells the coach once.
+ */
+const storageListeners = new Set<() => void>();
+let storageFailed = false;
+export const onStorageFailed = (l: () => void) => {
+  storageListeners.add(l);
+  if (storageFailed) l();
+  return () => {
+    storageListeners.delete(l);
+  };
+};
+
 function commit(next: State) {
   state = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    storageFailed = false;
   } catch {
-    /* storage full or blocked — the session still works in memory */
+    if (!storageFailed) {
+      storageFailed = true;
+      storageListeners.forEach((l) => l());
+    }
   }
   listeners.forEach((l) => l());
 }

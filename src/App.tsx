@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
+import { StorageWatch } from "./components/StorageWatch";
 import { PlaybookSync } from "./lib/playbookSync";
 import { PlaySync } from "./lib/playSync";
 import { MyTeamSync } from "./lib/teamSource";
@@ -163,6 +164,7 @@ export function App() {
       <TourProvider>
       <RouteChrome />
       <CarryOver />
+      <StorageWatch />
       <PlaySync />
       <PlaybookSync />
       <MyTeamSync />
