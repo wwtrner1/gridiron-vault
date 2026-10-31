@@ -81,7 +81,7 @@ export function FrontOffice() {
       if (done) toast(done);
       return true;
     } catch (e) {
-      toast((e as Error).message);
+      toast(coachError(e, "That didn't go through. Try again in a minute."), true);
       return false;
     } finally {
       setBusy(false);
@@ -93,7 +93,7 @@ export function FrontOffice() {
     try {
       setPreview((await api.openOrgShare(share.id)).share);
     } catch (e) {
-      toast((e as Error).message);
+      toast(coachError(e, "That didn't go through. Try again in a minute."), true);
     } finally {
       setBusy(false);
     }
