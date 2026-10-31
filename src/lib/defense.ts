@@ -278,3 +278,12 @@ export function layoutFlagDefense(look: FlagLook, rushUnits: number, receivers: 
   }
   return { defenders, zones, lines };
 }
+
+/** A defense turned left to right about the ball: defenders, zones and drop spots all change sign across the field. */
+export function mirrorDefense(layout: DefenseLayout): DefenseLayout {
+  return {
+    defenders: layout.defenders.map((d) => ({ ...d, dx: -d.dx })),
+    zones: layout.zones.map((zn) => ({ ...zn, dx: -zn.dx })),
+    lines: layout.lines.map((l) => ({ ...l, to: { ...l.to, dx: -l.to.dx } })),
+  };
+}
