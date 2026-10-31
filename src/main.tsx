@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/griddy.css";

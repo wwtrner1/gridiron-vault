@@ -44,7 +44,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Brand images are .webp (Griddy's badge, the logos) and tutorial posters .jpg; without them a no-signal page shows gaps.
-  if (url.pathname.startsWith("/assets/") || /\.(png|svg|webp|jpg|webmanifest)$/.test(url.pathname)) {
+  if (url.pathname.startsWith("/assets/") || /\.(png|svg|webp|jpg|webmanifest|woff2)$/.test(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
