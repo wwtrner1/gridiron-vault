@@ -14,7 +14,7 @@ import { store, useStore } from "../lib/store";
 import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
 import { useToast } from "../lib/toast";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 
 const EVENT_LABELS: Record<string, string> = {
   play_created: "Plays saved",
@@ -76,7 +76,7 @@ export function Account() {
       toast("Your account and everything in it are deleted.");
       navigate("/");
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "The account could not be deleted. Try again.");
+      setDeleteError(coachError(e, "The account could not be deleted. Try again."));
       setBusy(false);
     }
   };

@@ -212,7 +212,7 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 - Search: `RouteChrome` calls `applySeo` (`lib/seo.ts`). Only routes in `PUBLIC_PAGES` get a description, canonical and og:url; every other route (tool screens, unknown addresses) gets `noindex`. Add a public marketing page there and in `public/sitemap.xml`. The home page's Organization/WebApplication JSON-LD is in `index.html` (data, not script, so the CSP holds). jsPDF is imported only inside `playsToPdf`/`wristbandSheets`; keep it a dynamic import so it stays out of the first download.
 - When adding a route, also add it to `TITLES` and `NAMES` in `App.tsx` — `RouteChrome` sets `document.title` and announces the page via a live region.
 - Signed-in pages wrap content in `components/Shell.tsx` (the shared side menu). The menu's tool list is `PLAYBOOK_NAV` in `lib/nav.ts`; the home page's "Every tool, one click away" grid renders the same list, so add a tool there once and both pick it up.
-- Auth UI state: `lib/auth.tsx` (`AuthProvider`/`useAuth`). If Identity isn't enabled, `available` is false and the app stays local-only. Map Identity errors through `authMessage()`, never show raw error text.
+- Auth UI state: `lib/auth.tsx` (`AuthProvider`/`useAuth`). If Identity isn't enabled, `available` is false and the app stays local-only. Map Identity errors through `authMessage()`, never show raw error text. `tests/account.spec.ts` covers `/account` (profile and usage meters with Identity and `/api` mocked, Download a backup, Clear local workspace, Delete my account with the typed email, a refusal shown in coach words, then the sign-out; signed out, the local-work wording).
 
 ## Conventions
 
