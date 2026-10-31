@@ -531,7 +531,10 @@ export function PlayCanvas({
       const z = nextZ(sceneRef.current);
       const stamped = copies.map((n, i) => ({ ...n, z: z + i }));
       const nextIds = stamped.map((n) => n.id);
-      onScene({ ...sceneRef.current, nodes: [...sceneRef.current.nodes, ...stamped] }, "Duplicate");
+      const next = { ...sceneRef.current, nodes: [...sceneRef.current.nodes, ...stamped] };
+      // The ref only follows the scene on the next render, and the move starts now: it has to see the copies, or the drag pulls nothing out.
+      sceneRef.current = next;
+      onScene(next, "Duplicate");
       onSelection(nextIds);
       beginMove(nextIds, p);
       say("Copy pulled out. The original stayed put.");
