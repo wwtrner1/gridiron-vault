@@ -156,3 +156,7 @@ The browser test for the sign-in page found that in the browser `@netlify/identi
 ## New play on unsaved changes (2026-10-31)
 
 Extras → New play on a play with unsaved changes used a browser `confirm` ("Start a new play? This one has changes you haven't saved."): OK dropped the changes, Cancel was the only way to keep them, and nothing offered to save. It now opens the Designer's own leave box with its own wording: "Save this play before you start a new one?", with the name box inline, Save and start new, Start without saving and Stay. The Call Sheet's delete went the same way (an Undo toast instead of a confirm) in #228.
+
+## Error paths, fourth pass (2026-10-31)
+
+The last coach- and player-facing raw `Error.message` sites now go through `coachError`: the Pricing page's Stripe and plan buttons ("Stripe didn't open. Try again in a minute.", "Your plan didn't change. Try again in a minute."), a player's team link when it can't load and nothing is kept from a last visit ("This link didn't open. Check it with your coach, or try again in a minute."), and the Front Office Depth chart and Messages tabs' load failures ("The depth chart didn't load…", "Messages didn't load…"). The owner console keeps raw messages on purpose: the owner wants the detail.

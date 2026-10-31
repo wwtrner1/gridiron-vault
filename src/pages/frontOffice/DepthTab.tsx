@@ -53,7 +53,7 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
         for (const c of d.charts as DepthChart[]) by[c.unit] = c.slots;
         setCharts(by);
       })
-      .catch((e: Error) => setFailed(e.message));
+      .catch((e: unknown) => setFailed(coachError(e, "The depth chart didn't load. Try again in a minute.")));
     return () => Object.values(timers.current).forEach((t) => window.clearTimeout(t));
   }, [source]);
 

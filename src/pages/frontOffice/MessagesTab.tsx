@@ -51,7 +51,7 @@ export function MessagesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
         setTexts(t);
         markSeen(hub.org.id);
       })
-      .catch((e: Error) => setFailed(e.message));
+      .catch((e: unknown) => setFailed(coachError(e, "Messages didn't load. Try again in a minute.")));
   }, [hub.org.id, team.id]);
 
   const contacts = useMemo(() => familyContacts(players), [players]);
