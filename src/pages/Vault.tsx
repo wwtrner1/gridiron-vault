@@ -80,11 +80,12 @@ export function Vault() {
 
   const source = tab === "mine" ? plays : remote;
 
-  // "starter" shows as the Starter badge on the card, not as a label chip (canvas).
-  const tags = useMemo(
-    () => [...new Set(source.flatMap((p) => p.tags))].filter((t) => t !== "starter").sort().slice(0, 18),
-    [source],
-  );
+  // "starter" shows as the Starter badge on the card, not as a label chip (canvas). A label picked on the
+  // other tab stays in the row, so the coach can see what is narrowing the list and switch it off.
+  const tags = useMemo(() => {
+    const list = [...new Set(source.flatMap((p) => p.tags))].filter((t) => t !== "starter").sort().slice(0, 18);
+    return tag && !list.includes(tag) ? [tag, ...list] : list;
+  }, [source, tag]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -395,6 +396,14 @@ export function Vault() {
                     </Link>
                   </div>
                 )}
+              </>
+            ) : filtered ? (
+              <>
+                <h2>Nothing matches that</h2>
+                <p>Try a shorter search, or clear the filters to see every play coaches have shared.</p>
+                <button type="button" className="btn btn-ghost" onClick={clearFilters}>
+                  Clear filters
+                </button>
               </>
             ) : (
               <>
