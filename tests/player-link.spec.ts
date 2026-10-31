@@ -48,7 +48,7 @@ test("a coach makes a player link from a playbook, sees quiz scores and can turn
 
   await makeBook(page, "Varsity Offense");
   await page.goto("/playbooks");
-  await page.getByRole("button", { name: "Player link for Varsity Offense" }).click();
+  await page.getByRole("button", { name: "Players: link for Varsity Offense" }).click();
   const dialog = page.getByRole("dialog", { name: "Player link: Varsity Offense" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Create the player link" }).click();
@@ -82,7 +82,7 @@ test("signed out, the player link dialog asks the coach to sign in", async ({ pa
   const errors = errorsOf(page);
   await makeBook(page, "JV Offense");
   await page.goto("/playbooks");
-  await page.getByRole("button", { name: "Player link for JV Offense" }).click();
+  await page.getByRole("button", { name: "Players: link for JV Offense" }).click();
   const dialog = page.getByRole("dialog", { name: "Player link: JV Offense" });
   await expect(dialog).toContainText("Sign in to make a player link");
   expect(errors).toEqual([]);

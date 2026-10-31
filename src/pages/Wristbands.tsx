@@ -530,7 +530,7 @@ export function Wristbands() {
                     type="button"
                     className={`chip${gridKey(g) === gridKey(grid) ? " is-on" : ""}`}
                     aria-pressed={gridKey(g) === gridKey(grid)}
-                    aria-label={`${g.cols * g.rows} plays, ${g.cols} across and ${g.rows} down`}
+                    aria-label={`${g.cols * g.rows} ${g.cols}×${g.rows}: ${g.cols * g.rows} plays, ${g.cols} across and ${g.rows} down`}
                     onClick={() => set({ grid: gridKey(g) })}
                   >
                     {g.cols * g.rows} <small>{g.cols}×{g.rows}</small>

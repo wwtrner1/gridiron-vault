@@ -267,3 +267,13 @@ Lighthouse flagged WCAG 2.5.3 (label in name) on the home page and Starters:
 ### Field hints read as descriptions, not as part of the name (2026-10-31)
 
 Five `label.field` blocks wrapped their `small.hint` as well as the box, so the control's accessible name included the hint: "Password Eight characters or more. A short phrase works well." The hint now follows the label (`.field-hint`, same spot on screen) and the box points at it with `aria-describedby`, so a screen reader announces "Password, edit" and then the hint as a description. Sign in (Your name, Password), New play setup (Play name), New playbook (Playbook name) and Front Office (Invite coaches).
+
+### The sweep is now a browser test (2026-10-31)
+
+`tests/accessibility.spec.ts` runs axe-core 4.14 (`@axe-core/playwright`, WCAG 2.0/2.1 A and AA rules) on every screen with plays in the Vault, the side menu's playbook tree opened, the Designer with a play and its Extras menu, the Griddy panel, and the signed-in screens, with the screens run at phone width too, so nothing above can come back quietly. axe 4.14 reads "label in name" (2.5.3) more strictly than the 4.10 sweeps did, and the first run found three real misses:
+
+- **Playbook tree items** rendered the name and the count (or the P/R/D/S badge and the name) as touching text, which reads as "Playbook24" and "P01 · All Curls" on screen. A space now sits between them (the rows are flex, so nothing moves), and a play's name starts with its badge letter the way the row does: "P 01 · All Curls, Pass".
+- **Playbooks → Players** was named "Player link for …" while the button says Players. It is now "Players: link for …", so a voice user who says "click Players" hits it.
+- **Wristbands layout chips** show "8 4×2" but were named "8 plays, 4 across and 2 down". The name now starts with what is on the chip: "8 4×2: 8 plays, 4 across and 2 down".
+
+Two of axe's readings are allowed in the test on purpose, with the reason beside the filter: a button whose only visible text is a play diagram's yard numbers and letters (Starters previews, Assignments cards), and a playbook folder opened in the tree, whose children's names axe counts as the folder's visible text; and the Designer's `maximum-scale=1` viewport, which is deliberate (see above).

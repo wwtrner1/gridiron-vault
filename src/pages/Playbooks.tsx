@@ -230,7 +230,7 @@ export function Playbooks() {
                       className="btn btn-quiet btn-sm"
                       disabled={book.playIds.length === 0}
                       onClick={() => setLinking(book.id)}
-                      aria-label={`Player link for ${book.name}`}
+                      aria-label={`Players: link for ${book.name}`}
                     >
                       <Icon name="link" size={14} /> Players
                     </button>
