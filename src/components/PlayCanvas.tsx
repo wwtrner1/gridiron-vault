@@ -1133,6 +1133,10 @@ export function PlayCanvas({
           height={CANVAS_H}
           fill="transparent"
           onPointerDown={onSurfaceDown}
+          // The Text tool opens its box on the press (and is already back on Select by now); the browser would move focus off the box on this mousedown and close it at once.
+          onMouseDown={(e) => {
+            if (editing) e.preventDefault();
+          }}
         />
 
         {/* Grid overlay */}
