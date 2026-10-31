@@ -181,6 +181,9 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 - The coach-facing name is **Call Sheet** everywhere; the code keeps `SeasonGrid.tsx`, `/grid`, `gridLimit`, `SheetDoc` and `grid:` wristband sources so nothing breaks. `DEFAULT_SHEET_NAME` is in `lib/sheet.ts`, and the page renames a sheet still called "Season Grid" on open.
 - Minimizing is a view, not data: `lib/sheetView.ts` (`useSheetView`, `grid1ronvault.sheetview.v1`, per sheet, this browser only) holds minimized columns and rows, Compact and Hide empty. Minimized columns become a thin strip and rows one summary line; both stay off the printout. The page also has Find, Renumber (# column in the coach's order), copy-row, add-row-below and Ask Griddy (types a call-sheet starter into the panel; never sends). Delete shows a toast with Undo (like plays and playbooks): the sheet comes back with `remoteId` cleared so `SheetSync` sends it as new, and the blank sheet the page laid out meanwhile is removed again (`isBlankSheet`).
 
+### Playbook language (`/language`)
+- `pages/PlaybookLanguage.tsx` lists the coach's terms in a seven-column table (`.lang-table`). Under 640px `language.css` turns each row into a card (term and type on the first line, meaning, source · uses · glossary, then Edit/Delete) with the header row kept for screen readers only, so a phone never gets a table squeezed to a few characters a column.
+
 ### Game Day (retired)
 - Removed on 2026-10-28. `/game` redirects to `/grid` and `/game/:id` to `/grid?sheet=:id` (`GameDayMoved` in `App.tsx`). The old per-browser keys `grid1ronvault.gameday.v1` and `grid1ronvault.game.v1` (call logs) are left in place, not deleted. `.gd-*` classes now belong only to Griddy (`griddy.css`).
 
