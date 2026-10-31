@@ -1216,3 +1216,4 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 }
 .dz-draftbar p { margin: 0; flex: 1 1 260px; }
 .dz-draftbar span { color: var(--muted); }
+.dz-draftbar.is-missing { border-color: var(--amber); }
