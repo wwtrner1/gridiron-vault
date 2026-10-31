@@ -4,6 +4,7 @@ import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
 import { PlayerPresets } from "./PlayerPresets";
+import { useTerms } from "../lib/terms";
 import { FIELD_VIEWS } from "../lib/field";
 import { TAG_MAX } from "../lib/render";
 import { explainPlay } from "../lib/explain";
@@ -43,6 +44,9 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
   const personnelChoice = customPersonnel || (meta.personnel.trim() && !knownChoice) ? CUSTOM : (knownChoice ?? "");
   const selected = useMemo(() => scene.nodes.filter((n) => selection.includes(n.id)), [scene.nodes, selection]);
   const one = selected.length === 1 ? selected[0] : null;
+  const jobs = useMemo(() => [...new Set(selected.map((n) => (n.kind === "player" ? n.job ?? "" : "")))], [selected]);
+  const { terms: allTerms } = useTerms();
+  const gapTerms = allTerms.filter((t) => t.type === "gap");
 
   // One panel for what you're working on: Selection while something is picked, Play (name, field) when nothing is.
   // The coach can still switch by hand; it flips back whenever the field goes from empty to picked or the reverse.
@@ -337,6 +341,37 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       <Panel title="Player presets" icon="user">
         <PlayerPresets scene={scene} selection={selection} onScene={onScene} onSelection={onSelection} />
       </Panel>
+      )}
+
+      {selected.length > 0 && selected.every((n) => n.kind === "player") && (
+        <Panel title="Responsibility" icon="user" count={jobs.length === 1 ? jobs[0] || undefined : jobs.length > 1 ? "mixed" : undefined}>
+          <div className="pn">
+            <p className="hint">Tag who owns what, in your own terms: a gap, a technique or a job. It prints under the token.</p>
+            <input
+              className="input"
+              list="player-job-ideas"
+              aria-label="Responsibility"
+              placeholder="B gap"
+              value={jobs.length === 1 ? jobs[0] : ""}
+              onChange={(e) => patch({ job: e.target.value.trim() ? e.target.value : undefined } as Partial<SceneNode>, "Responsibility")}
+            />
+            <datalist id="player-job-ideas">
+              {gapTerms.map((t) => (
+                <option key={t.id} value={t.term} />
+              ))}
+            </datalist>
+            <div className="chips" role="group" aria-label="Quick responsibilities">
+              {["A gap", "B gap", "C gap", "D gap", "Contain", "Spill"].map((j) => (
+                <button key={j} type="button" className={jobs.length === 1 && jobs[0] === j ? "chip is-on" : "chip"} aria-pressed={jobs.length === 1 && jobs[0] === j} onClick={() => patch({ job: j } as Partial<SceneNode>, "Responsibility")}>
+                  {j}
+                </button>
+              ))}
+              <button type="button" className="chip" disabled={!jobs.some(Boolean)} onClick={() => patch({ job: undefined } as Partial<SceneNode>, "Responsibility")}>
+                Clear
+              </button>
+            </div>
+          </div>
+        </Panel>
       )}
 
       {one?.kind === "player" && (

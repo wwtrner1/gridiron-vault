@@ -37,6 +37,8 @@ export type PlayerNode = NodeCommon & {
   stroke: string;
   textColor: string;
   side: "offense" | "defense" | "ball";
+  /** Responsibility tag from the coach's terms ("A gap", "3 technique", "Contain"), drawn under the token. */
+  job?: string;
   /** Coaching note for this player (Player notes panel). */
   note?: string;
   /** Show the note on hover in the Designer. Default on. */

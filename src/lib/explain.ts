@@ -126,5 +126,8 @@ export function explainPlay(scene: Scene): string {
     const s = sentence(scene, p, mine[0], sign);
     if (s) lines.push(s);
   }
+  // Responsibilities the coach tagged on either side ("X: B gap").
+  const jobs = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && !!n.job?.trim());
+  for (const p of jobs) lines.push(`${p.label.trim() || p.name}: ${p.job!.trim()}.`);
   return lines.join("\n");
 }

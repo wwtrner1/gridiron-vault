@@ -207,6 +207,7 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 
 ### Playbook language (`/language`)
 - `pages/PlaybookLanguage.tsx` lists the coach's terms in a seven-column table (`.lang-table`). Under 640px `language.css` turns each row into a card (term and type on the first line, meaning, source · uses · glossary, then Edit/Delete) with the header row kept for screen readers only, so a phone never gets a table squeezed to a few characters a column.
+- Gaps and responsibilities (`tests/responsibility.spec.ts`): `GAP_GLOSSARY` in `lib/terms.ts` seeds the `gap` term type (A–E gaps, 0–9 techniques, one-gap, two-gap, Contain, Spill, hole numbers; "Gaps & techniques" filter). A coach who saved terms before it gets the new seeds once (`State.seeded` remembers which were offered, so a deleted one stays deleted). `PlayerNode.job` is a responsibility tag from those terms, set from the Selection drawer's **Responsibility** panel on any picked players (quick chips, a typed term with the gap terms as suggestions, Clear), drawn under the token by `PlayerGlyph` (`text[data-job]`) and added to `explainPlay`'s talking points.
 
 ### Game Day (retired)
 - Removed on 2026-10-28. `/game` redirects to `/grid` and `/game/:id` to `/grid?sheet=:id` (`GameDayMoved` in `App.tsx`). The old per-browser keys `grid1ronvault.gameday.v1` and `grid1ronvault.game.v1` (call logs) are left in place, not deleted. `.gd-*` classes now belong only to Griddy (`griddy.css`).

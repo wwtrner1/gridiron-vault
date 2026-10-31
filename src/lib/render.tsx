@@ -119,6 +119,23 @@ function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolea
           {node.label}
         </text>
       )}
+      {node.job && !ghost && (
+        <text
+          x={0}
+          y={r + Math.max(12, node.size * 0.42)}
+          textAnchor="middle"
+          fontSize={Math.max(11, node.size * 0.4)}
+          fontWeight={700}
+          fill="#0b1524"
+          stroke="#ffffff"
+          strokeWidth={3}
+          paintOrder="stroke"
+          fontFamily="'Saira Condensed', 'Arial Narrow', sans-serif"
+          data-job={node.job}
+        >
+          {node.job}
+        </text>
+      )}
     </g>
   );
 }
