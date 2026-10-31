@@ -39,13 +39,13 @@ test("the playbook tree files, finds and opens plays from the side menu and the 
   await expect(ready).toHaveAttribute("aria-expanded", "true");
   await expect(ready).toHaveAttribute("aria-label", "Ready-to-Go 5v5 Playbook, 24 plays");
   await expect(plays).toHaveCount(24);
-  await expect(plays.first()).toHaveAttribute("aria-label", "01 · All Curls, Pass");
+  await expect(plays.first()).toHaveAttribute("aria-label", "P 01 · All Curls, Pass");
 
   // Find narrows the folder to the plays that match.
   const find = page.getByLabel("Find a play in your playbooks");
   await find.fill("stick");
   await expect(plays).toHaveCount(1);
-  await expect(plays).toHaveAttribute("aria-label", "17 · Stick, Pass");
+  await expect(plays).toHaveAttribute("aria-label", "P 17 · Stick, Pass");
   await expect(ready).toHaveAttribute("aria-label", "Ready-to-Go 5v5 Playbook, 1 play");
   await find.fill("zzz");
   await expect(page.locator(".pbt")).toContainText('No play matches "zzz".');
@@ -82,9 +82,9 @@ test("the playbook tree files, finds and opens plays from the side menu and the 
   await page.keyboard.press("ArrowRight");
   await expect(ready).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("ArrowRight");
-  await expect.poll(() => focused(page)).toBe("01 · All Curls, Pass");
+  await expect.poll(() => focused(page)).toBe("P 01 · All Curls, Pass");
   await page.keyboard.press("End");
-  await expect.poll(() => focused(page)).toBe("24 · Toss Sweep Left, Run");
+  await expect.poll(() => focused(page)).toBe("R 24 · Toss Sweep Left, Run");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/build/[^?]+\\?book=${readyBook.id}$`));
   await page.locator(".stage-frame svg").first().waitFor();
@@ -95,12 +95,12 @@ test("the playbook tree files, finds and opens plays from the side menu and the 
   const dzTree = page.locator("#dz-tree-title + * [role=tree], .pbt:has(#dz-tree-title) [role=tree]").first();
   await expect(dzTree).toBeVisible();
   const current = dzTree.locator("li.pbt-play[aria-current=page]");
-  await expect(current).toHaveAttribute("aria-label", "24 · Toss Sweep Left, Run");
+  await expect(current).toHaveAttribute("aria-label", "R 24 · Toss Sweep Left, Run");
   await expect(current).toHaveAttribute("aria-selected", "true");
   await dzTree.locator("li.pbt-play").filter({ hasText: "03 · Mesh" }).click();
   await expect(page).toHaveURL(new RegExp(`/build/[^?]+\\?book=${readyBook.id}$`));
   await expect(page.locator(".dz-name")).toContainText("03 · Mesh");
-  await expect(dzTree.locator("li.pbt-play[aria-current=page]")).toHaveAttribute("aria-label", "03 · Mesh, Pass");
+  await expect(dzTree.locator("li.pbt-play[aria-current=page]")).toHaveAttribute("aria-label", "P 03 · Mesh, Pass");
 
   // A folder's + starts a new play filed in that playbook.
   await dzTree.getByRole("button", { name: "New play in Week 3 installs" }).click();

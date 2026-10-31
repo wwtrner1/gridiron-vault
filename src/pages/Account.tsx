@@ -15,6 +15,7 @@ import { readEvents } from "../lib/track";
 import { forgetAll } from "../lib/autofill";
 import { useToast } from "../lib/toast";
 import { api, coachError } from "../lib/api";
+import { SUPPORT_EMAIL } from "../lib/site";
 
 const EVENT_LABELS: Record<string, string> = {
   play_created: "Plays saved",
@@ -38,12 +39,15 @@ export function Account() {
   const [deleteError, setDeleteError] = useState("");
   const [params] = useSearchParams();
   const paid = params.get("billing") === "success";
+  // Back from Stripe: asking the account for the plan, it landed, or it is taking longer than the wait here.
+  const [landing, setLanding] = useState<"asking" | "landed" | "late" | null>(null);
 
   // Back from Stripe: the plan is set by Stripe's webhook a moment after the payment, so ask until it lands.
   useEffect(() => {
     if (!paid || !account) return;
     let alive = true;
     const first = tier.id;
+    setLanding("asking");
     (async () => {
       for (let i = 0; i < 10 && alive; i++) {
         try {
@@ -51,6 +55,7 @@ export function Account() {
           setBilling(Boolean(me.billing));
           if (me.plan && me.plan !== first) {
             void syncPlan(me.plan, me.trialEndsAt);
+            setLanding("landed");
             toast(`You're on ${TIERS[me.plan as TierId]?.name ?? "your new plan"}. Thanks for backing the playbook.`);
             return;
           }
@@ -59,6 +64,7 @@ export function Account() {
         }
         await new Promise((r) => setTimeout(r, 2000));
       }
+      if (alive) setLanding("late");
     })();
     return () => {
       alive = false;
@@ -164,6 +170,17 @@ export function Account() {
             <h3>Your plan</h3>
             <span className={`pill${tier.id === "beta" || tier.id === "master" ? " pill-cyan" : ""}`}>{tier.name}</span>
           </div>
+          {landing === "asking" && (
+            <p className="hint acct-landing" role="status">
+              Thanks, coach. Confirming your payment with Stripe — your new plan lands here in a moment.
+            </p>
+          )}
+          {landing === "late" && (
+            <p className="hint acct-landing" role="status">
+              Your payment went through, but the plan hasn't reached your account yet. Reload this page in a minute; if it is still
+              missing, write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> and we'll set it by hand.
+            </p>
+          )}
           <p>{tier.blurb}</p>
           <dl className="acct-facts">
             <div>
