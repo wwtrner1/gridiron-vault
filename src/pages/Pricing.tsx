@@ -5,6 +5,7 @@ import { OFFERS, PUBLIC_TIERS, TIERS } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
 import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
+import { coachError } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
 import "../styles/pricing.css";
@@ -100,7 +101,7 @@ export function Pricing() {
     try {
       await goToBilling(offer);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Stripe didn't open. Try again in a minute.", true);
+      toast(coachError(e, "Stripe didn't open. Try again in a minute."), true);
     }
   };
 
@@ -113,7 +114,7 @@ export function Pricing() {
     try {
       await choosePlan(id, Boolean(account));
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Your plan didn't change. Try again in a minute.", true);
+      toast(coachError(e, "Your plan didn't change. Try again in a minute."), true);
       return;
     }
     toast(
