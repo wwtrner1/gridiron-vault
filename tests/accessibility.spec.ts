@@ -5,9 +5,10 @@ import { quiet, seedReady, signIn } from "./helpers";
 /**
  * An axe sweep (WCAG 2.0/2.1 A and AA rules) over every screen with plays in
  * the Vault, the Designer with a play open, the side menu's playbook tree
- * opened, and the Griddy panel, signed out and signed in. docs/accessibility.md
- * records what earlier sweeps found and fixed; this keeps them from coming
- * back. Two readings of axe's are allowed on purpose, below.
+ * opened, and the Griddy panel, signed out and signed in; the screens also at
+ * phone width. docs/accessibility.md records what earlier sweeps found and
+ * fixed; this keeps them from coming back. Two readings of axe's are allowed
+ * on purpose, below.
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -39,17 +40,21 @@ async function sweep(page: import("@playwright/test").Page, label: string) {
   ).toEqual([]);
 }
 
-test("every screen passes axe's WCAG A and AA rules, signed out", async ({ page }) => {
-  test.setTimeout(180_000);
+test("every screen passes axe's WCAG A and AA rules, signed out @phone", async ({ page }) => {
+  test.setTimeout(300_000);
   await seedReady(page);
   for (const path of SCREENS) {
     await page.goto(path);
     await expect(page.locator("[data-page-loading]")).toHaveCount(0);
     await sweep(page, path);
   }
+});
+
+test("the open states pass: the playbook tree, the Designer with a play and Extras, and Griddy", async ({ page }) => {
+  test.setTimeout(120_000);
+  await seedReady(page);
 
   // The side menu's playbook tree with a folder open and its plays listed.
-  await page.goto("/vault");
   const folder = page.locator("aside#rail-nav .pbt-item").first();
   await folder.locator(".pbt-row").first().click();
   await expect(page.locator("aside#rail-nav .pbt-play").first()).toBeVisible();
