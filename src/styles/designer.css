@@ -882,9 +882,12 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-modes { position: static; margin: 0 -16px; padding: 12px 16px; }
   .dz-style { position: static; max-height: none; margin: 0 -16px calc(-16px - env(safe-area-inset-bottom)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .dz-zoom-btns { display: none; }
-  /* The white stage hugs the field instead of filling the column. */
-  .builder .builder-stage { flex: none; min-height: 0; padding: 8px; }
-  .dz-stage-wrap { flex: none; }
+  /* The white stage hugs the field instead of filling the column (the floating-tools wrap
+     below sets flex: 1 0 auto on both, so these need to outrank it). The top padding leaves
+     room for the floating tools' docked handle, so it sits above the field, not on it. */
+  .builder .dz-stage-wrap > .builder-stage,
+  .builder .builder-stage { flex: none; min-height: 0; padding: 60px 8px 8px; }
+  .builder .dz-stage-wrap { flex: none; }
   .builder .builder-main { padding: 10px 10px calc(84px + env(safe-area-inset-bottom)); gap: 10px; }
   .dz-drawbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .dz-drawbar button { flex: none; }
