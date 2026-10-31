@@ -148,3 +148,7 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## Error paths, third pass: Front Office and live plays (2026-10-31)
 
 Every Front Office tab (Hub, Roster, Depth chart, Schedule, Messages, Family texts, Files, Draw together) and the Designer's "Draw this live with my staff" showed raw `Error.message`. All go through `coachError` now, so API and no-signal wording pass through and anything else reads as a coach sentence ("The team didn't save. Try again in a minute.", "The event didn't save…", "The roster didn't save…", "The depth chart didn't save…", "The message didn't go out…", "The live play didn't start…", "The Front Office didn't load…"). `TeamBrand` keeps its own `LogoError` wording.
+
+## Sign-in page (2026-10-31)
+
+The browser test for the sign-in page found that in the browser `@netlify/identity` wraps gotrue-js's error and drops its HTTP status, so `authMessage` never saw a 400, 404, 422 or 429: a wrong password read the generic "Sign-in failed. Check your email and password, then try again." instead of "That email and password do not match. Try again or reset your password.", and "Too many tries" never showed. `statusOf` now reads the status from the error or its `cause`. A signup with an email that already has an account (422 "already been registered") read "Check the email format and use a password of at least 8 characters."; it now reads "That email already has an account. Sign in instead, or reset your password."
