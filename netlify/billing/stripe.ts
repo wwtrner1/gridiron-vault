@@ -60,6 +60,10 @@ export async function startCheckout(me: Who, offer: string): Promise<{ url: stri
     // Flexible billing mode is Stripe's recommended default for new subscriptions (accurate proration, new Billing features).
     ...(offer === "season" ? {} : { subscription_data: { metadata: { userId: me.id, offer }, billing_mode: { type: "flexible" as const } } }),
     allow_promotion_codes: true,
+    // Stripe Tax works out the tax from the coach's address; it only charges where a registration is added in the Dashboard.
+    automatic_tax: { enabled: true },
+    billing_address_collection: "required",
+    ...(row?.customer ? { customer_update: { address: "auto" as const, name: "auto" as const } } : {}),
     success_url: `${SITE}/account?billing=success`,
     cancel_url: `${SITE}/pricing`,
   });
