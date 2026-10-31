@@ -108,9 +108,13 @@ export function BrandSync() {
       .finally(() => {
         if (alive) void pushBrand();
       });
+    // A change made with no signal goes up when the signal is back (a no-op when the account is current).
+    const online = () => void pushBrand();
+    window.addEventListener("online", online);
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      window.removeEventListener("online", online);
       off();
     };
   }, [id]);

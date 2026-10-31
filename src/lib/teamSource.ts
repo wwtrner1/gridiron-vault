@@ -129,9 +129,13 @@ export function MyTeamSync() {
       .finally(() => {
         if (alive) void pushMyTeam();
       });
+    // A change made with no signal goes up when the signal is back (a no-op when the account is current).
+    const online = () => void pushMyTeam();
+    window.addEventListener("online", online);
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      window.removeEventListener("online", online);
       off();
     };
   }, [id]);
