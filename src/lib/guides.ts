@@ -475,7 +475,7 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Play card",
-            text: "The check box picks the play for a batch. Open edits it in the Designer, Export downloads or prints it, the folder adds it to a playbook (one you have or a new one you name), and the bin deletes it (a signed-in delete is kept for 30 days). This browser means it isn't on your account yet: sign in and save it.",
+            text: "The check box picks the play for a batch. Open edits it in the Designer, Export downloads or prints it, the folder adds it to a playbook (one you have or a new one you name), and the bin deletes it (Undo on the message brings it back; a signed-in delete is kept for 30 days). This browser means it isn't on your account yet: sign in and save it.",
             target: ".play-grid .play-card",
           },
           {
@@ -517,7 +517,7 @@ export const GUIDES: Guide[] = [
             text: "One link and QR code that opens this book on your players' phones, each with their own job highlighted and the Griddy Quiz. Players never see the rest of your Vault.",
             target: ".book-actions",
           },
-          { title: "Rename and delete", text: "Delete removes the book only. The plays stay in your Vault.", target: ".book-actions" },
+          { title: "Rename and delete", text: "Delete removes the book only (Undo on the message brings it back). The plays stay in your Vault.", target: ".book-actions" },
           {
             title: "Not in a playbook yet",
             text: "Plays that aren't in any book. Add them all to a new playbook names one and files every one of them in it.",

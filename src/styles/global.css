@@ -509,6 +509,8 @@ footer.mkt a:hover { color: var(--cyan); }
 .toast { display: flex; align-items: center; gap: 9px; padding: 10px 15px; border-radius: 9px; background: var(--ink); color: var(--white); box-shadow: var(--shadow-l); font-size: 14px; animation: toastIn .17s ease-out; }
 .toast svg { color: var(--cyan); }
 .toast.is-bad svg { color: #ff8b7d; }
+.toast-act { margin-left: 4px; min-height: 28px; padding: 3px 11px; border: 1px solid rgba(255, 255, 255, .4); border-radius: 6px; background: transparent; color: var(--white); font: inherit; font-weight: 700; cursor: pointer; }
+.toast-act:hover, .toast-act:focus-visible { background: rgba(255, 255, 255, .14); outline: none; border-color: var(--cyan); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(9px); } }
 
 .auth-wrap { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
