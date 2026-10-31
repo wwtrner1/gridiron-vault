@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import qrcode from "qrcode-generator";
 import { Modal } from "./Modal";
 import { Icon } from "./Icon";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { gateShare, type Tier } from "../lib/plan";
 import { SHARE_LIMITS, shareUrl, toSnapshot, type QuizScore, type ShareInfo } from "../lib/share";
 import type { LocalPlaybook } from "../lib/store";
@@ -61,7 +61,7 @@ export function PlayerLink({
       setScores(mine ? (await api.shareScores(mine.token)).results : []);
     } catch (e) {
       setShare(null);
-      toast((e as Error).message);
+      toast(coachError(e, "Couldn't check for a link right now. Try again in a minute."), true);
     }
     // toast is stable for the life of the page
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,7 +79,7 @@ export function PlayerLink({
       toast(share ? "Players now see the latest plays." : "Player link ready. Send it to your team.");
       await load();
     } catch (e) {
-      toast((e as Error).message);
+      toast(coachError(e, "The link didn't get made. Try again in a minute."), true);
     } finally {
       setBusy(false);
     }
@@ -94,7 +94,7 @@ export function PlayerLink({
       setShare(null);
       setScores([]);
     } catch (e) {
-      toast((e as Error).message);
+      toast(coachError(e, "The link is still on. Try again in a minute."), true);
     } finally {
       setBusy(false);
     }
