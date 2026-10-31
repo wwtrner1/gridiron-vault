@@ -52,3 +52,12 @@ test("tool screens stay out of search, public ones carry a canonical", async ({ 
   await page.goto("/vault");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
 });
+
+test("Starters draws a diagram once its card scrolls near the screen", async ({ page }) => {
+  await seedReady(page);
+  await page.goto("/starters");
+  const last = page.locator(".play-card .play-thumb svg").last();
+  await expect(last.locator("*")).toHaveCount(0);
+  await last.scrollIntoViewIfNeeded();
+  await expect(last.locator("g, path, line, rect").first()).toBeAttached();
+});
