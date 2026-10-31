@@ -581,6 +581,14 @@ footer.mkt a:hover { color: var(--cyan); }
   textarea { font-size: 16px !important; }
   .row-tools .th-sort { height: 24px; }
   .th-drag { min-width: 24px; min-height: 24px; }
+  /*
+   * Column headers on a phone: the name on its own line over the grip and
+   * buttons, so a column is only as wide as its setting (the # column was as
+   * wide as Play Name, 325px, and most of the sheet sat off screen).
+   */
+  .th-inner { flex-wrap: wrap; row-gap: 2px; }
+  .th-inner input { flex: 1 0 100%; order: -1; width: 40px; }
+  .cell-input { width: 40px; min-width: 100%; }
 }
 @media print {
   .rail, .topbar, .builder-rail, .builder-side, .builder-bar, .bulk-bar, .mkt-nav { display: none !important; }
