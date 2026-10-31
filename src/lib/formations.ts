@@ -280,3 +280,16 @@ export function describeFormation(game: GameType, personnelCode: string, name: s
   if (game !== "11") return `${g} ${name}`;
   return `${g} ${name}, ${personnelCode} personnel, with five linemen`;
 }
+
+
+/** "Trips Right" ↔ "Trips Left", keeping the coach's capitals. */
+export function swapSides(text: string): string {
+  return text.replace(/\b(right|left)\b/gi, (word) => {
+    const to = word.toLowerCase() === "right" ? "left" : "right";
+    if (word === word.toUpperCase()) return to.toUpperCase();
+    return word[0] === word[0].toUpperCase() ? to[0].toUpperCase() + to.slice(1) : to;
+  });
+}
+
+/** A formation turned left to right about the ball: every offset across the field changes sign. */
+export const mirrorPlaced = (placed: Placed[]): Placed[] => placed.map((p) => ({ ...p, dx: -p.dx }));

@@ -64,7 +64,7 @@ test("the rail's Players, Sets, Layers and Routes tabs build a play on a blank f
   // Sets → Formations: the preview names the pick; Drop lands the five, selected, with the note and the formation filled in.
   await page.getByRole("tab", { name: "Sets" }).click();
   await panel.getByRole("button", { name: "Formations" }).click();
-  await expect(page.locator("#dz-list-tray [role=group] button")).toHaveText(["5v5 flag", "7v7", "11-man"]);
+  await expect(page.locator("#dz-list-tray [role=group] button")).toHaveText(["5v5 flag", "7v7", "11-man", "As drawn", "Flipped"]);
   await expect(page.getByRole("img", { name: "5v5 flag Trips Right" })).toBeVisible();
   await reach(page, page.getByRole("button", { name: "Drop Trips Right" }));
   await expect(status).toHaveText("Three receivers to the right — floods a third of the field fast.");

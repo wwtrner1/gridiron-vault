@@ -5,16 +5,18 @@ import {
   GAME_TYPES,
   layoutFormation,
   LIBRARY,
+  mirrorPlaced,
   PERSONNEL,
   personnelLabel,
+  swapSides,
   tokenFor,
 } from "../lib/formations";
 import type { GameType, Placed } from "../lib/formations";
 import type { TokenPreset } from "../lib/presets";
 
 const KEY = "grid1ronvault.formationLib.v1";
-type Choice = { game: GameType; personnel: string; formation: string };
-const DEFAULT: Choice = { game: "5v5", personnel: "11", formation: "Trips Right" };
+type Choice = { game: GameType; personnel: string; formation: string; flip: boolean };
+const DEFAULT: Choice = { game: "5v5", personnel: "11", formation: "Trips Right", flip: false };
 
 function readChoice(): Choice {
   try {
@@ -84,9 +86,13 @@ export function FormationLibrary({
       return next;
     });
 
-  const placed = useMemo(() => layoutFormation(choice.game, choice.personnel, choice.formation), [choice]);
+  const placed = useMemo(() => {
+    const laid = layoutFormation(choice.game, choice.personnel, choice.formation);
+    return choice.flip ? mirrorPlaced(laid) : laid;
+  }, [choice]);
+  const shownName = choice.flip ? swapSides(choice.formation) : choice.formation;
   const note = LIBRARY.find((f) => f.name === choice.formation)?.note ?? "";
-  const label = describeFormation(choice.game, choice.personnel, choice.formation);
+  const label = describeFormation(choice.game, choice.personnel, choice.formation) + (choice.flip ? ", flipped left to right" : "");
 
   return (
     <div className="fl" id="dz-list-tray">
@@ -129,6 +135,18 @@ export function FormationLibrary({
           ))}
         </select>
       </label>
+      <div className="fl-row">
+        <span className="fl-row-label" id="fl-flip">
+          Flip left/right
+        </span>
+        <div className="seg seg-onoff" role="group" aria-labelledby="fl-flip">
+          {[false, true].map((on) => (
+            <button key={String(on)} type="button" className={choice.flip === on ? "is-on" : ""} aria-pressed={choice.flip === on} onClick={() => update({ flip: on })}>
+              {on ? "Flipped" : "As drawn"}
+            </button>
+          ))}
+        </div>
+      </div>
       <FormationPreview placed={placed} tokens={tokens} label={label} />
       <p className="dz-note">
         {choice.game === "11"
@@ -137,8 +155,8 @@ export function FormationLibrary({
             ? "7v7 drops the line and the back: Q, C and five receivers."
             : "5v5 flag: Q, C and three. Personnel applies to 11-man."}
       </p>
-      <button type="button" className="dz-btn is-on" onClick={() => onDrop({ name: choice.formation, note, placed })}>
-        Drop {choice.formation}
+      <button type="button" className="dz-btn is-on" onClick={() => onDrop({ name: shownName, note, placed })}>
+        Drop {shownName}
       </button>
     </div>
   );
