@@ -28,6 +28,7 @@ export class AiError extends Error {
 const BUSY = "Griddy is busy right now. Try again in a minute.";
 const MISREAD = "Griddy couldn't read that just now. Try again, or draw it by hand.";
 const SLOW = "Griddy took too long to answer. Try again, or ask for less at once.";
+const OURS = "Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later.";
 
 /**
  * Netlify ends a synchronous function at 60 s and the coach then gets the
@@ -58,11 +59,18 @@ function plain(error: unknown): never {
     console.error("Claude API rate limit", error.message);
     throw new AiError(BUSY, 503);
   }
+  if (error instanceof Anthropic.APIConnectionError) {
+    // The function couldn't reach the API at all (the coach's own signal is fine, or the request wouldn't be here).
+    // Checked before APIError, which it extends with no status.
+    console.error("Claude API unreachable", error.message);
+    throw new AiError(BUSY, 503);
+  }
   if (error instanceof Anthropic.APIError) {
     console.error("Claude API", error.status, error.message.slice(0, 500), `key ends …${process.env.ANTHROPIC_API_KEY?.trim().slice(-4) ?? "none"}`);
-    if (error.status === 529) throw new AiError(BUSY, 503);
-    // A rejected or expired key is ours to fix, not the coach's to retry: say so instead of "couldn't read that".
-    if (error.status === 401 || error.status === 403) throw new AiError("Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later.", 503);
+    // Overloaded, or the gateway itself failing: nothing the coach wrote caused it, so say "busy", not "couldn't read that".
+    if (error.status === 529 || (error.status ?? 0) >= 500) throw new AiError(BUSY, 503);
+    // A rejected or expired key, or no credit left (the AI Gateway answers 402), is ours to fix, not the coach's to retry.
+    if (error.status === 401 || error.status === 402 || error.status === 403) throw new AiError(OURS, 503);
     throw new AiError(MISREAD);
   }
   console.error("Claude API unreachable", error);
