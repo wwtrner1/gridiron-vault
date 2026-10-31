@@ -28,7 +28,9 @@ const DOCK = { x: 12, y: 12 };
 const STEP = 16;
 
 function load(): Spot {
-  const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+  // Up to 900px the white stage hugs the field (designer.css), so an open bar would sit on the
+  // play: start it closed there (phones and iPads held upright) and open on wider screens.
+  const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
   const fallback = { ...DOCK, open: !narrow, docked: true };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
