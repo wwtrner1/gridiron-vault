@@ -353,7 +353,7 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
                   ) : (
                     <Icon name="folder" size={13} className="pbt-unfiled" />
                   )}
-                  <span className="pbt-name">{f.name}</span>
+                  <span className="pbt-name">{f.name}</span>{" "}
                   <b className="pbt-count" aria-hidden="true">
                     {f.plays.length}
                   </b>
@@ -387,7 +387,7 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
                           data-key={key}
                           aria-selected={active}
                           aria-current={key === activeKey ? "page" : undefined}
-                          aria-label={`${p.name}, ${badge.name}`}
+                          aria-label={`${badge.letter} ${p.name}, ${badge.name}`}
                           tabIndex={tabKey === key ? 0 : -1}
                           onFocus={() => setFocusKey(key)}
                           className={`pbt-item pbt-row pbt-play${active ? " is-active" : ""}`}
@@ -401,7 +401,7 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
                         >
                           <span className={`pbt-badge pill-${p.playType}`} aria-hidden="true">
                             {badge.letter}
-                          </span>
+                          </span>{" "}
                           <span className="pbt-name">{p.name}</span>
                         </li>
                       );
