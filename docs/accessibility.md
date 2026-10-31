@@ -246,3 +246,13 @@ The same sweep then ran signed in, with Identity and `/api` mocked, on 17 screen
 - **Call Sheet column headers**: sort, minimize and remove were 17 px and as narrow as 9 px when squeezed. On a mouse they were only 24 px on touch screens. They are now at least 24 × 24 px everywhere, and their tooltip wrappers no longer shrink, so a column is about 18 px wider.
 - **Starters select boxes** were the browser's 13 px checkbox over the diagram, which is a target too. The box is now 24 px, the same as on touch screens. The Vault's pick button grew to match.
 - **The crash card** (`ErrorBoundary`) replaces the whole screen, Shell included, so the page had no main landmark. The card now sits in `<main id="main">`, and the alert role is on the inner card.
+
+### Designer color swatches (2026-10-31)
+
+A signed-in sweep of 20 screens with the WCAG 2.2 rules passed everywhere except the Designer, where axe flagged the color swatches at 1366 and 1024 px (phones already use 30 px swatches):
+
+- **Floating tools color row**: ten swatches at 18.7 px on a 21.7 px pitch. The bar is 20 px wider (256 px) and the row's gap is 4 px, so each swatch sits on a 24 px pitch and has a 24 px target to itself (the 2.5.8 spacing exception).
+- **Style card swatches** (Next line, fills, labels): 18 px with a 3 px gap. They are now 20 px with a 4 px gap.
+- **Swatch names**: three palette colors had no name, so a screen reader read "#F2A63B for next line". `colorName` now calls them Ball orange, Defense blue and Slate.
+
+The Designer's `maximum-scale=1` viewport is still deliberate (see above).
