@@ -57,6 +57,42 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
     return () => Object.values(timers.current).forEach((t) => window.clearTimeout(t));
   }, [source]);
 
+  /*
+   * A change waits SAVE_DELAY_MS so dragging three players is one save, but a
+   * coach who moves a starter and taps Roster, Back or reload inside that
+   * moment must not lose it: whatever is still waiting is saved on the way out
+   * (unmount) and when the page is put away (pagehide). The browser's own team
+   * writes straight to localStorage, so a reload keeps it too.
+   */
+  const pending = useRef<Partial<Record<DepthUnit, DepthSlot[]>>>({});
+  const flush = useCallback(
+    (forUnit: DepthUnit) => {
+      window.clearTimeout(timers.current[forUnit]);
+      const next = pending.current[forUnit];
+      if (!next) return;
+      delete pending.current[forUnit];
+      setState("saving");
+      source
+        .saveDepth(forUnit, next)
+        .then(() => setState("saved"))
+        .catch((e: unknown) => {
+          setState("saved");
+          toast(coachError(e, "The depth chart didn't save. Try again in a minute."), true);
+        });
+    },
+    [source, toast],
+  );
+  const flushAll = useRef(() => {});
+  flushAll.current = () => (Object.keys(pending.current) as DepthUnit[]).forEach(flush);
+  useEffect(() => {
+    const onHide = () => flushAll.current();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flushAll.current();
+    };
+  }, []);
+
   const byId = useMemo(() => new Map((players ?? []).map((p) => [p.id, p])), [players]);
   const slots = useMemo(() => (charts?.[unit] ?? []).map((s) => ({ ...s, playerIds: s.playerIds.filter((id) => byId.has(id)) })), [charts, unit, byId]);
   const placed = useMemo(() => new Set(slots.flatMap((s) => s.playerIds)), [slots]);
@@ -67,17 +103,9 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
     setState("waiting");
     // One timer per unit, so switching to Defense doesn't drop Offense's last change.
     const forUnit = unit;
+    pending.current[forUnit] = next;
     window.clearTimeout(timers.current[forUnit]);
-    timers.current[forUnit] = window.setTimeout(() => {
-      setState("saving");
-      source
-        .saveDepth(forUnit, next)
-        .then(() => setState("saved"))
-        .catch((e: unknown) => {
-          setState("saved");
-          toast(coachError(e, "The depth chart didn't save. Try again in a minute."), true);
-        });
-    }, SAVE_DELAY_MS);
+    timers.current[forUnit] = window.setTimeout(() => flush(forUnit), SAVE_DELAY_MS);
   };
 
   const edit = (key: string, patch: Partial<DepthSlot>) => change(slots.map((s) => (s.key === key ? { ...s, ...patch } : s)));
