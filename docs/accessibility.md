@@ -277,3 +277,7 @@ Five `label.field` blocks wrapped their `small.hint` as well as the box, so the 
 - **Wristbands layout chips** show "8 4×2" but were named "8 plays, 4 across and 2 down". The name now starts with what is on the chip: "8 4×2: 8 plays, 4 across and 2 down".
 
 Two of axe's readings are allowed in the test on purpose, with the reason beside the filter: a button whose only visible text is a play diagram's yard numbers and letters (Starters previews, Assignments cards), and a playbook folder opened in the tree, whose children's names axe counts as the folder's visible text; and the Designer's `maximum-scale=1` viewport, which is deliberate (see above).
+
+### Dialogs answer Escape from their first frame (2026-10-31)
+
+`useDialogFocus` attached its Escape and Tab listener in a passive effect, which lands after paint. On a slow device that left a beat where an autofocused box (the new-password dialog's) already had focus but Escape did nothing; the browser tests caught it on the CI runner. The listener and the focus move now run in a layout effect, so a dialog answers the keyboard as soon as it is on screen.

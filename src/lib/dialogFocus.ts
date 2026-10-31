@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 /** Everything a keyboard can land on inside a dialog. */
 export const FOCUSABLE = [
@@ -29,7 +29,9 @@ export function useDialogFocus(panel: RefObject<HTMLElement | null>, onClose: ()
   const close = useRef(onClose);
   close.current = onClose;
 
-  useEffect(() => {
+  // A layout effect, so the dialog answers Escape and Tab from the first frame it is on screen (a passive
+  // effect lands after paint, which on a slow device left a beat where an autofocused box had focus but Escape did nothing).
+  useLayoutEffect(() => {
     const el = panel.current;
     if (el && !el.contains(document.activeElement)) {
       const first = initial?.current ?? el.querySelector<HTMLElement>(FOCUSABLE);

@@ -26,6 +26,8 @@ type AuthValue = {
   sendReset: (email: string) => Promise<void>;
   /** True after a coach opens a password-reset link: signed in, new password not chosen yet. */
   recovering: boolean;
+  /** An emailed link (password reset, confirmation, invite) that Identity refused: expired, used, or not ours. */
+  linkFailed: LinkKind | null;
   setNewPassword: (password: string) => Promise<void>;
 };
 
@@ -113,15 +115,29 @@ async function restoreSession() {
   }
 }
 
+export type LinkKind = "recovery" | "confirmation" | "invite" | "email_change";
+
+/** Which emailed link the address carries, read before Identity handles (and clears) it. */
+function linkInHash(): LinkKind | null {
+  const h = window.location.hash;
+  if (h.includes("recovery_token=")) return "recovery";
+  if (h.includes("confirmation_token=")) return "confirmation";
+  if (h.includes("invite_token=")) return "invite";
+  if (h.includes("email_change_token=")) return "email_change";
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [available, setAvailable] = useState(true);
   const [recovering, setRecovering] = useState(false);
+  const [linkFailed, setLinkFailed] = useState<LinkKind | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
+      const link = linkInHash();
       try {
         const callback = await handleAuthCallback();
         if (callback?.user && alive) setAccount(toAccount(callback.user));
@@ -133,6 +149,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (alive && user) setAccount(toAccount(user));
       } catch (error) {
         if (error instanceof MissingIdentityError && alive) setAvailable(false);
+        // An emailed link Identity refused: say so instead of landing on the page as if nothing happened.
+        else if (link && alive) {
+          setLinkFailed(link);
+          history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
       } finally {
         if (alive) setStatus("ready");
       }
@@ -182,12 +203,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await requestPasswordRecovery(email);
       },
       recovering,
+      linkFailed,
       setNewPassword: async (password: string) => {
         await updateUser({ password });
         setRecovering(false);
       },
     }),
-    [account, status, available, signIn, signUp, signOut, recovering],
+    [account, status, available, signIn, signUp, signOut, recovering, linkFailed],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
