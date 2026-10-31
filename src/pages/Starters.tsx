@@ -263,7 +263,7 @@ export function Starters() {
                   onClick={() => setPreview(spec)}
                   aria-label={`Preview ${spec.name}`}
                 >
-                  <PlayThumb scene={starterScene(spec)} decorative />
+                  <PlayThumb scene={starterScene(spec)} decorative lazy />
                   {isLocked && (
                     <span className="thumb-lock">
                       <Icon name="lock" size={18} />
