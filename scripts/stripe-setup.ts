@@ -70,7 +70,7 @@ for (const k of OFFER_KEYS) {
     continue;
   }
   const c = CATALOG[k];
-  const price = await stripe.prices.create({ product, currency: "usd", unit_amount: c.cents, lookup_key, ...(c.every ? { recurring: { interval: c.every } } : {}) });
+  const price = await stripe.prices.create({ product, currency: "usd", unit_amount: c.cents, tax_behavior: "exclusive", lookup_key, ...(c.every ? { recurring: { interval: c.every } } : {}) });
   ids[k] = price.id;
   console.log(`created ${k} ${price.id}`);
 }
