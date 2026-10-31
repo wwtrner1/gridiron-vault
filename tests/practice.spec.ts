@@ -31,6 +31,13 @@ test("a practice script is built from the Vault, printed and kept after a reload
   await expect(page.locator(".pr-total")).toHaveText("65 minutes");
   await expect(page.locator(".pr-period .pill").nth(1)).toHaveText("6:05 PM");
 
+  // A period's name and note: the labels around it follow the new name.
+  await periods.first().getByLabel("Period name").fill("Stretch and form");
+  await expect(page.getByRole("region", { name: "Stretch and form" })).toBeVisible();
+  await expect(page.getByLabel("Minutes for Stretch and form")).toHaveValue("5");
+  await expect(page.getByLabel("Minutes for Warm-up")).toHaveCount(0);
+  await page.getByLabel("Note for Stretch and form").fill("Hamstrings first, then form running");
+
   // One play into Team, a whole playbook into Skelly.
   const team = page.getByRole("region", { name: "Team" });
   await team.getByLabel("Add a play to Team").selectOption({ label: "17 · Stick" });
@@ -57,6 +64,8 @@ test("a practice script is built from the Vault, printed and kept after a reload
   await expect(sheet.locator("h1")).toHaveText("Practice script");
   await expect(sheet).toContainText("65 minutes · starts 6:00 PM");
   await expect(sheet.locator("section")).toHaveCount(5);
+  await expect(sheet.locator("section h2").first()).toContainText("6:00 PM · Stretch and form");
+  await expect(sheet.locator(".pr-note").first()).toHaveText("Hamstrings first, then form running");
   await expect(sheet.locator("ol li")).toHaveCount(24);
   await preview.getByRole("button", { name: "Close" }).click();
   await expect(preview).toHaveCount(0);
@@ -75,6 +84,7 @@ test("a practice script is built from the Vault, printed and kept after a reload
   await expect(page.locator(".pr-period")).toHaveCount(5);
   await expect(page.locator(".pr-total")).toHaveText("65 minutes");
   await expect(page.getByLabel("Start time")).toHaveValue("18:00");
+  await expect(page.getByLabel("Note for Stretch and form")).toHaveValue("Hamstrings first, then form running");
   await expect(page.getByRole("region", { name: "Skelly" }).locator(".pr-plays li")).toHaveCount(24);
   await expect(page.getByRole("region", { name: "Situational" })).toHaveCount(0);
 });
