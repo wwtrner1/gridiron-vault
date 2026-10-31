@@ -19,6 +19,7 @@ export function PhoneGate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const first = useRef<HTMLInputElement>(null);
+  const submit = useRef<HTMLButtonElement>(null);
 
   const refresh = useCallback(async () => {
     if (!account) {
@@ -48,8 +49,9 @@ export function PhoneGate() {
   const needsDevice = !!sec?.required && sec.verified && !sec.trusted;
   const open = !!account && (needsPhone || needsDevice);
 
+  // Focus moves into the gate when it opens: the box when there is one, else the button that sends the code (a new device has nothing to type yet, so without this a keyboard coach was left on the page behind).
   useEffect(() => {
-    if (open) first.current?.focus();
+    if (open) (first.current ?? submit.current)?.focus();
   }, [open, sentTo]);
 
   if (!open) return null;
@@ -154,7 +156,7 @@ export function PhoneGate() {
             </p>
           )}
           <div className="pg-acts">
-            <button type="submit" className="btn btn-primary" disabled={busy}>
+            <button ref={submit} type="submit" className="btn btn-primary" disabled={busy}>
               {busy ? "One moment…" : sentTo ? "Confirm" : "Text me a code"}
             </button>
             {sentTo && (

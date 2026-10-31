@@ -281,3 +281,7 @@ Two of axe's readings are allowed in the test on purpose, with the reason beside
 ### Dialogs answer Escape from their first frame (2026-10-31)
 
 `useDialogFocus` attached its Escape and Tab listener in a passive effect, which lands after paint. On a slow device that left a beat where an autofocused box (the new-password dialog's) already had focus but Escape did nothing; the browser tests caught it on the CI runner. The listener and the focus move now run in a layout effect, so a dialog answers the keyboard as soon as it is on screen.
+
+### The phone gate moves focus in on a new device (2026-10-31)
+
+`PhoneGate` ("Add your mobile number" / "Confirm this device") focused its first box when it opened, but a new device has nothing to type until a code is sent, so that gate opened with focus still on the page behind it and its Tab trap never engaged. It now focuses the box when there is one and otherwise the "Text me a code" button, so a keyboard coach lands in the dialog either way. `tests/phone-gate.spec.ts` checks both.
