@@ -8,7 +8,7 @@ import { PlayThumb } from "../components/PlayThumb";
 import { lazyPage } from "../lib/lazyPage";
 import { AddToPlaybook } from "../components/AddToPlaybook";
 import { store, useStore } from "../lib/store";
-import { markUnsynced } from "../lib/playSync";
+import { markUnsynced, syncPlays } from "../lib/playSync";
 import { deleteFromAccount } from "../lib/pendingDeletes";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -137,11 +137,25 @@ export function Vault() {
   }
 
   async function remove(play: StoredPlay) {
+    // Where it was filed, so Undo puts it back in the same playbooks at the same spot.
+    const filed = store.get().playbooks.filter((b) => b.playIds.includes(play.id)).map((b) => ({ id: b.id, at: b.playIds.indexOf(play.id) }));
     store.removePlay(play.id);
     setPicked((list) => list.filter((x) => x !== play.id));
-    toast(`${play.name || "Play"} deleted.`);
+    const fromAccount = Boolean(account && play.remote);
+    toast(`${play.name || "Play"} deleted.`, false, {
+      label: "Undo",
+      run: () => {
+        // An account copy is in the account's trash by now, so it goes back up as a new play (PlaySync sends it).
+        store.upsertPlay(fromAccount ? { ...play, remote: false, unsynced: true } : play);
+        for (const f of filed) {
+          const book = store.get().playbooks.find((b) => b.id === f.id);
+          if (book && !book.playIds.includes(play.id)) store.upsertPlaybook({ ...book, playIds: [...book.playIds.slice(0, f.at), play.id, ...book.playIds.slice(f.at)] });
+        }
+        if (fromAccount) void syncPlays();
+      },
+    });
     // With no signal it waits and goes through when the signal is back, so the play doesn't come back on the next pull.
-    if (account && play.remote) await deleteFromAccount("play", play.id);
+    if (fromAccount) await deleteFromAccount("play", play.id);
   }
 
   // Saved play format: "Format on · click a play", from the canvas.

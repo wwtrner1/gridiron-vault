@@ -99,7 +99,11 @@ export function Playbooks() {
   const remove = (book: LocalPlaybook) => {
     store.removePlaybook(book.id);
     if (openBook === book.id) setOpenBook(null);
-    toast(`${book.name} deleted. The plays inside it are still in your Vault.`);
+    toast(`${book.name} deleted. The plays inside it are still in your Vault.`, false, {
+      label: "Undo",
+      // The account's copy is gone (or going), so it comes back as a new playbook with the same plays; the sync sends it.
+      run: () => store.upsertPlaybook({ ...book, cloudId: undefined, updatedAt: new Date().toISOString() }),
+    });
   };
 
   const addable = useMemo(() => {
