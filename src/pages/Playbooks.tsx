@@ -315,9 +315,10 @@ export function Playbooks() {
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               placeholder="Week 1 install"
               autoFocus
+              aria-describedby="pb-name-hint"
             />
-            <small className="hint">Name it after when you use it, not what is in it.</small>
           </label>
+          <small className="hint field-hint" id="pb-name-hint">Name it after when you use it, not what is in it.</small>
           <label className="field">
             <span>Description</span>
             <textarea

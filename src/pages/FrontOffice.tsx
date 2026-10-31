@@ -651,9 +651,10 @@ function Director({
                 value={emails}
                 onChange={(e) => setEmails(e.target.value)}
                 placeholder={"coach.jones@example.com\ncoach.smith@example.com"}
+                aria-describedby="fo-invite-hint"
               />
-              <small className="hint">Paste one or many addresses. They see the invite when they sign in with that email; no email is sent.</small>
             </label>
+            <small className="hint field-hint" id="fo-invite-hint">Paste one or many addresses. They see the invite when they sign in with that email; no email is sent.</small>
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !parsed.length}>
               <Icon name="plus" size={14} /> Invite {parsed.length > 1 ? `${parsed.length} coaches` : "coach"}
             </button>
