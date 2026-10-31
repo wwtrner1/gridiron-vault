@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Confirm } from "../../components/Confirm";
 import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
 import { api, coachError, type TextList } from "../../lib/api";
@@ -14,6 +15,7 @@ import { useToast } from "../../lib/toast";
 export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: TextList; onChange: (next: TextList) => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const link = `${window.location.origin}/join/${list.token}`;
 
   const run = (job: Promise<TextList>, note: string) => {
@@ -51,9 +53,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
           type="button"
           className="btn btn-quiet btn-sm"
           disabled={busy}
-          onClick={() => {
-            if (window.confirm("Make a new link? The old one stops working. Everyone already signed up stays on the list.")) run(api.textSignups(team.id, true), "New sign-up link ready.");
-          }}
+          onClick={() => setRenewing(true)}
         >
           New link
         </button>
@@ -82,6 +82,20 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
             </li>
           ))}
         </ul>
+      )}
+      {renewing && (
+        <Confirm
+          title="Make a new sign-up link?"
+          action="Make a new link"
+          busy={busy}
+          onConfirm={() => {
+            setRenewing(false);
+            run(api.textSignups(team.id, true), "New sign-up link ready.");
+          }}
+          onClose={() => setRenewing(false)}
+        >
+          The old link stops working the moment the new one is made, so anywhere you posted it needs the new one. Everyone already signed up stays on the list.
+        </Confirm>
       )}
     </Panel>
   );
