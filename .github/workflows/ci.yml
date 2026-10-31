@@ -6,6 +6,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # By hand from the Actions tab, for a PR whose push GitHub never ran the checks on.
+  workflow_dispatch:
 
 concurrency:
   group: checks-${{ github.ref }}
