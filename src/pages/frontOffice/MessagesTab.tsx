@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../../components/Icon";
-import { api, type TextList } from "../../lib/api";
+import { api, coachError, type TextList } from "../../lib/api";
 import { FamilyTexts } from "./FamilyTexts";
 import { familyContacts, MESSAGE_LIMITS, type Delivery, type HubMessage, type HubPlayer, type HubState, type HubTeam, type MessageChannel } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
@@ -121,7 +121,7 @@ export function MessagesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
                       void api
                         .deleteMessage(m.id)
                         .then((r) => setMessages(r.messages))
-                        .catch((e: Error) => toast(e.message))
+                        .catch((e: unknown) => toast(coachError(e, "The message is still there. Try again in a minute."), true))
                     }
                     aria-label="Remove this message"
                   >
@@ -183,7 +183,7 @@ function Composer({
       setSubject("");
       setBody("");
     } catch (e) {
-      setError((e as Error).message);
+      setError(coachError(e, "The message didn't go out. Try again in a minute."));
     } finally {
       setBusy(false);
     }

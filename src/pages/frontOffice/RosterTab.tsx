@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { coachError } from "../../lib/api";
 import { PagePreview } from "../../components/PrintPreview";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
@@ -275,7 +276,7 @@ function useSaving() {
     try {
       await work();
     } catch (e) {
-      setError((e as Error).message);
+      setError(coachError(e, "The roster didn't save. Try again in a minute."));
     } finally {
       setBusy(false);
     }

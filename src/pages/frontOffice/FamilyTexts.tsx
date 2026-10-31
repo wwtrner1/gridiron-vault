@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
-import { api, type TextList } from "../../lib/api";
+import { api, coachError, type TextList } from "../../lib/api";
 import { showPhone, type HubTeam } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
 
@@ -23,7 +23,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
         onChange(next);
         toast(note);
       })
-      .catch((e: Error) => toast(e.message))
+      .catch((e: unknown) => toast(coachError(e, "The text list didn't change. Try again in a minute."), true))
       .finally(() => setBusy(false));
   };
 

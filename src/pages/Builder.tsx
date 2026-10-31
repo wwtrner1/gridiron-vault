@@ -72,7 +72,7 @@ import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
 import { useFieldPrefs } from "../lib/fieldPrefs";
 import { FieldControls } from "../components/FieldControls";
-import { api, isOffline, toStoredPlay } from "../lib/api";
+import { api, coachError, isOffline, toStoredPlay } from "../lib/api";
 import { PLAY_ID_EVENT, type PlayIdChange } from "../lib/playSync";
 import { clearDraft, draftFor, saveDraft, type DesignerDraft } from "../lib/designerDraft";
 import { SavePrompt } from "../components/SavePrompt";
@@ -705,7 +705,7 @@ export function Builder() {
       const { play } = await api.startLive(meta.name.trim() || "Untitled play", reconcileConnections(sceneRefValue.current));
       go(`/build?live=${play.id}`);
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(coachError(e, "The live play didn't start. Try again in a minute."), true);
     }
   };
 

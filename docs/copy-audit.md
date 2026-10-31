@@ -145,3 +145,6 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## Player link dialog (2026-10-31)
 
 `PlayerLink.tsx` toasted raw `Error.message` when checking, making or turning off a link failed. Now `coachError` passes only API and no-signal wording through, with fallbacks "Couldn't check for a link right now. Try again in a minute.", "The link didn't get made. Try again in a minute." and "The link is still on. Try again in a minute.", shown as warnings.
+## Error paths, third pass: Front Office and live plays (2026-10-31)
+
+Every Front Office tab (Hub, Roster, Depth chart, Schedule, Messages, Family texts, Files, Draw together) and the Designer's "Draw this live with my staff" showed raw `Error.message`. All go through `coachError` now, so API and no-signal wording pass through and anything else reads as a coach sentence ("The team didn't save. Try again in a minute.", "The event didn't save…", "The roster didn't save…", "The depth chart didn't save…", "The message didn't go out…", "The live play didn't start…", "The Front Office didn't load…"). `TeamBrand` keeps its own `LogoError` wording.

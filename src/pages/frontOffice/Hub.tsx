@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
-import { api } from "../../lib/api";
+import { api, coachError } from "../../lib/api";
 import { HUB_LIMITS, TEAM_COLORS, type HubState, type HubTeam } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
 import { DepthTab } from "./DepthTab";
@@ -27,7 +27,7 @@ export function Hub({ orgId, tab, teamId, onTeam }: { orgId: string; tab: HubTab
       setHub(await api.hub(orgId));
       setFailed("");
     } catch (e) {
-      setFailed((e as Error).message);
+      setFailed(coachError(e, "The Front Office didn't load. Try again in a minute."));
     }
   }, [orgId]);
 
@@ -154,7 +154,7 @@ function TeamDialog({
         onSaved(res, res.created);
       }
     } catch (e) {
-      onError((e as Error).message);
+      onError(coachError(e, "The team didn't save. Try again in a minute."));
     } finally {
       setBusy(false);
     }
@@ -166,7 +166,7 @@ function TeamDialog({
     try {
       onSaved(await api.deleteTeam(team.id));
     } catch (e) {
-      onError((e as Error).message);
+      onError(coachError(e, "The team is still there. Try again in a minute."));
     } finally {
       setBusy(false);
     }

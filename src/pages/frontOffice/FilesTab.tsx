@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
-import { api } from "../../lib/api";
+import { api, coachError } from "../../lib/api";
 import { FILE_LIMITS, FILE_TYPES, fileExt, fileSize, STARTER_FOLDERS, type HubFolder, type HubState, type HubTeam } from "../../lib/teamHub";
 import { useToast } from "../../lib/toast";
 
@@ -34,7 +34,7 @@ export function FilesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
     api
       .folders(hub.org.id)
       .then(take)
-      .catch((e: Error) => setFailed(e.message));
+      .catch((e: unknown) => setFailed(coachError(e, "The files didn't load. Try again in a minute.")));
   }, [hub.org.id]);
 
   const run = async (label: string, work: () => Promise<void>) => {
@@ -42,7 +42,7 @@ export function FilesTab({ hub, team }: { hub: HubState; team: HubTeam }) {
     try {
       await work();
     } catch (e) {
-      toast((e as Error).message);
+      toast(coachError(e, "That didn't go through. Try again in a minute."), true);
     } finally {
       setBusy("");
     }

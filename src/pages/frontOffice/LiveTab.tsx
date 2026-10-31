@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../../components/Icon";
-import { api } from "../../lib/api";
+import { api, coachError } from "../../lib/api";
 import type { LivePlay } from "../../lib/live";
 import { emptyScene } from "../../lib/presets";
 import { useToast } from "../../lib/toast";
@@ -30,7 +30,7 @@ export function LiveTab({ orgId }: { orgId: string }) {
       setAllowed(res.live);
       setFailed("");
     } catch (e) {
-      setFailed((e as Error).message);
+      setFailed(coachError(e, "Live plays didn't load. Try again in a minute."));
     }
   }, [orgId]);
 
@@ -44,7 +44,7 @@ export function LiveTab({ orgId }: { orgId: string }) {
       const { play } = await api.startLive(name.trim() || "New live play", emptyScene(), orgId);
       navigate(`/build?live=${play.id}`);
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(coachError(e, "The live play didn't start. Try again in a minute."), true);
     }
   };
 
@@ -54,7 +54,7 @@ export function LiveTab({ orgId }: { orgId: string }) {
       await api.deleteLive(p.id);
       void load();
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(coachError(e, "The live play is still there. Try again in a minute."), true);
     }
   };
 
