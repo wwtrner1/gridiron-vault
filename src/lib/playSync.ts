@@ -49,6 +49,16 @@ export function markUnsynced(id: string) {
   if (play?.remote && !play.unsynced) store.upsertPlay({ ...play, unsynced: true });
 }
 
+/**
+ * Brings the account's plays into this browser, newer copy winning. Only the
+ * Vault used to pull them, so on a new device Playbooks, Wristbands, the Call
+ * Sheet and Practice showed empty playbooks until the Vault had been opened.
+ */
+export async function pullPlays(): Promise<void> {
+  const { plays } = await api.listPlays({ scope: "mine" });
+  if (plays.length) store.mergeRemotePlays(plays.map(toStoredPlay));
+}
+
 /** Sends every unsynced play; returns how many reached the account. */
 export async function syncPlays(): Promise<number> {
   if (running) return 0;
@@ -78,16 +88,22 @@ export function PlaySync() {
     if (!id) return;
     let alive = true;
     const run = () =>
-      void flushDeletes()
+      flushDeletes()
         .then(syncPlays)
         .then((n) => {
-        if (alive && n) toast(n === 1 ? "Back online: 1 play went to your account." : `Back online: ${n} plays went to your account.`);
+          if (alive && n) toast(n === 1 ? "Back online: 1 play went to your account." : `Back online: ${n} plays went to your account.`);
+        });
+    // Sign-in: this browser's unsynced work goes up first, then the account's plays come down.
+    void run()
+      .then(() => (alive ? pullPlays() : undefined))
+      .catch(() => {
+        /* no signal, or the account said no: the plays in this browser still work, and the Vault pulls again on open */
       });
-    run();
-    window.addEventListener("online", run);
+    const online = () => void run();
+    window.addEventListener("online", online);
     return () => {
       alive = false;
-      window.removeEventListener("online", run);
+      window.removeEventListener("online", online);
     };
   }, [id, toast]);
 
