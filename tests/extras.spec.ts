@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, seedReady } from "./helpers";
 
 /**
  * The Designer's Extras drop-down: Undo and Redo, Clean up lines, Route
@@ -22,6 +22,14 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
     if (!(await menu.count())) await extras.click();
     await expect(menu).toBeVisible();
   };
+  const vault = () =>
+    page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("snapline.workspace.v1") ?? "{}") as {
+          plays: { id: string; name: string; fieldView?: string; isPublic?: boolean; remote?: boolean; scene: { view: string } }[];
+          playbooks: { id: string; playIds: string[] }[];
+        },
+    );
   const depths = svg.locator("g[pointer-events=none][aria-hidden=true] text");
   /** The play's own players (not the Vs defense overlay's), as [x, y]. */
   const spots = () =>
@@ -81,7 +89,7 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
   await page.keyboard.press("Escape");
 
   // Flip and save: a mirrored copy, filed right after the original, opened in the Designer.
-  const bookId = (await workspace(page)).playbooks[0].id;
+  const bookId = (await vault()).playbooks[0].id;
   const was = new URL(page.url()).pathname;
   await open();
   await menu.getByRole("button", { name: "Flip and save as a new play" }).click();
@@ -89,7 +97,7 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
   await expect(page.locator(".dz-name")).toHaveText("17 · Stick (flipped)");
   await expect(page.getByText("Saved 17 · Stick (flipped) in Ready-to-Go 5v5 Playbook. You're on the flipped copy now.")).toBeVisible();
   await expect.poll(async () => (await spots()).slice(0, 3).map(([x]) => x)).toEqual([516, 516, 856]);
-  const ws = await workspace(page);
+  const ws = await vault();
   const original = ws.plays.find((p) => p.name === "17 · Stick")!;
   const flipped = ws.plays.find((p) => p.name === "17 · Stick (flipped)")!;
   expect(flipped).toMatchObject({ fieldView: "redzone", isPublic: false, remote: false });
