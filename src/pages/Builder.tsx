@@ -88,7 +88,7 @@ import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
-import { fileNewPlay, fileTarget, lastChoice, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
+import { fileNewPlay, fileTarget, lastChoice, rememberBook, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
 import { loadWork, rememberWork, workTabs } from "../lib/workTabs";
 import { WorkTabs } from "../components/WorkTabs";
 import { letterColor } from "../lib/colors";
@@ -1571,6 +1571,7 @@ export function Builder() {
     const fromBook = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
     const target: FileTarget | null = isNew ? (fileIn.current ?? (fromBook ? { id: fromBook.id } : null)) : null;
     const filed = target && fileNewPlay(record.id, target);
+    if (filed && fileIn.current) rememberBook(filed.id);
     const bookQuery = filed ? `?book=${filed.id}` : "";
 
     try {
