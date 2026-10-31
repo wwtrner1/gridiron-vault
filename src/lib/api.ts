@@ -114,6 +114,9 @@ export const api = {
   listPlays: (params: Record<string, string>) =>
     request<{ plays: ApiPlay[] }>(`plays?${new URLSearchParams(params)}`),
 
+  /** One play by id: the coach's own, or a public one. A missing or private play throws an ApiError. */
+  getPlay: (id: string) => request<{ play: ApiPlay }>(`plays/${id}`),
+
   createPlay: (body: Partial<ApiPlay>) =>
     request<{ play: ApiPlay }>("plays", { method: "POST", body: JSON.stringify(body) }),
 

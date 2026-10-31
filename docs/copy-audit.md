@@ -137,3 +137,7 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## Storage full (2026-10-31)
 
 `store.commit` swallowed a refused `localStorage` write, so a signed-out coach whose browser was full kept drawing with nothing saved and found the Vault empty next time. `StorageWatch` now says once: "This browser's storage is full, so new work is gone when you close the tab. Sign in to keep plays on your account, or delete plays you don't need." (signed in: "...new changes live on your account only until you free up space here.").
+
+## A play link this browser doesn't have (2026-10-31)
+
+`/build/:id` used to open a blank field under the play's own address when the play wasn't in this browser (a new device, a bookmark, a Call Sheet link before the Vault had loaded), and a save then made a second play. Now the Designer fetches it from the account first ("Finding this play on your account…"), and when it isn't there the draft bar says which case it is: "This play isn't in your Vault. It may have been deleted, or the link belongs to another account." (signed in), "This play isn't in this browser's Vault. Sign in to open plays from your account, or pick one from the Vault." (signed out) or "No signal, so this play can't come down from your account right now." Each ends "Anything you draw here saves as a new play." and offers Sign in / Open the Vault / Draw here.

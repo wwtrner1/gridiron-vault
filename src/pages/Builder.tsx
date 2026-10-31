@@ -200,7 +200,7 @@ export function Builder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { account } = useAuth();
+  const { account, status: authStatus } = useAuth();
   const tier = useTier();
   const plays = useStore((s) => s.plays);
   const playbooks = useStore((s) => s.playbooks);
@@ -565,6 +565,39 @@ export function Builder() {
     setDirty(false);
     setRecover(liveId ? null : draftFor(id ?? null, existing?.updatedAt));
   }, [id, existing]);
+
+  /*
+   * A /build/:id link for a play this browser doesn't hold (a new device, a
+   * bookmark, a Call Sheet link before the Vault has loaded): fetch it from
+   * the account, and say so when it isn't there, instead of opening a blank
+   * field under the play's own address.
+   */
+  const [missing, setMissing] = useState<"looking" | "gone" | "offline" | null>(null);
+  const accountId = account?.id ?? null;
+  useEffect(() => {
+    if (!id || existing || liveId || authStatus !== "ready") {
+      setMissing(null);
+      return;
+    }
+    if (!accountId) {
+      setMissing("gone");
+      return;
+    }
+    let alive = true;
+    setMissing("looking");
+    api
+      .getPlay(id)
+      .then((res) => {
+        if (!alive) return;
+        loadedId.current = undefined; // so the swap above loads the fetched play
+        store.mergeRemotePlays([toStoredPlay(res.play)]);
+        setMissing(null);
+      })
+      .catch((e: unknown) => alive && setMissing(isOffline(e) ? "offline" : "gone"));
+    return () => {
+      alive = false;
+    };
+  }, [id, existing, liveId, accountId, authStatus]);
 
   // Unsaved changes from a tab that closed (or a screen that broke) before Save: offered back once.
   const [recover, setRecover] = useState<DesignerDraft | null>(() => (liveId ? null : draftFor(id ?? null, existing?.updatedAt)));
@@ -2641,6 +2674,47 @@ export function Builder() {
               <button type="button" className="btn btn-quiet btn-sm" onClick={discardDraft}>
                 Discard
               </button>
+            </div>
+          )}
+
+          {missing && !recover && (
+            <div className={`dz-draftbar${missing === "looking" ? "" : " is-missing"}`} role="region" aria-label="Play not found" aria-live="polite">
+              {missing === "looking" ? (
+                <p>
+                  <b>Finding this play on your account…</b>
+                </p>
+              ) : (
+                <>
+                  <p>
+                    <b>
+                      {missing === "offline"
+                        ? "No signal, so this play can't come down from your account right now."
+                        : accountId
+                          ? "This play isn't in your Vault."
+                          : "This play isn't in this browser's Vault."}
+                    </b>
+                    <span>
+                      {" "}
+                      {missing === "offline"
+                        ? "Try the link again when you're back in range, or draw something new here."
+                        : accountId
+                          ? "It may have been deleted, or the link belongs to another account. Anything you draw here saves as a new play."
+                          : "Sign in to open plays from your account, or pick one from the Vault. Anything you draw here saves as a new play."}
+                    </span>
+                  </p>
+                  {!accountId && (
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => go("/signin")}>
+                      Sign in
+                    </button>
+                  )}
+                  <button type="button" className={`btn btn-sm ${accountId ? "btn-primary" : "btn-quiet"}`} onClick={() => go("/vault")}>
+                    Open the Vault
+                  </button>
+                  <button type="button" className="btn btn-quiet btn-sm" onClick={() => setMissing(null)}>
+                    Draw here
+                  </button>
+                </>
+              )}
             </div>
           )}
 
