@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useDialogFocus } from "../lib/dialogFocus";
 import { CONTRASTS, GRID_SIZES, HASHES, SNAP_RADII, fieldPrefsStore, useFieldPrefs } from "../lib/fieldPrefs";
 import { clampRule, RULE_LIMITS, RULE_PRESETS, type RuleLines } from "../lib/rules";
 import { Icon } from "./Icon";
@@ -45,26 +46,13 @@ export function FieldControls({ rules, onRules, snapPlayers, onSnapPlayers, onCl
   const prefs = useFieldPrefs();
   const panel = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const back = document.activeElement as HTMLElement | null;
-    panel.current?.querySelector<HTMLElement>("button, input")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      back?.focus?.();
-    };
-  }, [onClose]);
+  // Focus moves in once (never again while a box is being typed in), Tab stays inside, Escape closes, focus goes back to Extras.
+  useDialogFocus(panel, onClose);
 
   return (
     <>
       <div className="stage-menu-scrim" onPointerDown={onClose} aria-hidden="true" />
-      <div className="fc-panel" id="field-controls" role="dialog" aria-labelledby="fc-title" ref={panel}>
+      <div className="fc-panel" id="field-controls" role="dialog" aria-modal="true" aria-labelledby="fc-title" ref={panel} tabIndex={-1}>
         <div className="fc-head">
           <h2 id="fc-title">Field controls</h2>
           <button type="button" className="fc-close" onClick={onClose} aria-label="Close field controls">

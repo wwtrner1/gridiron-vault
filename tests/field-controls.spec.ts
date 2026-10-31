@@ -54,17 +54,26 @@ test("Field controls change the grid, hashes, yard lines and rule lines on the f
   await expect(dialog.getByLabel("No-run zone (yds)")).toHaveValue("0");
   await expect(field.locator("text", { hasText: /RUSH LINE/ })).toHaveText("RUSH LINE · 7 YDS");
 
+  // A distance typed one key at a time stays in the box (the panel never pulls focus back while the field redraws).
+  const rush = dialog.getByLabel("Rush line (yds)");
+  await rush.click();
+  await rush.press("Control+a");
+  await rush.pressSequentially("10");
+  await expect(rush).toBeFocused();
+  await expect(rush).toHaveValue("10");
+  await expect(field.locator("text", { hasText: /RUSH LINE/ })).toHaveText("RUSH LINE · 10 YDS");
+
   // Escape closes the panel; the picks are in this browser.
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.field.v1") ?? "{}"))).toEqual({ grid: 10, snapRadius: 26, hashes: "pro", contrast: "high" });
-  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.rules.v1") ?? "{}"))).toMatchObject({ on: true, rush: 7, noRun: 0, set: "rush-only" });
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.rules.v1") ?? "{}"))).toMatchObject({ on: true, rush: 10, noRun: 0, set: "rush-only" });
 
   // Kept after a reload, on the field and in the panel.
   await page.reload();
   await field.waitFor();
   await expect.poll(() => lines.count()).toBeGreaterThan(withHashes + 100);
-  await expect(field.locator("text", { hasText: /RUSH LINE/ })).toHaveText("RUSH LINE · 7 YDS");
+  await expect(field.locator("text", { hasText: /RUSH LINE/ })).toHaveText("RUSH LINE · 10 YDS");
   await open();
   await expect(checked("Snap to grid")).toHaveText("Fine");
   await expect(checked("Hash marks")).toHaveText("Pro");

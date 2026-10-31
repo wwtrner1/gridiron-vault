@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "../lib/dialogFocus";
 import { onboarding } from "../lib/onboarding";
 import { checkAll, FORMAT_NAME, grade, simulate, STATUS_COLOR, THROW_AT, verdict, wins, yards } from "../lib/coverage";
 import type { Result } from "../lib/coverage";
@@ -57,11 +58,9 @@ export function CoverageCheck({
     setT(0);
   }, [lookId, throwAt]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Focus moves in, Tab stays inside, Escape goes back to drawing and focus returns to what opened the check.
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, onClose);
 
   useEffect(() => {
     if (!playing) return;
@@ -109,7 +108,7 @@ export function CoverageCheck({
   const throwChoices = [...new Set([1.6, THROW_AT[format], 3])].sort((a, b) => a - b);
 
   return (
-    <div className="rp cov" role="dialog" aria-modal="true" aria-labelledby="cov-h">
+    <div className="rp cov" role="dialog" aria-modal="true" aria-labelledby="cov-h" ref={panel} tabIndex={-1}>
       <header className="rp-top">
         <h2 id="cov-h">
           Coverage check <span>{name || "Untitled play"}</span>

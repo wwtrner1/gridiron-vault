@@ -2155,7 +2155,13 @@ export function Builder() {
                   id="dz-more-menu"
                   role="group"
                   aria-label="Extras"
-                  onClick={(e) => (e.target as HTMLElement).closest("button, a") && setMoreOpen(false)}
+                  onClick={(e) => {
+                    if (!(e.target as HTMLElement).closest("button, a")) return;
+                    // The item is about to unmount: hand focus to the Extras button first, so a
+                    // dialog opened from here (Field controls, Coverage check) gives it back on close.
+                    moreBtn.current?.focus();
+                    setMoreOpen(false);
+                  }}
                 >
                   <p className="dz-more-head">Edit</p>
                   <div className="dz-more-pair" role="group" aria-label="Undo and redo" data-tour="dz-more-edit">
