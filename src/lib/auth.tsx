@@ -200,14 +200,24 @@ export function useAuth() {
 }
 
 /** Turn an Identity failure into language a coach can act on. */
+/**
+ * In the browser @netlify/identity wraps gotrue-js's error and drops its HTTP
+ * status (it stays on `cause`), so read it from either place.
+ */
+const statusOf = (error: AuthError): number | undefined =>
+  error.status ?? (error.cause as { status?: number } | undefined)?.status;
+
 export function authMessage(error: unknown): string {
   if (error instanceof MissingIdentityError)
     return "Accounts are not switched on for this site yet. Your work stays saved in this browser.";
   if (error instanceof AuthError) {
+    const status = statusOf(error);
     // Identity answers a failed sign-in with 400 and says why in the message.
-    if (error.status === 400 && /confirm/i.test(error.message))
+    if (status === 400 && /confirm/i.test(error.message))
       return "Confirm your email first — open the link we sent you, then sign in.";
-    switch (error.status) {
+    if (status === 422 && /already|registered|exists/i.test(error.message))
+      return "That email already has an account. Sign in instead, or reset your password.";
+    switch (status) {
       case 400:
       case 401:
         return "That email and password do not match. Try again or reset your password.";
