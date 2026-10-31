@@ -6,7 +6,6 @@ import { CarryOver } from "./components/CarryOver";
 import { StorageWatch } from "./components/StorageWatch";
 import { PlaybookSync } from "./lib/playbookSync";
 import { PlaySync } from "./lib/playSync";
-import { MyTeamSync } from "./lib/teamSource";
 import { BrandSync } from "./lib/brand";
 import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
@@ -28,6 +27,8 @@ import { setTraceUser } from "./lib/activity";
 
 // Every screen but the home page loads on first visit (see lib/lazyPage).
 const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
+/** My team's account sync renders nothing, and its roster code (lib/teamHub) belongs with the My team and Front Office screens, not the first download. */
+const MyTeamSync = lazyPage(() => import("./lib/teamSource"), "MyTeamSync");
 const Builder = lazyPage(() => import("./pages/Builder"), "Builder");
 const Vault = lazyPage(() => import("./pages/Vault"), "Vault");
 const Playbooks = lazyPage(() => import("./pages/Playbooks"), "Playbooks");
@@ -167,7 +168,9 @@ export function App() {
       <StorageWatch />
       <PlaySync />
       <PlaybookSync />
-      <MyTeamSync />
+      <Suspense fallback={null}>
+        <MyTeamSync />
+      </Suspense>
       <BrandSync />
       <SheetSync />
       <PhoneGate />
