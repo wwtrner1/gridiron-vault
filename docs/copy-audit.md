@@ -156,3 +156,7 @@ The browser test for the sign-in page found that in the browser `@netlify/identi
 ## New play on unsaved changes (2026-10-31)
 
 Extras → New play on a play with unsaved changes used a browser `confirm` ("Start a new play? This one has changes you haven't saved."): OK dropped the changes, Cancel was the only way to keep them, and nothing offered to save. It now opens the Designer's own leave box with its own wording: "Save this play before you start a new one?", with the name box inline, Save and start new, Start without saving and Stay. The Call Sheet's delete went the same way (an Undo toast instead of a confirm) in #228.
+
+## The last browser confirms (2026-10-31)
+
+Draw together's Delete and the family texts' New link were the last two `window.confirm` boxes (a browser dialog headed "gridiron-vault.com says", with OK/Cancel). Both now open the app's own `Confirm` box: "Delete {play} for everyone?" ("It comes off every coach's screen on the Front Office at once, and there is no Undo. Save a copy to your Vault first if you want to keep it." → Delete for everyone) and "Make a new sign-up link?" ("The old link stops working the moment the new one is made, so anywhere you posted it needs the new one. Everyone already signed up stays on the list." → Make a new link). A delete confirms with a toast ("{play} deleted for everyone on the Front Office.").

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Confirm } from "../../components/Confirm";
 import { Icon } from "../../components/Icon";
 import { api, coachError } from "../../lib/api";
 import type { LivePlay } from "../../lib/live";
@@ -48,13 +49,20 @@ export function LiveTab({ orgId }: { orgId: string }) {
     }
   };
 
+  // Deleting a live play takes it off every coach's screen at once, so there is no Undo: an in-app check instead.
+  const [dropping, setDropping] = useState<LivePlay | null>(null);
+  const [droppingBusy, setDroppingBusy] = useState(false);
   const remove = async (p: LivePlay) => {
-    if (!window.confirm(`Delete "${p.name}" for everyone on the Front Office? Save a copy to your Vault first if you want to keep it.`)) return;
+    setDroppingBusy(true);
     try {
       await api.deleteLive(p.id);
+      setDropping(null);
+      toast(`${p.name} deleted for everyone on the Front Office.`);
       void load();
     } catch (e) {
       toast(coachError(e, "The live play is still there. Try again in a minute."), true);
+    } finally {
+      setDroppingBusy(false);
     }
   };
 
@@ -98,12 +106,24 @@ export function LiveTab({ orgId }: { orgId: string }) {
                 {p.updatedBy ? `${p.updatedBy}, ` : ""}
                 {when(p.updatedAt)}
               </span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void remove(p)}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDropping(p)} aria-label={`Delete ${p.name}`}>
                 Delete
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {dropping && (
+        <Confirm
+          title={`Delete ${dropping.name} for everyone?`}
+          action="Delete for everyone"
+          danger
+          busy={droppingBusy}
+          onConfirm={() => void remove(dropping)}
+          onClose={() => setDropping(null)}
+        >
+          It comes off every coach's screen on the Front Office at once, and there is no Undo. Save a copy to your Vault first if you want to keep it.
+        </Confirm>
       )}
     </section>
   );
