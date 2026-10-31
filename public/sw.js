@@ -2,7 +2,7 @@
  * GridIronVault service worker: makes the installed app open quickly and
  * still open with a weak signal at the field.
  * - Pages: network first; with no signal, the last copy of the app shell.
- * - /assets/*: cache first (file names change with every release).
+ * - /assets/*, icons and brand images: cache first (asset file names change with every release).
  * - /api, sign-in and forms: never cached — they always go to the server.
  * Bump VERSION to clear old caches.
  */
@@ -43,7 +43,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/assets/") || /\.(png|svg|webmanifest)$/.test(url.pathname)) {
+  // Brand images are .webp (Griddy's badge, the logos) and tutorial posters .jpg; without them a no-signal page shows gaps.
+  if (url.pathname.startsWith("/assets/") || /\.(png|svg|webp|jpg|webmanifest)$/.test(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
