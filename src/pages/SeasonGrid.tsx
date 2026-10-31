@@ -18,7 +18,7 @@ import { gateGrid } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { uid } from "../lib/types";
-import { DEFAULT_SHEET_NAME, blankRow, freshSheet, newColumn } from "../lib/sheet";
+import { DEFAULT_SHEET_NAME, blankRow, freshSheet, isBlankSheet, newColumn } from "../lib/sheet";
 import { useSheetView } from "../lib/sheetView";
 import { useGriddy } from "../components/Griddy";
 
@@ -361,11 +361,20 @@ export function SeasonGrid() {
   };
 
   const deleteSheet = () => {
-    if (!window.confirm(`Delete "${sheet.name}"? It leaves this browser${account ? " and your account" : ""}. Your plays stay in the Vault.`)) return;
-    const next = sheets.find((s) => s.id !== sheet.id);
-    store.removeSheet(sheet.id);
-    setActiveId(next?.id ?? null);
-    toast(`${sheet.name} deleted.`);
+    const gone = sheet;
+    const kept = sheets.filter((s) => s.id !== gone.id).map((s) => s.id);
+    store.removeSheet(gone.id);
+    setActiveId(kept[0] ?? null);
+    toast(`${gone.name} deleted. Your plays stay in the Vault.`, false, {
+      label: "Undo",
+      run: () => {
+        // The account's copy is in its trash by now, so it goes back up as a new sheet (SheetSync sends it).
+        store.upsertSheet({ ...gone, remoteId: null, updatedAt: new Date().toISOString() });
+        // The blank sheet laid out because none was left goes away again.
+        for (const s of store.get().sheets) if (s.id !== gone.id && !kept.includes(s.id) && isBlankSheet(s)) store.removeSheet(s.id);
+        setActiveId(gone.id);
+      },
+    });
   };
 
   /* ---------------------------------------------------------------- render */

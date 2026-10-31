@@ -539,7 +539,7 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Print", text: "Shows a print preview first: the sheet on landscape paper, with the paint colors and every column fitted to the page. Minimized rows and columns stay off. Print from the bar at the top, or Close.", target: tour("sheet-print") },
           { title: "Wristbands", text: "Opens the wristband builder with this sheet's calls, numbered as they are here.", target: '.topbar a[href^="/wristbands"]' },
-          { title: "New sheet, Delete, Save sheet", text: "Start another sheet, delete this one, or save it to your account so it's on every device.", target: tour("sheet-save") },
+          { title: "New sheet, Delete, Save sheet", text: "Start another sheet, delete this one (Undo on the message brings it back), or save it to your account so it's on every device.", target: tour("sheet-save") },
         ],
       },
       {

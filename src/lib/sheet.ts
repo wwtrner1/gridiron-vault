@@ -20,6 +20,12 @@ export const blankRow = (columns: SheetColumn[], index: number): SheetRow => ({
 
 export const DEFAULT_SHEET_NAME = "Call Sheet";
 
+/** True while nothing has been typed or linked on the sheet (only the # column is filled). */
+export const isBlankSheet = (sheet: SheetDoc): boolean => {
+  const numbers = new Set(sheet.columns.filter((c) => c.label === "#").map((c) => c.id));
+  return sheet.rows.every((r) => !r.playId && Object.entries(r.cells).every(([id, v]) => numbers.has(id) || !v));
+};
+
 export function freshSheet(name = DEFAULT_SHEET_NAME): SheetDoc {
   const columns = DEFAULT_HEADERS.map(newColumn);
   return {
