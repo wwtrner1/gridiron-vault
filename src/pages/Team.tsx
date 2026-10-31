@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "../lib/dialogFocus";
 import { useParams } from "react-router-dom";
 import { PlayThumb } from "../components/PlayThumb";
 import { FieldBackground } from "../lib/field";
@@ -201,13 +202,9 @@ function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Sce
   const tRef = useRef(0);
   tRef.current = t;
   const close = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    close.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const panel = useRef<HTMLDivElement>(null);
+  // Focus lands on Close, Tab stays inside, Escape closes and focus goes back to the play's button.
+  useDialogFocus(panel, onClose, close);
 
   useEffect(() => {
     if (!on) return;
@@ -231,7 +228,7 @@ function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Sce
   const at = positionsAt(scene, tl, t);
   const ball = ballAt(tl, at, t);
   return (
-    <div className="tm-run" role="dialog" aria-modal="true" aria-labelledby="tm-run-h">
+    <div className="tm-run" role="dialog" aria-modal="true" aria-labelledby="tm-run-h" ref={panel} tabIndex={-1}>
       <div className="tm-run-card">
         <h2 id="tm-run-h">{play.name}</h2>
         <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} role="img" aria-label={`${play.name} running, ${letter} in color`}>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDialogFocus } from "../lib/dialogFocus";
 import { createPortal } from "react-dom";
 import type { jsPDF } from "jspdf";
 import { Modal } from "./Modal";
@@ -207,6 +208,11 @@ type PageProps = {
  */
 export function PagePreview({ title, landscape, onClose }: PageProps) {
   const printBtn = useRef<HTMLButtonElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  // Focus lands on Print, Tab stays in the bar, Escape closes and focus goes back to the button that opened the preview.
+  useDialogFocus(bar, onClose, printBtn);
   useEffect(() => {
     const root = document.documentElement;
     const style = document.createElement("style");
@@ -217,26 +223,19 @@ export function PagePreview({ title, landscape, onClose }: PageProps) {
     if (landscape) root.classList.add("is-print-landscape");
     const scroll = window.scrollY;
     window.scrollTo(0, 0);
-    const opener = document.activeElement as HTMLElement | null;
-    printBtn.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
     // Printed (or cancelled in the dialog): back to the page.
-    window.addEventListener("afterprint", onClose);
+    const done = () => close.current();
+    window.addEventListener("afterprint", done);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("afterprint", onClose);
+      window.removeEventListener("afterprint", done);
       style.remove();
       root.classList.remove("is-print-preview", "is-print-landscape");
       window.scrollTo(0, scroll);
-      opener?.focus?.();
     };
-  }, [landscape, onClose]);
+  }, [landscape]);
 
   return createPortal(
-    <div className="pp-pagebar" role="dialog" aria-label={`Print preview: ${title}`}>
+    <div className="pp-pagebar" role="dialog" aria-modal="true" aria-label={`Print preview: ${title}`} ref={bar} tabIndex={-1}>
       <div>
         <b>Print preview · {title}</b>
         <span>This is what prints, on {landscape ? "landscape" : "portrait"} letter paper. Long pages carry on to the next sheet.</span>

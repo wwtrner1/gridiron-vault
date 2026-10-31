@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "../lib/dialogFocus";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positionsAt } from "../lib/runPlay";
@@ -47,12 +48,9 @@ export function RunPlay({
   // Free the local clip when leaving.
   useEffect(() => () => void (videoUrl && URL.revokeObjectURL(videoUrl)), [videoUrl]);
 
-  // Escape goes back to drawing.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Focus moves in, Tab stays inside, Escape goes back to drawing and focus returns to the Run play button.
+  const panel = useRef<HTMLDivElement>(null);
+  useDialogFocus(panel, onClose);
 
   // The clock: the drawing leads, the clip follows when synced.
   useEffect(() => {
@@ -113,7 +111,7 @@ export function RunPlay({
   };
 
   return (
-    <div className="rp" role="dialog" aria-modal="true" aria-labelledby="rp-h">
+    <div className="rp" role="dialog" aria-modal="true" aria-labelledby="rp-h" ref={panel} tabIndex={-1}>
       <header className="rp-top">
         <h2 id="rp-h">
           Run play <span>{name || "Untitled play"}</span>
