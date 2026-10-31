@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
 
 type Props = {
-  /** True when the coach is on the way out (a tab, a link, Back); false when they pressed Save on a play with no name. */
+  /** True when the coach is on the way out (a tab, a link, Back, Extras → New play); false when they pressed Save on a play with no name. */
   leaving: boolean;
+  /** What comes after: another screen (the default) or a fresh field for a new play. Only read while leaving. */
+  next?: "screen" | "new";
   name: string;
   saving: boolean;
   onSave: (name: string) => void;
@@ -18,7 +20,8 @@ type Props = {
  * without saving, or stay. Leaving is always one click away, so a play with
  * no name can never trap a coach on the field.
  */
-export function SavePrompt({ leaving, name: start, saving, onSave, onLeave, onStay }: Props) {
+export function SavePrompt({ leaving, next = "screen", name: start, saving, onSave, onLeave, onStay }: Props) {
+  const fresh = leaving && next === "new";
   const [name, setName] = useState(start);
   const ready = name.trim().length > 0;
   const box = useRef<HTMLInputElement>(null);
@@ -29,7 +32,7 @@ export function SavePrompt({ leaving, name: start, saving, onSave, onLeave, onSt
   }, []);
   return (
     <Modal
-      title={leaving ? "Save this play before you go?" : "Name this play"}
+      title={fresh ? "Save this play before you start a new one?" : leaving ? "Save this play before you go?" : "Name this play"}
       onClose={onStay}
       footer={
         <>
@@ -38,11 +41,11 @@ export function SavePrompt({ leaving, name: start, saving, onSave, onLeave, onSt
           </button>
           {leaving && (
             <button type="button" className="btn btn-quiet btn-sm" onClick={onLeave} disabled={saving} data-testid="leave-unsaved">
-              Leave without saving
+              {fresh ? "Start without saving" : "Leave without saving"}
             </button>
           )}
           <button type="submit" form="save-prompt" className="btn btn-primary btn-sm" disabled={!ready || saving}>
-            {saving ? "Saving…" : leaving ? "Save and leave" : "Save play"}
+            {saving ? "Saving…" : fresh ? "Save and start new" : leaving ? "Save and leave" : "Save play"}
           </button>
         </>
       }

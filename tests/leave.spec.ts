@@ -73,3 +73,41 @@ test("Save on a play with no name asks for the name instead of a dead end", asyn
   await expect(page.locator("#insp-pane").getByLabel("Play name")).toHaveValue("Bunch Left Snag");
   expect((await workspace(page)).plays!.find((p) => p.id === id)!.name).toBe("Bunch Left Snag");
 });
+
+test("Extras → New play on unsaved changes asks the same way: stay, start without saving, or save and start", async ({ page }) => {
+  const errors = errorsOf(page);
+  const id = await openPlay(page);
+  const extras = () => page.locator('button[aria-controls="dz-more-menu"]');
+  const newPlay = () => page.locator("#dz-more-menu").getByRole("button", { name: "New play…", exact: true });
+  const box = page.getByRole("dialog", { name: "Save this play before you start a new one?" });
+
+  // Stay keeps the coach on the play, changes and all.
+  await clearName(page);
+  await extras().click();
+  await newPlay().click();
+  await expect(box).toBeVisible();
+  await box.getByRole("button", { name: "Stay" }).click();
+  await expect(box).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/build/${id}`));
+
+  // Save and start new: the name lands on the play, then a fresh field with the setup opens.
+  await extras().click();
+  await newPlay().click();
+  await box.getByLabel("Play name").fill("Spread Right Mesh");
+  await box.getByRole("button", { name: "Save and start new" }).click();
+  await expect(page).toHaveURL(/\/build$/);
+  await expect(page.getByRole("dialog", { name: "New play" })).toBeVisible();
+  expect((await workspace(page)).plays!.find((p) => p.id === id)!.name).toBe("Spread Right Mesh");
+
+  // Start without saving drops the changes and opens the fresh field.
+  await page.goto(`/build/${id}`);
+  await page.locator(".stage-frame svg").first().waitFor();
+  await clearName(page);
+  await extras().click();
+  await newPlay().click();
+  await box.getByRole("button", { name: "Start without saving" }).click();
+  await expect(page).toHaveURL(/\/build$/);
+  await expect(page.getByRole("dialog", { name: "New play" })).toBeVisible();
+  expect((await workspace(page)).plays!.find((p) => p.id === id)!.name).toBe("Spread Right Mesh");
+  expect(errors).toEqual([]);
+});

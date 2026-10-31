@@ -528,6 +528,8 @@ export function Builder() {
   }, [location.key]);
   // Save pressed on a play with no name opens the same box instead of a dead-end message.
   const [askName, setAskName] = useState(false);
+  // Extras → New play on a play with unsaved changes opens it too, with "new play" wording.
+  const [askNew, setAskNew] = useState(false);
 
   const past = useRef<Scene[]>([]);
   const future = useRef<Scene[]>([]);
@@ -1738,9 +1740,17 @@ export function Builder() {
     if ((dirty || !existing) && !(await save())) return;
     setFiling(newFirst);
   };
-  /** Extras → New play: a fresh field with the setup, even when the coach turned it off for the rail button. */
+  /**
+   * Extras → New play: a fresh field with the setup, even when the coach turned
+   * it off for the rail button. Unsaved changes get the same box as leaving
+   * (save here, start without saving, or stay), never a browser confirm.
+   */
   const newPlay = () => {
-    if (dirty && !window.confirm("Start a new play? This one has changes you haven't saved.")) return;
+    if (dirty) setAskNew(true);
+    else startNew();
+  };
+  const startNew = () => {
+    setAskNew(false);
     if (id) {
       go("/build", { state: { setup: true } });
       return;
@@ -2638,25 +2648,30 @@ export function Builder() {
             </div>
           )}
 
-          {(leaveBlock.state === "blocked" || askName) && (
+          {(leaveBlock.state === "blocked" || askName || askNew) && (
             <SavePrompt
-              leaving={leaveBlock.state === "blocked"}
+              leaving={leaveBlock.state === "blocked" || askNew}
+              next={askNew ? "new" : "screen"}
               name={meta.name}
               saving={saving}
               onSave={async (name) => {
-                const leaving = leaveBlock.state === "blocked";
+                const leaving = leaveBlock.state === "blocked" || askNew;
+                // `leaving` keeps save() from moving to /build/:id itself; the new field is the next move.
                 if (!(await save({ name, leaving }))) return;
                 setAskName(false);
-                if (leaving) leaveBlock.proceed?.();
+                if (askNew) startNew();
+                else if (leaving) leaveBlock.proceed?.();
               }}
               onLeave={() => {
                 clearDraft(); // the coach chose to drop these changes, so don't offer them back later
                 setDirty(false);
                 setAskName(false);
-                leaveBlock.proceed?.();
+                if (askNew) startNew();
+                else leaveBlock.proceed?.();
               }}
               onStay={() => {
                 setAskName(false);
+                setAskNew(false);
                 leaveBlock.reset?.();
               }}
             />
