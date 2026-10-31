@@ -1642,9 +1642,7 @@ export function Builder() {
       toast(
         isOffline(error)
           ? "No signal, so this save is in this browser for now. It goes to your account as soon as you're back online."
-          : error instanceof Error
-            ? `${error.message} The play is safe in this browser.`
-            : "The save did not reach your account. It is safe in this browser.",
+          : `${coachError(error, "The save did not reach your account.")} The play is safe in this browser.`,
         true,
       );
       fileIn.current = null;
