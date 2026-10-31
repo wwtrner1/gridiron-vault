@@ -4,7 +4,7 @@ import { Shell } from "./Shell";
 import { Icon } from "./Icon";
 import { PlayThumb } from "./PlayThumb";
 import { currentGame, PhotoReview, photoScene, type PhotoFormat } from "./PhotoReview";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { aiUsage } from "../lib/aiUsage";
 import { useAuth } from "../lib/auth";
 import { gateAi, gateSave } from "../lib/plan";
@@ -122,7 +122,7 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
             found.push({ id: uid("scan"), page: i + 1, box, crop: canvasJpeg(cropPlay(canvases[i], box)), state: "found", keep: true, name: box.title, format: "vault" });
         } catch (e) {
           if (!live.current) return;
-          const text = e instanceof Error ? e.message : "This page couldn't be read just now.";
+          const text = coachError(e, "This page couldn't be read just now.");
           // A plan or daily limit stops every page after it too.
           if (/limit|plan|Sign in/i.test(text)) {
             setPhase({ kind: "error", text, plans: /plan/i.test(text) });
@@ -165,7 +165,7 @@ export function ScanReview({ files, onBack, onSingle }: { files: File[]; onBack:
         aiUsage.add("photo");
         update(it.id, read.isPlay ? { state: "read", read, name: it.box.title || read.name } : { state: "empty", read, keep: false });
       } catch (e) {
-        stop = e instanceof Error ? e.message : "A play couldn't be read just now.";
+        stop = coachError(e, "A play couldn't be read just now.");
         update(it.id, { state: "failed" });
       }
       return next();

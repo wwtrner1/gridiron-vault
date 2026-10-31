@@ -118,3 +118,14 @@ were icon ids in `Icon.tsx` and ~65 were duplicate or non-user-facing, leaving
   most carefully. One issue was a factual mismatch between copy and behaviour —
   the locked-tool message promised access it did not grant — which is the kind
   of defect that costs trust rather than just clarity.
+
+
+## Error paths, second pass (2026-10-31)
+
+A grep for every `e.message` a coach can see. API calls throw `ApiError` (the server's coach-facing wording) or the offline message, so those are fine as they are. Four catches also covered browser work that can throw its own wording, and now go through `coachError(e, fallback)`:
+
+- Upload: finding plays on a page (crops the page to a canvas as well as calling the API) and reading each play.
+- Photo review: reading the photo.
+- Griddy's import card: reading each play.
+
+Team branding's logo picker threw its three coach-worded checks as plain `Error`, the same as a decode failure. They are now `LogoError`; anything else reads "That image didn't open. Try saving it as a PNG first."

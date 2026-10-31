@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "./Shell";
 import { Icon } from "./Icon";
 import { PlayThumb } from "./PlayThumb";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { ACTION_LABEL, nearMatch } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
 import { useAuth } from "../lib/auth";
@@ -94,7 +94,7 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
         aiUsage.add("photo");
         if (live) setStage({ kind: "done", read: res.read });
       } catch (e) {
-        if (live) setStage({ kind: "error", text: e instanceof Error ? e.message : "The photo couldn't be read just now." });
+        if (live) setStage({ kind: "error", text: coachError(e, "The photo couldn't be read just now.") });
       }
     })();
     return () => {

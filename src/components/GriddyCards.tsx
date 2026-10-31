@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { markUnsynced } from "../lib/playSync";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
@@ -259,7 +259,7 @@ function ImportCard({ id, plays, playbook }: { id: string; plays: ImportItem[]; 
           });
           patch(row.key, { status: "ready", read: trustSaidLetters({ ...res.read, name: row.name || res.read.name }) });
         } catch (e) {
-          const text = e instanceof Error ? e.message : "Couldn't read that one.";
+          const text = coachError(e, "Couldn't read that one.");
           patch(row.key, { status: "failed", problem: text });
           // A daily limit or a busy service stops the rest instead of failing each one.
           if (/daily limit|busy|switched on/i.test(text)) halt = text;
