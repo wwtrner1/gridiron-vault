@@ -37,6 +37,32 @@ const remember = (patch: (m: Memory) => Memory) => {
 
 type Loaded = { name: string; plays: SharedPlay[] };
 
+/*
+ * The last playbook opened from each link, so a player with no signal at the
+ * field still sees his plays. Three links at most, newest kept.
+ */
+const PLAYS_KEY = "grid1ronvault.teamplays.v1";
+type Kept = Record<string, Loaded & { at: string }>;
+const recallPlays = (token: string): Loaded | null => {
+  try {
+    return (JSON.parse(localStorage.getItem(PLAYS_KEY) ?? "{}") as Kept)[token] ?? null;
+  } catch {
+    return null;
+  }
+};
+const keepPlays = (token: string, book: Loaded) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(PLAYS_KEY) ?? "{}") as Kept;
+    all[token] = { ...book, at: new Date().toISOString() };
+    const newest = Object.entries(all)
+      .sort((a, b) => b[1].at.localeCompare(a[1].at))
+      .slice(0, 3);
+    localStorage.setItem(PLAYS_KEY, JSON.stringify(Object.fromEntries(newest)));
+  } catch {
+    /* storage full or blocked: the link still works with a signal */
+  }
+};
+
 export function Team() {
   const { token = "" } = useParams();
   const [book, setBook] = useState<Loaded | null>(null);
@@ -45,13 +71,28 @@ export function Team() {
   const [letter, setLetter] = useState("");
   const [name, setName] = useState(() => recall().name ?? "");
   const [running, setRunning] = useState<number | null>(null);
+  // True when the plays are the ones kept from the last visit, because the link couldn't be reached.
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let live = true;
     api
       .openShare(token)
-      .then(({ share }) => live && setBook({ name: share.name, plays: share.plays }))
-      .catch((e: Error) => live && setError(e.message));
+      .then(({ share }) => {
+        if (!live) return;
+        const loaded = { name: share.name, plays: share.plays };
+        setBook(loaded);
+        setStale(false);
+        keepPlays(token, loaded);
+      })
+      .catch((e: Error) => {
+        if (!live) return;
+        const kept = recallPlays(token);
+        if (kept) {
+          setBook(kept);
+          setStale(true);
+        } else setError(e.message);
+      });
     return () => void (live = false);
   }, [token]);
 
@@ -95,6 +136,11 @@ export function Team() {
     <main className="tm">
       <Brand />
       <h1 className="tm-title">{book.name}</h1>
+      {stale && (
+        <p className="tm-note" role="status">
+          No signal right now, so these are your plays from your last visit. Quiz scores need a signal to reach your coach.
+        </p>
+      )}
       <p className="tm-sub">Pick your letter and see only your job on every play.</p>
 
       <div className="tm-letters" role="group" aria-label="Your letter">

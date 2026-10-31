@@ -70,6 +70,13 @@ test("a player opens the team link, sees only his job, runs a play and takes the
   await page.getByRole("tab", { name: "Griddy Quiz" }).click();
   await expect(page.getByLabel("Your name")).toHaveValue("Jordan");
 
+  // No signal at the field: the plays from the last visit still open, and the page says so.
+  await context.route("**/api/shares/tok-varsity", (route) => route.abort("internetdisconnected"));
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Varsity Offense" })).toBeVisible();
+  await expect(page.locator(".tm-note[role=status]")).toContainText("No signal right now");
+  await expect.poll(() => page.locator(".tm-card").count()).toBeGreaterThan(0);
+
   // A link the coach turned off says so in plain words.
   await page.goto("/team/tok-gone");
   await expect(page.getByRole("heading", { level: 1, name: "This link isn't working" })).toBeVisible();
