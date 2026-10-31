@@ -87,7 +87,7 @@ import { applyPatch } from "../lib/live";
 import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
-import { defenseNodes, describeDefense, layoutDefense, type Coverage, type Front } from "../lib/defense";
+import { defenseNodes, describeDefense, layoutDefense, mirrorDefense, type Coverage, type Front } from "../lib/defense";
 import { fileNewPlay, fileTarget, lastChoice, rememberBook, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
 import { loadWork, rememberWork, workTabs } from "../lib/workTabs";
 import { WorkTabs } from "../components/WorkTabs";
@@ -785,7 +785,7 @@ export function Builder() {
     );
   };
 
-  const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean }) => {
+  const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean; flip?: boolean }) => {
     // Line up on the ball: the center if there is one, else the middle of the field.
     const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
     const center = players.find((p) => p.side === "offense" && p.label === "C");
@@ -795,7 +795,10 @@ export function Builder() {
     const receivers = offense
       .filter((p) => p.label && p.label !== "Q" && !isLineman(p) && !(hasLine && p.label === "C"))
       .map((p) => ({ dx: p.x - ball.x, dy: p.y - ball.y }));
-    const layout = layoutDefense(set.front, set.coverage, receivers);
+    // Flipped: line the receivers up as a mirror, lay the defense out, then mirror it back so man lines meet the real receivers.
+    const layout = set.flip
+      ? mirrorDefense(layoutDefense(set.front, set.coverage, receivers.map((r) => ({ ...r, dx: -r.dx }))))
+      : layoutDefense(set.front, set.coverage, receivers);
     const nodes = defenseNodes(layout, ball, set.show, nextZ(scene));
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.front} ${set.coverage} set`);
     setSelection(nodes.map((n) => n.id));

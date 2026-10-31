@@ -1,5 +1,6 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import { convertField } from "./fieldConvert";
+import { swapSides } from "./formations";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
@@ -376,14 +377,7 @@ export type BulkPlan = {
   firstReads: number;
 };
 
-/** "Trips Right" ↔ "Trips Left", keeping the coach's capitals. */
-export function swapSides(text: string): string {
-  return text.replace(/\b(right|left)\b/gi, (word) => {
-    const to = word.toLowerCase() === "right" ? "left" : "right";
-    if (word === word.toUpperCase()) return to.toUpperCase();
-    return word[0] === word[0].toUpperCase() ? to[0].toUpperCase() + to.slice(1) : to;
-  });
-}
+export { swapSides };
 
 /** Whether a list of changes leaves plays flipped (two flips cancel out). */
 export const flips = (changes: BulkChange[]) => changes.filter((c) => c.op === "mirror").length % 2 === 1;
