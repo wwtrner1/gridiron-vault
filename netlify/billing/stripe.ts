@@ -57,7 +57,8 @@ export async function startCheckout(me: Who, offer: string): Promise<{ url: stri
     client_reference_id: me.id,
     ...(row?.customer ? { customer: row.customer } : { customer_email: me.email }),
     metadata: { userId: me.id, offer },
-    ...(offer === "season" ? {} : { subscription_data: { metadata: { userId: me.id, offer } } }),
+    // Flexible billing mode is Stripe's recommended default for new subscriptions (accurate proration, new Billing features).
+    ...(offer === "season" ? {} : { subscription_data: { metadata: { userId: me.id, offer }, billing_mode: { type: "flexible" as const } } }),
     allow_promotion_codes: true,
     success_url: `${SITE}/account?billing=success`,
     cancel_url: `${SITE}/pricing`,
