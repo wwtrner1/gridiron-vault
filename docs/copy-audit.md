@@ -141,3 +141,7 @@ Team branding's logo picker threw its three coach-worded checks as plain `Error`
 ## A play link this browser doesn't have (2026-10-31)
 
 `/build/:id` used to open a blank field under the play's own address when the play wasn't in this browser (a new device, a bookmark, a Call Sheet link before the Vault had loaded), and a save then made a second play. Now the Designer fetches it from the account first ("Finding this play on your account…"), and when it isn't there the draft bar says which case it is: "This play isn't in your Vault. It may have been deleted, or the link belongs to another account." (signed in), "This play isn't in this browser's Vault. Sign in to open plays from your account, or pick one from the Vault." (signed out) or "No signal, so this play can't come down from your account right now." Each ends "Anything you draw here saves as a new play." and offers Sign in / Open the Vault / Draw here.
+
+## Player link dialog (2026-10-31)
+
+`PlayerLink.tsx` toasted raw `Error.message` when checking, making or turning off a link failed. Now `coachError` passes only API and no-signal wording through, with fallbacks "Couldn't check for a link right now. Try again in a minute.", "The link didn't get made. Try again in a minute." and "The link is still on. Try again in a minute.", shown as warnings.
