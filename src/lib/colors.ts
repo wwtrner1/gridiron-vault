@@ -68,10 +68,17 @@ export function normalizeHex(input: string): string | null {
 }
 
 /** The name a coach sees for a color: palette or saved name, else the hex. */
+/** Names for the Designer's swatches that aren't brand or team colors, so a screen reader says "Blue", not "#2E7DBE". */
+const SWATCH_NAMES: NamedColor[] = [
+  { name: "Ball orange", hex: "#f2a63b" },
+  { name: "Defense blue", hex: "#2e7dbe" },
+  { name: "Slate", hex: "#667f94" },
+];
+
 export function colorName(hex: string): string {
   const h = normalizeHex(hex) ?? hex;
   return (
-    [...BRAND_COLORS, ...TEAM_COLORS, ...state.saved].find((c) => c.hex === h)?.name ?? h.toUpperCase()
+    [...BRAND_COLORS, ...TEAM_COLORS, ...SWATCH_NAMES, ...state.saved].find((c) => c.hex === h)?.name ?? h.toUpperCase()
   );
 }
 
