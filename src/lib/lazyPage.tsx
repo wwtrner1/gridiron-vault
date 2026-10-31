@@ -67,6 +67,16 @@ function pump() {
   });
 }
 
+/**
+ * A part that isn't a screen but is needed at the field with no signal (the PDF
+ * libraries behind Print cards and Export): fetched with the screens so the
+ * service worker holds it. Call it once at start, not from the part itself.
+ */
+export function warmPart(load: () => Promise<unknown>) {
+  loaders.push(load);
+  if (warmed) idle(pump);
+}
+
 /** Fetch every screen once the browser is idle, a few at a time. */
 export function warmPages() {
   if (warmed) return;

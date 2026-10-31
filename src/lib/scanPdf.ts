@@ -7,6 +7,8 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
  * wasm decoders and font data are served from /pdfjs/ (see vite.config.ts).
  */
 GlobalWorkerOptions.workerSrc = workerUrl;
+/** The worker file, so the app can fetch it into the service worker cache before a no-signal print. */
+export const PDF_WORKER_URL = workerUrl;
 
 export async function renderPdf(data: Uint8Array, maxPages: number, edge: number) {
   const task = getDocument({

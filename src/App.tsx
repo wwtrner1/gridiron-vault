@@ -18,7 +18,7 @@ import { notePage } from "./lib/lastPage";
 import { useVisitCounter } from "./lib/visits";
 import { COMING_SOON, ComingSoon } from "./pages/ComingSoon";
 import { TourProvider } from "./components/Tour";
-import { lazyPage, PageLoading, warmPages } from "./lib/lazyPage";
+import { lazyPage, PageLoading, warmPages, warmPart } from "./lib/lazyPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { applySeo } from "./lib/seo";
 import { useAuth } from "./lib/auth";
@@ -149,6 +149,13 @@ export function App() {
   useEffect(() => {
     const t = window.setTimeout(warmPages, 2500);
     return () => window.clearTimeout(t);
+  }, []);
+  // Printing at the field with no signal: wristband cards and the export preview need the PDF
+  // libraries, which no screen pulls in until a coach presses Print. Warm them after the screens.
+  useEffect(() => {
+    warmPart(() => import("jspdf"));
+    warmPart(() => import("svg2pdf.js"));
+    warmPart(() => import("./lib/scanPdf").then((m) => fetch(m.PDF_WORKER_URL)));
   }, []);
   return (
     <ToastProvider>
