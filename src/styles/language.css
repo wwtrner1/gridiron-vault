@@ -50,3 +50,25 @@
   .lang-form-grid { grid-template-columns: minmax(0, 1fr); }
   .lang-filter { min-width: 0; width: 100%; }
 }
+
+/*
+ * Phones: each term is a card instead of a seven-column table squeezed into
+ * three-word lines. Term and type on the first line, the meaning under it,
+ * then where it came from, how often it's used and its scope in one small
+ * line, and Edit/Delete last. The header row is hidden (the card reads on
+ * its own) but stays in the DOM for screen readers.
+ */
+@media (max-width: 640px) {
+  .lang-table-wrap { overflow: visible; }
+  .lang-table, .lang-table tbody, .lang-table tr { display: block; width: 100%; }
+  .lang-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .lang-table tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 12px 14px; border-bottom: 1px solid var(--border-2); }
+  .lang-table tbody tr:last-child { border-bottom: 0; }
+  .lang-table tbody th, .lang-table tbody td { display: block; padding: 0; border: 0; }
+  .lang-table tbody th { flex: 1 1 auto; }
+  .lang-table tbody td:nth-child(2) { flex: 1 1 100%; order: 1; }
+  .lang-table tbody td:nth-child(4), .lang-table tbody td:nth-child(5), .lang-table tbody td:nth-child(6) { order: 2; font-size: 12px; }
+  .lang-table tbody td:nth-child(5)::after, .lang-table tbody td:nth-child(4)::after { content: "·"; margin-left: 10px; color: var(--muted); }
+  .lang-table tbody td.lang-acts { flex: 1 1 100%; order: 3; display: flex; gap: 6px; }
+  .lang-table tbody td.lang-empty { flex: 1 1 100%; }
+}
