@@ -59,6 +59,11 @@ export function rememberChoice(c: SetupChoice) {
   writeSaved({ personnel: c.personnel, formation: c.formation, view: c.view, book: c.book === NEW_BOOK ? "" : c.book });
 }
 
+/** The playbook a new play was just filed in: the next setup offers it first ("New playbook…" has an id by then). */
+export function rememberBook(id: string) {
+  writeSaved({ book: id });
+}
+
 /** How a personnel value turns into players on the field. */
 export type SetupPlan =
   | { side: "offense"; game: GameType; code: string; keep?: { count: number; tackles: boolean; guards: boolean } }

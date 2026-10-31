@@ -291,6 +291,7 @@ export function NodeLayer({
 }: { node: SceneNode; print?: boolean; children?: React.ReactNode } & React.SVGProps<SVGGElement>) {
   return (
     <g
+      data-kind={node.kind}
       transform={`translate(${node.x} ${node.y}) rotate(${node.rotation}) scale(${node.scaleX} ${node.scaleY})`}
       {...rest}
     >
