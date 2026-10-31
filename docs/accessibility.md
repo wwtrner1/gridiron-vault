@@ -256,3 +256,10 @@ A signed-in sweep of 20 screens with the WCAG 2.2 rules passed everywhere except
 - **Swatch names**: three palette colors had no name, so a screen reader read "#F2A63B for next line". `colorName` now calls them Ball orange, Defense blue and Slate.
 
 The Designer's `maximum-scale=1` viewport is still deliberate (see above).
+
+### Label in name (2026-10-31)
+
+Lighthouse flagged WCAG 2.5.3 (label in name) on the home page and Starters:
+
+- **Home feature slides**: the "← Prev" button was named "Previous feature". It is now "Prev feature", so a voice user who says "click Prev" hits it. "Next →" was already "Next feature".
+- **Play thumbnails inside a named button** (Starters preview, Vault format painter, Playbooks add, Assignments, the player page) let the diagram's yard numbers and letters join the button's text. `PlayThumb decorative` now hides that diagram from assistive tech; the button's own label ("Preview Route Tree 0–5") names the play. Lighthouse's heuristic still counts the SVG text on Starters, but axe passes and screen readers hear only the label.

@@ -211,7 +211,7 @@ export function Assignments() {
                 onClick={() => navigate(`/build/${play.id}${book ? `?book=${book.id}` : ""}`)}
                 aria-label={`Open ${play.name} in the Designer`}
               >
-                <PlayThumb scene={scene} label={`${letter} on ${play.name}`} />
+                <PlayThumb scene={scene} decorative />
                 <span className="asg-name">{play.name}</span>
                 <span className="asg-job">
                   {tags.length ? tags.join(" · ") : lines.length ? `${lines.length} ${lines.length === 1 ? "line" : "lines"}` : "No route drawn"}

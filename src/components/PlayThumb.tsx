@@ -8,14 +8,29 @@ import { CANVAS_H, CANVAS_W } from "../lib/types";
  * Read-only diagram. Same renderer as the editor and the print pipeline. With
  * `zoom` (its size on screen, in inches), it crops to the players and routes
  * and weights them like a printed card, so a small list thumbnail stays readable.
+ * `decorative` hides it from screen readers, for a thumb inside a button that
+ * already names the play (its yard numbers would otherwise join the name).
  */
-export function PlayThumb({ scene, label, zoom }: { scene: Scene; label?: string | null; zoom?: { w: number; h: number } }) {
+export function PlayThumb({
+  scene,
+  label,
+  zoom,
+  decorative = false,
+}: {
+  scene: Scene;
+  label?: string | null;
+  zoom?: { w: number; h: number };
+  decorative?: boolean;
+}) {
   const framed = zoom ? frameScene(scene, CARD_LOOK, zoom.w, zoom.h) : null;
   const shown = framed?.scene ?? scene;
   const box = framed?.box ?? { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H };
   const ordered = drawOrder(shown.nodes);
   return (
-    <svg viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} role="img" aria-label={label ? `${label} diagram` : "Play diagram"}>
+    <svg
+      viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": label ? `${label} diagram` : "Play diagram" })}
+    >
       <MarkerDefs colors={strokeColors(shown.nodes)} />
       <FieldBackground
         view={scene.view}
