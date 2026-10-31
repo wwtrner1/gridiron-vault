@@ -553,6 +553,11 @@ footer.mkt a:hover { color: var(--cyan); }
   /* The shield alone carries the brand; the name stays for screen readers. */
   .mkt-brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .topbar { flex-wrap: wrap; height: auto; min-height: 60px; padding-block: 10px; row-gap: 8px; }
+  /* The title and the ? share the first line; the screen's buttons wrap under them (a lone ? on
+     a third line is what this stops). */
+  .topbar h1 { flex: 1 1 auto; min-width: 0; }
+  .topbar .spacer { display: none; }
+  .topbar > :not(h1):not(.only-narrow):not(.page-help-btn) { order: 1; }
 }
 .only-narrow { display: none; }
 @media (max-width: 900px) { .only-narrow { display: inline-flex; } }
