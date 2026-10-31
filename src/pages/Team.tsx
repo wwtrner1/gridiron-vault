@@ -4,7 +4,7 @@ import { PlayThumb } from "../components/PlayThumb";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { assignmentsFor, lettersIn } from "../lib/assignments";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { toWorld, unionBox, worldBox, type Box } from "../lib/geometry";
 import { buildQuiz, type Question, type RouteOption } from "../lib/quiz";
 import { ballAt, buildTimeline, positionsAt } from "../lib/runPlay";
@@ -85,13 +85,13 @@ export function Team() {
         setStale(false);
         keepPlays(token, loaded);
       })
-      .catch((e: Error) => {
+      .catch((e: unknown) => {
         if (!live) return;
         const kept = recallPlays(token);
         if (kept) {
           setBook(kept);
           setStale(true);
-        } else setError(e.message);
+        } else setError(coachError(e, "This link didn't open. Check it with your coach, or try again in a minute."));
       });
     return () => void (live = false);
   }, [token]);
