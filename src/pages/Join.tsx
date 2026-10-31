@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { consentWording } from "../lib/teamHub";
 import "../styles/team.css";
 
@@ -27,7 +27,7 @@ export function Join() {
     api
       .joinInfo(token)
       .then((t) => live && setTeam(t))
-      .catch((e: Error) => live && setError(e.message));
+      .catch((e: unknown) => live && setError(coachError(e, "The sign-up page couldn't open. Try the link again in a minute.")));
     return () => void (live = false);
   }, [token]);
 
@@ -39,7 +39,7 @@ export function Join() {
       const r = await api.join(token, { name, player, phone, consent: agree });
       setDone(r.again ? "again" : r.confirmed ? "texted" : "new");
     } catch (err) {
-      setProblem((err as Error).message);
+      setProblem(coachError(err, "The sign-up didn't go through. Try again in a minute."));
     } finally {
       setBusy(false);
     }
