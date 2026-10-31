@@ -177,7 +177,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "New play, setup, live, flip",
-            text: "New play… starts another play. New play setup turns the name-personnel-formation questions on or off. Draw this live with my staff opens the play for your Front Office to edit at the same time. Flip and save as a new play makes the mirror image.",
+            text: "New play… starts another play, and asks to save this one first if it has changes. New play setup turns the name-personnel-formation questions on or off. Draw this live with my staff opens the play for your Front Office to edit at the same time. Flip and save as a new play makes the mirror image.",
             target: tour("dz-play"),
             open: [EXTRAS],
             close: EXTRAS,

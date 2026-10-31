@@ -152,3 +152,7 @@ Every Front Office tab (Hub, Roster, Depth chart, Schedule, Messages, Family tex
 ## Sign-in page (2026-10-31)
 
 The browser test for the sign-in page found that in the browser `@netlify/identity` wraps gotrue-js's error and drops its HTTP status, so `authMessage` never saw a 400, 404, 422 or 429: a wrong password read the generic "Sign-in failed. Check your email and password, then try again." instead of "That email and password do not match. Try again or reset your password.", and "Too many tries" never showed. `statusOf` now reads the status from the error or its `cause`. A signup with an email that already has an account (422 "already been registered") read "Check the email format and use a password of at least 8 characters."; it now reads "That email already has an account. Sign in instead, or reset your password."
+
+## New play on unsaved changes (2026-10-31)
+
+Extras → New play on a play with unsaved changes used a browser `confirm` ("Start a new play? This one has changes you haven't saved."): OK dropped the changes, Cancel was the only way to keep them, and nothing offered to save. It now opens the Designer's own leave box with its own wording: "Save this play before you start a new one?", with the name box inline, Save and start new, Start without saving and Stay. The Call Sheet's delete went the same way (an Undo toast instead of a confirm) in #228.
