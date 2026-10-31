@@ -12,7 +12,9 @@ test.beforeEach(async ({ context }) => {
   await context.addInitScript(() => localStorage.setItem("grid1ronvault.tips.v1", JSON.stringify({ off: true, shown: {} })));
 });
 
-test("a route drawn with taps and the Players sheet on a phone @phone", async ({ page }) => {
+test("a route drawn with taps and the Players sheet on a phone @phone", async ({ page }, testInfo) => {
+  // The desktop project runs every test too; the thumb bar and sheet only exist at phone width.
+  test.skip(testInfo.project.name !== "phone", "needs the phone project");
   const errors = errorsOf(page);
   await seedReady(page);
   const { id, paths } = await page.evaluate(() => {
