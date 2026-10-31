@@ -217,6 +217,13 @@
 @media (max-width: 620px) {
   .home-feature-grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Phones: Prev, six dots and Next don't fit one line inside the card at 360px,
+   and the overflow made the whole page scroll sideways. The dots take their
+   own line above the two buttons instead. */
+@media (max-width: 480px) {
+  .home-slide-nav { flex-wrap: wrap; justify-content: space-between; }
+  .home-slide-dots { order: -1; flex-basis: 100%; }
+}
 
 /* ---- Feature rows: call sheet, export, Vault, game film ---- */
 .home-feature-row {
