@@ -347,7 +347,7 @@ footer.mkt a:focus-visible,
 .play-pick.is-on { background: var(--cyan); border-color: var(--cyan); color: var(--on-cyan); }
 .play-acts { display: flex; gap: 6px; margin-top: 11px; }
 .bulk-bar {
-  position: sticky; bottom: 14px; margin-top: 18px; display: flex; align-items: center; gap: 10px;
+  position: sticky; bottom: 14px; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
   padding: 10px 14px; border-radius: var(--radius-lg); background: var(--ink); color: var(--white); box-shadow: var(--shadow-l); z-index: 20;
 }
 .bulk-bar b { font-family: var(--mono); color: var(--cyan); }
