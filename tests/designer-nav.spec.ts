@@ -56,8 +56,10 @@ test("Prev and Next step through the playbook, from the bar and the keyboard, an
   for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
   await next.click();
   await expect(count).toHaveText(`${at + 4} / ${n}`);
-  const after = (await workspace(page)).plays!.find((p) => p.id === moving)!.scene.nodes.find((nd) => nd.label === "X")!.x;
-  expect(after).toBeGreaterThan(before + 20);
+  // The store writes the workspace to disk a moment after the save, so read it until it lands.
+  await expect
+    .poll(async () => (await workspace(page)).plays!.find((p) => p.id === moving)!.scene.nodes.find((nd) => nd.label === "X")!.x)
+    .toBeGreaterThan(before + 20);
 
   // The last play's Next wraps to the first, and the first's Prev to the last.
   await page.goto(`/build/${book.playIds[n - 1]}?book=${book.id}`);
