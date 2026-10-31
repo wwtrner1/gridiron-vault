@@ -122,9 +122,12 @@ export function BrandSync() {
  * Reads an image file into a logo: scaled to at most LOGO_PX, kept as PNG so a
  * see-through background stays see-through, plus the colors pulled from it.
  */
+/** A logo the coach picked can't be used, said in coach words (anything else that throws is a decode error). */
+export class LogoError extends Error {}
+
 export async function logoFromFile(file: File): Promise<{ logo: string; primary: string; secondary: string } | null> {
-  if (!/^image\/(png|jpeg|webp|gif|svg\+xml)$/.test(file.type)) throw new Error("Choose a PNG, JPG, WebP, GIF or SVG image of your logo.");
-  if (file.size > 8 * 1024 * 1024) throw new Error("That image is over 8 MB. Choose a smaller copy of your logo.");
+  if (!/^image\/(png|jpeg|webp|gif|svg\+xml)$/.test(file.type)) throw new LogoError("Choose a PNG, JPG, WebP, GIF or SVG image of your logo.");
+  if (file.size > 8 * 1024 * 1024) throw new LogoError("That image is over 8 MB. Choose a smaller copy of your logo.");
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -143,7 +146,7 @@ export async function logoFromFile(file: File): Promise<{ logo: string; primary:
     if (!ctx) return null;
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const logo = canvas.toDataURL("image/png");
-    if (logo.length > LOGO_MAX_CHARS) throw new Error("That logo is too detailed to keep. Try a simpler or smaller image.");
+    if (logo.length > LOGO_MAX_CHARS) throw new LogoError("That logo is too detailed to keep. Try a simpler or smaller image.");
     const colors = colorsFromPixels(ctx.getImageData(0, 0, canvas.width, canvas.height).data) ?? { primary: DEFAULT_BRAND.primary, secondary: DEFAULT_BRAND.secondary };
     return { logo, ...colors };
   } finally {

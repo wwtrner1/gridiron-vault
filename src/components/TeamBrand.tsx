@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { BRAND_NAME_MAX, BRAND_PRESETS, brandStore, inkOn, logoFromFile, useBrand } from "../lib/brand";
+import { BRAND_NAME_MAX, BRAND_PRESETS, brandStore, inkOn, LogoError, logoFromFile, useBrand } from "../lib/brand";
 import { FieldBackground } from "../lib/field";
 import { useToast } from "../lib/toast";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
@@ -32,7 +32,8 @@ export function TeamBrand({ teamName }: { teamName: string }) {
       set(got);
       toast("Logo added. Its colors are now your team colors; change them below if they're off.");
     } catch (e) {
-      toast((e as Error).message);
+      // The logo's own checks speak to the coach; a decode error from the browser doesn't.
+      toast(e instanceof LogoError ? e.message : "That image didn't open. Try saving it as a PNG first.");
     } finally {
       setBusy(false);
       if (file.current) file.current.value = "";
