@@ -13,7 +13,8 @@ import type { GameType } from "./formations";
  * the coach confirms. Shared by the browser and the Netlify function so both
  * agree on the shape of a turn.
  */
-export const GRIDDY = "Griddy";
+export { GRIDDY, GRIDDY_LIMITS } from "./griddyLimits";
+import { GRIDDY_LIMITS } from "./griddyLimits";
 
 /** One play in the coach's Vault, as Griddy sees it, with the playbooks it's filed in. */
 export type GriddyPlayRef = { id: string; name: string; formation: string; type: string; field?: string; tags: string[]; books: string[]; routes?: string; beats?: string };
@@ -64,17 +65,6 @@ export type GriddyRequest = {
 
 export type GriddyReply = { text: string; actions: GriddyAction[] };
 
-/** Limits the browser and the function both hold to. */
-export const GRIDDY_LIMITS = {
-  /** Turns of history sent back each time; older ones fall off the front. */
-  turns: 24,
-  /** One message: long enough for a pasted list of a season's plays. */
-  message: 12000,
-  /** Plays Griddy will take from one dump. */
-  importPlays: 60,
-  /** Vault plays listed for Griddy to search. */
-  vault: 300,
-} as const;
 
 /* -------------------------------------------------------------------- tools */
 

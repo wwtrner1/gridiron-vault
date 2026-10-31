@@ -2,10 +2,8 @@ import { Suspense, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
-import { PlayThumb } from "../components/PlayThumb";
 import { PLAYBOOK_NAV } from "../lib/nav";
 import { PUBLIC_TIERS } from "../lib/plan";
-import { STARTERS, starterScene } from "../lib/starters";
 import { useTier } from "../lib/tier";
 import { lazyPage } from "../lib/lazyPage";
 import "../styles/home.css";
@@ -23,7 +21,8 @@ function ScrollToHash({ hash }: { hash: string }) {
   return null;
 }
 
-const HERO_PLAY = STARTERS.find((s) => s.n === 16)!;
+// The hero diagram (and the 56 starter plays behind it) loads right after the page, not with the app.
+const HeroPlay = lazyPage(() => import("./home/HeroPlay"), "HeroPlay");
 
 /** Plan card buttons, as labelled on the canvas. */
 const PLAN_CTA: Record<string, string> = {
@@ -57,7 +56,6 @@ const STEPS = [
 ];
 
 export function Landing() {
-  const scene = starterScene(HERO_PLAY);
   const { hash } = useLocation();
   const tier = useTier();
 
@@ -116,7 +114,9 @@ export function Landing() {
               <i />
               <b>Trips — Flood</b>
             </div>
-            <PlayThumb scene={scene} label={`${HERO_PLAY.name} — ${HERO_PLAY.description}`} />
+            <Suspense fallback={<svg viewBox="0 0 1040 660" aria-hidden="true" />}>
+              <HeroPlay />
+            </Suspense>
             <figcaption className="home-frame-foot">
               <div>
                 <b>Three-level flood</b>
