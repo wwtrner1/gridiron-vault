@@ -122,7 +122,7 @@ export function Team() {
             const tags = lines.map((l) => l.tag?.trim()).filter(Boolean);
             return (
               <button key={play.id + i} type="button" className="tm-card" onClick={() => setRunning(i)} aria-label={`Run ${play.name}`}>
-                <PlayThumb scene={scene} label={`${letter} on ${play.name}`} />
+                <PlayThumb scene={scene} decorative />
                 <b>{play.name}</b>
                 <span>{tags.length ? tags.join(" · ") : lines.length ? "Run it to see your route" : "No route drawn"}</span>
               </button>

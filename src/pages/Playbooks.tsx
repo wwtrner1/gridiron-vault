@@ -509,7 +509,7 @@ export function Playbooks() {
                     }}
                     aria-label={`Add ${p.name} to ${book.name}`}
                   >
-                    <PlayThumb scene={p.scene} label={p.name} />
+                    <PlayThumb scene={p.scene} decorative />
                     <b>{p.name}</b>
                     <small>{p.formation}</small>
                   </button>

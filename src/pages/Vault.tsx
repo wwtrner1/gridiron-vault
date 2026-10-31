@@ -409,7 +409,7 @@ export function Vault() {
                 </button>
                 {painting && tab === "mine" ? (
                   <button type="button" className="play-thumb is-paint" onClick={() => paint(p)} aria-label={`Give ${p.name || "this play"} the saved format`}>
-                    <PlayThumb scene={p.scene} label={p.name} />
+                    <PlayThumb scene={p.scene} decorative />
                   </button>
                 ) : (
                   <div className="play-thumb">

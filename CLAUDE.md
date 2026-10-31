@@ -58,7 +58,7 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 - Models live in `MODELS` in `netlify/ai/claude.ts` (official `@anthropic-ai/sdk`; since 2026-10-28 calls go through Netlify AI Gateway, which injects `ANTHROPIC_API_KEY`/`ANTHROPIC_BASE_URL` at runtime while no key is set on the site; setting our own `ANTHROPIC_API_KEY` in Netlify overrides it). Griddy's conversation uses server-side refusal fallbacks (`fallbacks: "default"`) and low effort.
 - Timeouts and refunds: every Claude call carries a 50 s `AbortSignal` (`DEADLINE_MS` in `claude.ts`, under Netlify's 60 s function limit), which reads "Griddy took too long…" (504). AI routes wrap the call in `chargedOnSuccess` (`api.ts`), which refunds the `spend` count when it ends in an `AiError`.
 - Limits: server daily caps in `DAILY_AI` (`api.ts`: `assistant` counts Griddy messages and single reads, `import` counts bulk-read plays); monthly plan limits in `plan.ts` (`assistantCalls`, gated by `gateAi`, counted per browser in `aiUsage.ts`).
-- Griddy's face (`GriddyMascot.tsx`) is the GridIronVault "G" with the football, in a lighter cyan: `public/brand/griddy.webp`. The badge does the Griddy (a CSS bob and tilt) when a play he drew is saved. Don't use NFL footage or a real player's likeness for him.
+- Griddy's face (`GriddyMascot.tsx`) is the GridIronVault "G" with the football, in a lighter cyan: `public/brand/griddy.webp` (the badge loads the 96 px `griddy-96.webp`). The badge does the Griddy (a CSS bob and tilt) when a play he drew is saved. Don't use NFL footage or a real player's likeness for him.
 
 ### Database
 - Schema: `db/schema.ts` (Drizzle, Postgres). Client: `db/index.ts` uses `drizzle-orm/netlify-db` — no connection string in code.

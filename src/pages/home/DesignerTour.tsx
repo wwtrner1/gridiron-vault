@@ -58,7 +58,7 @@ export function DesignerTour() {
           dangerouslySetInnerHTML={{ __html: current.slide }}
         />
         <div className="home-slide-nav">
-          <button type="button" className="home-slide-step" aria-label="Previous feature" onClick={() => setSlide((slide + n - 1) % n)}>
+          <button type="button" className="home-slide-step" aria-label="Prev feature" onClick={() => setSlide((slide + n - 1) % n)}>
             ← Prev
           </button>
           <div className="home-slide-dots">
