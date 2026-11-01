@@ -475,7 +475,9 @@ const CASES: Case[] = [
       const [edit] = bulk(reply);
       if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
       if (!edit.changes.some((c) => c.op === "gaps")) return fail(`changes ${JSON.stringify(edit.changes)}`);
-      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      // The starter defenses now come tagged by technique; a coach's own are not, so check on untagged copies.
+      const bare = fx.plays.map((p) => ({ ...p, scene: { ...p.scene, nodes: p.scene.nodes.map((n) => (n.kind === "player" && n.side === "defense" ? { ...n, job: undefined } : n)) } }));
+      const plan = planBulkEdit(edit, bare, fx.books, TOKENS);
       const defense = isDefense(fx);
       if (!plan.targets.length) return fail("tags nothing");
       for (const t of plan.targets) {
