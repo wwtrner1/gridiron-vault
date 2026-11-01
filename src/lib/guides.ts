@@ -697,6 +697,7 @@ export const GUIDES: Guide[] = [
       {
         heading: "Team",
         steps: [
+          { title: "Text the team", text: "Counts of the players and phone numbers you can text, the Text the team button, and the last texts you sent. You write one message, pick who it is for, and send it from your own phone in groups of 8. Only contacts marked OK to text are included.", target: "[data-tour='text-team']" },
           { title: "Team details", text: "Team name, level and season. The player count updates as you add players.", target: ".myteam-info" },
           { title: "Assignments and Front Office", text: "Jump to the position sheets, or to a Front Office if you coach more than one team or share with assistants.", target: ".page-head .fo-actions" },
         ],

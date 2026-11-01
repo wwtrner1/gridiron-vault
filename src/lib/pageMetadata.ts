@@ -28,6 +28,7 @@ export const TITLES: Record<string, string> = {
   "/tools": "More tools — GridIronVault",
   "/front-office": "Front Office — GridIronVault",
   "/roster": "My team — GridIronVault",
+  "/roster/text": "Text the team — GridIronVault",
   "/tutorials": "Tutorials — GridIronVault",
 };
 
