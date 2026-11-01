@@ -1,4 +1,4 @@
-import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense } from "./defense";
+import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, tagCoverage } from "./defense";
 import type { Coverage, DefenseLayout, FlagLook, Front } from "./defense";
 import { routeWord } from "./explain";
 import { fieldInset, unitsPerYard } from "./fieldUnits";
@@ -82,7 +82,7 @@ type Zone7 = { dx: number; dy: number; rx: number; ry: number };
 const zone7 = (dx: number, dy: number, rx: number, ry: number): Zone7 => ({ dx, dy, rx, ry });
 
 /** 7-on-7 passing: seven in coverage and no rush. */
-function layoutSeven(kind: "Cover 1" | "Cover 2" | "Cover 3" | "Man", receivers: { dx: number; dy: number }[]): DefenseLayout {
+export function layoutSeven(kind: "Cover 1" | "Cover 2" | "Cover 3" | "Man", receivers: { dx: number; dy: number }[]): DefenseLayout {
   const out: DefenseLayout = { defenders: [], zones: [], lines: [] };
   const zoneMan = (spot: Spot, zone: Zone7) => {
     out.defenders.push({ ...spot, job: "zone" });
@@ -139,7 +139,7 @@ function layoutSeven(kind: "Cover 1" | "Cover 2" | "Cover 3" | "Man", receivers:
       zoneMan({ dx: z.dx, dy: -80, label: i === 0 || i === 3 ? "N" : i === 1 ? "M" : "W" }, z),
     );
   }
-  return out;
+  return tagCoverage(out);
 }
 
 const SEVEN: Look[] = (["Cover 1", "Cover 2", "Cover 3", "Man"] as const).map((k) => ({
