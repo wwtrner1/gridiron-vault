@@ -76,7 +76,7 @@ export function SignIn() {
         </div>
         <ul className="auth-points">
           <li>
-            <Icon name="check" size={14} /> Free through beta, no card
+            <Icon name="check" size={14} /> Free to start, no card
           </li>
           <li>
             <Icon name="check" size={14} /> 56 starter plays ready to copy
@@ -126,7 +126,7 @@ export function SignIn() {
                 : tab === "up"
                   ? localPlays > 0
                     ? `The ${localPlays} ${localPlays === 1 ? "play" : "plays"} you drew in this browser move into your account.`
-                    : "Free through beta. Every tool switched on."
+                    : "Free to start, no card needed."
                   : "Enter the email you signed up with and we will send a link."}
             </p>
 

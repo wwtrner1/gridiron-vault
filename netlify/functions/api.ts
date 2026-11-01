@@ -820,8 +820,15 @@ async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (me.owner) return fail("Your account is All-Access Master. It doesn't switch plans.", 403);
   const id = String(body.plan ?? "") as TierId;
   if (!(id in TIERS) || id === "master" || id === "trial") return fail("That isn't one of our plans.");
+  // Once billing is open, paid plans only come from Stripe: picking one here would hand it out for free.
+  if (billingOn() && id !== "free") return fail("Paid plans open through checkout. Pick one on the Plans page.", 403);
   // With trials on, paid plans open with billing; until then a coach can only step down to Sideline.
   if (trialsOn() && id !== "free") return fail("Head Coach plans open soon. Your trial and your plays are safe until then.", 403);
+  // A coach paying for a plan stops it in Stripe's portal, or the next renewal would put the plan straight back.
+  if (billingOn()) {
+    const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.id, me.id));
+    if (row?.sub) return fail("Your plan is billed through Stripe. Use Manage billing to change or cancel it.", 403);
+  }
   await db.update(profiles).set({ plan: id }).where(eq(profiles.id, me.id));
   return json({ plan: id });
 }

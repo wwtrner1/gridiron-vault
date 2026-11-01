@@ -133,7 +133,7 @@ export function Pricing() {
 
       <main id="main">
         <section className="price-hero" aria-labelledby="price-h">
-          <p className="home-eyebrow">Free through beta</p>
+          <p className="home-eyebrow">{billing ? "Plans and pricing" : "Free through beta"}</p>
           <h1 id="price-h">Pick the plan that matches your staff</h1>
           <p className="price-hero-lede">
             Every plan draws plays with the same tools. What changes is how many you keep, how many coaches share them, and how

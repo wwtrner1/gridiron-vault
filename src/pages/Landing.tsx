@@ -84,7 +84,7 @@ export function Landing() {
               alt="GridIronVault — Your playbook. Anywhere."
               fetchPriority="high"
             />
-            <p className="home-eyebrow">Free through beta · no card · No payment · just create and draw</p>
+            <p className="home-eyebrow">Free to start · no card · just create and draw</p>
             <h1 id="hero-h">
               Draw the play
               <br />
