@@ -24,6 +24,7 @@ const FILTERS: { id: "all" | TermType; label: string }[] = [
   { id: "concept", label: "Concepts" },
   { id: "formation", label: "Formations" },
   { id: "tag", label: "Tags" },
+  { id: "gap", label: "Gaps & techniques" },
 ];
 
 /**
@@ -138,6 +139,7 @@ export function PlaybookLanguage() {
                   <option value="concept">Concept</option>
                   <option value="formation">Formation</option>
                   <option value="tag">Tag</option>
+                  <option value="gap">Gap & technique</option>
                 </select>
               </label>
               <label className="field">

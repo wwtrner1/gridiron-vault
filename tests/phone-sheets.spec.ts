@@ -35,7 +35,7 @@ test("the Call Sheet and Playbook language fit a phone @phone", async ({ page },
   // Playbook language: rows are cards, the header is hidden from the eye, and the actions sit under the meaning.
   await page.goto("/language");
   const rows = page.locator(".lang-table tbody tr");
-  await expect(rows).toHaveCount(12);
+  await expect(rows).toHaveCount(33);
   const head = (await page.locator(".lang-table thead").boundingBox())!;
   expect(head.width).toBeLessThanOrEqual(1);
   const card = (await rows.first().boundingBox())!;

@@ -8,7 +8,7 @@ import type { StoredPlay } from "./types";
  * reads these with every message, and new ones are suggested from the words
  * already used in the Vault.
  */
-export type TermType = "concept" | "formation" | "tag";
+export type TermType = "concept" | "formation" | "tag" | "gap";
 export type TermScope = "you" | "staff" | "shared";
 
 export type Term = {
@@ -48,18 +48,50 @@ export const STARTER_GLOSSARY: Term[] = [
   seed("Motion", "Player moves before the snap; dashed line on the diagram", "tag"),
 ];
 
-export const TYPE_LABEL: Record<TermType, string> = { concept: "Concept", formation: "Formation", tag: "Tag" };
+/** Gaps, line techniques and defensive jobs (after the standard letter-and-number system; staffs differ on the tight-end techniques). */
+export const GAP_GLOSSARY: Term[] = [
+  seed("A gap", "Between the center and a guard, each side", "gap"),
+  seed("B gap", "Between a guard and a tackle, each side", "gap"),
+  seed("C gap", "Between the tackle and the tight end; with no tight end, just outside the tackle", "gap"),
+  seed("D gap", "Outside the tight end", "gap"),
+  seed("E gap", "Outside a wing or second tight end, if your staff uses it", "gap"),
+  seed("0 technique", "Head up on the center; often covers both A gaps", "gap"),
+  seed("1 technique", "Shaded on the center's shoulder, A gap", "gap"),
+  seed("2i technique", "Inside shoulder of the guard, A gap", "gap"),
+  seed("2 technique", "Head up on the guard", "gap"),
+  seed("3 technique", "Outside shoulder of the guard, B gap", "gap"),
+  seed("4i technique", "Inside shoulder of the tackle, B gap", "gap"),
+  seed("4 technique", "Head up on the tackle", "gap"),
+  seed("5 technique", "Outside shoulder of the tackle, C gap", "gap"),
+  seed("6 technique", "Head up on the tight end", "gap"),
+  seed("7 technique", "Inside shoulder of the tight end, C gap in many systems", "gap"),
+  seed("9 technique", "Outside shoulder of the tight end, D gap", "gap"),
+  seed("One-gap", "The defender owns one gap and attacks it", "gap"),
+  seed("Two-gap", "The defender reads the blocker and owns either gap beside him", "gap"),
+  seed("Contain", "Keep the ball carrier from getting outside you", "gap"),
+  seed("Spill", "Force the ball carrier to bounce wide of the gap you fill", "gap"),
+  seed("Hole numbers", "Offense's names for the gaps: even on the right (A 2, B 4, C 6, outside 8), odd on the left; some staffs flip it", "gap"),
+];
+
+export const TYPE_LABEL: Record<TermType, string> = { concept: "Concept", formation: "Formation", tag: "Tag", gap: "Gap & technique" };
 export const SCOPE_LABEL: Record<TermScope, string> = { you: "Just you", staff: "You + staff", shared: "Shared glossary" };
 
 const KEY = "grid1ronvault.terms.v1";
-type State = { terms: Term[]; ignored: string[] };
+type State = { terms: Term[]; ignored: string[]; seeded?: string[] };
 
 function read(): State {
-  const fallback = { terms: STARTER_GLOSSARY, ignored: [] };
+  const all = [...STARTER_GLOSSARY, ...GAP_GLOSSARY];
+  const fallback: State = { terms: all, ignored: [], seeded: all.map((t) => t.id) };
   if (typeof localStorage === "undefined") return fallback;
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...fallback, ...(JSON.parse(raw) as State) } : fallback;
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as State;
+    const stored = { ...fallback, ...parsed };
+    // A coach who saved terms before the gap glossary existed gets it once; one they delete stays deleted.
+    const seen = new Set(parsed.seeded ?? STARTER_GLOSSARY.map((t) => t.id));
+    const fresh = all.filter((t) => !seen.has(t.id));
+    return { ...stored, terms: [...stored.terms, ...fresh], seeded: all.map((t) => t.id) };
   } catch {
     return fallback;
   }
