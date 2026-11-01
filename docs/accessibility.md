@@ -190,8 +190,7 @@ locked; the scale anchor grid announces position in words
 
 ## Checked, no change needed
 
-- **Images.** There is no `<img>` element anywhere in the repo. All artwork is
-  inline SVG. `PlayThumb` already renders `role="img"` with a descriptive
+- **Images.** Brand images and uploaded previews have alternative text; decorative logos and mascots use empty alternative text. Play diagrams also use inline SVG. `PlayThumb` already renders `role="img"` with a descriptive
   `aria-label`, and `Icon` already sets `aria-hidden="true"` on every glyph,
   which is correct — the icons sit beside text labels or inside buttons that
   now carry their own `aria-label`.
@@ -220,7 +219,7 @@ locked; the scale anchor grid announces position in words
   with Shift; routes and assignment lines ride along as they do on a drag. A run
   of presses is one undo step. Drawing a new route still needs a pointer.
 - Automated audits: see "axe sweep (2026-10-29)" below. Lighthouse has not been run.
-- The Designer sets `maximum-scale=1` on the viewport while it is open, on purpose, so a pinch zooms the play rather than the toolbars. The Designer has its own zoom (− Fit +) and the page zoom comes back on leaving. axe flags this, and it is a known trade-off.
+- Browser zoom in the Designer was restored in the 2026-11-01 audit below. Field-specific gestures and the Designer zoom buttons remain available.
 
 ## axe sweep (2026-10-29)
 
@@ -285,3 +284,36 @@ Two of axe's readings are allowed in the test on purpose, with the reason beside
 ### The phone gate moves focus in on a new device (2026-10-31)
 
 `PhoneGate` ("Add your mobile number" / "Confirm this device") focused its first box when it opened, but a new device has nothing to type until a code is sent, so that gate opened with focus still on the page behind it and its Tab trap never engaged. It now focuses the box when there is one and otherwise the "Text me a code" button, so a keyboard coach lands in the dialog either way. `tests/phone-gate.spec.ts` checks both.
+
+
+## Focused audit (2026-11-01)
+
+The homepage, Sign in, Help, Vault, Playbooks and Designer were audited after
+reviewing the shared Shell, marketing navigation, Modal, focus helper and global
+focus styles. Image alternatives, form names, page language, heading levels,
+interactive semantics and keyboard focus were checked.
+
+The shared mobile navigation now becomes inert while closed. Opening it moves
+focus inside, Tab and Shift+Tab stay inside, and Escape or its close button
+returns focus to the opener. The shared main landmark accepts skip-link focus.
+The focus helper now handles only the topmost open boundary and preserves
+initial focus during React development effect replay. Hidden initial controls
+are skipped. Designer Extras uses the same focus containment and restoration.
+
+The Designer no longer disables browser zoom through viewport metadata or
+document-wide gesture cancellation. Stage gestures remain scoped to the field.
+The automated accessibility suite no longer exempts the Designer viewport.
+
+The feedback rating now supports arrow keys, Home and End with one tab stop.
+Feedback validation also links the message to the invalid textarea. A hidden
+level-two heading introduces the populated Vault's level-three play cards.
+
+axe WCAG 2.0/2.1 A/AA and best-practice checks passed on all six routes at
+1366 px and 390 px without rule exclusions in the new audit tests. Browser
+regression checks covered the mobile drawer, rating, populated heading order,
+Extras focus and zoom metadata, shared dialogs and navigation. TypeScript
+validation passed. These checks used Vite through the local development setup;
+Netlify's proxy had a React development preamble conflict, so browser checks
+used the underlying Vite server. No production build was run. Assistive-technology
+testing with NVDA, VoiceOver or TalkBack was not performed; drawing new routes
+still requires a pointer as documented above.

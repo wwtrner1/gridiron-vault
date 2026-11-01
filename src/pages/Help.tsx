@@ -117,6 +117,7 @@ export function Help() {
                     onChange={(e) => setImprove(e.target.value)}
                     placeholder="The more specific the better — “Let me flip a play left/right in one click.”"
                     aria-invalid={!!error && !improve.trim()}
+                    aria-describedby={error && !improve.trim() ? "feedback-error" : undefined}
                   />
                 </label>
                 <label className="help-field">
@@ -136,6 +137,16 @@ export function Help() {
                         type="button"
                         role="radio"
                         aria-checked={rating === n}
+                        tabIndex={rating === n || (rating === null && n === 1) ? 0 : -1}
+                        onKeyDown={(e) => {
+                          const next = e.key === "ArrowRight" || e.key === "ArrowDown" ? n % 5 + 1
+                            : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (n + 3) % 5 + 1
+                            : e.key === "Home" ? 1 : e.key === "End" ? 5 : null;
+                          if (next === null) return;
+                          e.preventDefault();
+                          setRating(next);
+                          e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next - 1]?.focus();
+                        }}
                         aria-label={`${n} out of 5`}
                         className={rating === n ? "is-on" : ""}
                         onClick={() => setRating(rating === n ? null : n)}
@@ -167,7 +178,7 @@ export function Help() {
                   <small>PNG, JPG, WebP or HEIC, up to 8 MB.</small>
                 </label>
                 {error && (
-                  <p className="error-line" role="alert">
+                  <p className="error-line" id="feedback-error" role="alert">
                     {error}
                   </p>
                 )}

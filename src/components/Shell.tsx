@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
@@ -9,6 +9,7 @@ import { useOwner } from "../lib/owner";
 import { PLAYBOOK_NAV, type NavItem } from "../lib/nav";
 import { PlaybookTree } from "./PlaybookTree";
 import { PaymentBanner, SuspendedBanner } from "./PaymentBanner";
+import { FocusBoundary } from "./FocusBoundary";
 import { PageHelp } from "./Tour";
 
 type Props = {
@@ -33,6 +34,14 @@ export function Shell({ title, actions, tabs, children }: Props) {
   const tier = useTier();
   const trialDays = useTrialDays();
   const [open, setOpen] = useState(false);
+  const rail = useRef<HTMLElement>(null);
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 900px)");
+    const update = () => { setNarrow(query.matches); setOpen(false); };
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
   const plays = useStore((s) => s.plays);
   const owner = useOwner();
 
@@ -41,7 +50,11 @@ export function Shell({ title, actions, tabs, children }: Props) {
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
-      <aside className={`rail${open ? " is-open" : ""}`} id="rail-nav" aria-label="Playbook navigation">
+      <aside ref={rail} className={`rail${open ? " is-open" : ""}`} id="rail-nav" aria-label="Playbook navigation" inert={narrow && !open} tabIndex={-1}>
+        {narrow && open && <FocusBoundary panel={rail} onClose={() => setOpen(false)} />}
+        <button type="button" className="btn btn-quiet only-narrow" onClick={() => setOpen(false)} aria-label="Close navigation">
+          <Icon name="close" size={18} />
+        </button>
         <Link to="/" className="rail-brand">
           <Mark />
           <span>
@@ -160,7 +173,7 @@ export function Shell({ title, actions, tabs, children }: Props) {
         <SuspendedBanner />
         <PaymentBanner />
         {tabs}
-        <main id="main">{children}</main>
+        <main id="main" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

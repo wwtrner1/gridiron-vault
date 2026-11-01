@@ -7,8 +7,7 @@ import { quiet, seedReady, signIn } from "./helpers";
  * the Vault, the Designer with a play open, the side menu's playbook tree
  * opened, and the Griddy panel, signed out and signed in; the screens also at
  * phone width. docs/accessibility.md records what earlier sweeps found and
- * fixed; this keeps them from coming back. Two readings of axe's are allowed
- * on purpose, below.
+ * fixed; this keeps them from coming back. Diagram-label exceptions are documented below.
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -17,23 +16,21 @@ const SCREENS = ["/", "/vault", "/playbooks", "/grid", "/starters", "/pricing", 
 type Violation = { id: string; impact: string | null | undefined; help: string; nodes: { target: unknown[]; html: string }[] };
 
 /**
- * Drops the two things axe reads that aren't defects here:
+ * Allows the diagram-label exception:
  * - "label in name" on a button whose only visible text is a play diagram's yard numbers and letters
  *   (Starters previews, Assignments cards), and on a playbook folder opened in the tree, whose
- *   children's names axe counts as the folder's visible text;
- * - the Designer's `maximum-scale=1` viewport, kept so a pinch zooms the field, not the page
- *   (docs/accessibility.md).
+ *   children's names axe counts as the folder's visible text.
  */
-function real(violations: Violation[], path: string) {
+function real(violations: Violation[]) {
   const diagram = (t: string) => /play-thumb|asg-card|aria-expanded="true"/.test(t);
   return violations
     .map((v) => (v.id === "label-content-name-mismatch" ? { ...v, nodes: v.nodes.filter((n) => !diagram(n.target.join(" ")) && !diagram(n.html)) } : v))
-    .filter((v) => v.nodes.length && !(path.startsWith("/build") && v.id === "meta-viewport"));
+    .filter((v) => v.nodes.length);
 }
 
 async function sweep(page: import("@playwright/test").Page, label: string) {
   const res = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  const found = real(res.violations as Violation[], label);
+  const found = real(res.violations as Violation[]);
   expect(
     found.map((v) => `${label} [${v.impact}] ${v.id}: ${v.help}\n  ${v.nodes.map((n) => n.target.join(" ")).join("\n  ")}`),
     label,
