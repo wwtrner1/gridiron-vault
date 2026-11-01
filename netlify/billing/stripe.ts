@@ -20,7 +20,8 @@ export type OfferKey = (typeof OFFER_KEYS)[number];
 /** The plan each thing we sell opens. Founding coaches are Head Coach at their own price. */
 const PLAN_OF: Record<OfferKey, TierId> = { solo_month: "solo", solo_year: "solo", season: "solo", crew_month: "crew", crew_year: "crew", program_month: "program", program_year: "program", founding: "solo" };
 
-export const billingOn = () => Boolean(process.env.STRIPE_SECRET_KEY && prices());
+// All three keys, or none: without the webhook secret a coach could pay and never get the plan, so Checkout stays shut.
+export const billingOn = () => Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET && Object.keys(prices()).length);
 
 function prices(): Partial<Record<OfferKey, string>> {
   try {

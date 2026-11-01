@@ -160,6 +160,54 @@ describe("Checkout", () => {
   });
 });
 
+describe("Switching billing on", () => {
+  /** Runs `fn` with one billing key taken out of the environment, then puts it back. */
+  async function without(name: string, value: string | undefined, fn: () => Promise<void>) {
+    const kept = process.env[name];
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+    try {
+      await fn();
+    } finally {
+      process.env[name] = kept;
+    }
+  }
+
+  test("billing stays shut until all three keys are set, so nobody can pay without the plan landing", async () => {
+    const coach = await newCoach();
+    assert.equal((await me(coach)).billing, true);
+    for (const [name, value] of [["STRIPE_SECRET_KEY", undefined], ["STRIPE_WEBHOOK_SECRET", undefined], ["STRIPE_PRICES", undefined], ["STRIPE_PRICES", "not json"], ["STRIPE_PRICES", "{}"]] as const)
+      await without(name, value, async () => {
+        assert.equal((await me(coach)).billing, false, `${name}=${value}`);
+        const res = await checkout(coach, "solo_month");
+        assert.equal(res.status, 400, `${name}=${value}`);
+        assert.match(res.data.error, /isn't open yet/);
+      });
+    assert.equal(stripe.calls.length, 0, "Stripe was never called while billing was shut");
+  });
+
+  test("with billing open, a coach can't hand themselves a paid plan, and a paying coach stops it in Stripe", async () => {
+    const coach = await newCoach();
+    as(coach);
+    const free = await call("PUT", "me/plan", { plan: "solo" });
+    assert.equal(free.status, 403);
+    assert.match(free.data.error, /checkout/);
+    assert.equal((await me(coach)).plan, "beta");
+
+    await buy(coach, "solo_month");
+    as(coach);
+    const down = await call("PUT", "me/plan", { plan: "free" });
+    assert.equal(down.status, 403);
+    assert.match(down.data.error, /Manage billing/);
+    assert.equal((await me(coach)).plan, "solo");
+
+    // A coach with nothing billed can still step down to Sideline.
+    const other = await newCoach();
+    as(other);
+    assert.equal((await call("PUT", "me/plan", { plan: "free" })).status, 200);
+  });
+});
+
 describe("Webhook → plan", () => {
   test("a paid monthly plan opens Head Coach, and the Vault takes play nine", async () => {
     process.env.TRIAL_SIGNUPS = "on";
