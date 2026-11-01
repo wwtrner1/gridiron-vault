@@ -122,7 +122,8 @@ function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolea
       {node.job && !ghost && (
         <text
           x={0}
-          y={r + Math.max(12, node.size * 0.42)}
+          // A defender's tag sits on his side of the token, away from the line of scrimmage and the blockers he faces.
+          y={node.side === "defense" ? -(r + 5) : r + Math.max(12, node.size * 0.42)}
           textAnchor="middle"
           fontSize={Math.max(11, node.size * 0.4)}
           fontWeight={700}
