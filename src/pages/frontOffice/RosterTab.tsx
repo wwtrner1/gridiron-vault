@@ -18,6 +18,7 @@ import {
   type PlayerInfo,
   type PlayerStatus,
 } from "../../lib/teamHub";
+import { setGriddyRoster } from "../../lib/griddyRoster";
 import { hubSource, type TeamSource } from "../../lib/teamSource";
 import { useToast } from "../../lib/toast";
 
@@ -76,6 +77,20 @@ export function RosterTab({
       .then((r) => setPlayers(r.players))
       .catch((e: Error) => setFailed(e.message));
   }, [source]);
+
+  // Griddy can remove players or change their status on the roster on screen; his card hands the new list back.
+  useEffect(() => {
+    if (!players) return;
+    return setGriddyRoster({
+      team: team.name,
+      players,
+      source,
+      onChange: (next) => {
+        if (next.length !== players.length) onCount?.();
+        setPlayers(next);
+      },
+    });
+  }, [players, source, team.name, onCount]);
 
   const shown = useMemo(() => {
     const q = find.trim().toLowerCase();
