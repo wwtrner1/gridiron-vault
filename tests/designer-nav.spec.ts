@@ -53,7 +53,11 @@ test("Prev and Next step through the playbook, from the bar and the keyboard, an
   for (let i = 0; i < 24 && !/Selected Receiver X,/.test((await status.textContent()) ?? ""); i++) await page.keyboard.press("n");
   await expect(status).toContainText("Selected Receiver X,");
   const before = (await workspace(page)).plays!.find((p) => p.id === moving)!.scene.nodes.find((nd) => nd.label === "X")!.x;
+  const spots = () => svg.locator("g[data-kind=player]").evaluateAll((els) => els.map((e) => e.getAttribute("transform")).join("|"));
+  const still = await spots();
   for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
+  // Wait for the nudge to show on the field before leaving, so the save has the move.
+  await expect.poll(spots).not.toBe(still);
   await next.click();
   await expect(count).toHaveText(`${at + 4} / ${n}`);
   // The store writes the workspace to disk a moment after the save, so read it until it lands.
