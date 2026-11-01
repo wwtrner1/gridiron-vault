@@ -10,6 +10,7 @@ import { AddToPlaybook } from "../components/AddToPlaybook";
 import { store, useStore } from "../lib/store";
 import { markUnsynced, syncPlays } from "../lib/playSync";
 import { deleteFromAccount } from "../lib/pendingDeletes";
+import { setGriddyFocus } from "../lib/griddyFocus";
 import { api, toStoredPlay } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
@@ -105,6 +106,11 @@ export function Vault() {
   }, [source, query, formation, type, tag, sort]);
 
   const pickedPlays = useMemo(() => shown.filter((p) => picked.includes(p.id)), [shown, picked]);
+  // "These plays" to Griddy: the ones picked here, while they're picked.
+  useEffect(() => {
+    setGriddyFocus("vault", pickedPlays.length ? { label: `${pickedPlays.length} ${pickedPlays.length === 1 ? "play" : "plays"} picked in the Vault`, ids: pickedPlays.map((p) => p.id) } : null);
+  }, [pickedPlays]);
+  useEffect(() => () => setGriddyFocus("vault", null), []);
   const toggle = (id: string) => setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
 
   async function copyToMine(play: StoredPlay) {

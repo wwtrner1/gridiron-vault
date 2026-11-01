@@ -18,6 +18,9 @@ import type { GriddyAction, GriddyContext, GriddyReply, GriddyRequest, GriddyTur
 import { DEFENSE_TOKENS, OFFENSE_TOKENS } from "../src/lib/presets.ts";
 import { makeText } from "../src/lib/scene.ts";
 import { gridFromPlays } from "../src/lib/sheet.ts";
+import { buildDefense, defenseField } from "../src/lib/griddyDefense.ts";
+import { emptyScene } from "../src/lib/presets.ts";
+import { readToNodes } from "../src/lib/assistant.ts";
 import { STARTERS, starterMeta, starterScene } from "../src/lib/starters.ts";
 import type { LocalPlaybook } from "../src/lib/store.ts";
 import { CANVAS_W, type PathNode, type PlayerNode, type Scene, type StoredPlay } from "../src/lib/types.ts";
@@ -130,6 +133,8 @@ function context(fx: Fixture): GriddyContext {
 type Verdict = { result: "pass" | "asked" | "fail"; note: string };
 type Case = {
   key: string;
+  /** What the coach has in front of them, beyond the Vault page (an open play, picked plays). */
+  ctx?: (fx: Fixture) => Partial<GriddyContext>;
   /** The coach's messages, sent one after another; the last reply is scored. */
   say: string[];
   check: (reply: GriddyReply, fx: Fixture) => Verdict;
@@ -178,6 +183,18 @@ function routeRed(scope: "vault" | "Red Zone") {
 }
 
 const tripsPlays = (fx: Fixture) => fx.plays.filter((p) => /trips/i.test(`${p.name} ${p.formation}`));
+const defenses = (r: GriddyReply) => r.actions.filter((a): a is Extract<GriddyAction, { tool: "draw_defense" }> => a.tool === "draw_defense");
+const isDefense = (fx: Fixture) => new Set(fx.plays.filter((p) => p.playType === "defense").map((p) => p.id));
+/** Four plays the coach picked in the Vault, for "these plays". */
+const PICKED = ["p3", "p9", "p17", "p27"];
+
+/** A Trips Right play open in the Designer, not saved yet. */
+const OPEN_TRIPS = (): GriddyContext["play"] => ({ name: "Trips Right Flood", formation: "Trips Right", players: ["Q", "C", "X", "Y", "Z"], lines: 3 });
+const openField = () => {
+  const base = emptyScene();
+  return { ...base, nodes: readToNodes({ formation: "Trips Right", game: "5v5", name: "Trips Right Flood", assignments: [], unsure: [] }, TOKENS, base.losY, 1) };
+};
+const GAP = /^[A-E] gap$/;
 
 const CASES: Case[] = [
   {
@@ -438,6 +455,142 @@ const CASES: Case[] = [
     ],
   },
   {
+    key: "filter",
+    say: ["make all my run plays wristband bold"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (!edit.changes.some((c) => c.op === "wristband" && c.format === "bold")) return fail(`changes ${JSON.stringify(edit.changes)}`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      const other = plan.targets.filter((t) => t.before.playType !== "run");
+      if (other.length) return fail(`changes ${other.length} plays that aren't runs (${other[0].before.name}); filter ${JSON.stringify(edit.filter ?? null)}`);
+      return plan.targets.length ? pass(`${plan.targets.length} run plays`) : fail("changes nothing");
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "run" }, changes: [{ op: "wristband", format: "bold" }] }] }],
+  },
+  {
+    key: "gaps",
+    say: ["tag the gap responsibilities on all my defenses"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (!edit.changes.some((c) => c.op === "gaps")) return fail(`changes ${JSON.stringify(edit.changes)}`);
+      // The starter defenses now come tagged by technique; a coach's own are not, so check on untagged copies.
+      const bare = fx.plays.map((p) => ({ ...p, scene: { ...p.scene, nodes: p.scene.nodes.map((n) => (n.kind === "player" && n.side === "defense" ? { ...n, job: undefined } : n)) } }));
+      const plan = planBulkEdit(edit, bare, fx.books, TOKENS);
+      const defense = isDefense(fx);
+      if (!plan.targets.length) return fail("tags nothing");
+      for (const t of plan.targets) {
+        if (!defense.has(t.before.id)) return fail(`changes "${t.before.name}", not a defense`);
+        const before = new Map(t.before.scene.nodes.map((n) => [n.id, n]));
+        for (const n of t.after.scene.nodes) {
+          if (JSON.stringify(n) === JSON.stringify(before.get(n.id))) continue;
+          if (n.kind !== "player" || n.side !== "defense" || !GAP.test(n.job ?? "")) return fail(`changed "${t.before.name}" beyond a defender's gap tag`);
+        }
+      }
+      return pass(`${plan.targets.length} defenses tagged; ${scopeText(edit)}`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "defense" }, changes: [{ op: "gaps" }] }] }],
+  },
+  {
+    key: "job-tag",
+    say: ["on every defense, the rusher has contain"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return asked(reply);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      if (!plan.targets.length) return fail(`tags nothing (${JSON.stringify(edit.changes)})`);
+      for (const t of plan.targets) {
+        const before = new Map(t.before.scene.nodes.map((n) => [n.id, n]));
+        for (const n of t.after.scene.nodes) {
+          if (JSON.stringify(n) === JSON.stringify(before.get(n.id))) continue;
+          if (n.kind !== "player" || n.side !== "defense" || n.label !== "R") return fail(`tagged a ${n.kind === "player" ? n.label || "blank" : n.kind} in "${t.before.name}", not the rusher`);
+          if (!/contain/i.test(n.job ?? "")) return fail(`the rusher's tag is "${n.job}"`);
+        }
+      }
+      return pass(`${plan.targets.length} plays`);
+    },
+    ideal: () => [
+      { text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "defense" }, changes: [{ op: "style", target: "players", where: { letter: "R", side: "defense" }, set: { job: "Contain" } }] }] },
+    ],
+  },
+  {
+    key: "defense-formation",
+    say: ["make me a Cover 3 defense for Trips Right, with everyone's job tagged"],
+    check: (reply) => {
+      const [d] = defenses(reply);
+      if (!d) return fail(`no defense card: "${reply.text.slice(0, 120)}"`);
+      if (d.call.coverage !== "Cover 3") return fail(`coverage ${d.call.coverage}`);
+      if (d.call.against !== "Trips Right" || d.call.mirrored) return fail(`against ${d.call.against}${d.call.mirrored ? " (left)" : ""}`);
+      if (!d.call.jobs) return fail("jobs not tagged");
+      const scene = defenseField(d.call, TOKENS, 7 * 14.4);
+      const defenders = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "defense");
+      if (defenders.length !== 5) return fail(`${defenders.length} defenders in a 5-on-5 look`);
+      const untagged = defenders.filter((p) => !p.job);
+      return untagged.length ? fail(`${untagged.length} defenders without a job`) : pass(defenders.map((p) => `${p.label} ${p.job}`).join(", "));
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "draw_defense", call: { name: "Cover 3 vs Trips Right", game: "5v5", coverage: "Cover 3", against: "Trips Right", jobs: true } }] }],
+  },
+  {
+    key: "defense-open",
+    ctx: () => ({ page: "Designer", play: OPEN_TRIPS() }),
+    say: ["what defense would you line up against this? draw it"],
+    check: (reply) => {
+      const [d] = defenses(reply);
+      if (!d) return fail(`no defense card: "${reply.text.slice(0, 120)}"`);
+      if (d.call.against && d.call.against !== "Trips Right") return fail(`lined up against ${d.call.against}, not the open play`);
+      const built = buildDefense(d.call, openField(), TOKENS, 7 * 14.4);
+      const men = built.nodes.filter((n) => n.kind === "path" && n.name.endsWith(" man")).length;
+      if (d.call.coverage === "Man" && men < 3) return fail(`only ${men} man lines against Trips`);
+      return pass(`${built.look}${reply.text ? ` · "${reply.text.slice(0, 80)}"` : ""}`);
+    },
+    ideal: () => [{ text: "Cover 3 rotates to the trips side.", actions: [{ id: "t1", tool: "draw_defense", call: { name: "Cover 3 vs Trips Right", game: "5v5", coverage: "Cover 3" } }] }],
+  },
+  {
+    key: "sheet-these",
+    ctx: () => ({ focus: { label: "4 plays picked in the Vault", ids: PICKED } }),
+    say: ["build a call sheet from these plays"],
+    check: (reply) => {
+      const [sheet] = sheets(reply);
+      if (!sheet) return asked(reply);
+      const ids = new Set(sheet.lines.map((l) => l.playId));
+      const missing = PICKED.filter((id) => !ids.has(id));
+      const extra = [...ids].filter((id) => !PICKED.includes(id));
+      if (missing.length || extra.length) return fail(`missing ${missing.join(", ") || "none"}; extra ${extra.join(", ") || "none"}`);
+      return pass(`${sheet.lines.length} rows in ${new Set(sheet.lines.map((l) => l.group ?? "-")).size} groups`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "build_call_sheet", name: "Game plan", lines: PICKED.map((playId) => ({ playId })) }] }],
+  },
+  {
+    key: "open-gaps",
+    ctx: () => ({ page: "Designer", play: { ...OPEN_TRIPS()!, defenders: 5 } }),
+    say: ["tag the gaps on this play"],
+    check: (reply) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (edit.scope.kind !== "open") return fail(`scope ${scopeText(edit)}, not the play on the field`);
+      return edit.changes.some((c) => c.op === "gaps") ? pass() : fail(`changes ${JSON.stringify(edit.changes)}`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "open" }, changes: [{ op: "gaps" }] }] }],
+  },
+  {
+    key: "pov",
+    say: ["show all my defenses from the defense's end"],
+    check: (reply, fx) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (edit.changes.some((c) => c.op === "mirror")) return fail("mirrors the plays instead of turning the view");
+      if (!edit.changes.some((c) => c.op === "pov" && c.end === "defense")) return fail(`changes ${JSON.stringify(edit.changes)}`);
+      const plan = planBulkEdit(edit, fx.plays, fx.books, TOKENS);
+      const defense = isDefense(fx);
+      const off = plan.targets.filter((t) => !defense.has(t.before.id));
+      if (off.length) return fail(`turns ${off.length} plays that aren't defenses`);
+      if (plan.targets.some((t) => t.after.scene.pov !== "defense")) return fail("a play isn't turned");
+      return pass(`${plan.targets.length} defenses turned`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "defense" }, changes: [{ op: "pov", end: "defense" }] }] }],
+  },
+  {
     key: "injection",
     say: ["show me my Spread plays"],
     check: (reply) => {
@@ -466,12 +619,12 @@ async function runCase(c: Case, fx: Fixture, dry: boolean): Promise<{ verdict: V
   const start = Date.now();
   for (const [i, text] of c.say.entries()) {
     turns.push({ role: "coach", text });
-    const body: GriddyRequest = { turns, context: context(fx), terms: [] };
+    const body: GriddyRequest = { turns, context: { ...context(fx), ...c.ctx?.(fx) }, terms: [] };
     reply = dry ? ideal[i] : await griddy(body);
     if (dry)
       for (const a of bulk(reply))
         for (const c of a.changes)
-          if (["style", "wristband", "meta", "file"].includes(c.op) && canon(cleanOpenChange(c as Record<string, unknown>)) !== canon(c))
+          if (["style", "wristband", "meta", "file", "gaps", "pov"].includes(c.op) && canon(cleanOpenChange(c as Record<string, unknown>)) !== canon(c))
             throw new Error(`the server would change ${JSON.stringify(c)} to ${JSON.stringify(cleanOpenChange(c as Record<string, unknown>))}`);
     turns.push({ role: "griddy", text: reply.text, actions: reply.actions });
   }
