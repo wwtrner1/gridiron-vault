@@ -50,6 +50,7 @@ const Admin = lazyPage(() => import("./pages/Admin"), "Admin");
 const Tools = lazyPage(() => import("./pages/Tools"), "Tools");
 const FrontOffice = lazyPage(() => import("./pages/FrontOffice"), "FrontOffice");
 const MyTeam = lazyPage(() => import("./pages/MyTeam"), "MyTeam");
+const TextTeam = lazyPage(() => import("./pages/TextTeam"), "TextTeam");
 const Tutorials = lazyPage(() => import("./pages/Tutorials"), "Tutorials");
 const Privacy = lazyPage(() => import("./pages/Legal"), "Privacy");
 const Terms = lazyPage(() => import("./pages/Legal"), "Terms");
@@ -80,6 +81,7 @@ const NAMES: Record<string, string> = {
   "/tools": "More tools",
   "/front-office": "Front Office",
   "/roster": "My team",
+  "/roster/text": "Text the team",
   "/tutorials": "Tutorials",
   ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, s.title])),
 };
@@ -185,6 +187,7 @@ export function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/front-office" element={<FrontOffice />} />
         <Route path="/roster" element={<MyTeam />} />
+        <Route path="/roster/text" element={<TextTeam />} />
         <Route path="/tutorials" element={<Tutorials />} />
         {/* Game Day was retired: old links open the Call Sheet they pointed at. */}
         <Route path="/game" element={<Navigate to="/grid" replace />} />

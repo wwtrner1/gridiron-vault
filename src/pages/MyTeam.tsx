@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Shell } from "../components/Shell";
 import { TeamBrand } from "../components/TeamBrand";
+import { TextTeamCard } from "../components/TextTeamCard";
 import { HUB_LIMITS } from "../lib/teamHub";
 import { useAuth } from "../lib/auth";
 import { loadMyTeam, localSource, MY_TEAM_ID, onMyTeam, saveMyTeam } from "../lib/teamSource";
@@ -79,6 +80,8 @@ export function MyTeam() {
           </Link>
         </div>
       </div>
+
+      <TextTeamCard version={`${version}-${count}`} />
 
       <section className="hub-panel myteam-info" aria-label="Team details">
         <label className="field">

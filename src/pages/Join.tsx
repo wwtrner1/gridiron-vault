@@ -70,10 +70,12 @@ export function Join() {
         </div>
       ) : (
         <form className="jn" onSubmit={send}>
-          <h1 className="tm-title">{team.team} team texts</h1>
-          <p className="tm-sub">
-            Get game times, schedule changes and cancellations from the {team.team} coaches{team.org ? ` (${team.org})` : ""} by text.
-          </p>
+          <header className="jn-hero">
+            <h1 className="tm-title">{team.team} team texts</h1>
+            <p className="tm-sub">
+              Get game times, schedule changes and cancellations from the {team.team} coaches{team.org ? ` (${team.org})` : ""} by text.
+            </p>
+          </header>
           {problem && (
             <p className="jn-error" role="alert">
               {problem}
