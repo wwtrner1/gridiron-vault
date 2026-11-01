@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://gridiron-vault.com/</loc></url>
+  <url><loc>https://gridiron-vault.com/</loc><lastmod>2026-11-01</lastmod></url>
   <url><loc>https://gridiron-vault.com/pricing</loc></url>
   <url><loc>https://gridiron-vault.com/starters</loc></url>
   <url><loc>https://gridiron-vault.com/tutorials</loc><lastmod>2026-10-29</lastmod></url>
@@ -11,4 +11,7 @@
   <url><loc>https://gridiron-vault.com/guides/flag-football-glossary/</loc><lastmod>2026-10-29</lastmod></url>
   <url><loc>https://gridiron-vault.com/guides/flag-football-red-zone-plays/</loc><lastmod>2026-10-29</lastmod></url>
   <url><loc>https://gridiron-vault.com/guides/beat-the-blitz-flag-football/</loc><lastmod>2026-10-29</lastmod></url>
+  <url><loc>https://gridiron-vault.com/help</loc></url>
+  <url><loc>https://gridiron-vault.com/privacy</loc></url>
+  <url><loc>https://gridiron-vault.com/terms</loc></url>
 </urlset>

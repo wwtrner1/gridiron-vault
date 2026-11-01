@@ -77,8 +77,8 @@
   --accent-text: var(--cyan-ink);
 
   /* ---- Type: families ---- */
-  --display: "Saira Condensed", "Arial Narrow", sans-serif;
-  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  --display: "Saira Condensed", "Saira Condensed Fallback", "Arial Narrow", sans-serif;
+  --body: "Barlow", "Barlow Fallback", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 
   /* ---- Type: scale (size / line-height) ---- */

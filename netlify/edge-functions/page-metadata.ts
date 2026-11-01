@@ -19,7 +19,7 @@ export default async function pageMetadata(request: Request, context: Context) {
   const tags = [
     `<title>${escapeHtml(page.title)}</title>`,
     ...(page.indexable ? [`<link rel="canonical" href="${escapeHtml(page.url)}" />`] : []),
-    ...Object.entries({ description: page.description, "twitter:card": "summary",
+    ...Object.entries({ description: page.description, "twitter:card": "summary_large_image",
       "twitter:title": page.title, "twitter:description": page.description,
       ...(!page.indexable ? { robots: "noindex" } : {}),
     }).map(([name, content]) => `<meta name="${name}" content="${escapeHtml(content)}" />`),
@@ -40,5 +40,11 @@ export default async function pageMetadata(request: Request, context: Context) {
 
 export const config: Config = {
   path: "/*",
-  excludedPath: ["/.netlify/*", "/api/*", "/assets/*", "/fonts/*", "/pdfjs/*"],
+  // Static files never carry the app shell, so they skip the edge (a round trip saved on every
+  // image, clip and guide). The guides write their own tags.
+  excludedPath: [
+    "/.netlify/*", "/api/*", "/assets/*", "/fonts/*", "/pdfjs/*", "/brand/*", "/clips/*",
+    "/guides/*", "/email/*", "/sw.js", "/handoff.js", "/manifest.webmanifest",
+    "/*.png", "/*.webp", "/*.jpg", "/*.xml", "/*.txt",
+  ],
 };
