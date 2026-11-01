@@ -122,3 +122,24 @@ test("the home page doesn't download the tool screens for offline use until a to
   await page.goto("/vault");
   await expect.poll(() => asked.some((u) => /\/assets\/jspdf/.test(u)), { timeout: 20_000 }).toBe(true);
 });
+
+test("the /partners page is a static page with our own fonts, its own script and the partner form", async ({ page }) => {
+  const errors = errorsOf(page);
+  const res = await page.request.get("/partners/");
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toContain("<title>GridIronVault Partners</title>");
+  expect(html).toContain("Vaultline Sports LLC");
+  expect(html).not.toContain("fonts.googleapis.com");
+  // Only our own script file; nothing inline, so the CSP holds.
+  expect(html.match(/<script[^>]*>/g)).toEqual(['<script src="/partners/partners.js" defer>']);
+  await page.goto("/partners/");
+  await expect(page.locator("h1")).toContainText("where the play gets called");
+  await expect(page.locator("#partner-form")).toHaveAttribute("action", "/__forms.html");
+  await expect(page.locator('#partner-form input[name="form-name"]')).toHaveValue("partner-inquiry");
+  expect(errors).toEqual([]);
+
+  // The forms page declares the partner form for Netlify, and the sitemap names the page.
+  expect(await (await page.request.get("/__forms.html")).text()).toContain('name="partner-inquiry"');
+  expect(await (await page.request.get("/sitemap.xml")).text()).toContain("<loc>https://gridiron-vault.com/partners</loc>");
+});
