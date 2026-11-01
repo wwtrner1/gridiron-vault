@@ -14,7 +14,8 @@
     "bands:matrix": "node scripts/wristband-matrix/run.mjs",
     "coverage:concepts": "tsx scripts/coverage-concepts.ts",
     "tutorials:record": "node scripts/record-tutorials.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:server": "node --import tsx --import ./tests/server/register.mjs --test tests/server/*.server.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@electric-sql/pglite": "^0.2.17",
     "@netlify/edge-functions": "^4.0.3",
     "@netlify/functions": "^6.0.0",
     "@playwright/test": "^1.63.0",
