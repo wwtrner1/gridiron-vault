@@ -18,7 +18,7 @@ export default async function pageMetadata(request: Request, context: Context) {
   const page = getPageMetadata(new URL(request.url).pathname);
   const tags = [
     `<title>${escapeHtml(page.title)}</title>`,
-    `<link rel="canonical" href="${escapeHtml(page.url)}" />`,
+    ...(page.indexable ? [`<link rel="canonical" href="${escapeHtml(page.url)}" />`] : []),
     ...Object.entries({ description: page.description, "twitter:card": "summary",
       "twitter:title": page.title, "twitter:description": page.description,
       ...(!page.indexable ? { robots: "noindex" } : {}),
