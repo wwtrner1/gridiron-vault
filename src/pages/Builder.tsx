@@ -50,6 +50,8 @@ import {
   moveNodes,
   extendToSideline,
   flipNodes,
+  canTurnAround,
+  turnAround,
   nextZ,
   reconcileConnections,
   removeGhost,
@@ -722,7 +724,9 @@ export function Builder() {
   // A new field keeps routes true to the yard (a 10-yard out stays 10 yards); Undo puts the old drawing back.
   const changeField = (view: Scene["view"]) => {
     if (view === scene.view) return;
-    const move = convertField(scene, view);
+    // An end zone has a fixed side, so a play drawn from the defense's end turns back first.
+    const upright = scene.pov === "defense" && !canTurnAround(view) ? turnAround(scene) : scene;
+    const move = convertField(upright, view);
     applyScene(move.scene, "Field view");
     const name = FIELD_VIEWS.find((v) => v.id === view)?.label ?? view;
     setStatus(
@@ -2152,6 +2156,16 @@ export function Builder() {
                       ))}
                     </select>
                   </label>
+                  <button
+                    type="button"
+                    aria-pressed={scene.pov === "defense"}
+                    disabled={!canTurnAround(scene.view)}
+                    title={canTurnAround(scene.view) ? undefined : "The red zone and flag fields have a fixed end zone, so they can't be turned around."}
+                    onClick={() => applyScene(turnAround(scene), scene.pov === "defense" ? "View from the offense" : "View from the defense")}
+                    data-tour="dz-more-field"
+                  >
+                    View from the {scene.pov === "defense" ? "offense" : "defense"}
+                  </button>
                   <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
                     <span>Vs defense</span>
                     {overlaySelect("dz-top-select")}

@@ -163,7 +163,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Field",
-            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
+            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. View from the defense turns the whole play half a circle about the ball so you can draw it from the other end (half, full and blank fields). Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
             target: tour("dz-more-field"),
             open: [EXTRAS],
             close: EXTRAS,
