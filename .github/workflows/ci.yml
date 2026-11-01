@@ -31,6 +31,8 @@ jobs:
         run: npx tsc -p .
       - name: Build
         run: npm run build
+      - name: Griddy evals (scores the ideal replies through the app's own code; no API calls)
+        run: npm run griddy:live -- --dry
 
   # Billing end to end on the server (tests/server/): the API function on an in-memory Postgres with every
   # migration, Stripe faked at the network, Checkout -> webhook -> plan, failed payments, refunds, trials.

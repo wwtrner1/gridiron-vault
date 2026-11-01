@@ -27,12 +27,12 @@ test("Griddy's panel: starters, quick picks, a file of calls, Enter and Shift+En
   const box = panel.getByLabel("Message Griddy");
   const log = panel.getByRole("log", { name: "Conversation with Griddy" });
 
-  // The launcher opens the panel on the hello and ten starters; nothing to reset yet.
+  // The launcher opens the panel on the hello and twelve starters; nothing to reset yet.
   await expect(panel).toHaveCount(0);
   await launcher.click();
   await expect(panel.getByRole("heading", { name: "Griddy" })).toBeVisible();
   await expect(log).toContainText("Hey Coach. Tell me a play and I'll draw it");
-  await expect(log.locator(".gd-starter")).toHaveCount(10);
+  await expect(log.locator(".gd-starter")).toHaveCount(12);
   await expect(panel.getByRole("button", { name: "Start a new conversation" })).toHaveCount(0);
   await expect(panel.getByRole("button", { name: "Send" })).toBeDisabled();
 
@@ -61,7 +61,7 @@ test("Griddy's panel: starters, quick picks, a file of calls, Enter and Shift+En
   await expect(log.locator(".gd-msg.is-griddy").last()).toContainText("Got it, Coach.");
   expect(calls).toBe(1);
   await expect(box).toHaveValue("");
-  await expect(panel.getByRole("group", { name: "Quick picks" }).getByRole("button")).toHaveCount(10);
+  await expect(panel.getByRole("group", { name: "Quick picks" }).getByRole("button")).toHaveCount(12);
   await expect(panel.getByRole("button", { name: "Start a new conversation" })).toBeVisible();
 
   // Shift+Enter makes a new line without sending; a quick pick replaces the draft.
@@ -85,7 +85,7 @@ test("Griddy's panel: starters, quick picks, a file of calls, Enter and Shift+En
   await launcher.click();
   await expect(log.locator(".gd-msg.is-griddy").last()).toContainText("Got it, Coach.");
   await panel.getByRole("button", { name: "Start a new conversation" }).click();
-  await expect(log.locator(".gd-starter")).toHaveCount(10);
+  await expect(log.locator(".gd-starter")).toHaveCount(12);
   await expect(log.locator(".gd-msg")).toHaveCount(0);
   await panel.getByRole("button", { name: "Close Griddy" }).click();
   await expect(panel).toHaveCount(0);

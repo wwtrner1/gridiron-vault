@@ -1,0 +1,52 @@
+# Alarm for AI/automation commits that reached main without a pull request.
+# Runs after the push lands, so it can't stop one; branch protection on main does that.
+# See docs/ai-branch-policy.md.
+name: AI branch guard
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  block-direct-ai-main-pushes:
+    name: Block direct AI/automation pushes to main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refuse direct AI/automation pushes to main
+        shell: bash
+        env:
+          ACTOR: ${{ github.actor }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A merged pull request is the approved path, even for an agent-* branch
+          # (its merge commit says "Merge pull request #N from …/agent-…").
+          merged=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)] | length' 2>/dev/null || echo 0)
+          if [[ "$merged" -gt 0 ]]; then
+            echo "Commit $SHA came through a merged pull request. Accepted."
+            exit 0
+          fi
+
+          actor=$(echo "$ACTOR" | tr '[:upper:]' '[:lower:]')
+          message=$(echo "$MESSAGE" | tr '[:upper:]' '[:lower:]')
+
+          if [[ "$actor" == "github-copilot"* ]] || \
+             [[ "$actor" == "copilot-swe-agent"* ]] || \
+             [[ "$actor" == "claude"* ]] || \
+             [[ "$actor" == "netlify"* ]] || \
+             [[ "$actor" == "floot"* ]] || \
+             [[ "$actor" == "lovable"* ]] || \
+             [[ "$message" == *"copilot"* ]] || \
+             [[ "$message" == *"agent"* ]]; then
+            echo "::error::Direct AI/automation pushes to main are blocked. Use a feature branch and open a PR first."
+            exit 1
+          fi
+
+          echo "Human-authored push to main accepted."

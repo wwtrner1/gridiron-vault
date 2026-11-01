@@ -6,7 +6,7 @@ import type { TokenPreset } from "./presets";
 import { emptyScene } from "./presets";
 import { store } from "./store";
 import { uid } from "./types";
-import type { StoredPlay } from "./types";
+import type { Scene, StoredPlay } from "./types";
 
 /** The game type the coach last drew in the Formation library: what Griddy draws by default. */
 const GAME_KEY = "grid1ronvault.formationLib.v1";
@@ -31,6 +31,27 @@ export function playFromRead(read: AssistantRead, tokens: TokenPreset[], opts: {
     personnel: read.game === "11" ? (read.personnel ?? "") : read.game,
     description: opts.note,
     tags: opts.tags,
+    isPublic: false,
+    ownerName: "You",
+    fieldView: scene.view,
+    scene,
+    preview: "",
+    saveCount: 0,
+    updatedAt: new Date().toISOString(),
+    remote: false,
+  };
+}
+
+/** A scene as a play ready for the Vault (a defense Griddy laid out, or a stand-in for the Designer's field). */
+export function playFromScene(scene: Scene, opts: Partial<Pick<StoredPlay, "name" | "formation" | "playType" | "personnel" | "description" | "tags">> = {}): StoredPlay {
+  return {
+    id: uid("play"),
+    name: (opts.name ?? "Untitled play").slice(0, 160),
+    formation: opts.formation ?? "",
+    playType: opts.playType ?? "pass",
+    personnel: opts.personnel ?? "",
+    description: opts.description ?? "",
+    tags: opts.tags ?? [],
     isPublic: false,
     ownerName: "You",
     fieldView: scene.view,
