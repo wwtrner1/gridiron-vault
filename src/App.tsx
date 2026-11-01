@@ -21,6 +21,7 @@ import { TourProvider } from "./components/Tour";
 import { lazyPage, PageLoading, warmPages, warmPart } from "./lib/lazyPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { applySeo } from "./lib/seo";
+import { getPageMetadata } from "./lib/pageMetadata";
 import { useAuth } from "./lib/auth";
 import { useCaptureLog } from "./lib/captureLog";
 import { setTraceUser } from "./lib/activity";
@@ -53,34 +54,6 @@ const Tutorials = lazyPage(() => import("./pages/Tutorials"), "Tutorials");
 const Privacy = lazyPage(() => import("./pages/Legal"), "Privacy");
 const Terms = lazyPage(() => import("./pages/Legal"), "Terms");
 
-const TITLES: Record<string, string> = {
-  "/": "GridIronVault — Flag Football Playbook Studio",
-  "/build": "Designer — GridIronVault",
-  "/vault": "The Vault — GridIronVault",
-  "/playbooks": "Playbooks — GridIronVault",
-  "/grid": "Call Sheet — GridIronVault",
-  "/starters": "Starter plays — GridIronVault",
-  "/pricing": "Plans — GridIronVault",
-  "/account": "Your account — GridIronVault",
-  "/signin": "Sign in — GridIronVault",
-  "/help": "Help & feedback — GridIronVault",
-  "/privacy": "Privacy Policy — GridIronVault",
-  "/terms": "Terms of Use — GridIronVault",
-  "/wristbands": "Wristbands — GridIronVault",
-  "/language": "Playbook language — GridIronVault",
-  "/upload": "Upload plays — GridIronVault",
-  "/assignments": "Assignments — GridIronVault",
-  "/team": "Your playbook — GridIronVault",
-  "/join": "Team texts sign-up — GridIronVault",
-  "/practice": "Practice — GridIronVault",
-  "/coverage": "Coverage report — GridIronVault",
-  "/admin": "Admin — GridIronVault",
-  "/tools": "More tools — GridIronVault",
-  "/front-office": "Front Office — GridIronVault",
-  "/roster": "My team — GridIronVault",
-  "/tutorials": "Tutorials — GridIronVault",
-  ...Object.fromEntries(Object.entries(COMING_SOON).map(([p, s]) => [p, `${s.title} — GridIronVault`])),
-};
 
 const NAMES: Record<string, string> = {
   "/": "Home",
@@ -129,8 +102,8 @@ function RouteChrome() {
   useEffect(() => {
     notePage(pathname);
     const key = pathname.startsWith("/build") ? "/build" : pathname.startsWith("/team/") ? "/team" : pathname.startsWith("/join/") ? "/join" : pathname;
-    document.title = TITLES[key] ?? "GridIronVault";
-    applySeo(key, document.title);
+    document.title = getPageMetadata(pathname).title;
+    applySeo(pathname);
     setSpoken(`${NAMES[key] ?? "Page not found"} page`);
     if (!pathname.startsWith("/build")) window.scrollTo(0, 0);
   }, [pathname]);
