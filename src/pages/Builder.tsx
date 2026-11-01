@@ -716,6 +716,15 @@ export function Builder() {
     meta,
     playId: existing?.id ?? null,
     onDraw: drawAssistant,
+    // A defense Griddy laid out goes on as one step, picked, like a drop from the Defense library.
+    onAdd: (nodes, label) => {
+      setSetup(null);
+      const z = nextZ(sceneRefValue.current);
+      const placed = nodes.map((n, i) => ({ ...n, z: z + i }));
+      applyScene({ ...sceneRefValue.current, nodes: [...sceneRefValue.current.nodes, ...placed] }, label);
+      setSelection(placed.map((n) => n.id));
+      setStatus(`${label}. Drag, restyle or undo it like anything else.`);
+    },
     // A Griddy bulk edit that includes the open play changes the field too, so the next save keeps it.
     onEdit: (edit, label) => applyScene(edit(sceneRefValue.current), label),
     onMeta: (patch) => setMeta((m) => ({ ...m, ...patch })),

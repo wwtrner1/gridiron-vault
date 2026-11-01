@@ -390,7 +390,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Starters and quick picks",
-            text: "Draw a play, Recolor a letter, Swap a letter, Flip plays, Route colors, Call sheet, Find plays, Paste a playbook, What beats it and Game plan. A pick types a starter into the box for you to finish; nothing sends until you press Send.",
+            text: "Draw a play, Recolor a letter, Swap a letter, Flip plays, Route colors, Call sheet, Find plays, Paste a playbook, What beats it, Game plan, Scout defense and Gap fits. A pick types a starter into the box for you to finish; nothing sends until you press Send.",
             target: ".gd-panel .gd-starters, .gd-panel .gd-picks",
             open: [GRIDDY_OPEN],
             close: GRIDDY_CLOSE,

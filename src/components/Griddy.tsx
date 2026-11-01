@@ -5,6 +5,7 @@ import { api, ApiError, isOffline } from "../lib/api";
 import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
 import { useAuth } from "../lib/auth";
+import { griddyFocus } from "../lib/griddyFocus";
 import { GRIDDY, GRIDDY_LIMITS } from "../lib/griddyLimits";
 import type { GriddyAction, GriddyContext, GriddyTurn } from "../lib/griddy";
 import { gateAi } from "../lib/plan";
@@ -30,6 +31,8 @@ export type GriddyDrawer = {
   /** The saved play open in the Designer, if it has been saved. */
   playId: string | null;
   onDraw: (nodes: SceneNode[], read: AssistantRead) => void;
+  /** Adds nodes to the field as one undoable step and picks them (a defense Griddy laid out). */
+  onAdd: (nodes: SceneNode[], label: string) => void;
   /** Changes the open field in place, as one undoable step (a bulk edit that includes this play). */
   onEdit: (edit: (scene: Scene) => Scene, label: string) => void;
   /** Renames or recategorizes the open play (a flip turns "Trips Right" into "Trips Left"). */
@@ -171,7 +174,8 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
           context: {
             page: document.title.split(" — ")[0] || "GridIronVault",
             game: currentGame(),
-            play: d?.play ?? null,
+            play: d ? { ...d.play, ...(d.playId ? { id: d.playId } : {}) } : null,
+            focus: griddyFocus(),
             ...vaultContext(vaultLooks, explain?.routeSummary, check),
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
@@ -238,23 +242,26 @@ export function useGriddyDrawer(opts: {
   meta: { name: string; formation: string };
   playId: string | null;
   onDraw: GriddyDrawer["onDraw"];
+  onAdd: GriddyDrawer["onAdd"];
   onEdit: GriddyDrawer["onEdit"];
   onMeta: GriddyDrawer["onMeta"];
 }) {
   const { setDrawer } = useGriddy();
-  const handlers = useRef({ onDraw: opts.onDraw, onEdit: opts.onEdit, onMeta: opts.onMeta });
-  handlers.current = { onDraw: opts.onDraw, onEdit: opts.onEdit, onMeta: opts.onMeta };
+  const handlers = useRef({ onDraw: opts.onDraw, onAdd: opts.onAdd, onEdit: opts.onEdit, onMeta: opts.onMeta });
+  handlers.current = { onDraw: opts.onDraw, onAdd: opts.onAdd, onEdit: opts.onEdit, onMeta: opts.onMeta };
   const { scene, tokens, playId } = opts;
   const { name, formation } = opts.meta;
   useEffect(() => {
-    const players = scene.nodes.flatMap((n) => (n.kind === "player" && n.label && !n.hidden ? [n.label] : []));
+    const players = scene.nodes.flatMap((n) => (n.kind === "player" && n.label && !n.hidden && n.side === "offense" ? [n.label] : []));
+    const defenders = scene.nodes.filter((n) => n.kind === "player" && !n.hidden && n.side === "defense").length;
     const lines = scene.nodes.filter((n) => n.kind === "path").length;
     setDrawer({
       scene,
       tokens,
-      play: { name, formation, players, lines },
+      play: { name, formation, players, lines, ...(defenders ? { defenders } : {}), ...(scene.pov === "defense" ? { pov: "defense" as const } : {}) },
       playId,
       onDraw: (nodes, read) => handlers.current.onDraw(nodes, read),
+      onAdd: (nodes, label) => handlers.current.onAdd(nodes, label),
       onEdit: (edit, label) => handlers.current.onEdit(edit, label),
       onMeta: (patch) => handlers.current.onMeta(patch),
     });

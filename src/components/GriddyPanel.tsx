@@ -31,6 +31,8 @@ export const QUICK_PICKS: { label: string; text: string }[] = [
   { label: "Paste a playbook", text: "Add these plays to my Vault:\n" },
   { label: "What beats it", text: "What in my Vault beats Cover 2?" },
   { label: "Game plan", text: "Build a call sheet for a Cover 3 team: 4 openers, 3 third down, 2 red zone" },
+  { label: "Scout defense", text: "Make a defense for Trips Right and tag every defender's job" },
+  { label: "Gap fits", text: "Tag the gap responsibilities on all my defenses" },
 ];
 
 /** **bold** in Griddy's answers; everything else is plain text. */

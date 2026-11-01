@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { GAME_TYPES, type GameType } from "../../src/lib/formations.js";
 import {
+  cleanDefenseCall,
   GRIDDY_LIMITS,
   GRIDDY_SYSTEM,
   GRIDDY_TOOLS,
@@ -63,6 +64,9 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
           formation: str(c.play.formation, 60),
           players: (Array.isArray(c.play.players) ? c.play.players : []).slice(0, 22).map((p) => str(p, 3)),
           lines: Math.max(0, Math.min(999, Number(c.play.lines) || 0)),
+          ...(str(c.play.id, 64) ? { id: str(c.play.id, 64) } : {}),
+          ...(c.play.pov === "defense" ? { pov: "defense" as const } : {}),
+          ...(Number(c.play.defenders) > 0 ? { defenders: Math.min(40, Math.floor(Number(c.play.defenders))) } : {}),
         }
       : null,
     vault: (Array.isArray(c.vault) ? c.vault : []).slice(0, GRIDDY_LIMITS.vault).map((p) => ({
@@ -81,12 +85,18 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       name: str(b?.name, 120),
       plays: Math.max(0, Number(b?.plays) || 0),
     })),
+    focus: null,
     looks: (Array.isArray(c.looks) ? c.looks : []).slice(0, MAX_LOOKS).flatMap((l) => {
       const letter = str(l?.letter, 3).trim().toUpperCase();
       const color = normalizeHex(str(l?.color, 10));
       return LETTER.test(letter) && color ? [{ letter, color, plays: Math.max(0, Math.min(100000, Number(l?.plays) || 0)) }] : [];
     }),
   };
+  // The plays in front of the coach, and the open play's id, only when they are in the Vault list sent.
+  const inVault = new Set(context.vault.map((p) => p.id));
+  if (context.play?.id && !inVault.has(context.play.id)) delete context.play.id;
+  const focusIds = c.focus && Array.isArray(c.focus.ids) ? [...new Set(c.focus.ids.map((id) => String(id)))].filter((id) => inVault.has(id)).slice(0, GRIDDY_LIMITS.vault) : [];
+  if (focusIds.length) context.focus = { label: str(c.focus?.label, 120) || "plays the coach picked", ids: focusIds };
   const terms = (Array.isArray(body.terms) ? body.terms : [])
     .slice(0, 80)
     .map((t) => ({ term: str(t?.term, 60), means: str(t?.means, 200) }))
@@ -99,9 +109,17 @@ function toolInput(a: GriddyAction): unknown {
   if (a.tool === "draw_play") return a.read;
   if (a.tool === "import_plays") return a.playbook ? { plays: a.plays, playbook: a.playbook } : { plays: a.plays };
   if (a.tool === "build_call_sheet") return { name: a.name, lines: a.lines };
+  if (a.tool === "draw_defense") {
+    const { game: _game, ...call } = a.call;
+    return call;
+  }
   if (a.tool === "bulk_edit") {
     const scope =
-      a.scope.kind === "playbook" ? { scope: "playbook", playbook: a.scope.name } : a.scope.kind === "plays" ? { scope: "plays", ids: a.scope.ids } : { scope: "vault" };
+      a.scope.kind === "playbook"
+        ? { scope: "playbook", playbook: a.scope.name }
+        : a.scope.kind === "plays"
+          ? { scope: "plays", ids: a.scope.ids }
+          : { scope: a.scope.kind };
     return { ...scope, ...(a.filter ? { filter: a.filter } : {}), changes: a.changes };
   }
   return { ids: a.ids };
@@ -198,7 +216,7 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
           });
           return names.length ? [{ op: "rename" as const, names }] : [];
         }
-        if (["style", "wristband", "field", "meta", "file"].includes(c?.op)) {
+        if (["style", "wristband", "field", "meta", "file", "gaps", "pov"].includes(c?.op)) {
           const open = cleanOpenChange(c);
           return open ? [open] : [];
         }
@@ -224,6 +242,11 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
         if (!name) return [];
         scope = { kind: "playbook", name };
       }
+      if (input.scope === "open") {
+        // The Designer's field; with nothing open, the card says so rather than reaching into the Vault.
+        if (!ctx.play) return [];
+        scope = { kind: "open" };
+      }
       if (input.scope === "plays") {
         const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));
         // Plays it named that aren't in the Vault would quietly widen to everything; drop the card instead.
@@ -234,6 +257,10 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
       const filter = cleanFilter(input.filter);
       if (input.filter && typeof input.filter === "object" && Object.keys(input.filter).length && !filter) return [];
       return changes.length ? [{ id: u.id, tool: "bulk_edit", scope, ...(filter ? { filter } : {}), changes }] : [];
+    }
+    if (u.name === "draw_defense") {
+      const call = cleanDefenseCall(input, ctx.game);
+      return call ? [{ id: u.id, tool: "draw_defense", call }] : [];
     }
     if (u.name === "show_plays") {
       const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));

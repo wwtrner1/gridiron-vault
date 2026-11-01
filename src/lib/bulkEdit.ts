@@ -1,6 +1,8 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import { convertField } from "./fieldConvert";
 import { swapSides } from "./formations";
+import { BOX_DEPTH, fitGaps, gapsFrom } from "./gapFits";
+import { canTurnAround, turnAround } from "./pov";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
@@ -8,7 +10,7 @@ import type { EndCap, FieldView, LineCurve, LineStyle, PathNode, PlayerNode, Pla
 
 /** Which players, lines or text a style change reaches; everything left out matches. */
 export type StyleWhere = {
-  /** Players with this letter; for lines, the lines those players run. */
+  /** Players with this letter (offense, unless side says defense); for lines, the lines those players run. */
   letter?: string;
   /** The color it wears now: a player's fill, a line's or text's color. */
   color?: string;
@@ -37,7 +39,12 @@ export type StyleSet = {
   endCap?: EndCap;
   fontSize?: number;
   weight?: number;
+  /** Players: a responsibility tag ("A gap", "Contain", "Deep 1/3"), drawn under the token; empty clears it. */
+  job?: string;
 };
+
+/** Longest responsibility tag, as the Selection drawer's box would hold it under a token. */
+export const JOB_MAX = 24;
 
 export type StyleTarget = "players" | "routes" | "text";
 
@@ -99,9 +106,14 @@ export type BulkChange =
   /** The plays are filed in a playbook (made if it doesn't exist), and taken out of `from` when moving. */
   | { op: "file"; playbook: string; from?: string }
   /** New names (and formations) for particular plays, chosen by Griddy from what their diagrams show. */
-  | { op: "rename"; names: { id: string; name: string; formation?: string }[] };
+  | { op: "rename"; names: { id: string; name: string; formation?: string }[] }
+  /** Tags every defender in the box with the gap he owns, from where he lines up; `replace` overwrites tags the coach set. */
+  | { op: "gaps"; replace?: boolean }
+  /** Draws plays from the defense's end, or back from the offense's (only fields without a fixed side). */
+  | { op: "pov"; end: "defense" | "offense" };
 
-export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] };
+/** `open` is the play on the Designer's field, saved or not (the card works on the field itself). */
+export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] } | { kind: "open" };
 
 /** Narrows the scope to one category of play: a type, a tag, a formation. */
 export type BulkFilter = { playType?: PlayMeta["playType"]; tag?: string; formation?: string; field?: FieldView };
@@ -200,7 +212,7 @@ function changePlayer(p: PlayerNode, change: PlayerChange, tokens: TokenPreset[]
 
 function stylePlayer(p: PlayerNode, where: StyleWhere, set: StyleSet): PlayerNode | null {
   if (p.side === "ball") return null;
-  if (where.letter && (p.side !== "offense" || up(p.label) !== up(where.letter))) return null;
+  if (where.letter && (p.side !== (where.side ?? "offense") || up(p.label) !== up(where.letter))) return null;
   if (where.side && p.side !== where.side) return null;
   if (where.color && !sameColor(p.fill, where.color)) return null;
   const next = { ...p };
@@ -212,6 +224,11 @@ function stylePlayer(p: PlayerNode, where: StyleWhere, set: StyleSet): PlayerNod
   if (set.shape) next.shape = set.shape;
   if (set.label != null) next.label = up(set.label).slice(0, 3);
   if (set.outline) next.outlineStyle = set.outline;
+  if (set.job != null) {
+    const job = set.job.trim().slice(0, JOB_MAX);
+    if (job) next.job = job;
+    else delete next.job;
+  }
   return JSON.stringify(next) === JSON.stringify(p) ? null : next;
 }
 
@@ -259,18 +276,47 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
   const firstReads = new Set<string>();
   let nodes = scene.nodes;
   let view = scene.view;
-  let moved: Pick<Scene, "losY" | "pivot"> | null = null;
+  /** Line of scrimmage, pivot and end a field change or a turn left the play with. */
+  let frame: Partial<Pick<Scene, "losY" | "pivot" | "pov">> | null = null;
+  const now = (): Scene => ({ ...scene, ...(frame ?? {}), nodes, view });
   for (const change of changes) {
     if (change.op === "mirror") {
       nodes = nodes.map(mirrorNode);
       nodes.forEach((n) => n.kind === "player" && touched.add(n.id));
       continue;
     }
+    if (change.op === "pov") {
+      const at = now();
+      if ((at.pov === "defense") === (change.end === "defense") || !canTurnAround(view)) continue;
+      const next = turnAround(at);
+      nodes = next.nodes;
+      frame = { ...(frame ?? {}), pov: next.pov, pivot: next.pivot };
+      nodes.forEach((n) => touched.add(n.id));
+      continue;
+    }
+    if (change.op === "gaps") {
+      const jobs = gapJobs(now(), Boolean(change.replace));
+      if (!jobs.size) continue;
+      nodes = nodes.map((n) => {
+        const job = jobs.get(n.id);
+        if (!job || n.kind !== "player") return n;
+        touched.add(n.id);
+        return { ...n, job };
+      });
+      continue;
+    }
     if (change.op === "field") {
+      // An end zone has a fixed side, so a play drawn from the defense's end turns back first, as in the Designer.
+      if (now().pov === "defense" && !canTurnAround(change.view)) {
+        const back = turnAround(now());
+        nodes = back.nodes;
+        frame = { ...(frame ?? {}), pov: back.pov, pivot: back.pivot };
+        nodes.forEach((n) => touched.add(n.id));
+      }
       // Routes keep their depth in yards on the new field, as when the coach changes it in the Designer.
-      const move = convertField({ ...scene, ...moved, nodes, view }, change.view);
+      const move = convertField(now(), change.view);
       view = change.view;
-      if (move.moved) (nodes = move.scene.nodes), (moved = { losY: move.scene.losY, pivot: move.scene.pivot });
+      if (move.moved) (nodes = move.scene.nodes), (frame = { ...(frame ?? {}), losY: move.scene.losY, pivot: move.scene.pivot });
       continue;
     }
     if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
@@ -293,7 +339,7 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
         });
       } else if (change.target === "routes") {
         const runners = where.letter
-          ? nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "offense" && up(n.label) === up(where.letter!))
+          ? nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === (where.side ?? "offense") && up(n.label) === up(where.letter!))
           : null;
         nodes = nodes.map((n) => {
           // Closed paths are zones, not lines anyone runs.
@@ -356,8 +402,11 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       return next;
     });
   }
-  const changed = touched.size > 0 || moved !== null;
-  return { scene: changed || view !== scene.view ? { ...scene, ...moved, ...(changed ? { nodes } : {}), view } : scene, players: touched.size, firstReads: firstReads.size };
+  const changed = touched.size > 0 || frame !== null;
+  const out: Scene = changed || view !== scene.view ? { ...scene, ...frame, ...(changed ? { nodes } : {}), view } : scene;
+  // Turned back to the offense's end: the play carries no pov at all, as the Designer leaves it.
+  if (out !== scene && frame && "pov" in frame && !frame.pov) delete out.pov;
+  return { scene: out, players: touched.size, firstReads: firstReads.size };
 }
 
 export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
@@ -433,6 +482,9 @@ function fileBooks(changes: BulkChange[], plays: StoredPlay[], books: LocalPlayb
   return [...out.values()].filter((f) => JSON.stringify(f.before) !== JSON.stringify(f.after));
 }
 
+/** The id of the stand-in play a card makes from the Designer's field for scope `open`. */
+export const OPEN_PLAY_ID = "griddy-open-play";
+
 /** Which plays a bulk edit changes, and what each looks like afterwards. */
 export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPlaybook[], tokens: TokenPreset[]): BulkPlan {
   let scoped = plays;
@@ -446,6 +498,9 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
   } else if (edit.scope.kind === "plays") {
     const ids = new Set(edit.scope.ids);
     scoped = plays.filter((p) => ids.has(p.id));
+  } else if (edit.scope.kind === "open") {
+    // The Designer's field, handed in as a stand-in play; never the Vault.
+    scoped = plays.filter((p) => p.id === OPEN_PLAY_ID);
   }
   const f = edit.filter;
   if (f) {
@@ -484,6 +539,8 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   const name = (hex: string) => colorLabel(bulkColor(hex) ?? hex);
   const who = (letter: string, only?: string) => (only ? `${name(only).replace(/^./, (ch) => ch.toUpperCase())} ${up(letter)}` : up(letter));
   if (c.op === "mirror") return "Flip left ↔ right";
+  if (c.op === "gaps") return c.replace ? "Tag every gap (replacing tags)" : "Tag the gaps";
+  if (c.op === "pov") return c.end === "defense" ? "Draw from the defense's end" : "Draw from the offense's end";
   if (c.op === "field") return `Field → ${FIELD_LABELS[c.view]}`;
   if (c.op === "wristband") return c.format === "bold" ? "Wristband bold" : "Sideline 2×4";
   if (c.op === "rename") return `Rename ${c.names.length} ${c.names.length === 1 ? "play" : "plays"}`;
@@ -516,6 +573,7 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
       s.endCap && `${s.endCap} end`,
       s.fontSize != null && `${s.fontSize} pt`,
       s.weight != null && `weight ${s.weight}`,
+      s.job != null && (s.job ? `tag "${s.job}"` : "no tag"),
     ]
       .filter(Boolean)
       .join(", ");
@@ -528,7 +586,7 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   return `${who(c.from, c.only)} → ${up(c.to)}${c.color ? ` (${name(c.color)})` : ""}`;
 }
 
-type Look = Pick<PlayerNode, "label" | "fill" | "stroke" | "textColor" | "shape" | "size" | "outlineStyle">;
+type Look = Pick<PlayerNode, "label" | "fill" | "stroke" | "textColor" | "shape" | "size" | "outlineStyle" | "job">;
 const look = (p: PlayerNode): Look => ({
   label: p.label,
   fill: p.fill,
@@ -537,6 +595,7 @@ const look = (p: PlayerNode): Look => ({
   shape: p.shape,
   size: p.size,
   outlineStyle: p.outlineStyle,
+  job: p.job,
 });
 const sameLook = (a: Look, b: Look) => (Object.keys(a) as (keyof Look)[]).every((k) => a[k] === b[k]);
 
@@ -563,10 +622,13 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
   const removed = before.nodes.filter((n) => !kept.has(n.id) && !onField.has(n.id));
   // A field change comes back whole (field, line of scrimmage, pivot) while the play is still on the field it was moved to.
   const unmove = before.view !== after.view && field.view === after.view ? { view: before.view, losY: before.losY, pivot: before.pivot } : {};
-  if (!changed.size && !removed.length && !("view" in unmove)) return field;
-  return {
+  // A turn to the other end comes back too, while the field is still turned the way the edit left it.
+  const unturn = (before.pov ?? null) !== (after.pov ?? null) && (field.pov ?? null) === (after.pov ?? null) ? { pov: before.pov, pivot: before.pivot } : null;
+  if (!changed.size && !removed.length && !("view" in unmove) && !unturn) return field;
+  const back: Scene = {
     ...field,
     ...unmove,
+    ...unturn,
     nodes: [
       ...field.nodes.map((n) => {
         const how = changed.get(n.id);
@@ -577,6 +639,37 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
       ...removed,
     ],
   };
+  if (unturn && !unturn.pov) delete back.pov;
+  return back;
+}
+
+/**
+ * Gap tags for one play: every defender in the box (on the defense's side,
+ * near the ball) gets the gap he lines up over, from the offense's linemen
+ * (or the 11-man spacing in flag). Untagged defenders only, unless `replace`.
+ */
+export function gapJobs(scene: Scene, replace: boolean): Map<string, string> {
+  const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf);
+  const offense = players.filter((p) => p.side === "offense");
+  const defense = players.filter((p) => p.side === "defense");
+  if (!defense.length) return new Map();
+  // The defense stands above the line, or below it when the play is drawn from the defense's end.
+  const dir = scene.pov === "defense" ? 1 : -1;
+  const center = offense.find((p) => up(p.label) === "C");
+  const ballX = center?.x ?? scene.width / 2;
+  const onLine = offense.filter((p) => Math.abs(p.y - scene.losY) <= 30 && p !== center).map((p) => p.x);
+  const gaps = gapsFrom(onLine, ballX);
+  const box = defense.map((p) => ({ x: p.x, depth: Math.max(0, (p.y - scene.losY) * dir) }));
+  const fits = fitGaps(box, gaps, ballX);
+  const out = new Map<string, string>();
+  defense.forEach((p, i) => {
+    const fit = fits[i];
+    if (!fit || box[i].depth > BOX_DEPTH) return;
+    if (p.job && !replace) return;
+    if (p.job === fit) return;
+    out.set(p.id, fit);
+  });
+  return out;
 }
 
 const SHAPES: PlayerShape[] = ["circle", "square", "triangle", "diamond", "cross"];
@@ -594,7 +687,7 @@ const limit = (v: unknown, range: readonly [number, number]) => {
 const text = (v: unknown, max: number) => (v == null ? "" : String(v).slice(0, max).trim());
 
 /**
- * One of the open-ended changes (style, wristband, meta, file) as Griddy sent
+ * One of the open-ended changes (style, wristband, field, meta, file, gaps, pov) as Griddy sent
  * it, checked: unknown values are dropped, and a filter that doesn't parse
  * drops the change rather than widening it. Null when nothing usable is left.
  */
@@ -619,6 +712,11 @@ export function cleanOpenChange(c: Record<string, unknown>): BulkChange | null {
     const playbook = text(c.playbook, 120);
     const from = text(c.from, 120);
     return playbook ? { op: "file", playbook, ...(from && from.toLowerCase() !== playbook.toLowerCase() ? { from } : {}) } : null;
+  }
+  if (c.op === "gaps") return c.replace === true ? { op: "gaps", replace: true } : { op: "gaps" };
+  if (c.op === "pov") {
+    const end = pick(c.end, ["defense", "offense"] as const);
+    return end ? { op: "pov", end } : null;
   }
   if (c.op !== "style") return null;
   const target = pick(c.target, ["players", "routes", "text"] as const);
@@ -658,6 +756,7 @@ export function cleanOpenChange(c: Record<string, unknown>): BulkChange | null {
       if (label === "" || LETTER.test(label)) set.label = label;
     }
     set.outline = pick(s.outline, OUTLINES);
+    if (s.job != null) set.job = text(s.job, JOB_MAX);
   } else if (target === "routes") {
     set.color = color(s.color);
     set.width = limit(s.width, STYLE_LIMITS.width);
