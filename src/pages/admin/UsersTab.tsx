@@ -4,7 +4,7 @@ import { useToast } from "../../lib/toast";
 
 export type AdminUser = {
   id: string; email: string; name: string; signedUpAt: string | null; confirmed: boolean; provider: string;
-  lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none";
+  lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none"; phoneNumber?: string | null;
   deleted: boolean; deletedAt: string | null; plays: number; griddyMonth: number; griddyPeakDay: number;
   photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; flags: string[];
 };
@@ -39,7 +39,7 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
     const needle = q.trim().toLowerCase();
     return (users ?? [])
       .filter((u) => (watch ? u.flags.length > 0 : true))
-      .filter((u) => !needle || `${u.email} ${u.name} ${u.id} ${u.plan}`.toLowerCase().includes(needle));
+      .filter((u) => !needle || `${u.email} ${u.name} ${u.id} ${u.plan} ${u.phoneNumber ?? ""}`.toLowerCase().includes(needle));
   }, [users, q, watch]);
 
   async function download() {
@@ -63,7 +63,7 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
       <div className="adm-bar">
         <label className="adm-search">
           <span className="sr-only">Search users</span>
-          <input type="search" placeholder="Search email, name, plan or id" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input type="search" placeholder="Search email, name, phone, plan or id" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <span className="hint">
           {rows.length} of {users.length}
@@ -95,7 +95,10 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 <td>{when(u.signedUpAt)}</td>
                 <td>{when(u.lastActiveAt ?? u.lastSignInAt)}</td>
                 <td><span className={`pill${u.plan === "master" ? " pill-cyan" : ""}`}>{u.plan}</span></td>
-                <td>{u.phone === "verified" ? "Verified" : "None"}{u.phoneSignups > 1 && ` · ${u.phoneSignups} accounts`}</td>
+                <td>
+                  {u.phoneNumber ?? "None"}
+                  {u.phoneNumber && <small>{u.phone === "verified" ? "verified" : "not verified"}{u.phoneSignups > 1 && ` · ${u.phoneSignups} accounts`}</small>}
+                </td>
                 <td>{u.plays}</td>
                 <td>{u.griddyMonth}{u.griddyPeakDay > 0 && <small>peak {u.griddyPeakDay}/day</small>}</td>
                 <td>{u.exports}{u.exports24h > 0 && <small>{u.exports24h} today</small>}</td>

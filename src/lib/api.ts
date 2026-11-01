@@ -96,7 +96,7 @@ export const api = {
   scan: (body: ScanRequest) =>
     request<ScanFind>("ai/scan", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; security?: Security }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; security?: Security }>("me"),
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
