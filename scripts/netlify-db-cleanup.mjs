@@ -5,15 +5,18 @@
 // Deploy Preview fails with a 500 from createSiteDatabaseBranch (Netlify
 // support case #1159571). Run by .github/workflows/db-branch-cleanup.yml.
 //
-//   MODE=sweep   delete the branch of every git branch that has no open PR
-//   MODE=closed  delete the branch for BRANCH (the PR that just closed)
+//   MODE=sweep   delete every database branch whose git branch has no open PR
+//   MODE=closed  delete the database branch for BRANCH (the PR that just closed)
 //
 // Env: NETLIFY_AUTH_TOKEN, SITE_ID, MODE, BRANCH (closed), KEEP (sweep: one git
 // branch per line to keep), DRY_RUN=true lists without deleting, LIMIT caps
-// how many git branches are deleted in one run.
-// Netlify's delete endpoint takes a deploy id: DELETE
-// /api/v1/sites/{site}/database/branch/{deploy_id}. We try the branch's newest
-// deploys first; a 404 moves on to the next one.
+// how many branches are deleted in one run.
+//
+// API (Netlify's OpenAPI spec): GET /sites/{site}/database/branches lists
+// { branches: [{ branch_id, name, ... }] }, and
+// DELETE /sites/{site}/database/branch/{branch_id} removes one (204). A
+// preview's branch_id is its git branch name. The production branch is never
+// touched.
 
 const API = "https://api.netlify.com/api/v1";
 const token = process.env.NETLIFY_AUTH_TOKEN;
@@ -21,8 +24,8 @@ const site = process.env.SITE_ID;
 const mode = process.env.MODE ?? "sweep";
 const dryRun = process.env.DRY_RUN !== "false";
 const limit = Number(process.env.LIMIT || 0) || Infinity;
-const keep = new Set(["main", ...(process.env.KEEP ?? "").split("\n").map((s) => s.trim()).filter(Boolean)]);
-const TRIES = 5;
+const PROTECTED = new Set(["production", "main"]);
+const keep = new Set([...PROTECTED, ...(process.env.KEEP ?? "").split("\n").map((s) => s.trim()).filter(Boolean)]);
 
 if (!token) fail("NETLIFY_AUTH_TOKEN is missing. Add it under Settings → Secrets and variables → Actions.");
 if (!site) fail("SITE_ID is missing.");
@@ -45,69 +48,48 @@ async function call(method, path) {
   return { status: res.status, body };
 }
 
-/** Every preview and branch deploy, newest first, grouped by git branch. */
-async function deploysByBranch() {
-  const byBranch = new Map();
-  for (let page = 1; ; page++) {
-    const { status, body } = await call("GET", `/sites/${site}/deploys?per_page=100&page=${page}`);
-    if (status === 401 || status === 403) fail(`Netlify refused the token (${status}). Make a new one and update the secret.`);
-    if (status !== 200) fail(`Listing deploys failed (${status}): ${JSON.stringify(body).slice(0, 300)}`);
-    if (!Array.isArray(body) || body.length === 0) break;
-    for (const d of body) {
-      if (d.context !== "deploy-preview" && d.context !== "branch-deploy") continue;
-      if (!d.branch || d.branch === "main") continue;
-      if (!byBranch.has(d.branch)) byBranch.set(d.branch, []);
-      byBranch.get(d.branch).push(d.id);
-    }
-  }
-  return byBranch;
-}
+const short = (body) => (typeof body === "string" ? body : JSON.stringify(body ?? "")).slice(0, 200);
 
-async function deleteBranch(branch, ids) {
-  for (const id of ids.slice(0, TRIES)) {
-    const { status, body } = await call("DELETE", `/sites/${site}/database/branch/${id}`);
-    if (status >= 200 && status < 300) return { ok: true, id };
-    if (status === 404) continue;
-    if (status === 401 || status === 403) fail(`Netlify refused the token (${status}).`);
-    return { ok: false, id, status, detail: JSON.stringify(body).slice(0, 200) };
-  }
-  return { ok: false, status: 404, detail: "no database branch found for its newest deploys (already gone, or never made)" };
-}
+const listed = await call("GET", `/sites/${site}/database/branches`);
+if (listed.status === 401 || listed.status === 403) fail(`Netlify refused to list database branches (${listed.status}): ${short(listed.body)}`);
+if (listed.status !== 200) fail(`Listing database branches failed (${listed.status}): ${short(listed.body)}`);
+const branches = (listed.body?.branches ?? []).map((b) => ({ id: b.branch_id ?? b.name, name: b.name ?? b.branch_id, lastActive: b.last_active_at }));
+const isProtected = (b) => PROTECTED.has(b.id) || PROTECTED.has(b.name);
 
-const byBranch = await deploysByBranch();
 const targets =
   mode === "closed"
-    ? [process.env.BRANCH].filter((b) => byBranch.has(b))
-    : [...byBranch.keys()].filter((b) => !keep.has(b)).sort();
+    ? branches.filter((b) => !isProtected(b) && (b.id === process.env.BRANCH || b.name === process.env.BRANCH))
+    : branches.filter((b) => !isProtected(b) && !keep.has(b.id) && !keep.has(b.name)).sort((a, b) => String(a.lastActive).localeCompare(String(b.lastActive)));
 
 console.log(`Mode: ${mode}${dryRun ? " (dry run: nothing is deleted)" : ""}`);
-console.log(`Git branches with preview deploys: ${byBranch.size}. Kept: ${[...keep].join(", ")}`);
-console.log(`To clean up: ${targets.length}${Number.isFinite(limit) ? ` (this run handles up to ${limit})` : ""}`);
+console.log(`Database branches: ${branches.length} (cap 300). Kept: ${[...keep].join(", ")}`);
+console.log(`To delete: ${targets.length}${Number.isFinite(limit) ? ` (this run handles up to ${limit}, oldest first)` : " (oldest first)"}`);
 
 let deleted = 0;
-let missing = 0;
+let gone = 0;
 const errors = [];
-for (const branch of targets.slice(0, limit)) {
+for (const b of targets.slice(0, limit)) {
   if (dryRun) {
-    console.log(`would delete: ${branch} (${byBranch.get(branch).length} deploys)`);
+    console.log(`would delete: ${b.name} (last active ${b.lastActive ?? "unknown"})`);
     continue;
   }
-  const r = await deleteBranch(branch, byBranch.get(branch));
-  if (r.ok) {
+  const { status, body } = await call("DELETE", `/sites/${site}/database/branch/${encodeURIComponent(b.id)}`);
+  if (status >= 200 && status < 300) {
     deleted++;
-    console.log(`deleted: ${branch} (deploy ${r.id})`);
-  } else if (r.status === 404) {
-    missing++;
-    console.log(`skipped: ${branch}: ${r.detail}`);
+    console.log(`deleted: ${b.name}`);
+  } else if (status === 404) {
+    gone++;
+    console.log(`already gone: ${b.name}`);
   } else {
-    errors.push(`${branch}: ${r.status} ${r.detail}`);
-    console.log(`::warning::${branch}: ${r.status} ${r.detail}`);
+    errors.push(`${b.name}: ${status} ${short(body)}`);
+    console.log(`::warning::${b.name}: ${status} ${short(body)}`);
+    if (status === 401 || status === 403) break;
   }
 }
 
 const summary = dryRun
-  ? `Dry run: ${Math.min(targets.length, limit)} database branches would be deleted.`
-  : `Deleted ${deleted}, already gone ${missing}, errors ${errors.length}.`;
+  ? `Dry run: ${Math.min(targets.length, limit)} of ${branches.length} database branches would be deleted.`
+  : `Deleted ${deleted}, already gone ${gone}, errors ${errors.length}. About ${branches.length - deleted} branches remain.`;
 console.log(summary);
 if (process.env.GITHUB_STEP_SUMMARY) {
   const { appendFileSync } = await import("node:fs");
