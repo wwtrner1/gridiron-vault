@@ -58,6 +58,18 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Brand images and tutorial clips keep their file names between releases, so they get a day
+# in the browser cache and a week of serving the old copy while the new one loads.
+[[headers]]
+  for = "/brand/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/clips/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
 [[headers]]
   for = "/*"
   [headers.values]

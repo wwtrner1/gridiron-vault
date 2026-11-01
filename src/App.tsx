@@ -114,6 +114,9 @@ function RouteChrome() {
   );
 }
 
+/** Public reading pages: the offline warm-up waits until the visitor opens a tool screen. */
+const BROWSING_ONLY = new Set(["/", "/pricing", "/privacy", "/terms"]);
+
 export function App() {
   const { pathname } = useLocation();
   const { account } = useAuth();
@@ -121,10 +124,14 @@ export function App() {
   // The owner's audit: capture signals while signed in, and the trace code exported PDFs carry.
   useCaptureLog(Boolean(account));
   useEffect(() => setTraceUser(account?.id), [account?.id]);
+  // A visitor reading the home page, plans or legal pages hasn't opened a tool yet: don't spend
+  // their data (about 1.5 MB of screens and PDF libraries) until they do. warmPages runs once.
+  const browsing = BROWSING_ONLY.has(pathname);
   useEffect(() => {
+    if (browsing) return;
     const t = window.setTimeout(warmPages, 2500);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [browsing]);
   // Printing at the field with no signal: wristband cards and the export preview need the PDF
   // libraries, which no screen pulls in until a coach presses Print. Warm them after the screens.
   useEffect(() => {

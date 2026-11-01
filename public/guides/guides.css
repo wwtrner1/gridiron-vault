@@ -7,8 +7,8 @@
   --cyan-ink: #087a90;
   --paper: #f5f8fa;
   --border: #dce6ee;
-  --display: "Saira Condensed", "Arial Narrow", sans-serif;
-  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  --display: "Saira Condensed", "Saira Condensed Fallback", "Arial Narrow", sans-serif;
+  --body: "Barlow", "Barlow Fallback", system-ui, -apple-system, sans-serif;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: #fff; color: var(--ink); font: 17px/1.65 var(--body); }
@@ -36,7 +36,9 @@ h2 { margin: 36px 0 10px; font: 700 28px/1.15 var(--display); }
 .g-faq p { margin: 8px 0 0; color: var(--ink-3); }
 .g-cta { margin-top: 40px; padding: 20px; border-radius: 12px; background: var(--ink); color: #e8f1f6; }
 .g-cta h2 { margin-top: 0; color: #fff; }
-.g-link { margin-left: 12px; color: #7fd8ea; font-weight: 600; }
+/* The button and the link sit side by side, or stack on a phone, never overlapping (WCAG 2.5.8). */
+.g-cta p:last-child { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.g-link { display: inline-block; padding: 4px 0; color: #7fd8ea; font-weight: 600; }
 .g-foot { padding: 20px 16px 32px; border-top: 1px solid var(--border); text-align: center; font-size: 14px; color: var(--muted); }
 :focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .g-terms { margin: 24px 0; }

@@ -70,3 +70,55 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   for (const g of ["/guides/", ...GUIDES]) expect(sitemap).toContain(`<loc>https://gridiron-vault.com${g}</loc>`);
   expect(await (await page.request.get("/robots.txt")).text()).toContain("Sitemap: https://gridiron-vault.com/sitemap.xml");
 });
+
+test("search and share tags: the share card on app pages, every public page in the sitemap, guides preload their fonts", async ({ page }) => {
+  await page.goto("/pricing");
+  const card = "https://gridiron-vault.com/social-card.png";
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", card);
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute("content", card);
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+  expect((await page.request.get("/social-card.png")).status()).toBe(200);
+
+  const sitemap = await (await page.request.get("/sitemap.xml")).text();
+  for (const p of ["/", "/pricing", "/starters", "/tutorials", "/help", "/privacy", "/terms"]) {
+    expect(sitemap, p).toContain(`<loc>https://gridiron-vault.com${p}</loc>`);
+  }
+
+  // Each guide preloads the body and headline fonts, and sizes their stand-ins so nothing jumps when they arrive.
+  for (const path of ["/guides/", ...GUIDES]) {
+    const html = await (await page.request.get(path)).text();
+    expect(html, path).toContain('rel="preload" href="/fonts/barlow-400.woff2"');
+    expect(html, path).toContain('rel="preload" href="/fonts/saira-condensed-800.woff2"');
+  }
+  const fonts = await (await page.request.get("/fonts/fonts.css")).text();
+  expect(fonts).toContain('font-family: "Saira Condensed Fallback"');
+  expect(fonts).toContain('font-family: "Barlow Fallback"');
+});
+
+test("a guide's closing button and link don't overlap on a phone, and the header keeps its height while the fonts load", async ({ browser }) => {
+  for (const fonts of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 360, height: 760 } });
+    const page = await context.newPage();
+    if (!fonts) await page.route("**/*.woff2", (r) => r.abort());
+    await page.goto("/guides/flag-football-plays-vs-zone/");
+    if (fonts) await page.evaluate(() => document.fonts.ready);
+    const btn = await page.locator(".g-cta .g-btn").boundingBox();
+    const link = await page.locator(".g-cta .g-link").boundingBox();
+    const apart = btn!.y + btn!.height <= link!.y || link!.x >= btn!.x + btn!.width;
+    expect(apart, `button ${JSON.stringify(btn)} link ${JSON.stringify(link)}`).toBe(true);
+    expect(link!.height).toBeGreaterThanOrEqual(24);
+    // One row of header with the stand-in font as with the real one (it used to wrap to two and push the page down).
+    expect(await page.locator(".g-top").evaluate((el) => el.getBoundingClientRect().height)).toBeLessThan(110);
+    await context.close();
+  }
+});
+
+test("the home page doesn't download the tool screens for offline use until a tool is opened", async ({ page }) => {
+  const asked: string[] = [];
+  page.on("request", (r) => asked.push(r.url()));
+  await page.goto("/");
+  await page.waitForTimeout(5000);
+  expect(asked.filter((u) => /\/assets\/(jspdf|scanPdf|Builder)-/.test(u))).toEqual([]);
+  await page.goto("/vault");
+  await expect.poll(() => asked.some((u) => /\/assets\/jspdf/.test(u)), { timeout: 20_000 }).toBe(true);
+});
