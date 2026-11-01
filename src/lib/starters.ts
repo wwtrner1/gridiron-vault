@@ -81,6 +81,8 @@ export type StarterSpec = PlayMeta & {
   shell?: keyof typeof SHELLS;
   slots?: string;
   assigns: Assign[];
+  /** Responsibility tags drawn under defenders, by slot key ("R" → "Rush", "FS" → "Deep middle"). */
+  jobs?: Record<string, string>;
 };
 
 function tokenScene(spec: StarterSpec) {
@@ -99,6 +101,10 @@ function tokenScene(spec: StarterSpec) {
   const layout = SLOTS[spec.slots ?? spec.formation] ?? SLOTS["Single Back"];
   drop(layout, offenseGroup, 200);
   if (spec.shell) drop(SHELLS[spec.shell], defenseGroup, 180);
+  for (const [key, job] of Object.entries(spec.jobs ?? {})) {
+    const node = byKey.get(key);
+    if (node && node.side === "defense") node.job = job;
+  }
 
   let z = 100;
   for (const a of spec.assigns) {
@@ -474,35 +480,35 @@ export const STARTERS: StarterSpec[] = [
     { on: "CB2", route: "man", to: "Z", color: COVER },
     { on: "LB", route: "man", to: "RB", color: COVER },
     { on: "R", route: "rush", color: RUN },
-  ], { shell: "man", slots: "Spread" }),
+  ], { shell: "man", slots: "Spread", jobs: { R: "Rush", CB1: "Man", CB2: "Man", LB: "Man", FS: "Deep middle" } }),
   P(53, "Cover 1", "Defense", "defense", "Man underneath with a single high safety. The rusher must get home.", ["defense", "cover-1"], [
     { on: "CB1", route: "man", to: "X", color: COVER },
     { on: "CB2", route: "man", to: "Z", color: COVER },
     { on: "LB", route: "man", to: "Y", color: COVER },
     { on: "FS", route: "drop", color: ZONE },
     { on: "R", route: "rush", color: RUN },
-  ], { shell: "cover1", slots: "Spread" }),
+  ], { shell: "cover1", slots: "Spread", jobs: { R: "Rush", CB1: "Man", CB2: "Man", LB: "Man", FS: "Deep middle" } }),
   P(54, "Cover 2", "Defense", "defense", "Two deep halves, corners sit in the flats. Take away the sideline, give up the middle.", ["defense", "cover-2"], [
     { on: "SS", route: "zone", color: ZONE, label: "Deep half" },
     { on: "FS", route: "zone", color: ZONE, label: "Deep half" },
     { on: "CB1", route: "zone", color: COVER, label: "Flat" },
     { on: "CB2", route: "zone", color: COVER, label: "Flat" },
     { on: "R", route: "rush", color: RUN },
-  ], { shell: "cover2", slots: "Spread" }),
+  ], { shell: "cover2", slots: "Spread", jobs: { R: "Rush", CB1: "Flat", CB2: "Flat", SS: "Deep 1/2", FS: "Deep 1/2" } }),
   P(55, "Cover 3", "Defense", "defense", "Three deep thirds, two underneath. The safest call you own.", ["defense", "cover-3"], [
     { on: "CB1", route: "zone", color: ZONE, label: "Deep third" },
     { on: "CB2", route: "zone", color: ZONE, label: "Deep third" },
     { on: "FS", route: "zone", color: ZONE, label: "Deep middle" },
     { on: "LB", route: "zone", color: COVER, label: "Hook" },
     { on: "R", route: "rush", color: RUN },
-  ], { shell: "cover3", slots: "Spread" }),
+  ], { shell: "cover3", slots: "Spread", jobs: { R: "Rush", CB1: "Deep 1/3", CB2: "Deep 1/3", FS: "Deep 1/3", LB: "Middle hook" } }),
   P(56, "Cover 4", "Defense", "defense", "Four deep quarters, nobody rushes. Nothing goes over your head.", ["defense", "cover-4"], [
     { on: "CB1", route: "zone", color: ZONE, label: "Quarter" },
     { on: "CB2", route: "zone", color: ZONE, label: "Quarter" },
     { on: "SS", route: "zone", color: ZONE, label: "Quarter" },
     { on: "FS", route: "zone", color: ZONE, label: "Quarter" },
     { on: "LB", route: "zone", color: COVER, label: "Hook" },
-  ], { shell: "cover4", slots: "Spread" }),
+  ], { shell: "cover4", slots: "Spread", jobs: { CB1: "Deep 1/4", CB2: "Deep 1/4", SS: "Deep 1/4", FS: "Deep 1/4", LB: "Middle hook" } }),
 ];
 
 /** The handful shown free in the public Vault before anyone signs up. */

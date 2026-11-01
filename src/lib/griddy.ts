@@ -1,8 +1,10 @@
 import { ASSISTANT_TOOL, BLOCK_IDS, ROUTE_IDS } from "./assistant";
 import type { AssistantRead } from "./assistant";
 import type { BulkEdit, VaultLook } from "./bulkEdit";
-import { FIELD_IDS, MAX_BULK_CHANGES, nearestColorName } from "./bulkEdit";
+import { FIELD_IDS, JOB_MAX, MAX_BULK_CHANGES, nearestColorName } from "./bulkEdit";
 import { BRAND_COLORS, TEAM_COLORS } from "./colors";
+import type { Coverage, Front } from "./defense";
+import { FORMATION_NAMES } from "./formations";
 import type { GameType } from "./formations";
 
 /**
@@ -23,8 +25,10 @@ export type GriddyPlayRef = { id: string; name: string; formation: string; type:
 export type GriddyContext = {
   page: string;
   game: GameType;
-  /** The play open in the Designer, if any. */
-  play: { name: string; formation: string; players: string[]; lines: number } | null;
+  /** The play open in the Designer, if any: its Vault id once saved, and whether it's drawn from the defense's end. */
+  play: { name: string; formation: string; players: string[]; lines: number; id?: string; pov?: "defense"; defenders?: number } | null;
+  /** The plays the coach has in front of them ("these plays"): picked in the Vault, or the playbook open on Playbooks. */
+  focus?: { label: string; ids: string[] } | null;
   vault: GriddyPlayRef[];
   playbooks: { id: string; name: string; plays: number }[];
   /** Letters and the colors they wear across the whole Vault, so "the green Xs" names a real fill. */
@@ -39,7 +43,58 @@ export type GriddyAction =
   | { id: string; tool: "import_plays"; plays: ImportItem[]; playbook: string | null }
   | { id: string; tool: "show_plays"; ids: string[] }
   | ({ id: string; tool: "bulk_edit" } & BulkEdit)
-  | { id: string; tool: "build_call_sheet"; name: string; lines: CallSheetLine[] };
+  | { id: string; tool: "build_call_sheet"; name: string; lines: CallSheetLine[] }
+  | { id: string; tool: "draw_defense"; call: DefenseCall };
+
+/** Fronts and coverages, as the Defense library names them (listed here so the API function needn't load the library's drawing code). */
+export const DEFENSE_FRONTS = ["4-3", "4-4", "3-4", "5-2", "3-3"] as const satisfies readonly Front[];
+export const DEFENSE_COVERAGES = ["Cover 1", "Cover 2", "Cover 3", "Cover 4", "Man"] as const satisfies readonly Coverage[];
+
+/**
+ * A defense Griddy calls: the app lays it out (the Defense library's fronts
+ * and coverages for 11-man, the flag looks for 5-on-5, the Coverage check's
+ * seven-man looks for 7v7) against the play open in the Designer, or against
+ * a formation from the library (`against`, turned to the left with
+ * `mirrored`). `flip` turns the defense's own strength; `jobs` tags each
+ * defender's gap or coverage job under the token.
+ */
+export type DefenseCall = {
+  name: string;
+  game: GameType;
+  coverage: Coverage;
+  front?: Front;
+  flip?: boolean;
+  jobs?: boolean;
+  against?: string;
+  mirrored?: boolean;
+};
+
+/** The looks each game has: 5-on-5 plays Cover 2, Cover 3 or man under one rusher; 7v7 has no Cover 4. */
+export function coverageFor(game: GameType, coverage: Coverage): Coverage {
+  if (game === "5v5") return coverage === "Cover 1" ? "Man" : coverage === "Cover 4" ? "Cover 2" : coverage;
+  if (game === "7v7") return coverage === "Cover 4" ? "Cover 2" : coverage;
+  return coverage;
+}
+
+/** A defense call as Griddy sent it, checked; null when the coverage isn't one the app lays out. */
+export function cleanDefenseCall(input: Record<string, unknown>, game: GameType): DefenseCall | null {
+  const coverage = (DEFENSE_COVERAGES as readonly string[]).includes(String(input.coverage)) ? (input.coverage as Coverage) : null;
+  if (!coverage) return null;
+  const front = (DEFENSE_FRONTS as readonly string[]).includes(String(input.front)) ? (input.front as Front) : undefined;
+  const against = FORMATION_NAMES.includes(String(input.against)) ? String(input.against) : undefined;
+  const name = String(input.name ?? "").slice(0, 80).trim();
+  const look = game === "11" ? `${front ?? "4-3"} ${coverage}` : coverageFor(game, coverage);
+  return {
+    name: name || `${look}${against ? ` vs ${input.mirrored === true ? against.replace(/\bRight\b/, "Left") : against}` : ""}`,
+    game,
+    coverage: coverageFor(game, coverage),
+    ...(game === "11" ? { front: front ?? "4-3" } : {}),
+    ...(input.flip === true ? { flip: true } : {}),
+    ...(input.jobs === true ? { jobs: true } : {}),
+    ...(against ? { against } : {}),
+    ...(against && input.mirrored === true ? { mirrored: true } : {}),
+  };
+}
 
 /** One row of a call sheet Griddy builds: a Vault play and, if the coach said, when to call it. */
 export type CallSheetLine = { playId: string; group?: string; down?: string; distance?: string; hash?: string };
@@ -102,11 +157,15 @@ export const GRIDDY_TOOLS = [
   {
     name: "bulk_edit",
     description:
-      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, or the color you give, and keeps the old player's routes), recolor the routes a letter runs, clear the letters off player tokens, remove the text boxes from the field, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should; names and formations swap Right and Left too). Any change to players can be narrowed with only, to players wearing that color now. style sets any look the Designer can (player fill, letter color, size, shape, letter, outline; line color, weight, dash, curve, line end; text color, size, weight) on the players, lines or text that match where. rename gives plays new names (and formations) you chose after reading what each diagram shows; wristband applies a one-click wristband look; field puts plays on another field (full, half, red zone, flag 30×70, whiteboard) without moving the drawing; meta changes the play's type and tags; file adds the plays to a playbook or moves them between playbooks. filter narrows any scope to one category of play. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
+      "Change many saved plays at once: recolor every player with a letter, swap one letter for another (the new letter takes its position color and shape, or the color you give, and keeps the old player's routes), recolor the routes a letter runs, clear the letters off player tokens, remove the text boxes from the field, or flip plays left to right (a mirror: every play listed changes sides, so list only the plays that should; names and formations swap Right and Left too). Any change to players can be narrowed with only, to players wearing that color now. style sets any look the Designer can (player fill, letter color, size, shape, letter, outline; line color, weight, dash, curve, line end; text color, size, weight) on the players, lines or text that match where. rename gives plays new names (and formations) you chose after reading what each diagram shows; wristband applies a one-click wristband look; field puts plays on another field (full, half, red zone, flag 30×70, whiteboard) without moving the drawing; meta changes the play's type and tags; file adds the plays to a playbook or moves them between playbooks; gaps tags every defender in the box with the gap he lines up over (A, B, C, D gap), worked out from the drawing; style with set.job tags particular players with any responsibility; pov draws plays from the defense's end or back. filter narrows any scope to one category of play. The app finds the plays, shows the coach how many change with a before and after, and applies nothing until they confirm; they can undo it.",
     input_schema: {
       type: "object",
       properties: {
-        scope: { type: "string", enum: ["vault", "playbook", "plays"], description: "The whole Vault, one playbook, or the plays listed in ids." },
+        scope: {
+          type: "string",
+          enum: ["vault", "playbook", "plays", "open"],
+          description: "The whole Vault, one playbook, the plays listed in ids, or open: the play on the Designer's field right now (saved or not).",
+        },
         playbook: { type: "string", description: "The playbook's name, when scope is playbook." },
         ids: { type: "array", items: { type: "string" }, description: "Vault ids, when scope is plays." },
         filter: {
@@ -126,7 +185,7 @@ export const GRIDDY_TOOLS = [
           items: {
             type: "object",
             properties: {
-              op: { type: "string", enum: ["style", "wristband", "field", "recolor", "swap", "route_color", "clear_letters", "remove_text", "mirror", "meta", "file", "rename"] },
+              op: { type: "string", enum: ["style", "wristband", "field", "recolor", "swap", "route_color", "clear_letters", "remove_text", "mirror", "meta", "file", "rename", "gaps", "pov"] },
               target: { type: "string", enum: ["players", "routes", "text"], description: "style: what to restyle. routes means every line (routes, blocks, motion)." },
               where: {
                 type: "object",
@@ -134,7 +193,7 @@ export const GRIDDY_TOOLS = [
                 properties: {
                   letter: { type: "string", description: "Players with this letter, or the lines they run." },
                   color: { type: "string", description: "The color they wear now, as hex (a player's fill, a line's or text's color)." },
-                  side: { type: "string", enum: ["offense", "defense"], description: "Players only." },
+                  side: { type: "string", enum: ["offense", "defense"], description: "Players only. With letter, defense means the defender with that letter (M, S, E…); letter alone means offense." },
                   lineStyle: { type: "string", enum: ["solid", "dashed", "dotted", "motion"], description: "Lines only: the style they have now." },
                 },
               },
@@ -155,8 +214,14 @@ export const GRIDDY_TOOLS = [
                   endCap: { type: "string", enum: ["none", "arrow", "tee", "dot", "chevron"], description: "tee is a block." },
                   fontSize: { type: "number", description: "Text: 10 to 64." },
                   weight: { type: "number", description: "Text: 400 regular, 600 semi, 800 heavy." },
+                  job: {
+                    type: "string",
+                    description: `Players: a responsibility tag drawn under the token, at most ${JOB_MAX} characters, in the coach's words or the glossary's ("A gap", "3 technique", "Contain", "Spill", "Deep 1/3", "Flat", "Man X"); empty clears it.`,
+                  },
                 },
               },
+              replace: { type: "boolean", description: "gaps: also re-tag defenders the coach already tagged. Leave it off to keep their tags." },
+              end: { type: "string", enum: ["defense", "offense"], description: "pov: draw the plays from the defense's end, or back from the offense's." },
               view: { type: "string", enum: FIELD_IDS, description: "field: the field to put the plays on. half = Half field, full = Full field, redzone = Red zone, flag = Flag 30×70, blank = Whiteboard." },
               format: { type: "string", enum: ["bold", "sideline"], description: "wristband: Wristband bold, or Sideline 2×4." },
               playType: { type: "string", enum: ["pass", "run", "defense", "special"], description: "meta: the new category." },
@@ -221,6 +286,24 @@ export const GRIDDY_TOOLS = [
     },
   },
   {
+    name: "draw_defense",
+    description:
+      "Lay out a defense for the coach: a front and coverage for 11-man, a 5-on-5 flag look (one rusher, Cover 2, Cover 3 or man), or a 7v7 look (Cover 1, 2, 3 or all man), lined up against the play open in the Designer, or against a formation from the library when the coach names one. Man defenders take the receivers outside-in and zone drops are shaded. The coach sees it on a card and puts it on the field or saves it as a defense play; nothing is drawn until they do.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "A short name, e.g. 'Cover 3 vs Trips Right'." },
+        coverage: { type: "string", enum: DEFENSE_COVERAGES, description: "Man is Cover 0 (all man). 5-on-5 has Cover 2, Cover 3 and Man; 7v7 has no Cover 4." },
+        front: { type: "string", enum: DEFENSE_FRONTS, description: "11-man only; 4-3 if the coach didn't say." },
+        against: { type: "string", enum: FORMATION_NAMES, description: "The formation to line up against, when it isn't the play open in the Designer. Trips Left or Bunch Left is the Right formation with mirrored." },
+        mirrored: { type: "boolean", description: "The formation's strength is to the left (Trips Left, Bunch Left)." },
+        flip: { type: "boolean", description: "Turn the defense's own strength to the other side." },
+        jobs: { type: "boolean", description: "Tag each defender's job under the token: gap fits for the front, zone or man for the coverage. On when the coach asks for responsibilities, gaps or assignments." },
+      },
+      required: ["coverage"],
+    },
+  },
+  {
     name: "show_plays",
     description: "Show the coach plays from their own Vault as cards they can open. Use only ids from the Vault list you were given.",
     input_schema: {
@@ -238,7 +321,12 @@ Tools:
 - draw_play: one play, called or described. Also use it to change the play you last proposed: send the whole play again with the change.
 - import_plays: several plays at once (a pasted list, a call sheet, a long dictation, a file). Make one entry per play and keep the coach's words. Up to ${GRIDDY_LIMITS.importPlays} at a time; if there are more, take the first ${GRIDDY_LIMITS.importPlays} and say so.
 - show_plays: find plays in the coach's Vault. Use only ids from the Vault list in the latest context.
+- draw_defense: "make a defense for this formation", "how would a Cover 3 team line up against Trips?", "draw me a 4-3 vs this play", "give me a scout look". The app lines it up; you pick the call. Against the play open in the Designer unless the coach names a formation (then against, with mirrored for a Left set). Pick the coverage like a defensive coordinator would if the coach didn't say: against trips or bunch, a coverage that can rotate to the strength (Cover 3, or Cover 1 with the robber); against two-by-two, Cover 2 or quarters; in the red zone or against empty, man. Say in a sentence why the call fits, and what the offense would attack it with. Turn jobs on when the coach asks about responsibilities, gaps, fits or "who has who".
 - build_call_sheet: a game-day call sheet from the coach's Vault ("4 openers, 3 red zone, 2 goal line"). Pick real Vault plays that fit each situation, by formation, type and tags; say which sections you couldn't fill.
+- "These plays", "this playbook", "the ones I picked": when the context names plays the coach has in front of them, those are the plays. Use their ids (scope plays) for a bulk edit, a call sheet ("build a call sheet from these plays": every one of them, grouped by situation from their type, tags and formation, in a sensible calling order) or show_plays. If nothing is picked and it isn't clear which plays, ask.
+- "This play" in the Designer is scope open for a bulk edit: it changes the field in front of the coach, saved or not.
+- Responsibilities: "tag the gap responsibilities", "who has which gap?", "fill in the gaps" is gaps (scope open in the Designer, else the plays or playbook named; filter playType defense for "all my defenses"). Tags the coach set stay unless they ask to redo them (replace). A tag for particular players is style on players with set.job: "the Mike has the A gap" is where letter M, side defense, set job "A gap"; "tag my ends contain" is letter E, side defense; "X has the flat" is letter X. Tags print under the token and read in the talking points. Use the coach's own terms (in the context) for the tag when they have one.
+- Drawing from the defense's end: "show these from the defense's view", "flip the view" is pov with end defense (back with end offense). It keeps the play the same and turns it round, so defensive coaches read it from their side; the red zone and flag fields stay as they are. Don't confuse it with mirror, which moves the play to the other side of the field.
 - bulk_edit: change many saved plays at once ("make every Y yellow", "take the S out of all my plays and put in an H", "in my Red Zone playbook, swap Z for X", "make all of X's routes red", "remove the letters from my players", "take the text off my plays"). Scope it to the playbook or plays the coach names, else the whole Vault. You don't need to find which plays have the letter; the app does. Colors as hex; palette: ${[...TEAM_COLORS, ...BRAND_COLORS].map((c) => `${c.name} ${c.hex}`).join(", ")}.
 - When the coach names the color players wear now ("all green X receivers are now blue Z receivers"), set only to that color, using the hex from Player looks in the context, so other Xs stay as they are. Do the letter and its new color in one swap with color set; a separate recolor of Z would also repaint the Zs they already have.
 - "Remove the text from the players" or "blank the letters" is clear_letters (every player unless a letter is named). Text boxes on the field are remove_text. If the coach just says "remove all text" and it isn't clear which, ask.
@@ -250,9 +338,15 @@ Tools:
 - Coverage: when the coach talks coverages ("what beats Cover 2 in my Vault?", "what do I call against man?"), the Vault list has a beats column from the app's Coverage check, the same model as the Coverage report page: the format (5v5, 7v7 or 11) and the looks each pass play gets someone open against ("none" when it beats nothing; "-" for runs and plays with no routes). Answer from that column, never from guesswork, and show_plays the plays that beat the look. For a call sheet against an expected coverage ("call sheet for a Cover 3 team"), fill the pass sections with plays whose beats include that look first. If nothing in the Vault beats it, say so and suggest a concept to draw (Smash or Flood against Cover 2 and Cover 3, Mesh or a rub against man), and point to the Coverage check (Designer, Extras) and the Coverage report to test it. It is a teaching model, not a promise.
 - Flipping (mirror) moves every play it's given to the other side; it doesn't know left from right. For "flip my Trips plays to the left", list by id (scope plays) only the plays the Vault shows on the other side now, from their name or formation ("Trips Right"), and leave out plays already on that side. If a play's name and formation don't say its side, leave it out and ask. Use the whole Vault for a mirror only when the coach asks to flip every play.
 
+Where things are in the app (point the coach there when it helps; you can't press buttons for them):
+- Designer: the field. Extras holds Undo, Clean up, Route depths, Field controls (hash marks, snap, rule lines), Vs defense, the Coverage check, View from the defense, New play setup and Flip and save as a new play. The right panel's Play tab has Play intel (name, formation, type, notes, labels), Opponent front (a stock look faded under the play) and the Rules check; the Selection tab has the Style card, Player presets and Responsibility (gap and job tags). Run play animates the play; a clip from the coach's computer or a Hudl or YouTube link can sit beside it, synced to the snap.
+- Vault (every play, filters, bulk bar to export or file), Playbooks (folders, Players links and the Griddy Quiz), Wristbands, Call Sheet, Practice planner, Assignments (one sheet per player), Coverage report, My team (roster, depth chart, team colors and logo), Playbook language (the coach's terms and the gap glossary), Upload (photos, scans, PDFs), Front Office (staff sharing, Draw together).
+
 Letters: Q quarterback, C center, X split end (usually left), Z flanker (usually right), Y tight end or slot, H running back, S slot or second back. In 5v5 flag there are Q, C and three others; in 7v7 Q, C and five receivers; 11-man adds a line.
 
 Route tree: 1 flat, 2 slant, 3 comeback, 4 curl, 5 out, 6 dig, 7 corner, 8 post, 9 go. Other routes: ${ROUTE_IDS.join(", ")}. Blocks: ${BLOCK_IDS.join(", ")}.
+
+Defense letters: E end, T tackle, N nose, M Mike, S Sam (strong side backer), W Will, J Jack, C corner, FS free safety, S strong safety, R rover or rusher. A defender's letter is only the defense's when you say side defense.
 
 Rules:
 - When a request doesn't match a tool exactly, use the closest tool or do it in steps, and say what you did. Don't answer "I can't" when a tool gets most of the way there; the coach confirms every change on a card anyway.
@@ -271,8 +365,12 @@ export function griddyContextText(ctx: GriddyContext, terms: GriddyRequest["term
   const lines = [`The coach is on ${ctx.page} and draws ${ctx.game} plays.`];
   if (ctx.play)
     lines.push(
-      `Open in the Designer: "${ctx.play.name || "Untitled play"}"${ctx.play.formation ? `, ${ctx.play.formation}` : ""}; players ${ctx.play.players.join(" ") || "none"}; ${ctx.play.lines} lines drawn.`,
+      `Open in the Designer: "${ctx.play.name || "Untitled play"}"${ctx.play.formation ? `, ${ctx.play.formation}` : ""}; players ${ctx.play.players.join(" ") || "none"}; ${ctx.play.lines} lines drawn${ctx.play.defenders ? `; ${ctx.play.defenders} defenders on the field` : ""}${ctx.play.pov === "defense" ? "; drawn from the defense's end" : ""}; ${ctx.play.id ? `Vault id ${ctx.play.id}` : "not saved yet"}.`,
     );
+  if (ctx.focus?.ids.length) {
+    const rows = new Map(ctx.vault.map((p, i) => [p.id, i + 1]));
+    lines.push(`In front of the coach ("these plays"): ${ctx.focus.label} — ${ctx.focus.ids.map((id) => `${rows.get(id) ?? "?"} | ${id}`).join("; ")}.`);
+  }
   if (terms.length) lines.push(`The coach's terms:\n${terms.map((t) => `- ${t.term}: ${t.means}`).join("\n")}`);
   lines.push(
     ctx.playbooks.length

@@ -5,12 +5,17 @@ import { api, coachError } from "../lib/api";
 import { ACTION_LABEL, BLOCK_IDS, nearMatch, PLAYER_LETTERS, readToNodes, ROUTE_IDS, trustSaidLetters } from "../lib/assistant";
 import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
-import { describeChange, editScene, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
+import { describeChange, editScene, OPEN_PLAY_ID, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
 import type { BulkEdit, BulkFiling, BulkTarget } from "../lib/bulkEdit";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
 import type { CallSheetLine, GriddyAction, ImportItem } from "../lib/griddy";
-import { currentGame, playFromRead, savePlays } from "../lib/griddyVault";
+import { currentGame, playFromRead, playFromScene, savePlays } from "../lib/griddyVault";
+import { buildDefense, defaultFormation, defenseField } from "../lib/griddyDefense";
+import { DEFENSE_COVERAGES, DEFENSE_FRONTS, coverageFor } from "../lib/griddy";
+import type { DefenseCall } from "../lib/griddy";
+import { unitsPerYard } from "../lib/fieldUnits";
+import { loadRules } from "../lib/rules";
 import { gateGrid, gateSave } from "../lib/plan";
 import { gridFromPlays } from "../lib/sheet";
 import { usePositionTokens } from "../lib/positions";
@@ -29,8 +34,11 @@ import { PlayThumb } from "./PlayThumb";
 export function GriddyActionCard({ action }: { action: GriddyAction }) {
   if (action.tool === "draw_play") return <DrawCard id={action.id} initial={action.read} />;
   if (action.tool === "import_plays") return <ImportCard id={action.id} plays={action.plays} playbook={action.playbook} />;
-  if (action.tool === "bulk_edit") return <BulkCard id={action.id} edit={{ scope: action.scope, changes: action.changes }} />;
+  // The category filter goes along with the scope: without it, "all my run plays" would change every play in scope.
+  if (action.tool === "bulk_edit")
+    return <BulkCard id={action.id} edit={{ scope: action.scope, ...(action.filter ? { filter: action.filter } : {}), changes: action.changes }} />;
   if (action.tool === "build_call_sheet") return <CallSheetCard id={action.id} name={action.name} lines={action.lines} />;
+  if (action.tool === "draw_defense") return <DefenseCard id={action.id} call={action.call} />;
   return <PlaysCard ids={action.ids} />;
 }
 
@@ -433,7 +441,21 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
   const tokens = usePositionTokens();
   const plays = useStore((s) => s.plays);
   const books = useStore((s) => s.playbooks);
-  const live = useMemo(() => planBulkEdit(edit, plays, books, tokens), [edit, plays, books, tokens]);
+  // "This play": the saved play open in the Designer, or the field itself (a stand-in play) when it isn't saved.
+  const onField = edit.scope.kind === "open";
+  const standIn = useMemo<StoredPlay | null>(() => {
+    if (!onField || !drawer || (drawer.playId && plays.some((p) => p.id === drawer.playId))) return null;
+    return { ...playFromScene(drawer.scene), id: OPEN_PLAY_ID, name: drawer.play.name || "This play", formation: drawer.play.formation };
+  }, [onField, drawer, plays]);
+  const scoped = useMemo<BulkEdit>(
+    () => (onField && drawer?.playId && !standIn ? { ...edit, scope: { kind: "plays", ids: [drawer.playId] } } : edit),
+    [edit, onField, drawer?.playId, standIn],
+  );
+  const live = useMemo(() => {
+    const plan = planBulkEdit(scoped, standIn ? [standIn] : plays, books, tokens);
+    // A play that isn't saved can't be filed in a playbook yet.
+    return standIn ? { ...plan, filings: [] } : plan;
+  }, [scoped, standIn, plays, books, tokens]);
   /** What was written, kept for Undo. */
   const [applied, setApplied] = useState<{ targets: BulkTarget[]; filings: BulkFiling[] } | null>(null);
   const [undone, setUndone] = useState(false);
@@ -442,7 +464,13 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
 
   const changes = edit.changes.map((c) => describeChange(c, (hex) => colorName(hex).toLowerCase()));
   const where =
-    edit.scope.kind === "vault" ? "your whole Vault" : edit.scope.kind === "playbook" ? `the playbook "${edit.scope.name}"` : `${edit.scope.ids.length} picked plays`;
+    edit.scope.kind === "vault"
+      ? "your whole Vault"
+      : edit.scope.kind === "playbook"
+        ? `the playbook "${edit.scope.name}"`
+        : edit.scope.kind === "open"
+          ? "the play on the field"
+          : `${edit.scope.ids.length} picked plays`;
   const targets = applied?.targets ?? live.targets;
   const filings = applied?.filings ?? live.filings;
   const band = edit.changes.find((c) => c.op === "wristband");
@@ -460,6 +488,18 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
     const books = live.filings;
     if (!list.length && !books.length && !band) return;
     setBusy(true);
+    if (standIn && drawer) {
+      // Nothing in the Vault changes: the field does, as one undoable step, and the coach saves it.
+      drawer.onEdit((field) => editScene(field, edit.changes, tokens).scene, changeLabel);
+      const after = list[0]?.after;
+      if (after) drawer.onMeta({ name: after.name, formation: after.formation });
+      setApplied({ targets: list, filings: [] });
+      setOutcome(id, `The coach applied ${changes.join(", ")} to the play on the Designer's field (${list.reduce((n, t) => n + t.players, 0)} players or lines changed). It isn't saved yet.`);
+      toast("Changed on the field. Save the play to keep it.");
+      dance();
+      setBusy(false);
+      return;
+    }
     try {
       await writePlays(
         list.map((t) => t.after),
@@ -495,6 +535,16 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
   async function undo() {
     if (!applied) return;
     setBusy(true);
+    if (standIn && drawer && applied.targets[0]) {
+      const t = applied.targets[0];
+      drawer.onEdit((field) => restorePlayers(field, t.before.scene, t.after.scene), `Undo ${changeLabel}`);
+      drawer.onMeta({ name: t.before.name, formation: t.before.formation });
+      setUndone(true);
+      setOutcome(id, "The coach applied the change to the play on the field, then undid it.");
+      toast("The play is back the way it was.");
+      setBusy(false);
+      return;
+    }
     try {
       // Only plays still exactly as the bulk edit left them go back; anything edited since is kept.
       const current = new Map(store.get().plays.map((p) => [p.id, p]));
@@ -531,7 +581,9 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
           </span>
         ))}
       </div>
-      {live.missingBook && !applied ? (
+      {onField && !drawer && !applied ? (
+        <p className="pa-error">Open the play in the Designer, then ask me again: this change is for the play on the field.</p>
+      ) : live.missingBook && !applied ? (
         <p className="pa-error">There's no playbook called "{live.missingBook}". Tell me which one you mean.</p>
       ) : !anything ? (
         <p className="gd-done">None of the {live.inScope} plays here have anything to change.</p>
@@ -707,6 +759,122 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
           <button type="button" className="pa-btn is-primary" onClick={() => void create()} disabled={busy || !rows.length}>
             {busy ? "Creating…" : "Create the call sheet"}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 5-on-5 and 7v7 lay out fewer coverages; the card offers only the ones the game has. */
+const coveragesFor = (game: DefenseCall["game"]) => DEFENSE_COVERAGES.filter((c) => coverageFor(game, c) === c);
+
+/**
+ * A defense Griddy called, laid out by the app against the play on the
+ * field (or a formation from the library). The coach can change the front,
+ * coverage and strength, tag every defender's job, then put it on the field
+ * or save it as a defense play. Nothing is drawn or saved until they do.
+ */
+function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
+  const { drawer, outcomes, setOutcome, setOpen, dance } = useGriddy();
+  const { account } = useAuth();
+  const tier = useTier();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const vaultSize = useStore((s) => s.plays.length);
+  const ownTokens = usePositionTokens();
+  const [call, setCall] = useState(initial);
+  const done = outcomes[id];
+  // A named formation is drawn as a scout offense; with none, the play on the field, else a stock set.
+  const onField = Boolean(drawer && !call.against);
+  const tokens = drawer?.tokens ?? ownTokens;
+  const field = onField && drawer ? drawer.scene : null;
+  const rush = (view: Parameters<typeof unitsPerYard>[0]) => (loadRules().rush || 7) * (unitsPerYard(view) || 14.4);
+  const built = useMemo(() => (field ? buildDefense(call, field, tokens, rush(field.view)) : null), [call, field, tokens]); // eslint-disable-line react-hooks/exhaustive-deps
+  const alone = useMemo(() => defenseField(call, tokens, rush("half")), [call, tokens]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = field && built ? { ...field, nodes: [...field.nodes, ...built.nodes] } : alone;
+  const against = call.against ? `${call.mirrored ? call.against.replace(/\bRight\b/, "Left") : call.against}` : onField ? drawer?.play.name || "the play on the field" : defaultFormation(call);
+  const offenseCount = (field ?? alone).nodes.filter((n) => n.kind === "player" && n.side === "offense").length;
+  const change = (patch: Partial<DefenseCall>) => setCall((c) => ({ ...c, ...patch }));
+
+  function put() {
+    if (!drawer) return;
+    const nodes = built?.nodes ?? defenseField(call, tokens, rush(drawer.scene.view)).nodes;
+    drawer.onAdd(nodes, `Griddy: ${call.name}`);
+    setOutcome(id, `The coach put ${call.name} (${built?.look ?? call.coverage}${call.jobs ? ", jobs tagged" : ""}) on the field in the Designer.`);
+    dance();
+    if (window.matchMedia("(max-width: 900px)").matches) setOpen(false);
+  }
+
+  async function save(open: boolean) {
+    const gate = gateSave(tier, vaultSize);
+    if (!gate.ok) return toast(gate.reason, true);
+    const play = playFromScene(alone, {
+      name: call.name,
+      formation: call.against ? against : defaultFormation(call),
+      playType: "defense",
+      personnel: call.game === "11" ? "" : call.game,
+      description: `Drawn by ${GRIDDY}: ${call.name}.`,
+      tags: ["griddy", "scout"],
+    });
+    const [saved] = await savePlays([play], { playbook: null, signedIn: Boolean(account) });
+    setOutcome(id, `The coach saved "${saved.name}" to the Vault as a defense play (id ${saved.id})${open ? " and opened it in the Designer" : ""}.`);
+    toast(`${saved.name} saved to your Vault.`);
+    dance();
+    if (open) navigate(`/build/${saved.id}`);
+  }
+
+  return (
+    <div className="pa-read gd-card gd-defense">
+      <p className="pa-kicker">
+        Defense · {call.name} vs {against}
+      </p>
+      <div className="pa-chips">
+        {call.game === "11" && (
+          <label className="pa-chip">
+            Front ·{" "}
+            <select value={call.front ?? "4-3"} onChange={(e) => change({ front: e.target.value as DefenseCall["front"] })} disabled={Boolean(done)} aria-label="Front">
+              {DEFENSE_FRONTS.map((f) => (
+                <option key={f}>{f}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="pa-chip">
+          Coverage ·{" "}
+          <select value={call.coverage} onChange={(e) => change({ coverage: e.target.value as DefenseCall["coverage"] })} disabled={Boolean(done)} aria-label="Coverage">
+            {coveragesFor(call.game).map((c) => (
+              <option key={c} value={c}>
+                {c === "Man" ? "Man (Cover 0)" : c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="pa-chip">
+          <input type="checkbox" checked={Boolean(call.flip)} onChange={(e) => change({ flip: e.target.checked })} disabled={Boolean(done)} /> Flip strength
+        </label>
+        <label className="pa-chip">
+          <input type="checkbox" checked={Boolean(call.jobs)} onChange={(e) => change({ jobs: e.target.checked })} disabled={Boolean(done)} /> Tag each defender's job
+        </label>
+      </div>
+      {!offenseCount && !done && <p className="pa-unsure">No offense on the field yet, so man defenders are placed without lines. Draw or drop a formation first.</p>}
+      <div className="pa-preview">
+        <PlayThumb scene={preview} label={`Preview of ${call.name}`} />
+        <span className="pa-badge">{done ? "Done" : "Preview · not drawn until confirmed"}</span>
+      </div>
+      {done ? (
+        <p className="gd-done">
+          <Icon name="check" size={14} /> {done.replace(/ \(id [^)]+\)/, "").replace(/^The coach/, "You")}
+        </p>
+      ) : (
+        <div className="pa-acts">
+          <button type="button" className="pa-btn" onClick={() => void save(!drawer)}>
+            {drawer ? "Save as a defense play" : "Save and open it"}
+          </button>
+          {drawer && (
+            <button type="button" className="pa-btn is-primary" onClick={put}>
+              Put it on the field
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
@@ -10,6 +10,7 @@ import { lazyPage } from "../lib/lazyPage";
 import { PlayerLink } from "../components/PlayerLink";
 import { WorkTabs } from "../components/WorkTabs";
 import { store, useStore, type LocalPlaybook } from "../lib/store";
+import { setGriddyFocus } from "../lib/griddyFocus";
 import { useTier } from "../lib/tier";
 import { useToast } from "../lib/toast";
 import { uid } from "../lib/types";
@@ -65,6 +66,11 @@ export function Playbooks() {
   const playsById = useMemo(() => new Map(plays.map((p) => [p.id, p])), [plays]);
   const current = books.find((b) => b.id === openBook) ?? null;
   const exportBook = books.find((b) => b.id === exporting) ?? null;
+  // "These plays" / "this playbook" to Griddy: the playbook open here, in its order.
+  useEffect(() => {
+    setGriddyFocus("playbooks", current ? { label: `the playbook "${current.name}" open on Playbooks, in its order`, ids: current.playIds } : null);
+  }, [current]);
+  useEffect(() => () => setGriddyFocus("playbooks", null), []);
   const linkBook = books.find((b) => b.id === linking) ?? null;
 
   const unfiled = useMemo(() => {

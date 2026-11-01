@@ -14,23 +14,83 @@ export const COVERAGES = ["Cover 3", "Cover 1", "Cover 2", "Cover 4", "Man"] as 
 export type Front = (typeof FRONTS)[number];
 export type Coverage = (typeof COVERAGES)[number];
 
-type Spot = [number, number, string];
+/**
+ * The offensive line a front aligns on: blockers' offsets across the field
+ * from the ball (center at 0) and any tight ends. The layout always calls the
+ * strength to the right (+dx); a caller with a left-handed set mirrors the
+ * line and receivers, lays the defense out, then mirrors it back.
+ */
+export type LineSet = { ol: number[]; tes: number[] };
+/** An 11-man line 50 apart, as the Formation library draws it, and no tight end. */
+export const STANDARD_LINE: LineSet = { ol: [-100, -50, 0, 50, 100], tes: [] };
 
-const LINE: Record<number, Spot[]> = {
-  3: [[-90, -26, "E"], [0, -26, "N"], [90, -26, "E"]],
-  4: [[-110, -26, "E"], [-38, -26, "N"], [38, -26, "T"], [110, -26, "E"]],
-  5: [[-150, -26, "E"], [-75, -26, "T"], [0, -26, "N"], [75, -26, "T"], [150, -26, "E"]],
-};
+/** A shoulder: how far off a blocker's middle a shaded defender lines up. */
+const SHOULDER = 16;
+const DL_DEPTH = -26;
+const LB_DEPTH = -84;
+const EDGE_DEPTH = -66;
 
-const BACKERS: Record<Front, Spot[]> = {
-  "4-3": [[-120, -86, "S"], [0, -80, "M"], [130, -86, "W"]],
-  "4-4": [[-200, -80, "S"], [-62, -86, "M"], [62, -86, "J"], [200, -80, "W"]],
-  "3-4": [[-190, -70, "S"], [-60, -86, "M"], [60, -86, "J"], [190, -70, "W"]],
-  "5-2": [[-70, -86, "M"], [70, -86, "W"]],
-  "3-3": [[-130, -86, "S"], [0, -86, "M"], [130, -86, "W"]],
-};
+type FrontSpot = { dx: number; dy: number; label: string; tag: string; role: "dl" | "lb" };
 
-const LINE_COUNT: Record<Front, number> = { "4-3": 4, "4-4": 4, "3-4": 3, "5-2": 5, "3-3": 3 };
+/** Where the blockers stand, strength right: guards, tackles and the tight end on each side (filled in when missing). */
+function blockers(line: LineSet) {
+  const ol = [...line.ol].sort((a, b) => a - b);
+  const right = ol.filter((x) => x > 8);
+  const left = ol.filter((x) => x < -8).reverse();
+  const gS = right[0] ?? 50;
+  const tS = right.length > 1 ? right[right.length - 1] : gS + 50;
+  const gW = left[0] ?? -50;
+  const tW = left.length > 1 ? left[left.length - 1] : gW - 50;
+  const teS = line.tes.filter((x) => x > tS).sort((a, b) => a - b)[0] ?? null;
+  const teW = line.tes.filter((x) => x < tW).sort((a, b) => b - a)[0] ?? null;
+  return { gS, tS, gW, tW, teS, teW };
+}
+
+/**
+ * The front seven, aligned on the line by technique (the numbering in the
+ * Playbook language glossary) with a gap for every backer, strength right.
+ * Every gap from the weak C to the strong D has an owner, so the front is
+ * sound against the run before the coverage is laid over it.
+ */
+function frontSpots(front: Front, line: LineSet): FrontSpot[] {
+  const { gS, tS, gW, tW, teS, teW } = blockers(line);
+  const dl = (dx: number, label: string, tag: string): FrontSpot => ({ dx, dy: DL_DEPTH, label, tag, role: "dl" });
+  const lb = (dx: number, label: string, tag: string, dy = LB_DEPTH): FrontSpot => ({ dx, dy, label, tag, role: "lb" });
+  const fiveW = dl(tW - SHOULDER, "E", "5 technique");
+  const fiveS = dl(tS + SHOULDER, "E", "5 technique");
+  const zero = dl(0, "N", "0 technique");
+  // The strong-side end: outside the tight end when there is one (9), else outside the tackle (5).
+  const endS = teS !== null ? dl(teS + SHOULDER, "E", "9 technique") : fiveS;
+  const bW = (gW + tW) / 2;
+  const bS = (gS + tS) / 2;
+  // The Sam: the C gap inside a 9 technique, or the edge (contain) when nobody is outside the tackle.
+  const sam = teS !== null ? lb((tS + teS) / 2, "S", "C gap") : lb(tS + 80, "S", "Contain", EDGE_DEPTH);
+  const willEdge = teW !== null ? lb(teW - 24, "W", "D gap", EDGE_DEPTH) : lb(tW - 80, "W", "Contain", EDGE_DEPTH);
+  const samEdge = teS !== null ? lb(teS + 24, "S", "D gap", EDGE_DEPTH) : lb(tS + 80, "S", "Contain", EDGE_DEPTH);
+  switch (front) {
+    case "4-3":
+      // Over front: the 3 technique to the strength, the 1 technique shaded weak on the center.
+      return [fiveW, dl(-SHOULDER, "N", "1 technique"), dl(gS + SHOULDER, "T", "3 technique"), endS, lb(bW, "W", "B gap"), lb(gS / 2, "M", "A gap"), sam];
+    case "4-4":
+      return [fiveW, dl(-SHOULDER, "N", "1 technique"), dl(gS + SHOULDER, "T", "3 technique"), endS, willEdge, lb(bW, "J", "B gap"), lb(gS / 2, "M", "A gap"), sam];
+    case "3-4":
+      // Okie: a two-gapping nose, 5 techniques, inside backers in the B gaps and the outside backers on the edge.
+      return [fiveW, zero, fiveS, willEdge, lb(bW, "J", "B gap"), lb(bS, "M", "B gap"), samEdge];
+    case "5-2":
+      return [
+        teW !== null ? dl(teW - SHOULDER, "E", "9 technique") : dl(tW - 60, "E", "Contain"),
+        dl(tW - SHOULDER, "T", "5 technique"),
+        zero,
+        dl(tS + SHOULDER, "T", "5 technique"),
+        teS !== null ? dl(teS + SHOULDER, "E", "9 technique") : dl(tS + 60, "E", "Contain"),
+        lb(bW, "W", "B gap"),
+        lb(bS, "M", "B gap"),
+      ];
+    case "3-3":
+      // Stack: the backers sit behind the three down men and fill what the nose leaves.
+      return [fiveW, zero, fiveS, lb(bW, "W", "B gap", LB_DEPTH - 2), lb(0, "M", "A gap", LB_DEPTH - 2), lb(bS, "S", "B gap", LB_DEPTH - 2)];
+  }
+}
 
 /** Secondary alignment per coverage, by label. */
 const SHELL: Record<Coverage, Record<string, [number, number]>> = {
@@ -70,7 +130,14 @@ const PLAN: Record<Coverage, { deep: string[]; zones: Zone[]; robber?: string; m
   Man: { deep: [], zones: [], man: true },
 };
 
-export type Defender = { dx: number; dy: number; label: string; job: "rush" | "zone" | "man" };
+export type Defender = {
+  dx: number;
+  dy: number;
+  label: string;
+  job: "rush" | "zone" | "man";
+  /** The responsibility tag the drop puts under the token: a technique, a gap or a coverage job ("3 technique", "B gap", "Deep 1/3"). */
+  tag?: string;
+};
 export type Line = { from: number; to: { dx: number; dy: number }; kind: "drop" | "man" | "rush" };
 export type DefenseLayout = { defenders: Defender[]; zones: Zone[]; lines: Line[] };
 
@@ -79,16 +146,22 @@ export type DefenseLayout = { defenders: Defender[]; zones: Zone[]; lines: Line[
  * players (offsets from the ball); man defenders are matched to them
  * outside-in. With no receivers, man defenders are placed without lines.
  */
-export function layoutDefense(front: Front, coverage: Coverage, receivers: { dx: number; dy: number }[] = []): DefenseLayout {
+export function layoutDefense(
+  front: Front,
+  coverage: Coverage,
+  receivers: { dx: number; dy: number }[] = [],
+  line: LineSet = STANDARD_LINE,
+): DefenseLayout {
   const shell = SHELL[coverage];
   const plan = PLAN[coverage];
-  const dl = LINE[LINE_COUNT[front]];
-  const lb = BACKERS[front];
+  const seven = frontSpots(front, line);
+  const dl = seven.filter((s) => s.role === "dl");
+  const lb = seven.filter((s) => s.role === "lb");
   const dbKeys = DBS[11 - dl.length - lb.length];
 
   const defenders: Defender[] = [
-    ...dl.map(([dx, dy, label]): Defender => ({ dx, dy, label, job: "rush" })),
-    ...lb.map(([dx, dy, label]): Defender => ({ dx, dy, label, job: "zone" })),
+    ...dl.map(({ dx, dy, label, tag }): Defender => ({ dx, dy, label, tag, job: "rush" })),
+    ...lb.map(({ dx, dy, label, tag }): Defender => ({ dx, dy, label, tag, job: "zone" })),
     ...dbKeys.map((k): Defender => {
       const [dx, dy] = shell[k];
       return { dx, dy, label: k === "CL" || k === "CR" ? "C" : k, job: "zone" };
@@ -118,6 +191,7 @@ export function layoutDefense(front: Front, coverage: Coverage, receivers: { dx:
     if (i === undefined) i = coverers.find((j) => defenders[j].label === "M");
     if (i !== undefined) {
       taken.add(i);
+      if (keyOf(i)) defenders[i].tag = "Robber";
       zones.push(zone);
       lines.push({ from: i, to: { dx: zone.dx, dy: zone.dy }, kind: "drop" });
     }
@@ -132,7 +206,8 @@ export function layoutDefense(front: Front, coverage: Coverage, receivers: { dx:
       const i = nearest(defenders, r.dx, (j) => left.has(j));
       if (i < 0) break;
       left.delete(i);
-      defenders[i].job = "man";
+      // A backer in man coverage plays his man, not his gap: the tag says so.
+      defenders[i] = { ...defenders[i], job: "man", tag: "Man" };
       lines.push({ from: i, to: r, kind: "man" });
     }
     if (receivers.length) for (const i of left) defenders[i].job = "rush";
@@ -156,12 +231,44 @@ export function layoutDefense(front: Front, coverage: Coverage, receivers: { dx:
   }
 
   defenders.forEach((d, i) => {
-    if (d.job !== "rush") return;
-    const out = d.dx === 0 ? 0 : Math.sign(d.dx) * 6;
-    lines.push({ from: i, to: { dx: d.dx + out, dy: d.dy + 22 + (d.dy < -40 ? 30 : 0) }, kind: "rush" });
+    if (d.job === "rush") lines.push({ from: i, to: rushTo(d), kind: "rush" });
   });
 
-  return { defenders, zones, lines };
+  // The front seven keep their technique or gap; the secondary is tagged by its coverage job.
+  return tagCoverage({ defenders, zones, lines });
+}
+
+/** Where a rusher's short line ends: up through his gap, a step outside when he isn't on the ball. */
+export function rushTo(d: { dx: number; dy: number }) {
+  const out = d.dx === 0 ? 0 : Math.sign(d.dx) * 6;
+  return { dx: d.dx + out, dy: d.dy + 22 + (d.dy < -40 ? 30 : 0) };
+}
+
+/**
+ * Coverage jobs for every defender the layout hasn't tagged: rushers and
+ * blitzers, man defenders, the deep zones by how many there are (thirds,
+ * halves, quarters) and the underneath ones by where they sit.
+ */
+export function tagCoverage(layout: DefenseLayout): DefenseLayout {
+  const drops = new Map<number, { dx: number; dy: number }>();
+  for (const l of layout.lines) if (l.kind === "drop") drops.set(l.from, l.to);
+  const deepOf = (i: number) => {
+    const to = drops.get(i);
+    return !!to && to.dy <= -230;
+  };
+  const deepCount = layout.defenders.filter((d, i) => d.job === "zone" && deepOf(i)).length;
+  const deepName = deepCount === 1 ? "Deep middle" : deepCount === 2 ? "Deep 1/2" : deepCount === 4 ? "Deep 1/4" : "Deep 1/3";
+  const defenders = layout.defenders.map((d, i): Defender => {
+    if (d.tag) return d;
+    if (d.job === "rush") return { ...d, tag: d.dy < -40 ? "Blitz" : "Rush" };
+    if (d.job === "man") return { ...d, tag: "Man" };
+    const to = drops.get(i);
+    if (!to) return { ...d, tag: "Zone" };
+    if (deepOf(i)) return { ...d, tag: deepName };
+    const across = Math.abs(to.dx);
+    return { ...d, tag: across >= 250 ? "Flat" : across < 60 ? "Middle hook" : "Hook/curl" };
+  });
+  return { ...layout, defenders };
 }
 
 function nearest(defenders: Defender[], dx: number, ok: (i: number) => boolean): number {
@@ -186,7 +293,7 @@ export const describeDefense = (front: Front, coverage: Coverage, show: boolean)
   `${front} ${coverage}${!show ? "" : coverage === "Man" ? " with man coverage lines shown" : coverage === "Cover 1" ? " with zone drops and man lines shown" : " with zone drops shown"}`;
 
 /** Scene nodes for a laid-out defense around the ball at `ball`, all in one group. */
-export function defenseNodes(layout: DefenseLayout, ball: Point, show: boolean, z: number): SceneNode[] {
+export function defenseNodes(layout: DefenseLayout, ball: Point, show: boolean, z: number, tags = false): SceneNode[] {
   const group = uid("grp");
   const at = (dx: number, dy: number): Point => ({ x: ball.x + dx, y: ball.y + dy });
   const nodes: SceneNode[] = [];
@@ -228,6 +335,7 @@ export function defenseNodes(layout: DefenseLayout, ball: Point, show: boolean, 
       ),
       size: 30,
       outlineStyle: "none",
+      ...(tags && d.tag ? { job: d.tag } : {}),
     });
   }
   return nodes.map((n, i) => ({ ...n, groupId: group, z: z + i }));
@@ -244,7 +352,7 @@ export type FlagLook = (typeof FLAG_LOOKS)[number];
  */
 export function layoutFlagDefense(look: FlagLook, rushUnits: number, receivers: { dx: number; dy: number }[] = []): DefenseLayout {
   const rush = Math.max(30, rushUnits);
-  const defenders: Defender[] = [{ dx: 0, dy: -rush, label: "R", job: "rush" }];
+  const defenders: Defender[] = [{ dx: 0, dy: -rush, label: "R", job: "rush", tag: "Rush" }];
   const zones: Zone[] = [];
   const lines: Line[] = [{ from: 0, to: { dx: 0, dy: 26 }, kind: "rush" }];
   const add = (dx: number, dy: number, label: string, zone?: Zone) => {
@@ -276,7 +384,7 @@ export function layoutFlagDefense(look: FlagLook, rushUnits: number, receivers: 
       lines.push({ from: i, to: r, kind: "man" });
     }
   }
-  return { defenders, zones, lines };
+  return tagCoverage({ defenders, zones, lines });
 }
 
 /** A defense turned left to right about the ball: defenders, zones and drop spots all change sign across the field. */

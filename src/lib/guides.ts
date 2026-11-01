@@ -176,6 +176,13 @@ export const GUIDES: Guide[] = [
             close: EXTRAS,
           },
           {
+            title: "Turn this offense into a defense",
+            text: "Reads the offense on the field (personnel, trips or 2x2, where the strength is) and drops a front and coverage that fit it, lined up on the real blockers by technique, with every defender's gap, technique or coverage job written under him. A defense already on the field is replaced; Undo brings it back. Also on the Sets tab's Defense list.",
+            target: tour("dz-match-defense"),
+            open: [EXTRAS],
+            close: EXTRAS,
+          },
+          {
             title: "New play, setup, live, flip",
             text: "New play… starts another play, and asks to save this one first if it has changes. New play setup turns the name-personnel-formation questions on or off. Draw this live with my staff opens the play for your Front Office to edit at the same time. Flip and save as a new play makes the mirror image.",
             target: tour("dz-play"),
@@ -390,7 +397,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Starters and quick picks",
-            text: "Draw a play, Recolor a letter, Swap a letter, Flip plays, Route colors, Call sheet, Find plays, Paste a playbook, What beats it and Game plan. A pick types a starter into the box for you to finish; nothing sends until you press Send.",
+            text: "Draw a play, Recolor a letter, Swap a letter, Flip plays, Route colors, Call sheet, Find plays, Paste a playbook, What beats it, Game plan, Scout defense and Gap fits. A pick types a starter into the box for you to finish; nothing sends until you press Send.",
             target: ".gd-panel .gd-starters, .gd-panel .gd-picks",
             open: [GRIDDY_OPEN],
             close: GRIDDY_CLOSE,

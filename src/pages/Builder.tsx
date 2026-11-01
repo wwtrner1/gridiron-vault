@@ -91,6 +91,7 @@ import { track } from "../lib/track";
 import { usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, mirrorDefense, type Coverage, type Front } from "../lib/defense";
+import { pickDefense, readOffense, withoutDefense } from "../lib/matchDefense";
 import { fileNewPlay, fileTarget, lastChoice, rememberBook, rememberChoice, setSetupWanted, setupScene, setupWanted, type FileTarget, type SetupChoice } from "../lib/playSetup";
 import { loadWork, rememberWork, workTabs } from "../lib/workTabs";
 import { WorkTabs } from "../components/WorkTabs";
@@ -716,6 +717,15 @@ export function Builder() {
     meta,
     playId: existing?.id ?? null,
     onDraw: drawAssistant,
+    // A defense Griddy laid out goes on as one step, picked, like a drop from the Defense library.
+    onAdd: (nodes, label) => {
+      setSetup(null);
+      const z = nextZ(sceneRefValue.current);
+      const placed = nodes.map((n, i) => ({ ...n, z: z + i }));
+      applyScene({ ...sceneRefValue.current, nodes: [...sceneRefValue.current.nodes, ...placed] }, label);
+      setSelection(placed.map((n) => n.id));
+      setStatus(`${label}. Drag, restyle or undo it like anything else.`);
+    },
     // A Griddy bulk edit that includes the open play changes the field too, so the next save keeps it.
     onEdit: (edit, label) => applyScene(edit(sceneRefValue.current), label),
     onMeta: (patch) => setMeta((m) => ({ ...m, ...patch })),
@@ -740,7 +750,7 @@ export function Builder() {
     );
   };
 
-  const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean; flip?: boolean }) => {
+  const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean; flip?: boolean; tags?: boolean }) => {
     // Line up on the ball: the center if there is one, else the middle of the field.
     const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
     const center = players.find((p) => p.side === "offense" && p.label === "C");
@@ -754,7 +764,7 @@ export function Builder() {
     const layout = set.flip
       ? mirrorDefense(layoutDefense(set.front, set.coverage, receivers.map((r) => ({ ...r, dx: -r.dx }))))
       : layoutDefense(set.front, set.coverage, receivers);
-    const nodes = defenseNodes(layout, ball, set.show, nextZ(scene));
+    const nodes = defenseNodes(layout, ball, set.show, nextZ(scene), set.tags ?? false);
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.front} ${set.coverage} set`);
     setSelection(nodes.map((n) => n.id));
     setStatus(
@@ -764,6 +774,29 @@ export function Builder() {
           : "No receivers on the play yet, so man defenders are placed without lines. Drop an offense first to draw them."
         : `${describeDefense(set.front, set.coverage, set.show)}.`,
     );
+    picked();
+  };
+
+  /**
+   * Turn this offense into a defense: read the set on the field, pick a front
+   * and coverage that fit it, line up on its strength with every defender
+   * tagged, and replace any defense already drawn (one Undo puts it back).
+   */
+  const matchOffense = () => {
+    const turned = scene.pov === "defense";
+    const upright = turned ? turnAround(scene) : scene;
+    const read = readOffense(upright);
+    if (!read) {
+      setStatus("Put an offense on the field first (Sets → Formations), then turn it into a defense.");
+      return;
+    }
+    const pick = pickDefense(read, lookUnits);
+    const { scene: cleared, removed } = withoutDefense(upright);
+    const nodes = defenseNodes(pick.layout, { x: read.ball, y: upright.losY }, true, nextZ(cleared), true);
+    const next = { ...cleared, nodes: [...cleared.nodes, ...nodes] };
+    applyScene(turned ? turnAround(next) : next, `${pick.name} vs the offense`);
+    setSelection(nodes.map((n) => n.id));
+    setStatus(`${pick.name}. ${pick.why}${removed ? " The defense that was on the field is replaced; Undo brings it back." : ""}`);
     picked();
   };
 
@@ -2184,6 +2217,9 @@ export function Builder() {
                   <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
                     Coverage check: who gets open
                   </button>
+                  <button type="button" onClick={matchOffense} data-tour="dz-match-defense">
+                    Turn this offense into a defense
+                  </button>
                   <button type="button" className="is-wide-dup" onClick={() => setExporting(true)}>
                     Export · print · wristband
                   </button>
@@ -2489,7 +2525,7 @@ export function Builder() {
                     ))}
                   </div>
                   {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
-                  {lists === "defense" && <DefenseLibrary onDrop={applyDefense} />}
+                  {lists === "defense" && <DefenseLibrary onDrop={applyDefense} onMatch={matchOffense} />}
                   {lists === "layers" && (
                     <div className="dz-list" id="dz-list-tray">
                       {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
