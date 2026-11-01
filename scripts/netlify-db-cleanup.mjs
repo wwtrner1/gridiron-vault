@@ -1,7 +1,8 @@
 // Clears Netlify Database branches left behind by Deploy Previews.
 //
 // Every Deploy Preview gets its own database branch, and Netlify never removes
-// it when the PR closes. The project's cap is 300; once it fills, every new
+// it when the PR closes. The real limit is 249 (the Database page says 300,
+// but Netlify support confirmed 249 on #1159571); past it, every new
 // Deploy Preview fails with a 500 from createSiteDatabaseBranch (Netlify
 // support case #1159571). Run by .github/workflows/db-branch-cleanup.yml.
 //
@@ -93,7 +94,7 @@ const noDeploys = stale.filter((b) => !idsOf(b).length).map((b) => b.name);
 const targets = stale.filter((b) => idsOf(b).length).slice(0, limit);
 
 console.log(`Mode: ${mode}${dryRun ? " (dry run: nothing is deleted)" : ""}`);
-console.log(`Database branches: ${before.length} (cap 300). Kept: ${[...keep].join(", ")}`);
+console.log(`Database branches: ${before.length} (limit 249, though the dashboard says 300). Kept: ${[...keep].join(", ")}`);
 console.log(`Stale: ${stale.length}. With preview deploys to delete: ${stale.length - noDeploys.length}. This run: ${targets.length}${Number.isFinite(limit) ? ` (limit ${limit}, oldest first)` : ""}`);
 for (const name of noDeploys) console.log(`no preview deploys left for: ${name} (only a dashboard delete clears it)`);
 
@@ -129,7 +130,7 @@ if (dryRun) {
   const cleared = targets.filter((b) => !stillThere.has(b.name)).map((b) => b.name);
   const remaining = targets.filter((b) => stillThere.has(b.name)).map((b) => b.name);
   for (const name of remaining) console.log(`database branch still there: ${name}`);
-  summary = `Deleted ${deployCount} preview deploys. Database branches cleared: ${cleared.length} of ${targets.length}. Now ${after.length} of 300.`;
+  summary = `Deleted ${deployCount} preview deploys. Database branches cleared: ${cleared.length} of ${targets.length}. Now ${after.length} (limit 249).`;
   if (remaining.length) summary += ` Still there (may clear shortly, or need a dashboard delete): ${remaining.slice(0, 10).join(", ")}${remaining.length > 10 ? "…" : ""}`;
 }
 console.log(summary);

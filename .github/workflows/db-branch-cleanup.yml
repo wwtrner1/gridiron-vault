@@ -1,6 +1,6 @@
 # Removes the Netlify Database branch a Deploy Preview leaves behind.
 # Netlify keeps every preview's database branch after the PR closes, and once
-# the project's 300 fill up, every Deploy Preview fails (support case #1159571).
+# the project's real limit of 249 fills (the dashboard says 300), every Deploy Preview fails (support case #1159571).
 # - A closed PR (merged or not) has its branch deleted right away.
 # - Run by hand (Actions → Netlify DB branch cleanup → Run workflow) to sweep
 #   every branch without an open PR. Dry run is on by default.
