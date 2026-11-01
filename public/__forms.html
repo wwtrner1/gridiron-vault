@@ -20,5 +20,14 @@
       <input name="page" />
       <input name="screenshot" type="file" />
     </form>
+    <!-- The /partners page (public/partners/index.html) posts brand inquiries here. Keep the field names in step with it. -->
+    <form name="partner-inquiry" method="POST" data-netlify="true" netlify-honeypot="company-website" hidden>
+      <input name="company-website" />
+      <input name="name" />
+      <input name="company" />
+      <input name="email" type="email" />
+      <select name="package"><option>Not sure yet</option></select>
+      <textarea name="message"></textarea>
+    </form>
   </body>
 </html>

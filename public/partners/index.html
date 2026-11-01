@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GridIronVault Partners</title>
+<meta name="description" content="Partner with GridIronVault: put your brand on the practice cards, call sheets and play library football coaches use every week.">
+<link rel="preload" href="/fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/saira-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="canonical" href="https://gridiron-vault.com/partners">
+<link rel="icon" href="/favicon-32.png" sizes="32x32">
+<script src="/partners/partners.js" defer></script>
+<style>
+/* Layout: ink hero with whiteboard grid → paper/white bands → pricing with a cyan featured flag → ink CTA band. GridIronVault design system, light page with dark bands, one look in both themes. */
+:root {
+  --ink: #0b1524; --ink-2: #122036; --ink-3: #1b2e49;
+  --cyan: #16c8e8; --cyan-press: #0fa8c4; --cyan-ink: #127b8f; --on-cyan: #04212a;
+  --paper: #f5f8fa; --white: #ffffff; --border: #dde5ec;
+  --muted: #0e5b9c; --muted-2: #8fa6bb; --rail-text: #b6cadb;
+  --green-fg: #1d7a50; --green-bg: #e4f4ec; --amber-fg: #83662e; --amber-bg: #fdf2dd;
+  --font-display: "Saira Condensed", "Saira Condensed Fallback", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", "Barlow Fallback", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.55 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 720px) { .wrap { padding-left: max(46px, env(safe-area-inset-left, 0px)); padding-right: max(46px, env(safe-area-inset-right, 0px)); } }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--cyan-ink); }
+.eyebrow { font: 700 12px/1.3 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* nav */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--ink); border-bottom: 1px solid var(--ink-2); }
+.nav .wrap { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--white); text-decoration: none; font: 700 22px/1 var(--font-display); letter-spacing: -0.01em; }
+.brand .mark { width: 32px; height: 32px; border-radius: 7px; }
+.nav a.link { color: var(--rail-text); text-decoration: none; font: 500 14px/1.4 var(--font-body); }
+.nav a.link:hover { color: var(--white); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 24px; border-radius: 7px; border: 0; font: 700 16px/1 var(--font-display); letter-spacing: 0.07em; text-transform: uppercase; text-decoration: none; cursor: pointer; }
+.btn-primary { background: var(--cyan); color: var(--on-cyan); box-shadow: 0 2px 0 var(--cyan-press); }
+.btn-primary:hover { background: #2fd6f2; }
+.btn-primary:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--cyan-press); }
+.btn-ghost-dark { background: transparent; color: var(--white); border: 1px solid var(--ink-3); }
+.btn-ghost-dark:hover { background: var(--ink-3); }
+.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+
+/* hero */
+.hero { background-color: var(--ink); background-image: linear-gradient(var(--ink-2) 1px, transparent 1px), linear-gradient(90deg, var(--ink-2) 1px, transparent 1px); background-size: 64px 64px; color: var(--white); }
+.hero .wrap { padding-block: 72px 80px; display: grid; gap: 48px; grid-template-columns: 1fr; align-items: center; }
+@media (min-width: 960px) { .hero .wrap { grid-template-columns: 1.15fr 1fr; padding-block: 96px 104px; } }
+.hero .eyebrow { color: var(--cyan); }
+.hero h1 { font-size: clamp(44px, 7vw, 82px); line-height: 0.98; letter-spacing: -0.03em; margin-top: 16px; }
+.hero h1 span { color: var(--cyan); display: block; }
+.hero .lede { margin-top: 20px; max-width: 34em; font-size: 18px; line-height: 1.6; color: var(--rail-text); }
+.hero .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* wristband card mock */
+.card-mock { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; box-shadow: 0 24px 60px #0b152438; overflow: hidden; max-width: 520px; width: 100%; justify-self: center; }
+.card-mock .bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; font: 600 12px/1.3 var(--font-mono); color: var(--cyan); text-transform: uppercase; }
+.card-mock .bar span:last-child { color: var(--muted-2); }
+.wb { background: var(--white); color: var(--ink); margin: 0 12px; border-radius: 6px; overflow-x: auto; }
+.wb table { width: 100%; border-collapse: collapse; font: 400 13px/1.3 var(--font-mono); font-variant-numeric: tabular-nums; }
+.wb th { background: var(--ink); color: var(--white); font: 700 12px/1 var(--font-display); letter-spacing: 0.1em; padding: 8px; text-align: left; }
+.wb td { border-top: 1px solid var(--border); padding: 7px 8px; white-space: nowrap; }
+.wb td:first-child { color: var(--muted); width: 44px; }
+.wb td.read { color: var(--cyan-ink); font-weight: 600; }
+.presented { margin: 10px 12px 12px; padding: 10px 12px; border: 1px dashed var(--muted-2); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--rail-text); font: 700 11px/1.2 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; }
+.presented b { color: var(--white); font: 700 18px/1 var(--font-display); letter-spacing: 0.04em; }
+
+section.band { padding-block: 80px; }
+section.band.white { background: var(--white); }
+.head { display: grid; gap: 12px; max-width: 46em; }
+.head h2 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.04; letter-spacing: -0.015em; }
+.head p.lede { color: var(--muted); font-size: 17px; }
+
+/* placements */
+.places { margin-top: 40px; display: grid; gap: 20px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .places { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1080px) { .places { grid-template-columns: 1.3fr 1fr 1fr; } .places .sig { grid-row: span 2; } }
+.place { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 24px; display: grid; gap: 8px; align-content: start; min-width: 0; box-shadow: 0 1px 2px #0b15240f; }
+.place h3 { font-size: 26px; line-height: 1.04; }
+.place p { color: var(--muted); }
+.place.sig { background: var(--ink); border-color: var(--ink); color: var(--white); }
+.place.sig .eyebrow { color: var(--cyan); }
+.place.sig h3 { font-size: 36px; }
+.place.sig p { color: var(--rail-text); font-size: 18px; }
+
+/* rules */
+.rules { margin-top: 36px; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--white); }
+.rules table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.rules th { background: var(--ink); color: var(--white); text-align: left; padding: 14px 18px; font: 700 13px/1.2 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; }
+.rules td { padding: 14px 18px; border-top: 1px solid var(--border); vertical-align: top; }
+.rules tr:nth-child(even) td { background: var(--paper); }
+.pill { display: inline-block; padding: 4px 8px; border-radius: 4px; font: 700 11px/1 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; margin-right: 8px; }
+.pill.on { background: var(--green-bg); color: var(--green-fg); }
+.pill.off { background: var(--amber-bg); color: var(--amber-fg); }
+.note { margin-top: 20px; max-width: 46em; }
+.note b { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 19px; }
+
+/* pricing */
+.tiers { margin-top: 40px; display: grid; gap: 20px; grid-template-columns: 1fr; align-items: stretch; }
+@media (min-width: 900px) { .tiers { grid-template-columns: repeat(3, 1fr); } }
+.tier { position: relative; background: var(--paper); border: 1px solid var(--border); border-radius: 10px; padding: 28px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tier .price { font: 700 56px/1 var(--font-display); letter-spacing: -0.02em; }
+.tier .per { color: var(--muted); font-size: 14px; margin-top: -6px; }
+.tier ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.tier.featured { background: var(--ink); color: var(--white); border: 2px solid var(--cyan); }
+.tier.featured .eyebrow { color: var(--cyan); }
+.tier.featured .per { color: var(--rail-text); }
+.flag { position: absolute; top: -12px; right: 20px; background: var(--cyan); color: var(--on-cyan); font: 700 11px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; }
+.founding { margin-top: 28px; padding: 20px 24px; border-radius: 10px; background: #e3f8fd; color: var(--on-cyan); display: grid; gap: 6px; }
+.founding b { font: 700 22px/1.1 var(--font-display); text-transform: uppercase; }
+
+/* who */
+.who { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 10px; }
+.who span { padding: 10px 14px; border: 1px solid var(--border); border-radius: 7px; background: var(--white); font: 600 15px/1.2 var(--font-body); }
+
+/* cta + form */
+.cta { background-color: var(--ink); background-image: linear-gradient(var(--ink-2) 1px, transparent 1px), linear-gradient(90deg, var(--ink-2) 1px, transparent 1px); background-size: 64px 64px; color: var(--white); }
+.cta .wrap { padding-block: 80px; display: grid; gap: 40px; grid-template-columns: 1fr; }
+@media (min-width: 960px) { .cta .wrap { grid-template-columns: 1fr 1.1fr; align-items: start; } }
+.cta h2 { font-size: clamp(36px, 5vw, 60px); line-height: 0.98; letter-spacing: -0.02em; }
+.cta h2 span { color: var(--cyan); display: block; }
+.cta p.lede { margin-top: 16px; color: var(--rail-text); max-width: 32em; }
+.contact { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.contact code { font: 600 16px/1 var(--font-mono); color: var(--white); background: var(--ink-2); border: 1px solid var(--ink-3); padding: 12px 14px; border-radius: 7px; user-select: all; }
+.copy { height: 40px; padding: 0 14px; font-size: 13px; }
+form { background: var(--white); color: var(--ink); border-radius: 12px; padding: 24px; display: grid; gap: 14px; box-shadow: 0 24px 60px #0b152438; min-width: 0; }
+.row { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .row { grid-template-columns: 1fr 1fr; } }
+label { display: grid; gap: 6px; font: 700 12px/1.2 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+input, select, textarea { font: 400 16px/1.4 var(--font-body); color: var(--ink); background: var(--white); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; min-height: 38px; width: 100%; text-transform: none; letter-spacing: normal; }
+input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px #e3f8fd; outline: none; }
+.status { font-size: 15px; color: var(--green-fg); }
+.hidden-field { position: absolute; left: -9999px; }
+
+footer { background: var(--ink); color: var(--muted-2); border-top: 1px solid var(--ink-2); }
+footer .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font: 400 13px/1.4 var(--font-mono); }
+footer a { color: var(--rail-text); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/"><img class="mark" src="/brand/mark-80.png" alt="" width="32" height="32">GridIronVault</a>
+    <a class="link" href="#contact">Become a partner</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Partner program · 2026–27 season</p>
+        <h1>Put your brand <span>where the play gets called.</span></h1>
+        <p class="lede">GridIronVault is the playbook studio coaches use to draw plays, keep them in the Vault, build call sheets and print wristband cards. Partners ride along on every page a coach prints.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#contact">Become a partner</a>
+          <a class="btn btn-ghost-dark" href="#packages">See packages</a>
+        </div>
+      </div>
+      <div class="card-mock" aria-label="Example practice wristband card with a partner band">
+        <div class="bar"><span>Practice card · Offense</span><span>Wk 9</span></div>
+        <div class="wb">
+          <table>
+            <tr><th>#</th><th>Call</th><th>First read</th></tr>
+            <tr><td>014</td><td>Trips Rt Bunch Mesh</td><td class="read">Y shallow</td></tr>
+            <tr><td>022</td><td>Doubles Lt Smash</td><td class="read">Z corner</td></tr>
+            <tr><td>031</td><td>Gun Spread Flood</td><td class="read">H flat</td></tr>
+            <tr><td>047</td><td>Trey Rt Inside Zone</td><td class="read">Mike</td></tr>
+          </table>
+        </div>
+        <div class="presented"><span>Presented by</span><b>Your brand</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Where your brand lives</p>
+        <h2>Five placements coaches see every week</h2>
+        <p class="lede">Coaches work in GridIronVault all week, and its printouts go to practice and the sideline.</p>
+      </div>
+      <div class="places">
+        <article class="place sig">
+          <p class="eyebrow">Signature placement</p>
+          <h3>Printed cards and call sheets</h3>
+          <p>A “Presented by” band on every practice wristband card and printed call sheet. Players read it every rep; coaches hold it all practice.</p>
+        </article>
+        <article class="place"><h3>The Vault</h3><p>“Presented by” on the play library coaches open daily.</p></article>
+        <article class="place"><h3>Griddy tips</h3><p>Your brand named in the AI play assistant’s weekly tips.</p></article>
+        <article class="place"><h3>Social</h3><p>Partner features on @grid1ronvault across Instagram, Facebook, YouTube and X.</p></article>
+        <article class="place"><h3>Coach email</h3><p>A feature in the coach newsletter as the list grows.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band white">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Rules-safe by design</p>
+        <h2>Your logo never costs a team a flag</h2>
+        <p class="lede">High school and college rules limit logos on what players wear in games. We follow them for you.</p>
+      </div>
+      <div class="rules">
+        <table>
+          <tr><th>Level</th><th>Practice cards and call sheets</th><th>Game-day player cards</th></tr>
+          <tr><td>Youth and flag</td><td><span class="pill on">On</span></td><td><span class="pill on">On</span>where the league allows it</td></tr>
+          <tr><td>High school (NFHS)</td><td><span class="pill on">On</span></td><td><span class="pill off">Off</span>wristbands allow one maker or school logo</td></tr>
+          <tr><td>College (NCAA DI)</td><td><span class="pill on">On</span></td><td><span class="pill off">Off</span>the extra equipment logo belongs to the school’s sponsor</td></tr>
+        </table>
+      </div>
+      <p class="note"><b>One switch.</b> A Game-day legal setting removes partner logos from cards a player wears in a game, so coaches never have to think about it.</p>
+    </div>
+  </section>
+
+  <section class="band" id="packages">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Partner packages</p>
+        <h2>Three ways onto the field</h2>
+      </div>
+      <div class="tiers">
+        <article class="tier">
+          <p class="eyebrow">Sideline</p>
+          <p class="price">$500</p><p class="per">per season</p>
+          <ul><li>Logo on this partners page</li><li>Two social features</li><li>A coach newsletter mention</li></ul>
+        </article>
+        <article class="tier">
+          <p class="eyebrow">Program partner</p>
+          <p class="price">$2,500</p><p class="per">per season</p>
+          <ul><li>Everything in Sideline</li><li>Vault “Presented by” rotation</li><li>Monthly social features</li><li>Griddy tip mentions</li></ul>
+        </article>
+        <article class="tier featured">
+          <span class="flag">One per category</span>
+          <p class="eyebrow">Presenting partner</p>
+          <p class="price">$10,000</p><p class="per">per year</p>
+          <ul><li>Everything above</li><li>Your logo on every printed practice card and call sheet</li><li>Category exclusivity</li><li>A co-branded coach clinic</li></ul>
+        </article>
+      </div>
+      <div class="founding">
+        <b>Founding partner rate</b>
+        <p>GridIronVault launched on October 30, 2026. Founding partners lock today’s price through the 2027–28 season, get first claim on their category and receive a quarterly report on coaches, cards printed and impressions.</p>
+      </div>
+      <div class="who" aria-label="Partner categories">
+        <span>Equipment and gear</span><span>Wristbands and apparel</span><span>Recruiting services</span><span>Camps and clinics</span><span>Local business</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="contact">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow" style="color: var(--cyan)">Next step</p>
+        <h2>Let’s draw <span>this one up.</span></h2>
+        <p class="lede">Tell us about your brand and which coaches you want to reach. We reply within two business days with a package and a sample card.</p>
+        <div class="contact">
+          <code id="email">support@gridiron-vault.com</code>
+          <button class="btn btn-ghost-dark copy" id="copy" type="button">Copy email</button>
+        </div>
+      </div>
+      <form id="partner-form" name="partner-inquiry" method="POST" action="/__forms.html">
+        <input type="hidden" name="form-name" value="partner-inquiry">
+        <p class="hidden-field"><label for="company-website">Leave blank<input id="company-website" name="company-website" tabindex="-1" autocomplete="off"></label></p>
+        <div class="row">
+          <label for="f-name">Your name<input id="f-name" name="name" required autocomplete="name" placeholder="Jordan Ellis"></label>
+          <label for="f-company">Company<input id="f-company" name="company" required autocomplete="organization" placeholder="Ellis Athletic Supply"></label>
+        </div>
+        <div class="row">
+          <label for="f-email">Email<input id="f-email" name="email" type="email" required autocomplete="email" placeholder="jordan@ellisathletic.com"></label>
+          <label for="f-package">Package<select id="f-package" name="package">
+            <option>Not sure yet</option><option>Sideline · $500</option><option>Program partner · $2,500</option><option>Presenting partner · $10,000</option>
+          </select></label>
+        </div>
+        <label for="f-goal">What do you want coaches to know?<textarea id="f-goal" name="message" rows="3" placeholder="We sell team gloves and want youth and high school coaches in the Southeast."></textarea></label>
+        <button class="btn btn-primary" type="submit">Send inquiry</button>
+        <p class="status" id="status" role="status" hidden></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>GridIronVault · a Vaultline Sports LLC product</span>
+    <a href="/">gridiron-vault.com</a>
+  </div>
+</footer>
+
+</body>
+</html>
