@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
+import { FocusPopover } from "../components/FocusBoundary";
 import { Icon } from "../components/Icon";
 import { AddToPlaybook } from "../components/AddToPlaybook";
 import { Tooltip } from "../components/Tooltip";
@@ -390,45 +391,7 @@ export function Builder() {
     };
   }, [nudge, zoomTo]);
 
-  /*
-   * While the designer is open the browser's own page zoom stays out of the way,
-   * so a pinch never zooms the toolbars instead of the play (the play has its own
-   * zoom, and − Fit + buttons). The page zoom comes back when the coach leaves.
-   */
-  useEffect(() => {
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    const before = meta?.content;
-    // Resets a page that was already zoomed in, and stops iOS zooming into text boxes.
-    if (meta) meta.content = "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover";
-    const stopPageZoom = (e: Event) => e.preventDefault();
-    const stopTwoFinger = (e: TouchEvent) => {
-      if (e.touches.length > 1) e.preventDefault();
-    };
-    // Mac Safari's trackpad pinch arrives as gesture events: zoom the play with it.
-    let last = 1;
-    const onGestureStart = (e: Event) => {
-      e.preventDefault();
-      last = 1;
-    };
-    const onGestureChange = (e: Event) => {
-      e.preventDefault();
-      if (fingers.current.size) return; // fingers on a touch screen are handled above
-      const g = e as Event & { scale: number; clientX: number; clientY: number };
-      zoomBy(g.scale / last, { clientX: g.clientX, clientY: g.clientY });
-      last = g.scale;
-    };
-    document.addEventListener("gesturestart", onGestureStart, { passive: false });
-    document.addEventListener("gesturechange", onGestureChange, { passive: false });
-    document.addEventListener("gestureend", stopPageZoom, { passive: false });
-    document.addEventListener("touchmove", stopTwoFinger, { passive: false });
-    return () => {
-      if (meta && before) meta.content = before;
-      document.removeEventListener("gesturestart", onGestureStart);
-      document.removeEventListener("gesturechange", onGestureChange);
-      document.removeEventListener("gestureend", stopPageZoom);
-      document.removeEventListener("touchmove", stopTwoFinger);
-    };
-  }, [zoomBy]);
+  // Field gestures are handled on the stage; browser zoom remains available for the interface.
 
   /** Double-tap: in close on that spot, or back out to the whole field. */
   const doubleTapZoom = useCallback(
@@ -467,18 +430,6 @@ export function Builder() {
   const [keepOpen, setKeepOpen] = useState(readKeepOpen);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreBtn = useRef<HTMLButtonElement>(null);
-  // Escape closes Extras before the Designer's own Escape (clear selection) sees it.
-  useEffect(() => {
-    if (!moreOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      setMoreOpen(false);
-      moreBtn.current?.focus();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [moreOpen]);
   const [draftPoints, setDraftPoints] = useState(0);
   const canvasControl = useRef<CanvasControl | null>(null);
   const tipsOn = useTipsEnabled();
@@ -2153,7 +2104,8 @@ export function Builder() {
             {moreOpen && (
               <>
                 <div className="stage-menu-scrim" onPointerDown={() => setMoreOpen(false)} aria-hidden="true" />
-                <div
+                <FocusPopover
+                  onClose={() => setMoreOpen(false)}
                   className="dz-more-menu"
                   id="dz-more-menu"
                   role="group"
@@ -2286,7 +2238,7 @@ export function Builder() {
                   <button type="button" aria-pressed={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
                     Coach tips: {tipsOn ? "on" : "off"}
                   </button>
-                </div>
+                </FocusPopover>
               </>
             )}
           </div>

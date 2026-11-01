@@ -365,6 +365,7 @@ export function Vault() {
 
         {loading && shown.length === 0 && (
           <div className="play-grid">
+            <h2 className="sr-only">{tab === "mine" ? "Your plays" : "Shared plays"}</h2>
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="skeleton" style={{ height: 232 }} />
             ))}
@@ -419,6 +420,7 @@ export function Vault() {
 
         {shown.length > 0 && (
           <div className="play-grid">
+            <h2 className="sr-only">{tab === "mine" ? "Your plays" : "Shared plays"}</h2>
             {shown.map((p) => (
               <article key={p.id} className={`card play-card${picked.includes(p.id) ? " is-picked" : ""}`}>
                 <button

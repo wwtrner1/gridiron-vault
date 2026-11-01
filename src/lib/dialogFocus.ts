@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 
+const dialogStack: HTMLElement[] = [];
+
 /** Everything a keyboard can land on inside a dialog. */
 export const FOCUSABLE = [
   "a[href]",
@@ -26,6 +28,7 @@ export const FOCUSABLE = [
  */
 export function useDialogFocus(panel: RefObject<HTMLElement | null>, onClose: () => void, initial?: RefObject<HTMLElement | null>) {
   const [opener] = useState<HTMLElement | null>(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
+  const resumedFocus = useRef<HTMLElement | null>(null);
   const close = useRef(onClose);
   close.current = onClose;
 
@@ -33,13 +36,17 @@ export function useDialogFocus(panel: RefObject<HTMLElement | null>, onClose: ()
   // effect lands after paint, which on a slow device left a beat where an autofocused box had focus but Escape did nothing).
   useLayoutEffect(() => {
     const el = panel.current;
-    if (el && !el.contains(document.activeElement)) {
-      const first = initial?.current ?? el.querySelector<HTMLElement>(FOCUSABLE);
+    if (!el) return;
+    dialogStack.push(el);
+    if (!el.contains(document.activeElement)) {
+      const first = resumedFocus.current ?? initial?.current ?? [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].find((s) => s.getClientRects().length > 0);
       (first ?? el).focus();
     }
     const onKey = (e: KeyboardEvent) => {
+      if (dialogStack.at(-1) !== el) return;
       if (e.key === "Escape") {
-        e.stopPropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
         close.current();
         return;
       }
@@ -59,7 +66,10 @@ export function useDialogFocus(panel: RefObject<HTMLElement | null>, onClose: ()
     };
     window.addEventListener("keydown", onKey, true);
     return () => {
+      if (el.contains(document.activeElement)) resumedFocus.current = document.activeElement as HTMLElement;
       window.removeEventListener("keydown", onKey, true);
+      const index = dialogStack.indexOf(el);
+      if (index !== -1) dialogStack.splice(index, 1);
       if (opener?.isConnected) opener.focus?.();
     };
     // Runs once per opening: the panel, the opener and the first stop are fixed for the dialog's life.
