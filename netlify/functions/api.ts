@@ -776,8 +776,9 @@ async function planState(
     .from(profiles)
     .where(eq(profiles.id, me.id));
   const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed) };
-  // A one-time Season Pass that has run out, with no subscription behind it, is Sideline from this request on.
-  if (row?.plan === "solo" && row.planEndsAt && !row.sub && row.planEndsAt.getTime() <= Date.now()) {
+  // A one-time Season Pass that has run out, with no paying subscription behind it (none, paused, or a failed payment),
+  // is Sideline from this request on.
+  if (row?.plan === "solo" && row.planEndsAt && (!row.sub || row.pausedUntil || row.failed) && row.planEndsAt.getTime() <= Date.now()) {
     await expireSeason(me.id);
     return { tier: TIERS.free, trialEndsAt: null, ...billed };
   }
