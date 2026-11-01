@@ -40,7 +40,7 @@ export function applySeo(path: string) {
   meta("property", "og:description", page.description);
   meta("property", "og:url", page.url);
   meta("property", "og:type", page.type);
-  meta("name", "twitter:card", "summary");
+  meta("name", "twitter:card", "summary_large_image");
   meta("name", "twitter:title", page.title);
   meta("name", "twitter:description", page.description);
 }

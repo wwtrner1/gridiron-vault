@@ -34,6 +34,21 @@ jobs:
       - name: Griddy evals (scores the ideal replies through the app's own code; no API calls)
         run: npm run griddy:live -- --dry
 
+  # Billing end to end on the server (tests/server/): the API function on an in-memory Postgres with every
+  # migration, Stripe faked at the network, Checkout -> webhook -> plan, failed payments, refunds, trials.
+  server-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server tests
+        run: npm run test:server
+
   # The flows a coach can't lose (tests/): screens open, save and sync, PDF and
   # wristband export, offline screens, Griddy's cards and errors.
   browser-tests:

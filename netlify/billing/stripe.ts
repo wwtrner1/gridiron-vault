@@ -150,24 +150,34 @@ export async function resumeSubscription(me: Who): Promise<{ ok: true } | { erro
   return { ok: true };
 }
 
+/** Plans a Season Pass (Head Coach) must not step a coach down from. */
+const ABOVE_SEASON = new Set<string>(["crew", "program", "master"]);
+
 async function applyCheckout(s: Stripe.Checkout.Session) {
   const userId = s.client_reference_id ?? s.metadata?.userId;
   const offer = s.metadata?.offer as OfferKey | undefined;
   if (!userId || !offer || !(offer in PLAN_OF) || s.payment_status === "unpaid") return;
   const customer = typeof s.customer === "string" ? s.customer : (s.customer?.id ?? null);
-  const set: Partial<typeof profiles.$inferInsert> = { plan: PLAN_OF[offer], ...(customer ? { stripeCustomerId: customer } : {}) };
   if (s.mode === "subscription") {
-    const sub = typeof s.subscription === "string" ? s.subscription : s.subscription?.id;
-    if (sub) set.stripeSubscriptionId = sub;
+    const subId = typeof s.subscription === "string" ? s.subscription : s.subscription?.id;
+    if (!customer || !subId) return;
+    await db.update(profiles).set({ stripeCustomerId: customer }).where(eq(profiles.id, userId));
+    // The plan follows the subscription as Stripe has it now. Stripe retries webhooks for days, so a late copy of this
+    // event must not hand back a plan whose subscription was cancelled or failed since. A Stripe error throws, and the
+    // webhook answers 500 so Stripe tries again.
+    await applySubscription(await stripe().subscriptions.retrieve(subId));
   } else {
-    // A one-time pass: four months from today, or from the end of one already running.
-    const [row] = await db.select({ planEndsAt: profiles.planEndsAt }).from(profiles).where(eq(profiles.id, userId));
+    // A one-time pass: four months from today, or from the end of one already running. It opens Head Coach, but never
+    // steps down a coach whose running subscription is on a bigger plan.
+    const [row] = await db.select({ plan: profiles.plan, planEndsAt: profiles.planEndsAt }).from(profiles).where(eq(profiles.id, userId));
     const from = row?.planEndsAt && row.planEndsAt.getTime() > Date.now() ? row.planEndsAt : new Date();
     const end = new Date(from);
     end.setMonth(end.getMonth() + SEASON_MONTHS);
-    set.planEndsAt = end;
+    await db
+      .update(profiles)
+      .set({ planEndsAt: end, ...(row && ABOVE_SEASON.has(row.plan) ? {} : { plan: PLAN_OF[offer] }), ...(customer ? { stripeCustomerId: customer } : {}) })
+      .where(eq(profiles.id, userId));
   }
-  await db.update(profiles).set(set).where(eq(profiles.id, userId));
   // Stripe's own customer record carries our id, so a payment found in the Dashboard says whose it is.
   if (customer) await stripe().customers.update(customer, { metadata: { userId } }).catch(() => undefined);
 }
@@ -186,10 +196,9 @@ async function revokeSeason(chargeRef: string | Stripe.Charge) {
   if (!s || s.mode !== "payment" || s.metadata?.offer !== "season") return;
   const [row] = await db.select({ sub: profiles.stripeSubscriptionId }).from(profiles).where(eq(profiles.stripeCustomerId, customer));
   if (!row) return;
-  await db
-    .update(profiles)
-    .set(row.sub ? { planEndsAt: null } : { plan: "free", planEndsAt: null })
-    .where(eq(profiles.stripeCustomerId, customer));
+  await db.update(profiles).set({ plan: "free", planEndsAt: null }).where(eq(profiles.stripeCustomerId, customer));
+  // A subscription on file decides the plan from here: live keeps its plan, paused or failing stays on Sideline.
+  if (row.sub) await applySubscription(await stripe().subscriptions.retrieve(row.sub));
 }
 
 /** One webhook from Stripe, checked against its signature. Anything else is refused. */
