@@ -42,7 +42,7 @@ const SETS: { label: string; personnel: string; formation: string; view: FieldVi
 ];
 
 function build(set: (typeof SETS)[number], concept: string): Scene {
-  const { scene } = setupScene({ name: concept, personnel: set.personnel, formation: set.formation, view: set.view, book: "", newBook: "" }, OFFENSE_TOKENS);
+  const { scene } = setupScene({ name: concept, personnel: set.personnel, formation: set.formation, view: set.view, pov: "offense", book: "", newBook: "" }, OFFENSE_TOKENS);
   const sc = yardScale(scene.view);
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "offense");
   const hasLine = players.some(isLineman);

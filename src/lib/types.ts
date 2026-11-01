@@ -115,6 +115,8 @@ export type Scene = {
   losY: number;
   /** Fixed rotation centre dropped by the Pivot Point tool. */
   pivot: Point | null;
+  /** Drawn as the defense sees it (the play turned half a circle about the ball). Unset means the offense's view. */
+  pov?: "defense";
   nodes: SceneNode[];
   /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */
   film?: { link?: string; snapAt?: number };

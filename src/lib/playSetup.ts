@@ -1,3 +1,4 @@
+import { canTurnAround, turnAround } from "./scene";
 import { emptyScene, makePlayer, type TokenPreset } from "./presets";
 import { layoutFormation, tokenFor, type GameType, type Placed } from "./formations";
 import { defenseNodes, layoutDefense, type Front } from "./defense";
@@ -16,6 +17,8 @@ export type SetupChoice = {
   personnel: string;
   formation: string;
   view: FieldView;
+  /** Which end the play is drawn from: the offense's, or the defense's (the field turned round). */
+  pov: "offense" | "defense";
   /** A playbook id, "" for none, or NEW_BOOK with `newBook` as its name. */
   book: string;
   newBook: string;
@@ -25,7 +28,7 @@ export const NEW_BOOK = "__new__";
 
 const KEY = "grid1ronvault.newplay.v1";
 type Saved = Omit<SetupChoice, "name" | "newBook"> & { ask: boolean };
-const DEFAULT: Saved = { personnel: "11 personnel", formation: "Doubles", view: "half", book: "", ask: true };
+const DEFAULT: Saved = { personnel: "11 personnel", formation: "Doubles", view: "half", pov: "offense", book: "", ask: true };
 
 function readSaved(): Saved {
   try {
@@ -52,11 +55,11 @@ export const setSetupWanted = (ask: boolean) => writeSaved({ ask });
 export function lastChoice(fromBook: string | null, books: { id: string }[]): SetupChoice {
   const s = readSaved();
   const book = fromBook && books.some((b) => b.id === fromBook) ? fromBook : books.some((b) => b.id === s.book) ? s.book : "";
-  return { name: "", personnel: s.personnel, formation: s.formation, view: s.view, book, newBook: "" };
+  return { name: "", personnel: s.personnel, formation: s.formation, view: s.view, pov: s.pov, book, newBook: "" };
 }
 
 export function rememberChoice(c: SetupChoice) {
-  writeSaved({ personnel: c.personnel, formation: c.formation, view: c.view, book: c.book === NEW_BOOK ? "" : c.book });
+  writeSaved({ personnel: c.personnel, formation: c.formation, view: c.view, pov: c.pov, book: c.book === NEW_BOOK ? "" : c.book });
 }
 
 /** The playbook a new play was just filed in: the next setup offers it first ("New playbook…" has an id by then). */
@@ -142,6 +145,13 @@ export function setupPlayers(personnel: string, formation: string): Placed[] {
 
 /** The starting field, play type and formation name for a setup. */
 export function setupScene(c: SetupChoice, tokens: TokenPreset[]): { scene: Scene; meta: Partial<PlayMeta>; status: string } {
+  const made = buildSetup(c, tokens);
+  // Drawn from the defense's end: the field turns round, so the offense reads from the top.
+  if (c.pov === "defense" && canTurnAround(c.view)) return { ...made, scene: turnAround(made.scene) };
+  return made;
+}
+
+function buildSetup(c: SetupChoice, tokens: TokenPreset[]): { scene: Scene; meta: Partial<PlayMeta>; status: string } {
   const scene: Scene = { ...emptyScene(), view: c.view };
   const plan = planFor(c.personnel);
   const meta: Partial<PlayMeta> = { name: c.name.trim(), personnel: c.personnel };

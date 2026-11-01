@@ -20,12 +20,16 @@ const meta = (attr: "name" | "property", key: string, content: string) =>
 /** Shared RouteChrome applies metadata on every client-side navigation. */
 export function applySeo(path: string) {
   const page = getPageMetadata(path);
-  const canonical = tag('link[rel="canonical"]', () => {
-    const l = document.createElement("link");
-    l.rel = "canonical";
-    return l;
-  });
-  canonical.setAttribute("href", page.url);
+  // A page kept out of search carries no canonical address.
+  if (!page.indexable) document.head.querySelectorAll('link[rel="canonical"]').forEach((el) => el.remove());
+  else {
+    const canonical = tag('link[rel="canonical"]', () => {
+      const l = document.createElement("link");
+      l.rel = "canonical";
+      return l;
+    });
+    canonical.setAttribute("href", page.url);
+  }
   if (page.indexable) {
     document.head.querySelectorAll('meta[name="robots"]').forEach((el) => el.remove());
   } else {

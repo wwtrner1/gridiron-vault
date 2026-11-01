@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal } from "./Modal";
+import { canTurnAround } from "../lib/scene";
 import { FormationPreview } from "./FormationLibrary";
 import { personnelGroups } from "../lib/personnel";
 import { FORMATION_NAMES } from "../lib/formations";
@@ -30,7 +31,13 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
   const placed = useMemo(() => setupPlayers(c.personnel, c.formation), [c.personnel, c.formation]);
 
   const pickPersonnel = (personnel: string) =>
-    set({ personnel, formation: defaultFormation(personnel), view: defaultView(personnel, c.view) });
+    set({
+      personnel,
+      formation: defaultFormation(personnel),
+      view: defaultView(personnel, c.view),
+      // A defensive group is usually drawn from the defense's end; the coach can still pick the other.
+      pov: planFor(personnel).side === "defense" ? "defense" : "offense",
+    });
 
   const finish = (start: boolean) => {
     setSetupWanted(!skipNext);
@@ -125,9 +132,32 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
         </p>
 
         <div className="ps-row">
+          <div className="field">
+            <span id="ps-pov">Draw it from</span>
+            <div className="seg" role="group" aria-labelledby="ps-pov">
+              {(["offense", "defense"] as const).map((side) => (
+                <button
+                  key={side}
+                  type="button"
+                  className={c.pov === side ? "is-on" : ""}
+                  aria-pressed={c.pov === side}
+                  disabled={side === "defense" && !canTurnAround(c.view)}
+                  onClick={() => set({ pov: side })}
+                >
+                  The {side}'s end
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="ps-row">
           <label className="field">
             <span>Field</span>
-            <select className="select" value={c.view} onChange={(e) => set({ view: e.target.value as FieldView })}>
+            <select className="select" value={c.view} onChange={(e) => {
+                const view = e.target.value as FieldView;
+                set(canTurnAround(view) ? { view } : { view, pov: "offense" });
+              }}>
               {FIELD_VIEWS.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
