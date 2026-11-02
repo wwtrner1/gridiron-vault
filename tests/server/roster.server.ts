@@ -27,7 +27,7 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
     new Request(`https://gridiron-vault.com/api/${path}`, {
       method,
       headers: { "content-type": raw ? "application/pdf" : "application/json", ...headers },
-      body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
+      body: (body === undefined ? undefined : raw ? body : JSON.stringify(body)) as BodyInit | undefined,
     }),
   );
   const text = await res.text();
@@ -138,7 +138,7 @@ describe("Documents kept with a player", () => {
     assert.ok(blobs().some((k) => k.startsWith(`players/${coach.id}/`)));
     assert.equal((await call("DELETE", "me", { confirm: coach.email })).status < 300, true);
     assert.ok(!blobs().some((k) => k.startsWith(`players/${coach.id}/`)));
-    assert.equal((await client.query("select count(*)::int as n from player_files where owner_id = $1", [coach.id])).rows[0].n, 0);
+    assert.equal((await client.query<{ n: number }>("select count(*)::int as n from player_files where owner_id = $1", [coach.id])).rows[0].n, 0);
   });
 
   test("Front Office: the team's staff see a player's files; Remove selected drops the players and their files", async () => {
