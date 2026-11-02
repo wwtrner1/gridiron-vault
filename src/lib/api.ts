@@ -6,7 +6,7 @@ import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
-import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, TextSignup } from "./teamHub";
+import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, MyTeamsDoc, PlayerFile, TextSignup } from "./teamHub";
 import type { TeamBrand } from "./brandData";
 import type { LivePatch, LivePlay } from "./live";
 
@@ -177,11 +177,11 @@ export const api = {
   pushLive: (id: string, patch: LivePatch) => request<{ rev: number; scene: Scene; here: string[] }>(`live/${id}`, { method: "PUT", body: JSON.stringify({ patch }) }),
   deleteLive: (id: string) => request<{ ok: true }>(`live/${id}`, { method: "DELETE" }),
 
-  /* My team: the coach's own roster and depth chart, one per account. */
-  myTeam: () => request<{ team: MyTeamDoc | null }>("my-team"),
+  /* My team: the coach's own teams (rosters and depth charts), one row per account. */
+  myTeams: () => request<{ teams: MyTeamsDoc | null; team: MyTeamDoc | null }>("my-team"),
   brand: () => request<{ brand: TeamBrand | null }>("brand"),
   saveBrand: (brand: TeamBrand) => request<{ brand: TeamBrand | null }>("brand", { method: "PUT", body: JSON.stringify({ brand }) }),
-  saveMyTeam: (team: MyTeamDoc) => request<{ team: MyTeamDoc }>("my-team", { method: "PUT", body: JSON.stringify({ team }) }),
+  saveMyTeams: (teams: MyTeamsDoc) => request<{ teams: MyTeamsDoc }>("my-team", { method: "PUT", body: JSON.stringify({ teams }) }),
   /* Team hub: teams and rosters, for the director and each team's staff. */
   hub: (orgId: string) => request<HubState>(`hub/${orgId}`),
   createTeam: (orgId: string, team: Partial<HubTeam>) =>
@@ -233,6 +233,29 @@ export const api = {
     return data as { folders: HubFolder[]; used: number };
   },
   deletePlayer: (id: string) => request<{ players: HubPlayer[] }>(`team-players/${id}`, { method: "DELETE" }),
+  deletePlayers: (teamId: string, ids: string[]) =>
+    request<{ players: HubPlayer[] }>(`teams/${teamId}/players`, { method: "DELETE", body: JSON.stringify({ ids }) }),
+
+  /* A player's documents and pictures: `scope` is `my.<team>` or a Front Office team id. */
+  playerFiles: (scope: string, playerId: string) => request<{ files: PlayerFile[] }>(`player-files/${encodeURIComponent(scope)}/${encodeURIComponent(playerId)}`),
+  uploadPlayerFile: async (scope: string, playerId: string, file: File) => {
+    const res = await fetch(`/api/player-files/${encodeURIComponent(scope)}/${encodeURIComponent(playerId)}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Device": deviceId() },
+      body: file,
+    }).catch(() => {
+      throw new Error(OFFLINE_MESSAGE);
+    });
+    const data = (await res.json().catch(() => ({}))) as { files?: PlayerFile[]; error?: string };
+    if (res.status === 413 && !data.error) data.error = "That file is too big to upload. Keep files under 5 MB.";
+    if (!res.ok) throw new ApiError(data.error ?? "That file didn't upload. Try again in a minute.", res.status);
+    return data as { files: PlayerFile[] };
+  },
+  deletePlayerFile: (id: string) => request<{ files: PlayerFile[] }>(`player-file/${id}`, { method: "DELETE" }),
+  /** Every file of one player, or of a whole team when no player is named (that team was removed). */
+  dropPlayerFiles: (scope: string, playerId?: string) =>
+    request<{ ok: true }>(`player-files/${encodeURIComponent(scope)}${playerId ? `/${encodeURIComponent(playerId)}` : ""}`, { method: "DELETE" }),
 
   listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
 

@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { emailOn, sendEmails, sendTexts, smsOn } from "./send.js";
 import { dropTeamFiles } from "./files.js";
+import { dropPlayersFiles } from "./playerFiles.js";
 import { dropSignup, joinToken, signedUpPhones, signups, signupTeam } from "./texts.js";
 import { db } from "../../db/index.js";
 import { depthCharts, hubEvents, hubMessages, organizations, orgMembers, teamPlayers, teams } from "../../db/schema.js";
-import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, teamText, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo } from "../../src/lib/teamHub.js";
+import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, teamText, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo, emptyPlayer } from "../../src/lib/teamHub.js";
 
 /**
  * Team hub routes, behind the sign-in and phone checks. The director of an
@@ -41,7 +42,7 @@ export async function accessTo(me: Me, orgId: string | undefined): Promise<Acces
 const onStaff = (a: Access, t: { coachIds: string[]; allCoaches: boolean }) => a.director || t.allCoaches || (a.memberId !== null && t.coachIds.includes(a.memberId));
 
 /** A team and the coach's access to it, or null when they may not see it. */
-async function teamFor(me: Me, teamId: string | undefined) {
+export async function teamFor(me: Me, teamId: string | undefined) {
   if (!teamId || !UUID.test(teamId)) return null;
   const [team] = await db.select().from(teams).where(eq(teams.id, teamId));
   if (!team) return null;
@@ -83,6 +84,8 @@ async function hubState(access: Access): Promise<HubState> {
 }
 
 const toPlayer = (row: typeof teamPlayers.$inferSelect): HubPlayer => ({
+  // Rows saved before a field existed (sizes, photo, grad year) get its empty value.
+  ...emptyPlayer(),
   ...(row.info as PlayerInfo),
   firstName: row.firstName,
   lastName: row.lastName,
@@ -226,7 +229,7 @@ async function realCoaches(orgId: string, ids: string[]) {
  */
 export async function hubRoute(me: Me, req: Request, resource: string, id?: string, action?: string): Promise<Response> {
   const method = req.method;
-  const body = method === "POST" || method === "PUT" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
+  const body = method === "POST" || method === "PUT" || method === "DELETE" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
   if (resource === "hub" && method === "GET" && !action) {
     const access = await accessTo(me, id);
@@ -352,6 +355,18 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
 
     if (action === "players" && method === "GET") return json({ players: await roster(team.id) });
 
+    // Remove selected: only ids on this team's roster are touched.
+    if (action === "players" && method === "DELETE") {
+      const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x) => UUID.test(x)).slice(0, HUB_LIMITS.players);
+      if (!ids.length) return fail("Pick the players to remove first.");
+      const mine = (await db.select({ id: teamPlayers.id }).from(teamPlayers).where(and(eq(teamPlayers.teamId, team.id), inArray(teamPlayers.id, ids)))).map((r) => r.id);
+      if (mine.length) {
+        await dropPlayersFiles(team.id, mine);
+        await db.delete(teamPlayers).where(inArray(teamPlayers.id, mine));
+      }
+      return json({ players: await roster(team.id), removed: mine.length });
+    }
+
     if (action === "players" && method === "POST") {
       // One player, or a pasted spreadsheet's worth (`players: [...]`).
       const incoming = Array.isArray(body.players) ? body.players.slice(0, HUB_LIMITS.importRows) : [body.player];
@@ -387,6 +402,7 @@ export async function hubRoute(me: Me, req: Request, resource: string, id?: stri
       return json({ players: await roster(found.team.id) });
     }
     if (method === "DELETE") {
+      await dropPlayersFiles(found.team.id, [id]);
       await db.delete(teamPlayers).where(eq(teamPlayers.id, id));
       return json({ players: await roster(found.team.id) });
     }

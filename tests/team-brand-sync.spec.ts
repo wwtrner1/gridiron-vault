@@ -31,7 +31,7 @@ test("My team and the team brand changed with no signal go to the account when t
   expect(put.brand).toHaveLength(0);
   expect(put["my-team"]).toHaveLength(0);
   // Both are kept in this browser.
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.myteam.v1")!).name)).toBe("Mustangs U10");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.myteams.v1")!).teams[0].name)).toBe("Mustangs U10");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.brand.v1")!).name)).toBe("Mustangs");
 
   // The signal is back: both go up without another edit.
@@ -40,7 +40,7 @@ test("My team and the team brand changed with no signal go to the account when t
   await expect.poll(() => put.brand.length).toBe(1);
   await expect.poll(() => put["my-team"].length).toBe(1);
   expect((put.brand[0] as { brand: { name: string } }).brand.name).toBe("Mustangs");
-  expect((put["my-team"][0] as { team: { name: string } }).team.name).toBe("Mustangs U10");
+  expect((put["my-team"][0] as { teams: { teams: { name: string }[] } }).teams.teams[0].name).toBe("Mustangs U10");
 
   // Nothing changed since, so the signal flickering again sends nothing more.
   await page.evaluate(() => window.dispatchEvent(new Event("online")));

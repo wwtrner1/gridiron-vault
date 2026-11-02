@@ -32,19 +32,22 @@ const player = (id: string, firstName: string, lastName: string, jersey: string)
 });
 
 const team = (page: import("@playwright/test").Page) =>
-  page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.myteam.v1") ?? "{}") as { players: { id: string; firstName: string; status: string }[] });
+  page.evaluate(
+    () =>
+      (JSON.parse(localStorage.getItem("grid1ronvault.myteams.v1") ?? "{}") as { teams: { players: { id: string; firstName: string; status: string }[] }[] }).teams[0],
+  );
+
+/** My team as this browser keeps it: a list of teams, the first one open. */
+const seed = (players: unknown[]) =>
+  JSON.stringify({ teams: [{ id: "my-team", name: "Hawks", level: "", season: "", players, charts: [], updatedAt: "2026-11-01T00:00:00.000Z" }], updatedAt: "2026-11-01T00:00:00.000Z" });
 
 test("Griddy removes the players the coach names from My team, marks one injured, and Undo puts them back", async ({ page, context }) => {
   const errors = errorsOf(page);
   await context.addInitScript(
-    (players) => {
-      if (!localStorage.getItem("grid1ronvault.myteam.v1"))
-        localStorage.setItem(
-          "grid1ronvault.myteam.v1",
-          JSON.stringify({ name: "Hawks", level: "", season: "", players, charts: [], updatedAt: "2026-11-01T00:00:00.000Z" }),
-        );
+    (doc) => {
+      if (!localStorage.getItem("grid1ronvault.myteams.v1")) localStorage.setItem("grid1ronvault.myteams.v1", doc);
     },
-    [player("pa", "Casen", "Crawford", "1"), player("pb", "Harvey", "Diehl", "3"), player("pc", "Mack", "Turner", "12")],
+    seed([player("pa", "Casen", "Crawford", "1"), player("pb", "Harvey", "Diehl", "3"), player("pc", "Mack", "Turner", "12")]),
   );
   const sent: { context: { roster?: { team: string; players: Record<string, unknown>[] } | null } }[] = [];
   await signIn(context, async (route, path) => {
@@ -111,11 +114,7 @@ test("Griddy removes the players the coach names from My team, marks one injured
 });
 
 test("Away from the roster, the players go to Griddy only when the coach talks about them", async ({ page, context }) => {
-  await context.addInitScript(
-    (players) =>
-      localStorage.setItem("grid1ronvault.myteam.v1", JSON.stringify({ name: "Hawks", level: "", season: "", players, charts: [], updatedAt: "2026-11-01T00:00:00.000Z" })),
-    [player("pa", "Casen", "Crawford", "1")],
-  );
+  await context.addInitScript((doc) => localStorage.setItem("grid1ronvault.myteams.v1", doc), seed([player("pa", "Casen", "Crawford", "1")]));
   const sent: { context: { roster?: unknown } }[] = [];
   await signIn(context, async (route, path) => {
     if (path !== "ai/griddy") return;

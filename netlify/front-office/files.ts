@@ -1,7 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { hubFiles, hubFolders } from "../../db/schema.js";
+import { hubFiles, hubFolders, playerFiles } from "../../db/schema.js";
 import { FILE_LIMITS, FILE_TYPES, fileExt, type HubFolder } from "../../src/lib/teamHub.js";
 import { accessTo, mayWrite, staffTeams, type Access, type Me } from "./hub.js";
 
@@ -35,7 +35,9 @@ export async function dropBlobs(keys: string[]) {
  */
 export async function orgFileKeys(orgId: string) {
   const rows = await db.select({ key: hubFiles.blobKey }).from(hubFiles).where(eq(hubFiles.orgId, orgId));
-  return rows.map((r) => r.key).filter(Boolean);
+  // Documents kept with the teams' players, too (their rows cascade with the organisation).
+  const players = await db.select({ key: playerFiles.blobKey }).from(playerFiles).where(eq(playerFiles.orgId, orgId));
+  return [...rows, ...players].map((r) => r.key).filter(Boolean);
 }
 
 export async function dropTeamFiles(teamId: string) {
@@ -44,7 +46,10 @@ export async function dropTeamFiles(teamId: string) {
     .from(hubFiles)
     .innerJoin(hubFolders, eq(hubFolders.id, hubFiles.folderId))
     .where(eq(hubFolders.teamId, teamId));
-  await dropBlobs(rows.map((r) => r.key));
+  // Its players' documents: `scope` is the team id, not a foreign key, so the rows go by hand.
+  const players = await db.select({ key: playerFiles.blobKey }).from(playerFiles).where(eq(playerFiles.scope, teamId));
+  await dropBlobs([...rows, ...players].map((r) => r.key).filter(Boolean));
+  await db.delete(playerFiles).where(eq(playerFiles.scope, teamId));
 }
 
 async function folders(me: Me, access: Access): Promise<HubFolder[]> {
@@ -79,9 +84,11 @@ async function folders(me: Me, access: Access): Promise<HubFolder[]> {
   }));
 }
 
+/** Everything an organisation stores: folder files and the documents kept with its players. */
 async function usedBytes(orgId: string) {
   const [row] = await db.select({ n: sql<number>`coalesce(sum(${hubFiles.size}), 0)::bigint` }).from(hubFiles).where(eq(hubFiles.orgId, orgId));
-  return Number(row?.n ?? 0);
+  const [players] = await db.select({ n: sql<number>`coalesce(sum(${playerFiles.size}), 0)::bigint` }).from(playerFiles).where(eq(playerFiles.orgId, orgId));
+  return Number(row?.n ?? 0) + Number(players?.n ?? 0);
 }
 
 const answer = async (me: Me, access: Access, status = 200, extra: Record<string, unknown> = {}) =>

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Confirm } from "../components/Confirm";
+import { Modal } from "../components/Modal";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Shell } from "../components/Shell";
 import { TeamBrand } from "../components/TeamBrand";
 import { TextTeamCard } from "../components/TextTeamCard";
-import { HUB_LIMITS } from "../lib/teamHub";
+import { HUB_LIMITS, MY_TEAMS_MAX } from "../lib/teamHub";
 import { useAuth } from "../lib/auth";
-import { loadMyTeam, localSource, MY_TEAM_ID, onMyTeam, saveMyTeam } from "../lib/teamSource";
+import { addMyTeam, currentTeamId, loadMyTeam, loadMyTeams, localSource, onMyTeam, pickMyTeam, removeMyTeam, saveMyTeam } from "../lib/teamSource";
 import { useToast } from "../lib/toast";
 import { DepthTab } from "./frontOffice/DepthTab";
 import { RosterTab } from "./frontOffice/RosterTab";
@@ -27,39 +29,74 @@ export function MyTeam() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const tab: Tab = params.get("tab") === "depth" ? "depth" : "roster";
-  const source = useMemo(localSource, []);
-  const [info, setInfo] = useState(() => {
-    const t = loadMyTeam();
+  // The team open in this browser; a coach can keep several (U10, U12, the spring 7v7 team).
+  const [teamId, setTeamId] = useState(() => currentTeamId());
+  const [teams, setTeams] = useState(() => loadMyTeams().teams.map((t) => ({ id: t.id, name: t.name, players: t.players.length })));
+  const source = useMemo(() => localSource(teamId), [teamId]);
+  const infoOf = (id: string) => {
+    const t = loadMyTeam(id);
     return { name: t.name, level: t.level, season: t.season };
-  });
+  };
+  const [info, setInfo] = useState(() => infoOf(teamId));
   // The tabs reload from the source when this changes, so the header count stays true.
-  const [count, setCount] = useState(() => loadMyTeam().players.length);
+  const [count, setCount] = useState(() => loadMyTeam(teamId).players.length);
   const { account } = useAuth();
   // The account's newer copy arrived after sign-in: show it.
   const [version, setVersion] = useState(0);
+  const [naming, setNaming] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
+
+  const refresh = (id = currentTeamId()) => {
+    setTeams(loadMyTeams().teams.map((t) => ({ id: t.id, name: t.name, players: t.players.length })));
+    setTeamId(id);
+    setInfo(infoOf(id));
+    setCount(loadMyTeam(id).players.length);
+    setVersion((v) => v + 1);
+  };
   useEffect(
     () =>
       onMyTeam((from) => {
-        if (from !== "account") return;
-        const t = loadMyTeam();
-        setInfo({ name: t.name, level: t.level, season: t.season });
-        setCount(t.players.length);
-        setVersion((v) => v + 1);
+        if (from === "account") refresh();
       }),
-    [],
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  const open = (id: string) => {
+    pickMyTeam(id);
+    refresh(id);
+  };
 
   const rename = (patch: Partial<typeof info>) => {
     const next = { ...info, ...patch };
     setInfo(next);
     try {
-      saveMyTeam({ ...loadMyTeam(), ...next, name: next.name.trim() ? next.name : "My team" });
+      saveMyTeam({ ...loadMyTeam(teamId), ...next, name: next.name.trim() ? next.name : "My team" });
+      setTeams((list) => list.map((t) => (t.id === teamId ? { ...t, name: next.name.trim() || "My team" } : t)));
     } catch (e) {
       toast((e as Error).message);
     }
   };
 
-  const team = { id: MY_TEAM_ID, name: info.name.trim() || "My team", allCoaches: false };
+  const create = (name: string) => {
+    try {
+      const made = addMyTeam(name);
+      setNaming(null);
+      refresh(made.id);
+      toast(`${made.name} is ready. Add its players below.`);
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  };
+
+  const drop = () => {
+    const gone = info.name.trim() || "My team";
+    removeMyTeam(teamId);
+    setDropping(false);
+    refresh();
+    toast(`${gone} removed.`);
+  };
+
+  const team = { id: teamId, name: info.name.trim() || "My team", allCoaches: false };
 
   return (
     <Shell title="My team">
@@ -81,7 +118,23 @@ export function MyTeam() {
         </div>
       </div>
 
-      <TextTeamCard version={`${version}-${count}`} />
+      <TextTeamCard version={`${teamId}-${version}-${count}`} />
+
+      <div className="myteam-teams" role="group" aria-label="Your teams">
+        {teams.map((t) => (
+          <button key={t.id} type="button" className={`chip${t.id === teamId ? " is-on" : ""}`} aria-pressed={t.id === teamId} onClick={() => open(t.id)}>
+            {t.id === teamId ? info.name.trim() || "My team" : t.name} <span className="pill">{t.id === teamId ? count : t.players}</span>
+          </button>
+        ))}
+        <button type="button" className="btn btn-quiet btn-sm" onClick={() => setNaming("")} disabled={teams.length >= MY_TEAMS_MAX}>
+          <Icon name="plus" size={14} /> New team
+        </button>
+        {(teams.length > 1 || count > 0) && (
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setDropping(true)}>
+            <Icon name="trash" size={14} /> Remove this team
+          </button>
+        )}
+      </div>
 
       <section className="hub-panel myteam-info" aria-label="Team details">
         <label className="field">
@@ -120,7 +173,7 @@ export function MyTeam() {
 
       {tab === "roster" ? (
         <RosterTab
-          key={version}
+          key={`${teamId}-${version}`}
           team={team}
           source={source}
           onCount={() => setCount(loadMyTeam().players.length)}
@@ -131,12 +184,48 @@ export function MyTeam() {
           }
         />
       ) : (
-        <DepthTab key={version} team={team} source={source} />
+        <DepthTab key={`${teamId}-${version}`} team={team} source={source} />
+      )}
+
+      {naming !== null && (
+        <Modal
+          title="Start another team"
+          onClose={() => setNaming(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-quiet" onClick={() => setNaming(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => create(naming)}>
+                Create team
+              </button>
+            </>
+          }
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              create(naming);
+            }}
+          >
+            <label className="field">
+              <span>Team name</span>
+              <input className="input" autoFocus value={naming} maxLength={HUB_LIMITS.name} onChange={(e) => setNaming(e.target.value)} placeholder="U12 Mustangs, Spring 7v7" />
+            </label>
+            <p className="hint">Each team keeps its own roster, depth chart and player documents. Switch between them with the buttons above the roster.</p>
+          </form>
+        </Modal>
+      )}
+      {dropping && (
+        <Confirm title={`Remove ${team.name}?`} action="Remove team" danger onConfirm={drop} onClose={() => setDropping(false)}>
+          Its {count} {count === 1 ? "player" : "players"}, depth chart and any documents kept with them go too. This can't be undone; download the roster CSV
+          first if you might want it back.
+        </Confirm>
       )}
 
       <p className="hint myteam-foot">
-        Coaching more than one team, or sharing the roster with assistant coaches? A <Link to="/front-office">Front Office</Link> holds a
-        roster per team for your whole staff, and its Import spreadsheet takes the CSV you download here.
+        Sharing a roster with assistant coaches? A <Link to="/front-office">Front Office</Link> holds a roster per team for your whole staff, and its
+        Import spreadsheet takes the CSV you download here.
       </p>
     </Shell>
   );

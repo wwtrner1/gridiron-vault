@@ -698,6 +698,7 @@ export const GUIDES: Guide[] = [
         heading: "Team",
         steps: [
           { title: "Text the team", text: "Counts of the players and phone numbers you can text, the Text the team button, and the last texts you sent. You write one message, pick who it is for, and send it from your own phone in groups of 8. Only contacts marked OK to text are included.", target: "[data-tour='text-team']" },
+          { title: "Your teams", text: "One button per team you coach, each with its own roster, depth chart and player documents. New team starts another; Remove this team deletes the open one after asking.", target: ".myteam-teams" },
           { title: "Team details", text: "Team name, level and season. The player count updates as you add players.", target: ".myteam-info" },
           { title: "Assignments and Front Office", text: "Jump to the position sheets, or to a Front Office if you coach more than one team or share with assistants.", target: ".page-head .fo-actions" },
         ],
@@ -714,8 +715,8 @@ export const GUIDES: Guide[] = [
         heading: "Roster and depth chart",
         steps: [
           { title: "Tabs", text: "Roster and Depth chart.", target: ".hub-tabs" },
-          { title: "Roster", text: "Add player, Import (paste from a spreadsheet or a CSV), Download CSV and Print a contact sheet. Open a player for contacts, up to three guardians and medical notes. Only you see it.", target: ".hub-panel .hub-head .fo-actions" },
-          { title: "Depth chart", text: "Offense, defense and special teams. Start from a preset (flag 5/7, 11-man), drag or arrow players into order, and Starters to Assignments sends each lettered spot's starter to the position sheets.", target: ".hub-tabs" },
+          { title: "Roster", text: "Add player, Import spreadsheet (open an Excel .xlsx or .xls file or a CSV, or paste the rows: Dad and Mom columns, middle name, grad year and uniform sizes come across), Download CSV and Print a contact sheet. Open a player for their picture, uniform sizes, contacts, up to three guardians, medical notes, and documents such as physicals and birth certificates. Tick players and press Remove selected, or the X on a row, to take them off. Only you see it.", target: ".hub-panel .hub-head .fo-actions" },
+          { title: "Depth chart", text: "Offense, defense and special teams. Start from a preset (flag 5/7, 11-man), drag or arrow players into order, tap a player's circle to add their picture, and Starters to Assignments sends each lettered spot's starter to the position sheets.", target: ".hub-tabs" },
         ],
       },
     ],
