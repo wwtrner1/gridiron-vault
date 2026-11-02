@@ -244,6 +244,9 @@ export const OFFERS: { id: string; name: string; price: string; cadence: string;
   { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
 ];
 
+/** Prices are tax-exclusive (`stripe:setup` makes them so and Checkout adds sales tax where it applies), so every paid price says so. */
+export const plusTax = (price: string): string => (price === "$0" ? "" : " + tax");
+
 /** Sizes a free coach can print, so the product is genuinely usable first. */
 export const STARTER_SIZES = ["wristband", "wristband-lg", "letter-p"];
 

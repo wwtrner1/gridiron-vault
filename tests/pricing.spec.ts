@@ -68,6 +68,13 @@ test("with billing open, a plan button goes to Stripe Checkout and the offers sh
   });
   await page.goto("/pricing");
   await expect(page.getByRole("button", { name: "Buy the Season Pass" })).toBeVisible();
+  // Prices are tax-exclusive: every paid price says "+ tax", Sideline ($0) doesn't, and the note says where tax comes in.
+  const headCoach = page.locator(".home-plan").filter({ has: page.getByRole("heading", { name: "Head Coach" }) });
+  await expect(headCoach.locator(".home-plan-price small")).toHaveText("per month + tax");
+  const sideline = page.locator(".home-plan").filter({ has: page.getByRole("heading", { name: "Sideline" }) });
+  await expect(sideline.locator(".home-plan-price small")).not.toContainText("tax");
+  await expect(page.locator(".price-offer").filter({ hasText: "Season Pass" }).locator("small")).toHaveText("for 4 months + tax");
+  await expect(page.getByRole("note")).toContainText("sales tax is added at checkout");
   await page.getByRole("button", { name: "Choose Head Coach" }).click();
   await expect(page).toHaveURL(/\/account\?billing=checkout-mock/);
   expect(offers).toEqual(["solo_month"]);
