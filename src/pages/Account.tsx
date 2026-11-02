@@ -16,6 +16,7 @@ import { forgetAll } from "../lib/autofill";
 import { useToast } from "../lib/toast";
 import { api, coachError } from "../lib/api";
 import { SUPPORT_EMAIL } from "../lib/site";
+import { useOwnerState } from "../lib/owner";
 
 const EVENT_LABELS: Record<string, string> = {
   play_created: "Plays saved",
@@ -26,6 +27,7 @@ const EVENT_LABELS: Record<string, string> = {
 export function Account() {
   const { account, signOut, available } = useAuth();
   const tier = useTier();
+  const owner = useOwnerState();
   const billing = useBilling();
   const toast = useToast();
   const navigate = useNavigate();
@@ -204,6 +206,18 @@ export function Account() {
               <dd>{tier.id === "master" ? "Unlimited" : `${tier.assistantCalls} per month`}</dd>
             </div>
           </dl>
+          {owner.owner && (
+            <p>
+              <Link className="btn btn-primary btn-sm" to="/admin">
+                Open the owner console
+              </Link>
+            </p>
+          )}
+          {!owner.owner && owner.hint && (
+            <p className="hint" role="status">
+              Owner console locked: {owner.hint} Sign out and back in; if it stays locked, check the email is confirmed in Netlify Identity.
+            </p>
+          )}
           {tier.id === "master" ? (
             <small className="hint">This is the owner account. It has no plan to switch and no limits to run into.</small>
           ) : billing ? (

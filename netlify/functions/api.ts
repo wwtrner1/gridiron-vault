@@ -97,6 +97,16 @@ async function session(): Promise<Session | null> {
         ownerHint = "Identity could not be asked whether this email is confirmed.";
         console.error("owner check", e);
       }
+      // Identity didn't say yes (preview deploys, an admin API hiccup, a token-only answer). This exact account was already
+      // confirmed as the owner once, which stamped its own profile row "master" (ensureProfile); trust that stamp. The row is
+      // keyed by the Identity user id, so another account using the same address never matches it.
+      if (!confirmed) {
+        const [row] = await db.select({ plan: profiles.plan, email: profiles.email }).from(profiles).where(eq(profiles.id, user.id)).catch(() => []);
+        if (row?.plan === "master" && onOwnerList(row.email)) {
+          confirmed = true;
+          ownerHint = undefined;
+        }
+      }
     }
     return {
       id: user.id,
