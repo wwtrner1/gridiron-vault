@@ -50,13 +50,28 @@ export const noteAiHost = (host: string) => {
 const DEADLINE_MS = 50_000;
 const deadline = () => ({ signal: AbortSignal.timeout(DEADLINE_MS) });
 
+/**
+ * The key as Netlify holds it, cleaned of what gets pasted along with it: spaces, line breaks, quotes and
+ * the angle brackets of a "<your key>" placeholder. Any of them makes Anthropic answer "invalid x-api-key"
+ * (on 2026-11-02 the site's key ended in ">", and Griddy read "offline" on gridiron-vault.com).
+ */
+export const cleanKey = (raw: string | undefined) => raw?.trim().replace(/^[<"'`\s]+|[>"'`\s]+$/g, "") || undefined;
+
 let shared: Anthropic | null = null;
 function client(): Anthropic {
-  // Trimmed: a space or line break pasted along with the key makes Anthropic answer "invalid x-api-key".
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const apiKey = cleanKey(process.env.ANTHROPIC_API_KEY);
   if (!apiKey) throw new AiError("Griddy isn't switched on for this site yet.", 503);
   shared ??= new Anthropic({ apiKey });
   return shared;
+}
+
+/** Enough of the key to tell which one the site sent, never the secret part. */
+function keyHint(): string {
+  const raw = process.env.ANTHROPIC_API_KEY;
+  const key = cleanKey(raw);
+  if (!key) return "key: none";
+  const via = process.env.ANTHROPIC_BASE_URL ? "via gateway" : "direct";
+  return `key ${key.slice(0, 7)}…${key.slice(-4)} (${key.length} chars, ${via}${raw?.trim() !== key ? ", cleaned" : ""})`;
 }
 
 /** Log the provider's error for us; coaches get plain wording. */
@@ -77,7 +92,7 @@ function plain(error: unknown): never {
     throw new AiError(BUSY, 503);
   }
   if (error instanceof Anthropic.APIError) {
-    console.error("Claude API", error.status, error.message.slice(0, 500), `key ends …${process.env.ANTHROPIC_API_KEY?.trim().slice(-4) ?? "none"}`);
+    console.error("Claude API", error.status, error.message.slice(0, 500), keyHint());
     // Overloaded, or the gateway itself failing: nothing the coach wrote caused it, so say "busy", not "couldn't read that".
     if (error.status === 529 || (error.status ?? 0) >= 500) throw new AiError(BUSY, 503);
     // A rejected or expired key, or no credit left (the AI Gateway answers 402), is ours to fix, not the coach's to retry.
