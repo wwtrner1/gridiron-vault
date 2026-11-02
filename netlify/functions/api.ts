@@ -51,7 +51,7 @@ import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
-import { AiError, callTool, MODELS } from "../ai/claude.js";
+import { AiError, callTool, MODELS, noteAiHost } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
@@ -186,6 +186,7 @@ const DEVICE_ID = /^[A-Za-z0-9-]{8,100}$/;
  */
 export default async (req: Request, context?: Context) => {
   noteHost(new URL(req.url).hostname);
+  noteAiHost(new URL(req.url).hostname);
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
   const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";

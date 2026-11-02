@@ -11,6 +11,10 @@ import {
   type GriddyReply,
   type GriddyRequest,
   type GriddyTurn,
+  MAX_ROSTER_ROWS,
+  ROSTER_STATUS,
+  type RosterStatus,
+  type RosterUpdate,
 } from "../../src/lib/griddy.js";
 import type { AssistantRead } from "../../src/lib/assistant.js";
 import { bulkColor, cleanFilter, cleanOpenChange, LETTER, MAX_BULK_CHANGES, MAX_LOOKS, type BulkChange, type BulkScope } from "../../src/lib/bulkEdit.js";
@@ -91,6 +95,18 @@ function cleanRequest(body: Partial<GriddyRequest>): GriddyRequest {
       const color = normalizeHex(str(l?.color, 10));
       return LETTER.test(letter) && color ? [{ letter, color, plays: Math.max(0, Math.min(100000, Number(l?.plays) || 0)) }] : [];
     }),
+    roster:
+      c.roster && typeof c.roster === "object"
+        ? {
+            team: str(c.roster.team, 60) || "the team",
+            players: (Array.isArray(c.roster.players) ? c.roster.players : []).slice(0, MAX_ROSTER_ROWS).flatMap((p) => {
+              const id = str(p?.id, 64);
+              if (!id) return [];
+              const status = (ROSTER_STATUS as readonly string[]).includes(String(p?.status)) ? (p.status as RosterStatus) : "active";
+              return [{ id, name: str(p?.name, 120), jersey: str(p?.jersey, 10), positions: str(p?.positions, 40), status }];
+            }),
+          }
+        : null,
   };
   // The plays in front of the coach, and the open play's id, only when they are in the Vault list sent.
   const inVault = new Set(context.vault.map((p) => p.id));
@@ -113,6 +129,9 @@ function toolInput(a: GriddyAction): unknown {
     const { game: _game, ...call } = a.call;
     return call;
   }
+  // Row numbers change from turn to turn, so the history names the players instead.
+  if (a.tool === "edit_roster")
+    return { remove: a.remove.map((r) => r.name), update: a.update.map(({ id: _id, ...u }) => u) };
   if (a.tool === "bulk_edit") {
     const scope =
       a.scope.kind === "playbook"
@@ -261,6 +280,34 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
     if (u.name === "draw_defense") {
       const call = cleanDefenseCall(input, ctx.game);
       return call ? [{ id: u.id, tool: "draw_defense", call }] : [];
+    }
+    if (u.name === "edit_roster") {
+      // Row numbers in the Roster list Griddy was shown, mapped to real player ids; anything else is dropped.
+      const roster = ctx.roster;
+      if (!roster) return [];
+      const row = (n: unknown) => roster.players[Number(n) - 1];
+      const seen = new Set<string>();
+      const remove = (Array.isArray(input.remove) ? input.remove : []).slice(0, MAX_ROSTER_ROWS).flatMap((n) => {
+        const p = row(n);
+        if (!p || seen.has(p.id)) return [];
+        seen.add(p.id);
+        return [{ id: p.id, name: p.name || `#${p.jersey}` }];
+      });
+      const update = (Array.isArray(input.update) ? input.update : []).slice(0, MAX_ROSTER_ROWS).flatMap((r: Record<string, unknown>): RosterUpdate[] => {
+        const p = row(r?.n);
+        // A player being removed isn't also changed.
+        if (!p || seen.has(p.id)) return [];
+        const patch: Omit<RosterUpdate, "id" | "name"> = {};
+        if ((ROSTER_STATUS as readonly string[]).includes(String(r.status)) && r.status !== p.status) patch.status = r.status as RosterStatus;
+        const jersey = str(r.jersey, 10).trim().replace(/^#/, "");
+        if (jersey && jersey !== p.jersey) patch.jersey = jersey;
+        const positions = str(r.positions, 40).trim();
+        if (positions && positions !== p.positions) patch.positions = positions;
+        if (!Object.keys(patch).length) return [];
+        seen.add(p.id);
+        return [{ id: p.id, name: p.name || `#${p.jersey}`, ...patch }];
+      });
+      return remove.length || update.length ? [{ id: u.id, tool: "edit_roster", team: roster.team, remove, update }] : [];
     }
     if (u.name === "show_plays") {
       const ids = (Array.isArray(input.ids) ? input.ids : []).map((id) => String(id)).filter((id) => vaultIds.has(id));

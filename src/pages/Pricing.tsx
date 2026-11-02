@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
-import { OFFERS, PUBLIC_TIERS, TIERS } from "../lib/plan";
+import { OFFERS, PUBLIC_TIERS, TIERS, plusTax } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
 import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
@@ -149,7 +149,11 @@ export function Pricing() {
             <Icon name="sparkle" size={16} />
             <span>
               {billing ? (
-                <>Payments are handled by Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid for ends.</>
+                <>
+                  Prices are in US dollars, and sales tax is added at checkout where your state charges it. Payments are handled by
+                  Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid
+                  for ends.
+                </>
               ) : tier.id === "beta" ? (
                 <>
                   You are on <b>Beta Coach</b> — everything is already switched on. Billing is not live yet: picking a plan below
@@ -174,7 +178,10 @@ export function Pricing() {
                 <p>{t.blurb}</p>
                 <div className="home-plan-price">
                   <b>{t.price}</b>
-                  <small>{t.cadence}</small>
+                  <small>
+                    {t.cadence}
+                    {plusTax(t.price)}
+                  </small>
                 </div>
                 <ul className="price-perks">
                   {[t.seats, ...t.perks].map((p) => (
@@ -205,7 +212,10 @@ export function Pricing() {
                 <h3>{o.name}</h3>
                 <div className="home-plan-price">
                   <b>{o.price}</b>
-                  <small>{o.cadence}</small>
+                  <small>
+                    {o.cadence}
+                    {plusTax(o.price)}
+                  </small>
                 </div>
                 <p>{o.blurb}</p>
                 {billing && account && OFFER_KEY[o.id] && (

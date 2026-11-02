@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
 import { PLAYBOOK_NAV } from "../lib/nav";
-import { PUBLIC_TIERS } from "../lib/plan";
+import { PUBLIC_TIERS, plusTax } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { lazyPage } from "../lib/lazyPage";
 import "../styles/home.css";
@@ -272,7 +272,10 @@ export function Landing() {
                 <p>{t.blurb}</p>
                 <div className="home-plan-price">
                   <b>{t.price}</b>
-                  <small>{t.cadence}</small>
+                  <small>
+                    {t.cadence}
+                    {plusTax(t.price)}
+                  </small>
                 </div>
                 <div className="home-plan-cta">
                   <Link to="/pricing" className={`btn ${t.featured ? "btn-primary" : "btn-ghost"}`}>
