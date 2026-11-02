@@ -52,26 +52,64 @@ const deadline = () => ({ signal: AbortSignal.timeout(DEADLINE_MS) });
 
 /**
  * The key as Netlify holds it, cleaned of what gets pasted along with it: spaces, line breaks, quotes and
- * the angle brackets of a "<your key>" placeholder. Any of them makes Anthropic answer "invalid x-api-key"
+ * the angle brackets of a "<your key>" placeholder, or the variable's own name in front. Any of them makes Anthropic answer "invalid x-api-key"
  * (on 2026-11-02 the site's key ended in ">", and Griddy read "offline" on gridiron-vault.com).
  */
-export const cleanKey = (raw: string | undefined) => raw?.trim().replace(/^[<"'`\s]+|[>"'`\s]+$/g, "") || undefined;
+export const cleanKey = (raw: string | undefined) => {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  // A whole "ANTHROPIC_API_KEY=sk-ant-…" line pasted as the value (seen 2026-11-02): use the key inside it.
+  const inside = value.match(/sk-ant-[A-Za-z0-9_-]+/);
+  if (inside) return inside[0];
+  return value.replace(/^\s*<?\s*(?:export\s+)?[A-Z_]+\s*[=:]\s*/, "").replace(/^[<"'`\s]+|[>"'`\s]+$/g, "") || undefined;
+};
+
+/**
+ * Where the call goes. Our own key (cleaned) goes straight to Anthropic, or to ANTHROPIC_BASE_URL when one is set.
+ * With no usable key of ours, fall back to the AI Gateway's own credentials, which Netlify always injects:
+ * a variable left on the site with an empty value stops Netlify injecting ANTHROPIC_API_KEY (seen 2026-11-02).
+ */
+export function route(env: Record<string, string | undefined> = process.env): { apiKey: string; baseURL?: string; via: string } | null {
+  const own = cleanKey(env.ANTHROPIC_API_KEY);
+  if (own) return { apiKey: own, baseURL: env.ANTHROPIC_BASE_URL?.trim() || undefined, via: env.ANTHROPIC_BASE_URL ? "via gateway" : "direct" };
+  const gatewayKey = env.NETLIFY_AI_GATEWAY_KEY?.trim();
+  const gatewayBase = env.NETLIFY_AI_GATEWAY_BASE_URL?.trim().replace(/\/+$/, "");
+  if (gatewayKey && gatewayBase) {
+    return { apiKey: gatewayKey, baseURL: env.ANTHROPIC_BASE_URL?.trim() || `${gatewayBase}/anthropic`, via: "gateway fallback" };
+  }
+  return null;
+}
 
 let shared: Anthropic | null = null;
 function client(): Anthropic {
-  const apiKey = cleanKey(process.env.ANTHROPIC_API_KEY);
-  if (!apiKey) throw new AiError("Griddy isn't switched on for this site yet.", 503);
-  shared ??= new Anthropic({ apiKey });
+  const to = route();
+  if (!to) {
+    console.error("Griddy has no key:", envHint());
+    throw new AiError("Griddy isn't switched on for this site yet.", 503);
+  }
+  shared ??= new Anthropic({ apiKey: to.apiKey, ...(to.baseURL ? { baseURL: to.baseURL } : {}) });
   return shared;
+}
+
+/** Which AI variables the function can see (names and lengths, never values). */
+function envHint(): string {
+  const names = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "NETLIFY_AI_GATEWAY_KEY", "NETLIFY_AI_GATEWAY_BASE_URL"];
+  return names.map((n) => `${n}=${process.env[n] === undefined ? "unset" : `${process.env[n]!.length} chars`}`).join(", ");
 }
 
 /** Enough of the key to tell which one the site sent, never the secret part. */
 function keyHint(): string {
   const raw = process.env.ANTHROPIC_API_KEY;
-  const key = cleanKey(raw);
-  if (!key) return "key: none";
-  const via = process.env.ANTHROPIC_BASE_URL ? "via gateway" : "direct";
-  return `key ${key.slice(0, 7)}…${key.slice(-4)} (${key.length} chars, ${via}${raw?.trim() !== key ? ", cleaned" : ""})`;
+  const to = route();
+  if (!to) return `key: none (${envHint()})`;
+  const key = to.apiKey;
+  let base = "";
+  try {
+    if (to.baseURL) base = ` to ${new URL(to.baseURL).host}${new URL(to.baseURL).pathname}`;
+  } catch {
+    base = " to an unreadable base URL";
+  }
+  return `key ${key.slice(0, 7)}…${key.slice(-4)} (${key.length} chars, ${to.via}${base}${to.via !== "gateway fallback" && raw?.trim() !== key ? ", cleaned" : ""})`;
 }
 
 /** Log the provider's error for us; coaches get plain wording. */
