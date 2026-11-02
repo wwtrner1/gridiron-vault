@@ -9,7 +9,8 @@ import { describeChange, editScene, OPEN_PLAY_ID, planBulkEdit, restorePlayers }
 import type { BulkEdit, BulkFiling, BulkTarget } from "../lib/bulkEdit";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
-import type { CallSheetLine, GriddyAction, ImportItem } from "../lib/griddy";
+import type { CallSheetLine, GriddyAction, ImportItem, RosterUpdate } from "../lib/griddy";
+import { griddyRoster, type GriddyRoster } from "../lib/griddyRoster";
 import { currentGame, playFromRead, playFromScene, savePlays } from "../lib/griddyVault";
 import { buildDefense, defaultFormation, defenseField } from "../lib/griddyDefense";
 import { DEFENSE_COVERAGES, DEFENSE_FRONTS, coverageFor } from "../lib/griddy";
@@ -39,6 +40,7 @@ export function GriddyActionCard({ action }: { action: GriddyAction }) {
     return <BulkCard id={action.id} edit={{ scope: action.scope, ...(action.filter ? { filter: action.filter } : {}), changes: action.changes }} />;
   if (action.tool === "build_call_sheet") return <CallSheetCard id={action.id} name={action.name} lines={action.lines} />;
   if (action.tool === "draw_defense") return <DefenseCard id={action.id} call={action.call} />;
+  if (action.tool === "edit_roster") return <RosterCard id={action.id} team={action.team} remove={action.remove} update={action.update} />;
   return <PlaysCard ids={action.ids} />;
 }
 
@@ -758,6 +760,145 @@ function CallSheetCard({ id, name: suggested, lines }: { id: string; name: strin
         <div className="pa-acts">
           <button type="button" className="pa-btn is-primary" onClick={() => void create()} disabled={busy || !rows.length}>
             {busy ? "Creating…" : "Create the call sheet"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The roster Griddy's card writes to: the one on screen, else My team in this browser. */
+async function openRoster(): Promise<GriddyRoster> {
+  const shown = griddyRoster();
+  if (shown) return shown;
+  const { loadMyTeam, localSource } = await import("../lib/teamSource");
+  const mine = loadMyTeam();
+  return { team: mine.name, players: mine.players, source: localSource(), onChange: () => {} };
+}
+
+const changeWords = (u: RosterUpdate) =>
+  [u.status && (u.status === "active" ? "active again" : u.status), u.jersey && `#${u.jersey}`, u.positions && `plays ${u.positions}`].filter(Boolean).join(", ");
+
+type HubPlayerT = import("../lib/teamHub").HubPlayer;
+const infoOf = ({ id: _id, teamId: _team, updatedAt: _at, ...info }: HubPlayerT) => info;
+
+/**
+ * Players Griddy would take off the roster or change ("remove Casen and
+ * Harvey", "mark #12 injured"). The coach can drop names from the list;
+ * nothing changes until Apply, and Undo puts removed players back (their
+ * depth chart spots stay empty) and changed ones as they were.
+ */
+function RosterCard({ id, team, remove, update }: { id: string; team: string; remove: { id: string; name: string }[]; update: RosterUpdate[] }) {
+  const { outcomes, setOutcome, dance } = useGriddy();
+  const toast = useToast();
+  const [dropped, setDropped] = useState<Set<string>>(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const [undo, setUndo] = useState<{ removed: HubPlayerT[]; changed: HubPlayerT[] } | null>(null);
+  const done = outcomes[id];
+  const removing = remove.filter((r) => !dropped.has(r.id));
+  const changing = update.filter((u) => !dropped.has(u.id));
+  const count = removing.length + changing.length;
+
+  async function apply() {
+    setBusy(true);
+    try {
+      const roster = await openRoster();
+      const byId = new Map(roster.players.map((p) => [p.id, p]));
+      const gone = removing.filter((r) => byId.has(r.id));
+      const edits = changing.filter((u) => byId.has(u.id));
+      if (!gone.length && !edits.length) {
+        toast(`Those players aren't on the ${roster.team} roster any more. Open the roster and ask ${GRIDDY} again.`, true);
+        return;
+      }
+      let players = roster.players;
+      const removed: HubPlayerT[] = [];
+      const changed: HubPlayerT[] = [];
+      for (const r of gone) {
+        players = (await roster.source.deletePlayer(r.id)).players;
+        removed.push(byId.get(r.id)!);
+      }
+      for (const u of edits) {
+        const was = byId.get(u.id)!;
+        const { id: _i, name: _n, ...patch } = u;
+        players = (await roster.source.updatePlayer(u.id, { ...infoOf(was), ...patch })).players;
+        changed.push(was);
+      }
+      roster.onChange(players);
+      setUndo({ removed, changed });
+      const parts = [gone.length && `removed ${gone.map((r) => r.name).join(", ")}`, edits.length && `changed ${edits.map((u) => `${u.name} (${changeWords(u)})`).join(", ")}`].filter(Boolean);
+      setOutcome(id, `The coach ${parts.join(" and ")} on the ${roster.team} roster.`);
+      toast(`${roster.team} roster updated: ${[gone.length && `${gone.length} removed`, edits.length && `${edits.length} changed`].filter(Boolean).join(", ")}.`);
+      dance();
+    } catch (e) {
+      toast(coachError(e, "The roster didn't change. Check your signal and try again."), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function putBack() {
+    if (!undo) return;
+    setBusy(true);
+    try {
+      const roster = await openRoster();
+      let players = roster.players;
+      if (undo.removed.length) players = (await roster.source.addPlayers(undo.removed.map(infoOf))).players;
+      for (const was of undo.changed) if (players.some((p) => p.id === was.id)) players = (await roster.source.updatePlayer(was.id, infoOf(was))).players;
+      roster.onChange(players);
+      setUndo(null);
+      setOutcome(id, "The coach applied the roster change, then undid it.");
+      toast(undo.removed.length ? "Players are back on the roster. Put them back on the depth chart if they had a spot." : "Roster put back.");
+    } catch (e) {
+      toast(coachError(e, "Couldn't put the roster back. Check your signal and try again."), true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const row = (key: string, name: string, what: string) => (
+    <li key={key}>
+      <span className="gd-sheet-name">{name}</span>
+      <span className="gd-sheet-meta">{what}</span>
+      {!done && (
+        <button type="button" className="pa-chip-x" onClick={() => setDropped((d) => new Set(d).add(key))} aria-label={`Leave ${name} as is`}>
+          <Icon name="close" size={11} />
+        </button>
+      )}
+    </li>
+  );
+
+  return (
+    <div className="gd-card gd-sheet gd-roster">
+      <p className="pa-kicker">
+        {team} roster · {count} {count === 1 ? "player" : "players"}
+      </p>
+      {removing.length > 0 && (
+        <div className="gd-sheet-section">
+          <p className="gd-sheet-head">Take off the roster</p>
+          <ol className="gd-sheet-rows">{removing.map((r) => row(r.id, r.name, "Remove"))}</ol>
+        </div>
+      )}
+      {changing.length > 0 && (
+        <div className="gd-sheet-section">
+          <p className="gd-sheet-head">Change</p>
+          <ol className="gd-sheet-rows">{changing.map((u) => row(u.id, u.name, changeWords(u)))}</ol>
+        </div>
+      )}
+      {done ? (
+        <div className="gd-bulk-done">
+          <p className="gd-done">
+            <Icon name="check" size={14} /> {undo || !done.includes("undid") ? "Roster updated." : "Put back."}
+          </p>
+          {undo && (
+            <button type="button" className="pa-btn" onClick={() => void putBack()} disabled={busy}>
+              Undo
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="pa-acts">
+          <button type="button" className="pa-btn is-primary" onClick={() => void apply()} disabled={busy || !count}>
+            {busy ? "Saving…" : removing.length && !changing.length ? `Remove ${removing.length} ${removing.length === 1 ? "player" : "players"}` : "Apply to the roster"}
           </button>
         </div>
       )}

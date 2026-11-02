@@ -195,6 +195,17 @@ const openField = () => {
   return { ...base, nodes: readToNodes({ formation: "Trips Right", game: "5v5", name: "Trips Right Flood", assignments: [], unsure: [] }, TOKENS, base.losY, 1) };
 };
 const GAP = /^[A-E] gap$/;
+/** My team's roster on screen. */
+const ROSTER: NonNullable<GriddyContext["roster"]> = {
+  team: "Hawks",
+  players: [
+    { id: "r1", name: "Casen Crawford", jersey: "1", positions: "", status: "active" },
+    { id: "r2", name: "Harvey Diehl", jersey: "3", positions: "", status: "active" },
+    { id: "r3", name: "Mack Turner", jersey: "12", positions: "QB", status: "active" },
+    { id: "r4", name: "Campbell Ward", jersey: "21", positions: "", status: "active" },
+    { id: "r5", name: "Casen Litteral", jersey: "45", positions: "", status: "active" },
+  ],
+};
 
 const CASES: Case[] = [
   {
@@ -589,6 +600,37 @@ const CASES: Case[] = [
       return pass(`${plan.targets.length} defenses turned`);
     },
     ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "defense" }, changes: [{ op: "pov", end: "defense" }] }] }],
+  },
+  {
+    key: "roster-remove",
+    ctx: () => ({ page: "My team", roster: ROSTER }),
+    say: ["Remove the following players: Casen Crawford, Harvey Diehl, and number 21"],
+    check: (reply) => {
+      const cards = reply.actions.filter((a): a is Extract<GriddyAction, { tool: "edit_roster" }> => a.tool === "edit_roster");
+      if (cards.length !== 1) return cards.length ? fail(`${cards.length} roster cards`) : asked(reply, "no roster card");
+      const [card] = cards;
+      const gone = new Set(card.remove.map((r) => r.id));
+      const want = ["r1", "r2", "r4"];
+      if (want.some((id) => !gone.has(id))) return fail(`removes ${[...gone].join(", ")}`);
+      if (gone.size !== want.length) return fail(`also removes ${[...gone].filter((id) => !want.includes(id)).join(", ")}`);
+      return card.update.length ? fail("also changes players") : pass("3 removed");
+    },
+    ideal: () => [
+      { text: "", actions: [{ id: "t1", tool: "edit_roster", team: "Hawks", remove: [{ id: "r1", name: "Casen Crawford" }, { id: "r2", name: "Harvey Diehl" }, { id: "r4", name: "Campbell Ward" }], update: [] }] },
+    ],
+  },
+  {
+    key: "roster-status",
+    ctx: () => ({ page: "My team", roster: ROSTER }),
+    say: ["mark Mack injured"],
+    check: (reply) => {
+      const card = reply.actions.find((a): a is Extract<GriddyAction, { tool: "edit_roster" }> => a.tool === "edit_roster");
+      if (!card) return asked(reply, "no roster card");
+      if (card.remove.length) return fail("removes players");
+      const [u, ...more] = card.update;
+      return u?.id === "r3" && u.status === "injured" && !more.length ? pass() : fail(`updates ${JSON.stringify(card.update)}`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "edit_roster", team: "Hawks", remove: [], update: [{ id: "r3", name: "Mack Turner", status: "injured" }] }] }],
   },
   {
     key: "injection",

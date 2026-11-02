@@ -6,6 +6,7 @@ import type { AssistantRead } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
 import { useAuth } from "../lib/auth";
 import { griddyFocus } from "../lib/griddyFocus";
+import { griddyRoster } from "../lib/griddyRoster";
 import { GRIDDY, GRIDDY_LIMITS } from "../lib/griddyLimits";
 import type { GriddyAction, GriddyContext, GriddyTurn } from "../lib/griddy";
 import { gateAi } from "../lib/plan";
@@ -69,6 +70,8 @@ export function useGriddy() {
 }
 
 const NEEDS_ROUTES = /\b(renam|name|label|diagram|route|describe|identify|called)\w*/i;
+/** Roster talk: only then (or on a roster screen) do the coach's player names go along. */
+const NEEDS_ROSTER = /\b(roster|rosters|jerseys?|injur\w*|inactive|kids|athletes?)\b|\b(remove|delete|drop|cut|take off|add|mark)\b[^.?!]*\bplayers?\b/i;
 const NEEDS_COVERAGE = /\b(cover(age)?s?|zones?|man|blitz\w*|beats?|beaten|against|quarters|tampa)\b|\bc[0-4]\b/i;
 
 /** What a pass play beats in the Coverage check, cached per play version (each run is a few milliseconds). */
@@ -102,6 +105,34 @@ function vaultContext(
       .map((p) => ({ id: p.id, name: p.name, formation: p.formation, type: p.playType, field: p.scene.view, tags: p.tags.slice(0, 8), books: (books.get(p.id) ?? []).slice(0, 6), ...(routeSummary ? { routes: routeSummary(p.scene).slice(0, 140) } : {}), ...(check ? { beats: beatsOf(p, rush, check) } : {}) })),
     playbooks: playbooks.map((b) => ({ id: b.id, name: b.name, plays: b.playIds.length })),
     looks: vaultLooks(plays),
+  };
+}
+
+/**
+ * The roster Griddy may change: the one on screen, else My team in this
+ * browser while the coach talks about players. Names, numbers and status
+ * only; contacts and guardians never leave the page.
+ */
+async function rosterContext(wanted: boolean): Promise<GriddyContext["roster"]> {
+  const shown = griddyRoster();
+  let team: string;
+  let players: import("../lib/teamHub").HubPlayer[];
+  if (shown) ({ team, players } = shown);
+  else if (wanted) {
+    const { loadMyTeam } = await import("../lib/teamSource");
+    const mine = loadMyTeam();
+    if (!mine.players.length) return null;
+    ({ name: team, players } = mine);
+  } else return null;
+  return {
+    team,
+    players: players.slice(0, 150).map((p) => ({
+      id: p.id,
+      name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+      jersey: p.jersey,
+      positions: p.positions,
+      status: p.status,
+    })),
   };
 }
 
@@ -164,10 +195,11 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
         const check = recent.some((t) => NEEDS_COVERAGE.test(t.text)) ? await import("../lib/coverage") : undefined;
         // The route summaries go along only while the coach is talking about names or routes (they cost tokens).
         const explain = recent.some((t) => NEEDS_ROUTES.test(t.text)) ? await import("../lib/explain") : undefined;
-        const [{ vaultLooks }, { trustSaidLetters }, { currentGame }] = await Promise.all([
+        const [{ vaultLooks }, { trustSaidLetters }, { currentGame }, roster] = await Promise.all([
           import("../lib/bulkEdit"),
           import("../lib/assistant"),
           import("../lib/griddyVault"),
+          rosterContext(recent.some((t) => NEEDS_ROSTER.test(t.text))),
         ]);
         const { reply } = await api.griddy({
           turns: turnsNow.slice(-GRIDDY_LIMITS.turns),
@@ -176,6 +208,7 @@ export function GriddyProvider({ children }: { children: React.ReactNode }) {
             game: currentGame(),
             play: d ? { ...d.play, ...(d.playId ? { id: d.playId } : {}) } : null,
             focus: griddyFocus(),
+            roster,
             ...vaultContext(vaultLooks, explain?.routeSummary, check),
           },
           terms: terms.map((t) => ({ term: t.term, means: t.means })),
