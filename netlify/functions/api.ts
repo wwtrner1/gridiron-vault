@@ -49,7 +49,7 @@ import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
-import { AiError, callTool, MODELS } from "../ai/claude.js";
+import { AiError, callTool, MODELS, noteAiHost } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
@@ -96,6 +96,16 @@ async function session(): Promise<Session | null> {
       } catch (e) {
         ownerHint = "Identity could not be asked whether this email is confirmed.";
         console.error("owner check", e);
+      }
+      // Identity didn't say yes (preview deploys, an admin API hiccup, a token-only answer). This exact account was already
+      // confirmed as the owner once, which stamped its own profile row "master" (ensureProfile); trust that stamp. The row is
+      // keyed by the Identity user id, so another account using the same address never matches it.
+      if (!confirmed) {
+        const [row] = await db.select({ plan: profiles.plan, email: profiles.email }).from(profiles).where(eq(profiles.id, user.id)).catch(() => []);
+        if (row?.plan === "master" && onOwnerList(row.email)) {
+          confirmed = true;
+          ownerHint = undefined;
+        }
       }
     }
     return {
@@ -174,6 +184,7 @@ const DEVICE_ID = /^[A-Za-z0-9-]{8,100}$/;
  */
 export default async (req: Request, context?: Context) => {
   noteHost(new URL(req.url).hostname);
+  noteAiHost(new URL(req.url).hostname);
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
   const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";

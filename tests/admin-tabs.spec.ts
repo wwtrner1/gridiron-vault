@@ -19,7 +19,7 @@ const baseUser = {
   devicePeers: 0, griddyFirstDay: 0, captures7d: 0, suspended: false, flags: [] as string[],
 };
 const users = [
-  { ...baseUser, id: COACH, email: "spy@example.com", name: "Spy", captures7d: 31, flags: ["Lots of prints, screenshots or copies this week"] },
+  { ...baseUser, id: COACH, email: "spy@example.com", name: "Spy", phone: "verified", phoneNumber: "+16155550123", captures7d: 31, flags: ["Lots of prints, screenshots or copies this week"] },
   { ...baseUser, id: OTHER, email: "calm@example.com", name: "Calm" },
 ];
 const detail = {
@@ -118,6 +118,9 @@ test("Visitors, Watch list, Audit log and Find a PDF's owner, with the console's
   await expect(page.locator(".adm-table")).toContainText("spy@example.com");
   await expect(page.locator(".adm-table")).not.toContainText("calm@example.com");
   await expect(page.locator(".adm-table .pill-amber")).toHaveText("Lots of prints, screenshots or copies this week");
+  // The phone number itself, not just whether one is on file.
+  await expect(page.locator(".adm-table tbody tr").first()).toContainText("+16155550123");
+  await expect(page.locator(".adm-table tbody tr").first()).toContainText("verified");
   await expect(page.getByText("1 of 2")).toBeVisible();
   await page.getByRole("button", { name: "Download CSV" }).click();
   await expect.poll(() => asked.includes("admin/users.csv")).toBe(true);

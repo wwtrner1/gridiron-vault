@@ -29,6 +29,17 @@ const BUSY = "Griddy is busy right now. Try again in a minute.";
 const MISREAD = "Griddy couldn't read that just now. Try again, or draw it by hand.";
 const SLOW = "Griddy took too long to answer. Try again, or ask for less at once.";
 const OURS = "Griddy is offline while we fix a problem on our side. Your plays are fine. Try again later.";
+/**
+ * Deploy Previews get no working AI Gateway token: Netlify answers 401 with no
+ * body there (seen on Deploy Preview #328 while gridiron-vault.com answered),
+ * so a preview says where Griddy does answer instead of "offline".
+ */
+const PREVIEW = "Griddy doesn't answer on test previews. Open gridiron-vault.com to talk to him; your plays are fine.";
+let previewDeploy = false;
+/** Set from the request's host once per call, like the phone check's `noteHost`. */
+export const noteAiHost = (host: string) => {
+  previewDeploy = /^deploy-preview-\d+--/.test(host);
+};
 
 /**
  * Netlify ends a synchronous function at 60 s and the coach then gets the
@@ -70,7 +81,7 @@ function plain(error: unknown): never {
     // Overloaded, or the gateway itself failing: nothing the coach wrote caused it, so say "busy", not "couldn't read that".
     if (error.status === 529 || (error.status ?? 0) >= 500) throw new AiError(BUSY, 503);
     // A rejected or expired key, or no credit left (the AI Gateway answers 402), is ours to fix, not the coach's to retry.
-    if (error.status === 401 || error.status === 402 || error.status === 403) throw new AiError(OURS, 503);
+    if (error.status === 401 || error.status === 402 || error.status === 403) throw new AiError(previewDeploy ? PREVIEW : OURS, 503);
     throw new AiError(MISREAD);
   }
   console.error("Claude API unreachable", error);
