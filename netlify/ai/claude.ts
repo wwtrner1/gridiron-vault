@@ -52,10 +52,17 @@ const deadline = () => ({ signal: AbortSignal.timeout(DEADLINE_MS) });
 
 /**
  * The key as Netlify holds it, cleaned of what gets pasted along with it: spaces, line breaks, quotes and
- * the angle brackets of a "<your key>" placeholder. Any of them makes Anthropic answer "invalid x-api-key"
+ * the angle brackets of a "<your key>" placeholder, or the variable's own name in front. Any of them makes Anthropic answer "invalid x-api-key"
  * (on 2026-11-02 the site's key ended in ">", and Griddy read "offline" on gridiron-vault.com).
  */
-export const cleanKey = (raw: string | undefined) => raw?.trim().replace(/^[<"'`\s]+|[>"'`\s]+$/g, "") || undefined;
+export const cleanKey = (raw: string | undefined) => {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  // A whole "ANTHROPIC_API_KEY=sk-ant-…" line pasted as the value (seen 2026-11-02): use the key inside it.
+  const inside = value.match(/sk-ant-[A-Za-z0-9_-]+/);
+  if (inside) return inside[0];
+  return value.replace(/^\s*<?\s*(?:export\s+)?[A-Z_]+\s*[=:]\s*/, "").replace(/^[<"'`\s]+|[>"'`\s]+$/g, "") || undefined;
+};
 
 let shared: Anthropic | null = null;
 function client(): Anthropic {
