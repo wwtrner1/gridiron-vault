@@ -4,7 +4,10 @@ import { errorsOf, quiet } from "./helpers";
 test.beforeEach(async ({ context }) => quiet(context));
 
 const localTeam = (page: import("@playwright/test").Page) =>
-  page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.myteam.v1") ?? "{}") as { players?: { firstName: string; jersey: string }[] });
+  page.evaluate(
+    () =>
+      (JSON.parse(localStorage.getItem("grid1ronvault.myteams.v1") ?? "{}") as { teams?: { players: { firstName: string; jersey: string }[] }[] }).teams?.[0] ?? {},
+  ) as Promise<{ players?: { firstName: string; jersey: string; sizes?: Record<string, string>; middleName?: string; gradYear?: string; birthDate?: string; photo?: string; guardians?: { name: string; relation: string; phone: string; email: string }[] }[] }>;
 
 test("My team: add a player, paste a spreadsheet, download the CSV, build a depth chart and send the starters to Assignments", async ({ page }) => {
   const errors = errorsOf(page);

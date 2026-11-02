@@ -1,7 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   accountActivity,
@@ -10,6 +10,7 @@ import {
   callSheets,
   events,
   myTeams,
+  playerFiles,
   teamBrands,
   organizations,
   orgMembers,
@@ -49,11 +50,12 @@ import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
+import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
 import { AiError, callTool, MODELS } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
-import { cleanMyTeam } from "../../src/lib/teamHub.js";
+import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
@@ -471,25 +473,39 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
       return await filesRoute(me, req, resource, id, action);
     }
 
+    /* ----------------------------------- player documents and pictures --- */
+    if (resource === "player-files" || resource === "player-file") {
+      if (!me) return fail("Sign in to keep documents and pictures with your players.", 401);
+      await ensureProfile(me);
+      return await playerFilesRoute(me, req, resource, id, action);
+    }
+
     /* -------------------------------------------------------- my team --- */
-    // The coach's own roster (minors' contacts): owner only, never cached.
+    // The coach's own teams (minors' contacts): owner only, never cached.
+    // `team` is the first team, for a tab still open from before a coach could keep more than one.
     if (resource === "my-team") {
       const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
-      if (!me) return req.method === "GET" ? mine({ team: null }) : fail("Sign in to keep your roster on your account.", 401);
-      if (req.method === "GET") {
-        const [row] = await db.select().from(myTeams).where(eq(myTeams.ownerId, me.id));
-        return mine({ team: row ? cleanMyTeam(row.data) : null });
-      }
+      if (!me) return req.method === "GET" ? mine({ teams: null, team: null }) : fail("Sign in to keep your roster on your account.", 401);
+      const [row] = await db.select().from(myTeams).where(eq(myTeams.ownerId, me.id));
+      const saved = row ? cleanMyTeams(row.data) : null;
+      if (req.method === "GET") return mine({ teams: saved, team: saved?.teams[0] ?? null });
       if (req.method === "PUT") {
         await ensureProfile(me);
-        const body = (await req.json().catch(() => ({}))) as { team?: unknown };
-        const team = cleanMyTeam(body.team);
-        if (!team.updatedAt) team.updatedAt = new Date().toISOString();
+        const body = (await req.json().catch(() => ({}))) as { teams?: unknown; team?: unknown };
+        let teams: MyTeamsDoc;
+        if (body.teams) teams = cleanMyTeams(body.teams);
+        else {
+          // An older tab sends its one team: it replaces the first team and leaves the others.
+          const one = cleanMyTeam(body.team);
+          const rest = (saved?.teams ?? []).filter((t) => t.id !== one.id);
+          teams = { teams: [one, ...rest], updatedAt: one.updatedAt };
+        }
+        if (!teams.updatedAt) teams.updatedAt = new Date().toISOString();
         await db
           .insert(myTeams)
-          .values({ ownerId: me.id, data: team, updatedAt: new Date() })
-          .onConflictDoUpdate({ target: myTeams.ownerId, set: { data: team, updatedAt: new Date() } });
-        return mine({ team });
+          .values({ ownerId: me.id, data: teams, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: myTeams.ownerId, set: { data: teams, updatedAt: new Date() } });
+        return mine({ teams, team: teams.teams[0] ?? null });
       }
     }
 
@@ -1158,7 +1174,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
   const [prof] = await db.select().from(profiles).where(eq(profiles.id, me.id));
   // A director's team files: read where they are now, delete them once the rows are gone.
   const [ownOrg] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
-  const fileKeys = ownOrg ? await orgFileKeys(ownOrg.id) : [];
+  const fileKeys = [...(ownOrg ? await orgFileKeys(ownOrg.id) : []), ...(await ownerPlayerFileKeys(me.id))];
   const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, me.id));
   await db.transaction(async (tx) => {
     // The owner's signup history keeps a fingerprint of the account, never the plays or the phone number itself.
@@ -1183,6 +1199,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
+    await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));

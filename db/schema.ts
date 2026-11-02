@@ -577,6 +577,32 @@ export const hubFiles = pgTable(
 );
 
 /**
+ * A document or picture kept with one player (physical, birth certificate,
+ * waiver, photo). `scope` is `my.<team id>` for a coach's own My team (only
+ * `ownerId` sees it) or a Front Office team's id (that team's staff see it,
+ * and `orgId` is set so closing the Front Office takes the rows with it).
+ * Bytes live in the private `team-files` Blobs store under `blobKey`; the
+ * routes delete both, and every download is an attachment.
+ */
+export const playerFiles = pgTable(
+  "player_files",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    scope: text().notNull(),
+    playerId: text("player_id").notNull(),
+    name: text().notNull(),
+    type: text().notNull().default(""),
+    size: integer().notNull().default(0),
+    blobKey: text("blob_key").notNull(),
+    uploaderName: text("uploader_name").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("player_files_scope_idx").on(t.scope, t.playerId), index("player_files_owner_idx").on(t.ownerId), index("player_files_org_idx").on(t.orgId)],
+);
+
+/**
  * My team: a coach's own roster and depth chart, no Front Office needed. One
  * row per coach holding the whole `MyTeamDoc` (src/lib/teamHub.ts), cleaned by
  * `cleanMyTeam`. Holds minors' contacts: owner only, never public.

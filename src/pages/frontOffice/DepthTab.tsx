@@ -18,6 +18,8 @@ import {
   type HubTeam,
 } from "../../lib/teamHub";
 import { hubSource, type TeamSource } from "../../lib/teamSource";
+import { photoFromFile } from "../../lib/playerPhoto";
+import { PlayerFace } from "./RosterTab";
 import { useToast } from "../../lib/toast";
 
 const STRING = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
@@ -44,6 +46,25 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
   // Print shows a preview of the printed page first.
   const [previewing, setPreviewing] = useState(false);
   const closePreview = useCallback(() => setPreviewing(false), []);
+  // One hidden picker for every card: which player the chosen picture is for.
+  const photoInput = useRef<HTMLInputElement>(null);
+  const photoFor = useRef<string>("");
+  const choosePhoto = (id: string) => {
+    photoFor.current = id;
+    photoInput.current?.click();
+  };
+  const savePhoto = async (file: File) => {
+    const p = players?.find((x) => x.id === photoFor.current);
+    if (!p) return;
+    try {
+      const photo = await photoFromFile(file);
+      const { id: _id, teamId: _t, updatedAt: _u, ...info } = p;
+      setPlayers((await source.updatePlayer(p.id, { ...info, photo })).players);
+      toast(`Picture added for ${fullName(p)}.`);
+    } catch (e) {
+      toast(coachError(e, "That picture didn't save. Try again in a minute."), true);
+    }
+  };
 
   useEffect(() => {
     Promise.all([source.roster(), source.depthCharts()])
@@ -241,6 +262,16 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
                       className={p.status === "injured" ? "is-hurt" : ""}
                     >
                       <span className="hub-rank">{STRING[i]}</span>
+                      <button
+                        type="button"
+                        className="hub-face-btn"
+                        onClick={() => choosePhoto(p.id)}
+                        aria-label={p.photo ? `Change ${fullName(p)}'s picture` : `Add a picture of ${fullName(p)}`}
+                        title={p.photo ? "Change picture" : "Add a picture"}
+                      >
+                        <PlayerFace player={p} size={30} />
+                        {!p.photo && <Icon name="upload" size={10} className="hub-face-add" />}
+                      </button>
                       <span className="hub-who">
                         {p.jersey && <b>#{p.jersey} </b>}
                         {fullName(p)}
@@ -290,6 +321,8 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
         </div>
       )}
 
+      {slots.length > 0 && players.length > 0 && <p className="hint hub-noprint">Tap a player's circle to add their picture.</p>}
+
       {slots.length > 0 && bench.length > 0 && (
         <div className="hub-bench hub-noprint">
           <h4>Not on the {UNIT_LABEL[unit].toLowerCase()} chart yet</h4>
@@ -297,6 +330,7 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           <ul>
             {bench.map((p) => (
               <li key={p.id} draggable onDragStart={() => setDrag({ playerId: p.id, from: null })} onDragEnd={() => setDrag(null)}>
+                <PlayerFace player={p} size={22} />
                 {p.jersey && <b>#{p.jersey} </b>}
                 {fullName(p)}
                 {p.positions && <small> {p.positions}</small>}
@@ -305,6 +339,18 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           </ul>
         </div>
       )}
+      <input
+        ref={photoInput}
+        type="file"
+        accept="image/*"
+        hidden
+        aria-label="Player picture"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void savePhoto(file);
+        }}
+      />
       {previewing && <PagePreview title={`${team.name} depth chart`} onClose={closePreview} />}
     </section>
   );
