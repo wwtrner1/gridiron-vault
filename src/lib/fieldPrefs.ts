@@ -14,6 +14,8 @@ export type FieldPrefs = {
   snapRadius: number;
   hashes: HashStyle;
   contrast: FieldContrast;
+  /** The small "LOS" tag beside the line of scrimmage, in the side margin. */
+  losLabel: boolean;
 };
 
 /**
@@ -46,7 +48,7 @@ export const SNAP_RADII: { value: number; label: string }[] = [
   { value: 44, label: "Wide" },
 ];
 
-export const DEFAULT_FIELD_PREFS: FieldPrefs = { grid: 0, snapRadius: 26, hashes: "hs", contrast: "standard" };
+export const DEFAULT_FIELD_PREFS: FieldPrefs = { grid: 0, snapRadius: 26, hashes: "hs", contrast: "standard", losLabel: true };
 
 const KEY = "grid1ronvault.field.v1";
 
@@ -61,6 +63,7 @@ export function cleanFieldPrefs(raw: unknown): FieldPrefs {
     snapRadius: pick(r.snapRadius, SNAP_RADII.map((s) => s.value), d.snapRadius),
     hashes: pick(r.hashes, HASHES.map((h) => h.id), d.hashes),
     contrast: pick(r.contrast, CONTRASTS.map((c) => c.id), d.contrast),
+    losLabel: typeof r.losLabel === "boolean" ? r.losLabel : d.losLabel,
   };
 }
 

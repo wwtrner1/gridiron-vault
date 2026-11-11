@@ -49,7 +49,7 @@ function build(set: (typeof SETS)[number], concept: string): Scene {
   const qb = players.find((p) => p.label === "Q");
   const ball = players.find((p) => p.label === "C")?.x ?? 520;
   const rec = players.filter((p) => p !== qb && !isLineman(p) && !(hasLine && p.label === "C"));
-  const backs = rec.filter((p) => p.y > scene.losY + 2.5 * sc.y);
+  const backs = rec.filter((p) => p.y > scene.losY + 4 * sc.y);
   const wide = rec.filter((p) => !backs.includes(p));
   const role = new Map<PlayerNode, Role>();
   for (const side of [1, -1]) {
