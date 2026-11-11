@@ -12,7 +12,7 @@ import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPla
 import { OFFENSE_TOKENS, makePlayer } from "./presets";
 import { api, toStoredPlay } from "./api";
 import { store } from "./store";
-import type { Tier } from "./plan";
+import { gateReadyBook, type Tier } from "./plan";
 
 const LOS = 430;
 const CX = CANVAS_W / 2;
@@ -471,6 +471,8 @@ export type AddResult = { ok: true; added: number } | { ok: false; reason: strin
  * each play and the playbook also go to the coach's account.
  */
 export async function addReadyPlaybook(opts: { tier: Tier; vaultSize: number; ownerName: string; signedIn: boolean }): Promise<AddResult> {
+  const open = gateReadyBook(opts.tier);
+  if (!open.ok) return { ok: false, reason: open.reason };
   const room = opts.tier.playLimit - opts.vaultSize;
   if (room < READY_PLAYS.length)
     return {

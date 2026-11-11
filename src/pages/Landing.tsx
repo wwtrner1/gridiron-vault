@@ -102,7 +102,7 @@ export function Landing() {
                 Start drawing — it is free
               </Link>
               <Link to="/starters" className="btn btn-outline-dark btn-lg">
-                Browse 56 starter plays
+                Browse the starter plays
               </Link>
             </div>
             <p className="home-hero-fine">Works on the laptop you install from and the tablet you carry to the sideline.</p>
@@ -258,10 +258,10 @@ export function Landing() {
         <section className="home-plans" aria-labelledby="plans-h">
           <div className="home-band-head">
             <p className="home-eyebrow">Plans</p>
-            <h2 id="plans-h">Free while we are in beta</h2>
+            <h2 id="plans-h">Start free, upgrade when it earns it</h2>
             <p>
-              Draw, export and print with everything switched on. When beta ends, your plays stay yours — pick the plan that fits
-              your staff.
+              Sideline is free: draw your own plays, try five sample starters and print watermarked cards. Head Coach opens the full
+              56-play library, the Ready-to-Go playbook and clean whole-playbook prints.
             </p>
           </div>
           <div className="home-plan-grid">

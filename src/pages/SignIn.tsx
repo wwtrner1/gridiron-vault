@@ -79,7 +79,7 @@ export function SignIn() {
             <Icon name="check" size={14} /> Free to start, no card
           </li>
           <li>
-            <Icon name="check" size={14} /> 56 starter plays ready to copy
+            <Icon name="check" size={14} /> Five sample starter plays free, all 56 with Head Coach
           </li>
           <li>
             <Icon name="check" size={14} /> Export wristbands and binder pages

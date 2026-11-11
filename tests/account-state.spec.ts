@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, signIn } from "./helpers";
+import { errorsOf, onBeta, quiet, signIn } from "./helpers";
 
 /**
  * What the account tells every page about itself: a trial's days left in the
@@ -73,6 +73,7 @@ test("a failed payment shows the banner on every page and Update card goes to St
 test("an account switched off mid-session shows the banner as soon as a call is refused", async ({ page, context }) => {
   const errors = errorsOf(page);
   let off = false;
+  await onBeta(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
       await route.fulfill({ json: me({ plan: "beta", suspended: off }) });

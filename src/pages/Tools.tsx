@@ -38,7 +38,7 @@ const DRAW_FASTER: Tool[] = [
   {
     icon: "sparkle",
     title: "Starter plays",
-    body: "56 ready-made plays you can add to the Vault and change.",
+    body: "56 ready-made plays you can add to the Vault and change. Five are free; the rest come with Head Coach.",
     to: "/starters",
     cta: "Browse starters",
   },

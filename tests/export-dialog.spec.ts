@@ -64,7 +64,7 @@ test("the Export dialog's one-click styles, sizes, looks, plays per sheet, order
   await expect(dpi).toHaveText(["86 DPI", "150 DPI", "300 DPI", /600 DPI/]);
   await expect(pressed("ex-dpi")).toHaveAttribute("aria-label", "300 DPI");
   await expect(dpi.last()).toBeDisabled();
-  await expect(dpi.last()).toHaveAttribute("aria-label", "600 DPI — locked on Beta Coach");
+  await expect(dpi.last()).toHaveAttribute("aria-label", "600 DPI — locked on Head Coach");
   await expect(modal.getByRole("button", { name: "Download PNG" })).toBeVisible();
   await modal.getByRole("button", { name: "PowerPoint" }).click();
   await expect(modal.getByText("Slides use up to 300 DPI, sharp on any projector.")).toBeVisible();

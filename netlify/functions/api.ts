@@ -53,7 +53,7 @@ import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
 import { AiError, callTool, MODELS, noteAiHost } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
-import { gateAi, gateGrid, gatePlaybook, gateSave, gateShare, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
+import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldBack, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
@@ -393,9 +393,13 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         const body = await req.json();
         const full = await vaultFull(me);
         if (full) return full;
+        const play = sanitisePlay(body);
+        // Library plays (Ready-to-Go, starters past the sample) only reach accounts whose plan opens them.
+        const tier = await planOf(me);
+        if (heldBack(tier, play)) return planFail(gateLibrary(tier));
         const [row] = await db
           .insert(plays)
-          .values({ ...sanitisePlay(body), ownerId: me.id, ownerName: me.name })
+          .values({ ...play, ownerId: me.id, ownerName: me.name })
           .returning();
         return json({ play: row }, 201);
       }
@@ -407,6 +411,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         const full = await vaultFull(me);
         if (full) return full;
         const tier = await planOf(me);
+        if (heldBack(tier, source)) return planFail(gateLibrary(tier));
         const [copied] = await db
           .select({ n: sql<number>`count(*)::int` })
           .from(playSaves)

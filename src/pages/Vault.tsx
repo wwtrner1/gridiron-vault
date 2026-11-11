@@ -278,9 +278,15 @@ export function Vault() {
                 Add them all to your Vault as one playbook, then change anything you like.
               </p>
             </div>
-            <button type="button" className="btn btn-primary btn-sm" onClick={addReady} disabled={addingReady}>
-              {addingReady ? "Adding…" : `Add all ${READY_PLAYS.length}`}
-            </button>
+            {tier.readyBook ? (
+              <button type="button" className="btn btn-primary btn-sm" onClick={addReady} disabled={addingReady}>
+                {addingReady ? "Adding…" : `Add all ${READY_PLAYS.length}`}
+              </button>
+            ) : (
+              <Link to="/pricing" className="btn btn-primary btn-sm">
+                <Icon name="lock" size={14} /> Comes with Head Coach
+              </Link>
+            )}
           </div>
         )}
 

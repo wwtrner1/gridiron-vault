@@ -511,8 +511,8 @@ export const STARTERS: StarterSpec[] = [
   ], { shell: "cover4", slots: "Spread", jobs: { CB1: "Deep 1/4", CB2: "Deep 1/4", SS: "Deep 1/4", FS: "Deep 1/4", LB: "Middle hook" } }),
 ];
 
-/** The handful shown free in the public Vault before anyone signs up. */
-export const FREE_SAMPLE_NUMBERS = [3, 9, 16, 43, 53];
+/** The handful open on Sideline and beta (the list lives with the other plan rules). */
+export { SAMPLE_STARTERS as FREE_SAMPLE_NUMBERS } from "./plan";
 
 export const starterMeta = (spec: StarterSpec): PlayMeta => ({
   name: spec.name,

@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { api } from "./api";
+import { api, ApiError } from "./api";
+
+export const SIGN_IN_FOR_PLAN = "Sign in first. Plans live on your account, so a plan past Sideline opens once you're signed in.";
 import { TIERS, tierFor, type Tier, type TierId } from "./plan";
 
 /**
@@ -12,10 +14,11 @@ const listeners = new Set<() => void>();
 
 let current: TierId = read();
 
+/** A browser that has never been told a plan is on Sideline: everything past it comes with an account. */
 function read(): TierId {
-  if (typeof localStorage === "undefined") return "beta";
+  if (typeof localStorage === "undefined") return "free";
   const raw = localStorage.getItem(KEY);
-  return (raw as TierId) || "beta";
+  return raw && raw in TIERS ? (raw as TierId) : "free";
 }
 
 export const tierStore = {
@@ -40,12 +43,12 @@ let trialEnds: number | null = null;
 
 /** Whole days left on the trial, rounded up; null when not on one. */
 export function useTrialDays(): number | null {
-  useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "beta" as TierId);
+  useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "free" as TierId);
   return trialEnds === null ? null : Math.max(0, Math.ceil((trialEnds - Date.now()) / 86_400_000));
 }
 
 export function useTier(): Tier {
-  const id = useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "beta" as TierId);
+  const id = useSyncExternalStore(tierStore.subscribe, tierStore.get, () => "free" as TierId);
   return tierFor(id);
 }
 
@@ -132,6 +135,8 @@ export async function syncPlan(serverPlan: string | undefined, trialEndsAt?: str
 
 /** The Account and Pricing plan pickers: the account first when signed in, so the server's limits match. */
 export async function choosePlan(id: TierId, signedIn: boolean) {
+  // Signed out, only Sideline: a plan with more in it belongs to an account the server can check.
+  if (!signedIn && id !== "free") throw new ApiError(SIGN_IN_FOR_PLAN, 401);
   if (signedIn) await api.setPlan(id);
   tierStore.set(id);
 }
