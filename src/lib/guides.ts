@@ -282,7 +282,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Edge tabs",
-            text: "The slim tabs on each side tuck the tools panel and the play panel away for more field, and pull them back. Ctrl+\\ hides or shows both.",
+            text: "Hide on each side tucks the tools panel or the play panel away for more field; Show tools and Show play pull them back. Ctrl+\\ hides or shows both.",
             target: ".dz-edge-left",
           },
           {
