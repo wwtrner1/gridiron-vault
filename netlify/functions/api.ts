@@ -735,6 +735,7 @@ async function adminRoute(me: Session, req: Request, path: string[]) {
     if (req.method === "GET" && tail === "export") return json(await userExport(me, uid));
     if (req.method === "POST" && tail === "delete") return await adminDeleteUser(me, uid, body);
     if (req.method === "POST" && (tail === "suspend" || tail === "unsuspend")) return await adminSuspend(me, uid, tail === "suspend", body);
+    if (req.method === "POST" && tail === "phone-skip") return await adminPhoneSkip(me, uid, body.on === true);
     if (req.method === "POST" && tail === "plan") {
       const r = await setUserPlan(me, uid, String(body.plan ?? ""));
       return r.error ? fail(r.error, r.status ?? 400) : json(r);
@@ -1270,6 +1271,19 @@ async function adminSuspend(actor: Session, uid: string, on: boolean, body: Reco
   return json({ ok: true, billing });
 }
 
+/** Lets one coach in with no phone number or device code (or puts the check back), while codes stay on for everyone else. */
+async function adminPhoneSkip(actor: Session, uid: string, on: boolean) {
+  const target = await accountOf(uid);
+  if (!target) return fail("There's no account with that id.", 404);
+  const at = on ? new Date() : null;
+  await db
+    .insert(profiles)
+    .values({ id: uid, email: target.email, displayName: target.name, plan: target.plan || "beta", phoneSkipAt: at })
+    .onConflictDoUpdate({ target: profiles.id, set: { phoneSkipAt: at } });
+  await audit(actor, on ? "phone_skip_on" : "phone_skip_off", uid, { email: target.email });
+  return json({ ok: true, phoneSkip: on });
+}
+
 /** The account as the profile row or, failing that, the sign-in provider knows it. */
 async function accountOf(uid: string) {
   const [p] = await db.select({ email: profiles.email, name: profiles.displayName, plan: profiles.plan }).from(profiles).where(eq(profiles.id, uid));
@@ -1291,7 +1305,9 @@ function protectedAccount(actor: Session, t: { id: string; email: string; plan: 
 
 async function securityOf(me: Session, deviceId: string): Promise<Security> {
   if (!phoneRequired()) return { required: false, verified: true, trusted: true, phone: null, devices: 0 };
-  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt }).from(profiles).where(eq(profiles.id, me.id));
+  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt, skip: profiles.phoneSkipAt }).from(profiles).where(eq(profiles.id, me.id));
+  // The owner let this coach skip the phone code: no number, no device code.
+  if (profile?.skip) return { required: false, verified: true, trusted: true, phone: profile.phone ? maskPhone(profile.phone) : null, devices: 0 };
   const verified = Boolean(profile?.phone && profile.at);
   const since = new Date(Date.now() - DEVICE_DAYS * 86400_000);
   let trusted = false;

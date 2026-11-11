@@ -6,7 +6,7 @@ import { Modal } from "../../components/Modal";
 import { ActivityTable, type ActivityRow } from "./ActivityTab";
 
 type Detail = {
-  profile: { id: string; email: string; displayName: string; plan: string; phone: string | null; phoneVerifiedAt: string | null; createdAt: string | null; lastActiveAt: string | null; suspendedAt: string | null; suspendedReason: string; stripeSubscriptionId: string | null } | null;
+  profile: { id: string; email: string; displayName: string; plan: string; phone: string | null; phoneVerifiedAt: string | null; createdAt: string | null; lastActiveAt: string | null; suspendedAt: string | null; suspendedReason: string; phoneSkipAt?: string | null; stripeSubscriptionId: string | null } | null;
   identity: { email?: string; confirmedAt?: string; createdAt?: string; lastSignInAt?: string; provider?: string } | null;
   plays: { id: string; name: string; playType: string; formation: string; isPublic: boolean; updatedAt: string | null }[];
   playbooks: { id: string; name: string; plays: number; updatedAt: string | null }[];
@@ -100,6 +100,19 @@ export function UserDetail({ id, onBack, onGone }: { id: string; onBack: () => v
     }
   }
 
+  async function setPhoneSkip(on: boolean) {
+    setBusy("phone");
+    try {
+      await api.admin(`users/${id}/phone-skip`, { method: "POST", body: JSON.stringify({ on }) });
+      toast(on ? "This coach can now sign in with no phone code." : "This coach needs a phone code again.");
+      load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "That didn't change.", true);
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function remove() {
     setBusy("delete");
     try {
@@ -140,6 +153,7 @@ export function UserDetail({ id, onBack, onGone }: { id: string; onBack: () => v
           <div><dt>Phone</dt><dd>{p?.phone ? `${p.phone}${p.phoneVerifiedAt ? " (verified)" : ""}` : "None"}</dd></div>
           <div><dt>Devices</dt><dd>{d.devices.length ? d.devices.map((v) => v.label || "Device").join(", ") : "None"}</dd></div>
           <div><dt>Status</dt><dd>{p?.suspendedAt ? `Switched off ${when(p.suspendedAt)}${p.suspendedReason ? ` · ${p.suspendedReason}` : ""}` : "Active"}</dd></div>
+          <div><dt>Phone code</dt><dd>{p?.phoneSkipAt ? `Skipped since ${when(p.phoneSkipAt)}` : "Required when codes are on"}</dd></div>
           <div><dt>Subscription</dt><dd>{p?.stripeSubscriptionId ? "Paying through Stripe" : "None"}</dd></div>
         </dl>
         {p && p.plan !== "master" && (
@@ -150,6 +164,21 @@ export function UserDetail({ id, onBack, onGone }: { id: string; onBack: () => v
             </select>
           </label>
         )}
+      </section>
+
+      <section className="card adm-card">
+        <h3>Phone code</h3>
+        <p className="hint">
+          Let this coach use the app with no mobile number and no texted device code, while codes stay on for everyone else.
+          Use it for a coach whose number is already on another account or who can't get texts.
+        </p>
+        <div className="adm-bar">
+          {p?.phoneSkipAt ? (
+            <button type="button" className="btn btn-sm" disabled={busy === "phone"} onClick={() => setPhoneSkip(false)}>Require the phone code again</button>
+          ) : (
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy === "phone"} onClick={() => setPhoneSkip(true)}>Skip the phone code</button>
+          )}
+        </div>
       </section>
 
       {p?.plan !== "master" && (
