@@ -58,6 +58,41 @@ test("the owner sees sign-ins and captures, switches an account off and deletes 
   expect(errors).toEqual([]);
 });
 
+test("the owner lets one coach skip the phone code and puts it back", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  const posts: { path: string; body: Record<string, unknown> }[] = [];
+  let skipAt: string | null = null;
+  await signIn(context, async (route, path, method) => {
+    const answer = async (json: unknown) => (await route.fulfill({ json }), true);
+    if (path === "me") return answer({ user: { id: "u1", email: "coach@example.com", name: "Coach" }, owner: true, plan: "master" });
+    if (path === "admin/users" && method === "GET") return answer({ users: [{ ...user, phoneSkip: Boolean(skipAt) }], identity: true });
+    if (path === `admin/users/${COACH}` && method === "GET") return answer({ ...detail, profile: { ...detail.profile, phoneSkipAt: skipAt } });
+    if (path.startsWith("admin/activity")) return answer({ rows: [], totals: [] });
+    if (path.endsWith("/phone-skip") && method === "POST") {
+      const body = JSON.parse(route.request().postData() ?? "{}");
+      posts.push({ path, body });
+      skipAt = body.on ? "2026-11-11T08:00:00.000Z" : null;
+      return answer({ ok: true, phoneSkip: body.on });
+    }
+  });
+
+  await page.goto("/admin");
+  await page.getByRole("tab", { name: "Users" }).click();
+  await page.getByRole("button", { name: "spy@example.com" }).click();
+  await expect(page.getByText("Required when codes are on")).toBeVisible();
+  await page.getByRole("button", { name: "Skip the phone code" }).click();
+  await expect(page.getByText("This coach can now sign in with no phone code.")).toBeVisible();
+  await expect(page.getByText(/Skipped since/)).toBeVisible();
+  expect(posts[0]).toEqual({ path: `admin/users/${COACH}/phone-skip`, body: { on: true } });
+
+  await page.getByRole("button", { name: "Require the phone code again" }).click();
+  await expect(page.getByText("Required when codes are on")).toBeVisible();
+  expect(posts[1].body).toEqual({ on: false });
+
+  await page.getByRole("button", { name: "← Back to the list" }).click();
+  expect(errors).toEqual([]);
+});
+
 test("a signed-in coach's Print Screen and print are reported to the activity log", async ({ page, context }) => {
   const sent: { kind: string }[] = [];
   await signIn(context, async (route, path, method) => {

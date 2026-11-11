@@ -38,6 +38,8 @@ export const profiles = pgTable("profiles", {
   /** Switched off by the owner from /admin: every signed-in API call is refused until the owner switches it back on. */
   suspendedAt: timestamp("suspended_at"),
   suspendedReason: text("suspended_reason").notNull().default(""),
+  /** Set by the owner from /admin: this coach uses the app with no phone number or texted device code, while codes stay on for everyone else. */
+  phoneSkipAt: timestamp("phone_skip_at"),
 });
 
 /**

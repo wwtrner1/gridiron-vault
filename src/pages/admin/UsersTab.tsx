@@ -6,7 +6,7 @@ export type AdminUser = {
   id: string; email: string; name: string; signedUpAt: string | null; confirmed: boolean; provider: string;
   lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none"; phoneNumber?: string | null;
   deleted: boolean; deletedAt: string | null; plays: number; griddyMonth: number; griddyPeakDay: number;
-  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; flags: string[];
+  photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; phoneSkip?: boolean; flags: string[];
 };
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -97,6 +97,7 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 <td><span className={`pill${u.plan === "master" ? " pill-cyan" : ""}`}>{u.plan}</span></td>
                 <td>
                   {u.phoneNumber ?? "None"}
+                  {u.phoneSkip && <small>skips the code</small>}
                   {u.phoneNumber && <small>{u.phone === "verified" ? "verified" : "not verified"}{u.phoneSignups > 1 && ` · ${u.phoneSignups} accounts`}</small>}
                 </td>
                 <td>{u.plays}</td>
