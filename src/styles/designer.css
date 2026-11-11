@@ -99,12 +99,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 18px;
-    height: 56px;
+    gap: 6px;
+    width: 22px;
+    height: 84px;
     padding: 0;
     border: 1px solid var(--ink-3);
-    border-radius: var(--radius-md);
+    border-radius: 999px;
     background: var(--ink-2);
     color: var(--rail-text);
     transform: translateY(-50%);
@@ -115,18 +115,18 @@
   .dz-edge-left svg { transform: rotate(90deg); }
   .dz-edge-right { right: 320px; }
   .dz-edge-right svg { transform: rotate(-90deg); }
-  .dz-edge.is-closed { width: 24px; height: 96px; border-color: var(--ink-4); color: var(--white); }
+  .dz-edge.is-closed { width: 26px; height: 128px; border-color: var(--ink-4); color: var(--white); }
   .dz-edge.is-closed:hover { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
   .dz-edge-left.is-closed { left: 0; border-left: 0; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
   .dz-edge-left.is-closed svg { transform: rotate(-90deg); }
   .dz-edge-right.is-closed { right: 0; border-right: 0; border-radius: var(--radius-md) 0 0 var(--radius-md); }
   .dz-edge-right.is-closed svg { transform: rotate(90deg); }
-  .dz-edge span { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; writing-mode: vertical-rl; }
+  .dz-edge span { font-family: var(--display); font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; writing-mode: vertical-rl; }
   .dz-edge-left span { transform: rotate(180deg); }
 }
 @media (min-width: 901px) and (pointer: coarse) {
-  .dz-edge { width: 24px; height: 64px; }
-  .dz-edge.is-closed { width: 26px; height: 104px; }
+  .dz-edge { width: 26px; height: 92px; }
+  .dz-edge.is-closed { width: 28px; height: 136px; }
 }
 @media print { .dz-edge { display: none !important; } }
 /* iPad and small laptops: the play panel slides over the field, so its own Done button closes it. */

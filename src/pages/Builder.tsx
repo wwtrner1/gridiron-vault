@@ -2331,7 +2331,7 @@ export function Builder() {
           title={`${railShown ? "Hide" : "Show"} tools (Ctrl+\\ hides or shows both panels)`}
         >
           <Icon name="chevron" size={14} />
-          {!railShown && <span>Tools</span>}
+          <span aria-hidden="true">{railShown ? "Hide" : "Show tools"}</span>
         </button>
         <button
           type="button"
@@ -2343,7 +2343,7 @@ export function Builder() {
           title={`${sideOpen ? "Hide" : "Show"} Selection and Play (Ctrl+\\ hides or shows both panels)`}
         >
           <Icon name="chevron" size={14} />
-          {!sideOpen && <span>Play</span>}
+          <span aria-hidden="true">{sideOpen ? "Hide" : "Show play"}</span>
         </button>
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} id="dz-tools" aria-label="Drawing tools">
           {/* The sheet header carries the heading on phones; on wider screens this keeps the heading order h1 → h2 → h3. */}

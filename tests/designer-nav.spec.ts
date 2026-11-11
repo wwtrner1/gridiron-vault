@@ -150,11 +150,12 @@ test("the zoom slider and Fit size the field; the keyboard picks tools, selects 
   const toolsEdge = page.getByRole("button", { name: /the tools panel$/ });
   await expect(body).not.toHaveClass(/is-rail-closed/);
   await expect(toolsEdge).toHaveAttribute("aria-expanded", "true");
+  await expect(toolsEdge).toHaveText("Hide");
   await page.keyboard.press("Control+\\");
   await expect(body).toHaveClass(/is-rail-closed/);
   await expect(body).toHaveClass(/is-side-closed/);
   await expect(toolsEdge).toHaveAttribute("aria-expanded", "false");
-  await expect(toolsEdge).toHaveText("Tools");
+  await expect(toolsEdge).toHaveText("Show tools");
   await page.reload();
   await svg.waitFor();
   await expect(body).toHaveClass(/is-rail-closed/);
