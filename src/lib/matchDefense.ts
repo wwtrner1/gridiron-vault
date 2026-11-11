@@ -70,7 +70,7 @@ export function readOffense(scene: Scene): OffenseRead | null {
   for (const p of eligible) {
     const o = at(p);
     if (o.dy >= BACK_DEPTH && Math.abs(o.dx) <= BACK_WIDTH) backs.push(o);
-    else if (hasLine && o.dy < 50 && ((o.dx > outerR && o.dx - outerR <= TE_REACH) || (o.dx < outerL && outerL - o.dx <= TE_REACH)))
+    else if (hasLine && o.dy < 70 && ((o.dx > outerR && o.dx - outerR <= TE_REACH) || (o.dx < outerL && outerL - o.dx <= TE_REACH)))
       tes.push(o.dx);
     else wide.push(o);
   }

@@ -46,6 +46,14 @@ test("Field controls change the grid, hashes, yard lines and rule lines on the f
   await expect(group("Snap radius")).toHaveCount(0);
   await group("Yard lines").getByRole("radio", { name: "High" }).click();
 
+  // The LOS tag sits in the side margin, off the field, and switches off and on.
+  const losTag = field.locator("[data-los-tag]");
+  await expect(losTag).toHaveCount(1);
+  await expect(losTag).toHaveText("LOS");
+  await expect(field.locator("text", { hasText: "LINE OF SCRIMMAGE" })).toHaveCount(0);
+  await dialog.getByLabel("Show the LOS tag beside the field").uncheck();
+  await expect(losTag).toHaveCount(0);
+
   // A rule preset switches the rule lines on with its distances.
   await expect(dialog.getByLabel("Show the rush line and no-run zone")).not.toBeChecked();
   await dialog.locator(".fc-presets").getByRole("button", { name: "Rush line only" }).click();
@@ -66,7 +74,7 @@ test("Field controls change the grid, hashes, yard lines and rule lines on the f
   // Escape closes the panel; the picks are in this browser.
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.field.v1") ?? "{}"))).toEqual({ grid: 10, snapRadius: 26, hashes: "pro", contrast: "high" });
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.field.v1") ?? "{}"))).toEqual({ grid: 10, snapRadius: 26, hashes: "pro", contrast: "high", losLabel: false });
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem("grid1ronvault.rules.v1") ?? "{}"))).toMatchObject({ on: true, rush: 10, noRun: 0, set: "rush-only" });
 
   // Kept after a reload, on the field and in the panel.
@@ -79,6 +87,8 @@ test("Field controls change the grid, hashes, yard lines and rule lines on the f
   await expect(checked("Hash marks")).toHaveText("Pro");
   await expect(checked("Yard lines")).toHaveText("High");
   await expect(dialog.getByLabel("Snap lines to players")).not.toBeChecked();
+  await expect(dialog.getByLabel("Show the LOS tag beside the field")).not.toBeChecked();
+  await expect(field.locator("[data-los-tag]")).toHaveCount(0);
   await expect(dialog.getByLabel("Show the rush line and no-run zone")).toBeChecked();
   await dialog.getByRole("button", { name: "Close field controls" }).click();
   await expect(dialog).toHaveCount(0);

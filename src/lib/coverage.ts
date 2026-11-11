@@ -1,4 +1,4 @@
-import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, tagCoverage } from "./defense";
+import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, OFF_LINE, tagCoverage } from "./defense";
 import type { Coverage, DefenseLayout, FlagLook, Front } from "./defense";
 import { routeWord } from "./explain";
 import { fieldInset, unitsPerYard } from "./fieldUnits";
@@ -256,14 +256,19 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
     return paths.get(t.pathId)?.endCap !== "tee";
   });
   const receivers = offense.filter((p) => p !== qb && !isLineman(p) && !(hasLine && p.label === "C"));
+  // A receiver at or just behind the line stands where his token's front edge is (tokens sit with that edge on the LOS),
+  // so he is timed from there; never past the line, and backs stay where they are drawn.
+  const lift = (p: PlayerNode) =>
+    receivers.includes(p) && p.y > scene.losY && p.y - scene.losY < 4 * scale.y ? Math.min((p.size * Math.abs(p.scaleY ?? 1)) / 2, p.y - scene.losY) : 0;
 
   // Offense, frame by frame. Backs leave a beat late; the quarterback drops if no drop is drawn.
   const off = new Map<string, Point[]>();
   for (const p of offense) {
     const t = trackOf.get(p.id);
-    const delay = /^(H|RB|F|B)$/i.test(p.label) && p.y > scene.losY + 2 * scale.y ? 0.15 : 0;
+    const delay = /^(H|RB|F|B)$/i.test(p.label) && p.y - lift(p) > scene.losY + 2 * scale.y ? 0.15 : 0;
     const drop = format === "11" ? 3 : 1.5;
     const pts: Point[] = [];
+    const up = lift(p);
     for (let k = 0; k <= frames; k++) {
       const time = k / FPS;
       if (t) pts.push(along(t, scale, (time - delay) * (p === qb ? SPEED.qb : SPEED.route)));
@@ -271,11 +276,12 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
       else if (isLineman(p) || (hasLine && p.label === "C")) pts.push({ x: p.x, y: p.y - Math.min(1, time / 0.3) * 0.5 * scale.y });
       else pts.push({ x: p.x, y: p.y });
     }
+    if (up) for (const pt of pts) pt.y -= up;
     off.set(p.id, pts);
   }
 
   // Line the defense up on the ball, then give each defender his job.
-  const offsets = receivers.map((p) => ({ dx: p.x - ball.x, dy: p.y - ball.y, id: p.id }));
+  const offsets = receivers.map((p) => ({ dx: p.x - ball.x, dy: p.y - lift(p) - ball.y, id: p.id }));
   const rushUnits = (opts.rushYards ?? 7) * scale.y;
   const layout = look.layout(offsets, rushUnits);
   // Stock looks are drawn in half-field units; keep their depth in yards and their width as a share of the field.
@@ -286,7 +292,7 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
     label: d.label,
     job: d.job,
     start: d.job === "rush" && format === "5v5" ? { x: ball.x + d.dx * kx, y: ball.y + d.dy } : place(d.dx, d.dy),
-    lineman: d.job === "rush" && d.dy > -40 && hasLine,
+    lineman: d.job === "rush" && d.dy >= OFF_LINE && hasLine,
   }));
   for (const line of layout.lines) {
     const d = defenders[line.from];

@@ -26,7 +26,10 @@ export const STANDARD_LINE: LineSet = { ol: [-100, -50, 0, 50, 100], tes: [] };
 
 /** A shoulder: how far off a blocker's middle a shaded defender lines up. */
 const SHOULDER = 16;
-const DL_DEPTH = -26;
+/** A yard (14.4 units on the half field) further off the ball than the old -26, so linemen never sit on the LOS. */
+const DL_DEPTH = -40;
+/** A rusher deeper than this (half-field units) is off the line: a blitzer, not a lineman. */
+export const OFF_LINE = -52;
 const LB_DEPTH = -84;
 const EDGE_DEPTH = -66;
 
@@ -241,7 +244,7 @@ export function layoutDefense(
 /** Where a rusher's short line ends: up through his gap, a step outside when he isn't on the ball. */
 export function rushTo(d: { dx: number; dy: number }) {
   const out = d.dx === 0 ? 0 : Math.sign(d.dx) * 6;
-  return { dx: d.dx + out, dy: d.dy + 22 + (d.dy < -40 ? 30 : 0) };
+  return { dx: d.dx + out, dy: d.dy + 22 + (d.dy < OFF_LINE ? 30 : 0) };
 }
 
 /**
@@ -260,7 +263,7 @@ export function tagCoverage(layout: DefenseLayout): DefenseLayout {
   const deepName = deepCount === 1 ? "Deep middle" : deepCount === 2 ? "Deep 1/2" : deepCount === 4 ? "Deep 1/4" : "Deep 1/3";
   const defenders = layout.defenders.map((d, i): Defender => {
     if (d.tag) return d;
-    if (d.job === "rush") return { ...d, tag: d.dy < -40 ? "Blitz" : "Rush" };
+    if (d.job === "rush") return { ...d, tag: d.dy < OFF_LINE ? "Blitz" : "Rush" };
     if (d.job === "man") return { ...d, tag: "Man" };
     const to = drops.get(i);
     if (!to) return { ...d, tag: "Zone" };
