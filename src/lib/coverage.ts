@@ -1,4 +1,4 @@
-import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, tagCoverage } from "./defense";
+import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, OFF_LINE, tagCoverage } from "./defense";
 import type { Coverage, DefenseLayout, FlagLook, Front } from "./defense";
 import { routeWord } from "./explain";
 import { fieldInset, unitsPerYard } from "./fieldUnits";
@@ -286,7 +286,7 @@ export function simulate(scene: Scene, look: Look, opts: SimOptions = {}): Resul
     label: d.label,
     job: d.job,
     start: d.job === "rush" && format === "5v5" ? { x: ball.x + d.dx * kx, y: ball.y + d.dy } : place(d.dx, d.dy),
-    lineman: d.job === "rush" && d.dy > -40 && hasLine,
+    lineman: d.job === "rush" && d.dy >= OFF_LINE && hasLine,
   }));
   for (const line of layout.lines) {
     const d = defenders[line.from];

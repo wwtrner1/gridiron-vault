@@ -83,6 +83,10 @@ export function FieldControls({ rules, onRules, snapPlayers, onSnapPlayers, onCl
           options={CONTRASTS.map((c) => ({ value: c.id, label: c.label, hint: c.hint }))}
           onPick={(contrast) => fieldPrefsStore.set({ contrast })}
         />
+        <label className="switch fc-switch">
+          <input type="checkbox" checked={prefs.losLabel} onChange={(e) => fieldPrefsStore.set({ losLabel: e.target.checked })} />
+          Show the LOS tag beside the field
+        </label>
 
         <p className="fc-section">Flag overlays</p>
         <label className="switch fc-switch">

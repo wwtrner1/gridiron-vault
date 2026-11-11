@@ -265,11 +265,12 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
         strokeWidth={atLeast(2.6 * Math.max(1, weight * 0.6), MIN_LOS_PT)}
         strokeDasharray={ptPerUnit ? `${atLeast(13, 3)} ${atLeast(10, 2.3)}` : "13 10"}
       />
-      {reads(11.5) && (
-        <g>
-          <rect x={inset + 4} y={losY - 25} width={148} height={20} rx={4} fill={NAVY} />
-          <text x={inset + 12} y={losY - 11} fontSize={11.5} fill="#FFFFFF" fontWeight={600} fontFamily={MONO} letterSpacing="1.2">
-            LINE OF SCRIMMAGE
+      {/* The LOS tag sits in the side margin, off the field, so it never covers a player. */}
+      {prefs.losLabel && reads(10) && (
+        <g data-los-tag="">
+          <rect x={inset - 30} y={losY - 8} width={26} height={16} rx={3} fill={NAVY} />
+          <text x={inset - 17} y={losY + 3.5} fontSize={10} textAnchor="middle" fill="#FFFFFF" fontWeight={700} fontFamily={MONO}>
+            LOS
           </text>
         </g>
       )}
