@@ -70,7 +70,15 @@ const markerUrl = (cap: string, color: string) =>
 const RING = "#FFFFFF";
 const ringWidth = (size: number) => 2.4 + size * 0.18;
 
+/**
+ * A node turned half a circle (drawing from the defense's end negates both
+ * scales) would show its letter and tags upside down. Glyphs that carry text
+ * turn back upright in place: the play stays turned, the reading doesn't.
+ */
+export const isTurned = (node: SceneNode) => node.scaleX < 0 && node.scaleY < 0;
+
 function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolean }) {
+  const turned = isTurned(node);
   const r = node.size / 2;
   const outline = node.outlineStyle ?? "solid";
   // A pre-snap ghost: hollow, dashed and faded, in the player's own color.
@@ -84,8 +92,13 @@ function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolea
         strokeDasharray: outline === "dash" ? "5 4" : undefined,
       };
   const ring = print && !ghost && node.shape !== "cross" ? { fill: RING, stroke: RING, strokeWidth: ringWidth(node.size) } : null;
+  const jobSize = Math.max(11, node.size * 0.4);
+  // Away from the line in the turned frame too: the tag's anchor moves out by its own height and turns upright about it.
+  const jobY = node.side === "defense" ? -(r + 5) : r + Math.max(12, node.size * 0.42);
+  const jobAt = turned ? jobY - jobSize * 0.8 : jobY;
   return (
     <g opacity={ghost ? 0.75 : undefined}>
+      <g transform={turned ? "rotate(180)" : undefined}>
       {node.shade && node.shade !== "transparent" && <circle cx={0} cy={0} r={r * 1.6} fill={node.shade} stroke="none" />}
       {ring && node.shape === "circle" && <circle cx={0} cy={0} r={r} {...ring} />}
       {ring && node.shape === "square" && <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...ring} />}
@@ -119,13 +132,15 @@ function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolea
           {node.label}
         </text>
       )}
+      </g>
       {node.job && !ghost && (
         <text
           x={0}
           // A defender's tag sits on his side of the token, away from the line of scrimmage and the blockers he faces.
-          y={node.side === "defense" ? -(r + 5) : r + Math.max(12, node.size * 0.42)}
+          y={jobAt}
+          transform={turned ? `rotate(180 0 ${jobAt})` : undefined}
           textAnchor="middle"
-          fontSize={Math.max(11, node.size * 0.4)}
+          fontSize={jobSize}
           fontWeight={700}
           fill="#0b1524"
           stroke="#ffffff"
@@ -263,7 +278,7 @@ function ShapeGlyph({ node }: { node: ShapeNode }) {
 function TextGlyph({ node }: { node: TextNode }) {
   const width = Math.max(40, node.text.length * node.fontSize * 0.56);
   return (
-    <>
+    <g transform={isTurned(node) ? "rotate(180)" : undefined}>
       {node.boxed && (
         <rect
           x={-width / 2 - 8}
@@ -288,7 +303,7 @@ function TextGlyph({ node }: { node: TextNode }) {
       >
         {node.text}
       </text>
-    </>
+    </g>
   );
 }
 
