@@ -5,6 +5,19 @@ export async function quiet(context: BrowserContext) {
   await context.addInitScript(() => localStorage.setItem("grid1ronvault.tour.v1", "1"));
 }
 
+/**
+ * A beta account this browser already follows. The tests' browser starts on Head Coach
+ * (playwright.config.ts), which a first sign-in would otherwise hand up to the account.
+ */
+export async function onBeta(context: BrowserContext) {
+  await context.addInitScript(() => {
+    if (sessionStorage.getItem("beta-set")) return;
+    sessionStorage.setItem("beta-set", "1");
+    localStorage.setItem("nextplay.tier.v1", "beta");
+    localStorage.setItem("nextplay.tier.synced.v1", "1");
+  });
+}
+
 /** Puts the Ready-to-Go playbook (24 plays) in the Vault, the way a new coach would. */
 export async function seedReady(page: Page) {
   await page.goto("/vault");
@@ -48,7 +61,7 @@ export async function signIn(context: BrowserContext, api: (route: Route, path: 
     const path = url.pathname.replace(/^\/api\//, "");
     const handled = await api(route, path, route.request().method());
     if (handled) return;
-    if (path === "me") return route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta" } });
+    if (path === "me") return route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "solo" } });
     if (path.startsWith("plays") && route.request().method() === "GET") return route.fulfill({ json: { plays: [] } });
     if (path.startsWith("playbooks") && route.request().method() === "GET") return route.fulfill({ json: { playbooks: [], members: [] } });
     if (path.startsWith("call-sheets") && route.request().method() === "GET") return route.fulfill({ json: { sheets: [] } });

@@ -31,8 +31,8 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   // The hero offers the Designer and the starters; the plans teaser and the closing call go to pricing and the Designer.
   const hero = page.locator("section").filter({ has: page.locator("#hero-h") });
   await expect(hero.getByRole("link", { name: "Start drawing — it is free" })).toHaveAttribute("href", "/build");
-  await expect(hero.getByRole("link", { name: "Browse 56 starter plays" })).toHaveAttribute("href", "/starters");
-  await expect(page.getByRole("heading", { name: "Free while we are in beta" })).toBeVisible();
+  await expect(hero.getByRole("link", { name: "Browse the starter plays" })).toHaveAttribute("href", "/starters");
+  await expect(page.getByRole("heading", { name: "Start free, upgrade when it earns it" })).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#plans-h") }).locator('a[href="/pricing"]').first()).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#cta-h") }).locator('a[href="/build"]')).toHaveCount(1);
 

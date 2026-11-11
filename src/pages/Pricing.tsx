@@ -1,10 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { OFFERS, PUBLIC_TIERS, TIERS, plusTax } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
-import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, SIGN_IN_FOR_PLAN, useBilling, useTier } from "../lib/tier";
 import { coachError } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
@@ -36,6 +36,16 @@ const COMPARE: {
     read: (t) => (t.lockedTools.length ? "Essentials only" : "All tools"),
   },
   {
+    label: "Starter plays",
+    hint: "The 56-play library and the 24-play Ready-to-Go 5v5 playbook.",
+    read: (t) => (t.allStarters ? "All 56 + Ready-to-Go" : "5 samples"),
+  },
+  {
+    label: "Plays per export",
+    hint: "How many plays go into one PDF, image set, slide deck or print run.",
+    read: (t) => (t.exportPlays >= 1000 ? "Whole playbook" : `${t.exportPlays} at a time`),
+  },
+  {
     label: "Export sizes",
     hint: "Wristband through full binder page.",
     read: (t) => (t.sizes === "all" ? "Every size" : "Wristband + letter"),
@@ -64,8 +74,8 @@ const COMPARE: {
 
 const FAQ = [
   {
-    q: "What happens to my plays when beta ends?",
-    a: "They stay yours. If you end up over the limit on the plan you pick, nothing is deleted — your Vault goes read-only for new saves until you free up room or upgrade.",
+    q: "What happens to plays I already have?",
+    a: "They stay yours. If you end up over the limit on the plan you pick, nothing is deleted — your Vault goes read-only for new saves until you free up room or upgrade. Library plays you copied earlier (Ready-to-Go and the Head Coach starters) stay in your Vault to open and edit; exporting and printing them comes with Head Coach.",
   },
   {
     q: "Can players use it, or is it coaches only?",
@@ -76,8 +86,8 @@ const FAQ = [
     a: "No. Staff and Program are priced by coaching seats, and a seat can carry as many teams as you run.",
   },
   {
-    q: "Is there a free plan after beta?",
-    a: "Yes. Sideline stays free: eight plays, one Call Sheet, and watermarked wristband and letter printing so you can keep using it.",
+    q: "Is there a free plan?",
+    a: "Yes. Sideline stays free: eight plays, one Call Sheet, five sample starter plays, and watermarked wristband and letter printing, three plays at a time, so you can try the whole flow before you pay.",
   },
   {
     q: "Can I cancel?",
@@ -93,6 +103,7 @@ export function Pricing() {
   const toast = useToast();
   const { account } = useAuth();
   const billing = useBilling();
+  const navigate = useNavigate();
 
   /** What a plan button buys when billing is open; Program is by quote. */
   const OFFER_OF: Partial<Record<TierId, string>> = { solo: "solo_month", crew: "crew_month", program: "program_month" };
@@ -106,6 +117,11 @@ export function Pricing() {
   };
 
   const choose = async (id: TierId) => {
+    if (!account && id !== "free") {
+      toast(SIGN_IN_FOR_PLAN);
+      navigate("/signin");
+      return;
+    }
     if (billing && id !== "free") {
       const offer = OFFER_OF[id];
       if (offer) return pay(offer);
@@ -133,7 +149,7 @@ export function Pricing() {
 
       <main id="main">
         <section className="price-hero" aria-labelledby="price-h">
-          <p className="home-eyebrow">{billing ? "Plans and pricing" : "Free through beta"}</p>
+          <p className="home-eyebrow">Plans and pricing</p>
           <h1 id="price-h">Pick the plan that matches your staff</h1>
           <p className="price-hero-lede">
             Every plan draws plays with the same tools. What changes is how many you keep, how many coaches share them, and how
@@ -148,17 +164,16 @@ export function Pricing() {
           <p className="price-note" role="note">
             <Icon name="sparkle" size={16} />
             <span>
-              {billing ? (
+              {billing || !account ? (
                 <>
-                  Prices are in US dollars, and sales tax is added at checkout where your state charges it. Payments are handled by
+                  Start on Sideline for free, no card. Prices are in US dollars, and sales tax is added at checkout where your state charges it. Payments are handled by
                   Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid
                   for ends.
                 </>
               ) : tier.id === "beta" ? (
                 <>
-                  You are on <b>Beta Coach</b> — everything is already switched on. Billing is not live yet: picking a plan below
-                  only changes which features are switched on in this browser, and nothing is charged. Beta coaches keep founding
-                  rates.
+                  You are on <b>Beta Coach</b> — every drawing tool is on and your own plays stay yours. Exports are watermarked, 3
+                  plays at a time, and the full starter library comes with Head Coach. Beta coaches keep founding rates.
                 </>
               ) : tier.id === "trial" ? (
                 <>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { quiet, signIn } from "./helpers";
+import { onBeta, quiet, signIn } from "./helpers";
 
 /**
  * Pricing: the beta plan switcher in this browser, the account's refusal in
@@ -7,30 +7,32 @@ import { quiet, signIn } from "./helpers";
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-test("during beta a coach switches plans in the browser, and the pick is kept", async ({ page }) => {
+test("signed out, Sideline is the only plan the browser picks; a bigger one asks for a sign-in", async ({ page }) => {
   await page.goto("/pricing");
-  await expect(page.getByRole("note")).toContainText("You are on Beta Coach");
+  await expect(page.getByRole("note")).toContainText("Start on Sideline for free, no card.");
   const cards = page.locator(".home-plan");
   expect(await cards.count()).toBeGreaterThan(2);
-  await expect(page.getByRole("button", { name: "Your current plan" })).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Choose Head Coach" }).click();
-  await expect(page.getByText("Switched to Head Coach. Every tool is unlocked.")).toBeVisible();
-  const head = cards.filter({ has: page.getByRole("heading", { name: "Head Coach", exact: true }) });
-  await expect(head.getByRole("button", { name: "Your current plan" })).toBeDisabled();
-  expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("solo");
 
   await page.getByRole("button", { name: "Start on Sideline" }).click();
   await expect(page.getByText("Switched to Sideline. The extra drawing tools are locked now.")).toBeVisible();
   await page.reload();
   const sideline = cards.filter({ has: page.getByRole("heading", { name: "Sideline", exact: true }) });
   await expect(sideline.getByRole("button", { name: "Your current plan" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Choose Head Coach" })).toBeEnabled();
+  expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("free");
+
+  await page.getByRole("button", { name: "Choose Head Coach" }).click();
+  await expect(page).toHaveURL(/\/signin$/);
+  expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("free");
 });
 
 test("signed in, the account keeps the plan, and its refusal shows in coach words", async ({ page, context }) => {
   const sent: string[] = [];
+  await onBeta(context);
   await signIn(context, async (route, path, method) => {
+    if (path === "me" && method === "GET") {
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta" } });
+      return true;
+    }
     if (path === "me/plan" && method === "PUT") {
       const { plan } = JSON.parse(route.request().postData() ?? "{}") as { plan: string };
       sent.push(plan);
@@ -55,6 +57,7 @@ test("signed in, the account keeps the plan, and its refusal shows in coach word
 
 test("with billing open, a plan button goes to Stripe Checkout and the offers show their buttons", async ({ page, context }) => {
   const offers: string[] = [];
+  await onBeta(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
       await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta", billing: true } });

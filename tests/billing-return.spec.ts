@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, signIn } from "./helpers";
+import { errorsOf, onBeta, quiet, signIn } from "./helpers";
 
 /**
  * Back from Stripe Checkout (/account?billing=success): Stripe's webhook sets
@@ -8,7 +8,10 @@ import { errorsOf, quiet, signIn } from "./helpers";
  * on; when it hasn't landed after the wait, it says so and names support
  * instead of going quiet.
  */
-test.beforeEach(async ({ context }) => quiet(context));
+test.beforeEach(async ({ context }) => {
+  await quiet(context);
+  await onBeta(context);
+});
 
 const me = (plan: string) => ({ user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan, billing: true, subscribed: plan !== "beta" });
 

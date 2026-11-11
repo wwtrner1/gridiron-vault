@@ -10,12 +10,12 @@ import { lazyPage } from "../lib/lazyPage";
 import { FREE_SAMPLE_NUMBERS, STARTERS, starterScene, type StarterSpec } from "../lib/starters";
 import { bestAgainst, WHY_IT_WORKS } from "../lib/starterIntel";
 import { explainPlay } from "../lib/explain";
-import { gateSave } from "../lib/plan";
+import { gateSave, starterOpen } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { store, useStore } from "../lib/store";
 import { useToast } from "../lib/toast";
 import { uid } from "../lib/types";
-import type { StoredPlay } from "../lib/types";
+import type { Scene, StoredPlay } from "../lib/types";
 
 // PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
 const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
@@ -46,6 +46,12 @@ const toPlay = (spec: StarterSpec, ownerName: string): StoredPlay => ({
   remote: false,
 });
 
+/** A held-back starter shows its formation only: the players, none of the routes. */
+const formationOnly = (spec: StarterSpec): Scene => {
+  const scene = starterScene(spec);
+  return { ...scene, nodes: scene.nodes.filter((n) => n.kind === "player") };
+};
+
 export function Starters() {
   const tier = useTier();
   const toast = useToast();
@@ -65,7 +71,7 @@ export function Starters() {
     [],
   );
 
-  const locked = (spec: StarterSpec) => tier.id === "free" && !FREE_SAMPLE_NUMBERS.includes(spec.n);
+  const locked = (spec: StarterSpec) => !starterOpen(tier, spec.n);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -129,7 +135,7 @@ export function Starters() {
         .map((n) => STARTERS.find((s) => s.n === n))
         .filter((s): s is StarterSpec => Boolean(s) && !locked(s!))
         .map((s) => toPlay(s, "GridIronVault starters")),
-    [picked, tier.id],
+    [picked, tier.allStarters],
   );
 
   return (
@@ -209,14 +215,14 @@ export function Starters() {
         <span className="filter-count">{visible.length} shown</span>
       </div>
 
-      {tier.id === "free" && (
+      {!tier.allStarters && (
         <div className="lock-note">
           <Icon name="lock" size={15} />
           <div>
-            <b>Five starter plays are open on Sideline.</b>
+            <b>Five starter plays are open on {tier.name}.</b>
             <span>
               The other {STARTERS.length - FREE_SAMPLE_NUMBERS.length} — every formation, the run game and
-              all five coverages — come with Head Coach.
+              all five coverages — come with Head Coach. Locked plays show the formation only.
             </span>
           </div>
           <Link to="/pricing" className="btn btn-primary btn-sm">
@@ -263,7 +269,7 @@ export function Starters() {
                   onClick={() => setPreview(spec)}
                   aria-label={`Preview ${spec.name}`}
                 >
-                  <PlayThumb scene={starterScene(spec)} decorative lazy />
+                  <PlayThumb scene={isLocked ? formationOnly(spec) : starterScene(spec)} decorative lazy />
                   {isLocked && (
                     <span className="thumb-lock">
                       <Icon name="lock" size={18} />
@@ -392,7 +398,7 @@ export function Starters() {
         >
           <div className="preview-body">
             <div className="preview-art">
-              <PlayThumb scene={starterScene(preview)} label={preview.name} />
+              <PlayThumb scene={locked(preview) ? formationOnly(preview) : starterScene(preview)} label={preview.name} />
             </div>
             <dl className="preview-facts">
               <div>
@@ -413,7 +419,16 @@ export function Starters() {
               </div>
             </dl>
             <p className="preview-note">{preview.description}</p>
-            <StarterIntel spec={preview} />
+            {locked(preview) ? (
+              <p className="lock-note" role="note">
+                <Icon name="lock" size={15} />
+                <span>
+                  The routes, reads and coaching notes for this play come with Head Coach. <Link to="/pricing">See plans</Link>
+                </span>
+              </p>
+            ) : (
+              <StarterIntel spec={preview} />
+            )}
             <div className="play-tags">
               {preview.tags.map((t) => (
                 <span className="chip" key={t}>

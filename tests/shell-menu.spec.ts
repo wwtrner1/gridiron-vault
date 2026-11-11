@@ -25,7 +25,8 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   await expect(playbook.getByRole("link", { name: /^The Vault/ })).toHaveAttribute("aria-current", "page");
   await expect(playbook.getByRole("link", { name: "Call Sheet" })).not.toHaveAttribute("aria-current", "page");
   await expect(account.getByRole("link")).toHaveText(["Plans", "Your account", "Tutorials", "Help & feedback"]);
-  await expect(rail.locator(".rail-plan .pill")).toHaveText("Beta");
+  // The tests' browser is on Head Coach, which needs no plan card.
+  await expect(rail.locator(".rail-plan")).toHaveCount(0);
   await expect(rail.locator(".rail-user")).toContainText("Guest coach");
   await expect(rail.locator(".rail-user")).toContainText("Saved in this browser");
   await expect(rail.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/signin");

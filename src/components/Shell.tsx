@@ -123,7 +123,10 @@ export function Shell({ title, actions, tabs, children }: Props) {
           {tier.id === "beta" && (
             <div className="rail-plan">
               <span className="pill pill-cyan">Beta</span>
-              <p style={{ marginTop: 8 }}>Every tool is open during beta. Found something broken? Tell us.</p>
+              <p style={{ marginTop: 8 }}>Every drawing tool is open. The full starter library and clean prints come with Head Coach.</p>
+              <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
+                See plans
+              </Link>
             </div>
           )}
           <div className="rail-user">

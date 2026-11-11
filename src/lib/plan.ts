@@ -42,8 +42,19 @@ export type Tier = {
   photoReviews: number;
   /** Griddy requests per month (messages and single play reads). */
   assistantCalls: number;
+  /** Every starter play, or only the SAMPLE_STARTERS handful. */
+  allStarters: boolean;
+  /** The 24-play Ready-to-Go playbook. */
+  readyBook: boolean;
+  /** Plays in one export or print run (PDF, images, slides). */
+  exportPlays: number;
   perks: string[];
 };
+
+/** Full kit: what every paid plan, the trial and the owner get past the gates below. */
+const OPEN = { allStarters: true, readyBook: true, exportPlays: 1_000_000 } as const;
+/** Sideline and beta: a taste of the library, a few plays per export, so the material can't walk out the door. */
+const SAMPLE = { allStarters: false, readyBook: false, exportPlays: 3 } as const;
 
 export const TIERS: Record<TierId, Tier> = {
   // Not a plan anyone can pick or buy: the server gives it to the owner list (netlify/security/owner.ts).
@@ -67,29 +78,37 @@ export const TIERS: Record<TierId, Tier> = {
     lockedTools: [],
     photoReviews: 1_000_000,
     assistantCalls: 1_000_000,
+    ...OPEN,
     perks: ["Every tool and export", "No Vault, Griddy or photo limits", "Owner admin console"],
   },
+  // Coaches who joined before trials. Their own drawing stays roomy; the library and exports match Sideline.
   beta: {
     id: "beta",
     name: "Beta Coach",
-    blurb: "Everything unlocked while we are in beta. Tell us what breaks.",
+    blurb: "Draw and keep your own plays. Exports are watermarked; the full library and clean prints come with Head Coach.",
     price: "Free",
     cadence: "during beta",
     seats: "1 coach",
     playLimit: 200,
     gridLimit: 10,
     playbookLimit: 1_000_000,
-    copyLimit: 100,
-    sizes: "all",
-    maxDpi: 300,
-    watermark: false,
-    sheets: true,
-    share: true,
+    copyLimit: 5,
+    sizes: "starter",
+    maxDpi: 86,
+    watermark: true,
+    sheets: false,
+    share: false,
     orgSeats: 12,
     lockedTools: [],
     photoReviews: 30,
     assistantCalls: 300,
-    perks: ["Every tool on", "Full export and print", "Founding-coach pricing: Head Coach at $9 a month for life"],
+    ...SAMPLE,
+    perks: [
+      "Every drawing tool on",
+      "200 plays of your own",
+      "5 starter plays, watermarked exports 3 plays at a time",
+      "Founding-coach pricing: Head Coach at $9 a month for life",
+    ],
   },
   // Not on the pricing page: the server starts it for a new coach (netlify/security/trial.ts) and drops them to Sideline after TRIAL_DAYS.
   trial: {
@@ -113,6 +132,7 @@ export const TIERS: Record<TierId, Tier> = {
     // The real cost of a trial is Griddy, so it gets a taste, not a month's allowance.
     photoReviews: 5,
     assistantCalls: 40,
+    ...OPEN,
     perks: ["Every tool and export for 14 days", "Your plays stay when the trial ends", "Then Sideline, free, or Head Coach"],
   },
   free: {
@@ -135,12 +155,13 @@ export const TIERS: Record<TierId, Tier> = {
     lockedTools: ["pen", "polygon", "zone", "motion", "connect"],
     photoReviews: 0,
     assistantCalls: 5,
+    ...SAMPLE,
     perks: [
       "8 plays in your Vault",
       "1 Call Sheet",
-      "Wristband + letter export, watermarked",
+      "Wristband + letter export, watermarked, 3 plays at a time",
       "5 Griddy messages a month",
-      "5 starter plays from the public Vault",
+      "5 sample starter plays",
     ],
   },
   solo: {
@@ -164,8 +185,10 @@ export const TIERS: Record<TierId, Tier> = {
     lockedTools: [],
     photoReviews: 30,
     assistantCalls: 300,
+    ...OPEN,
     perks: [
       "400 plays in your Vault",
+      "All 56 starter plays and the Ready-to-Go playbook",
       "Every drawing tool and mode",
       "Clean 300-DPI export and print",
       "Wristband sheets at 6, 8 or 10 per card",
@@ -192,6 +215,7 @@ export const TIERS: Record<TierId, Tier> = {
     lockedTools: [],
     photoReviews: 90,
     assistantCalls: 900,
+    ...OPEN,
     perks: [
       "3 seats on one shared playbook",
       "Everything in Head Coach",
@@ -221,6 +245,7 @@ export const TIERS: Record<TierId, Tier> = {
     lockedTools: [],
     photoReviews: 300,
     assistantCalls: 2000,
+    ...OPEN,
     perks: [
       "15 seats and shared team Vaults",
       "Front Office: league-wide master playbooks",
@@ -252,6 +277,53 @@ export const STARTER_SIZES = ["wristband", "wristband-lg", "letter-p"];
 
 export function tierFor(id: string | null | undefined): Tier {
   return TIERS[(id as TierId) ?? "beta"] ?? TIERS.beta;
+}
+
+/** Starter play numbers open on every plan (the rest come with Head Coach). */
+export const SAMPLE_STARTERS = [3, 9, 16, 43, 53];
+/** Their names, so a copy already in a Vault can be told apart from the held-back ones. Keep in step with lib/starters.ts. */
+export const SAMPLE_STARTER_NAMES = ["Single Back — Base", "Spread — Double Slants", "Trips — Flood", "HB Dive", "Cover 1"];
+
+export const starterOpen = (tier: Tier, n: number) => tier.allStarters || SAMPLE_STARTERS.includes(n);
+
+/**
+ * A play copied from the library this plan doesn't open: the Ready-to-Go
+ * playbook, or a starter outside the sample. Copies already in a Vault are
+ * kept and stay editable; they just don't export, print, sync up or get copied
+ * again on Sideline or beta. Read from the play's tags (and a starter's name).
+ */
+export function heldBack(tier: Tier, play: { name?: string | null; tags?: readonly string[] | null }): boolean {
+  const tags = play.tags ?? [];
+  if (!tier.readyBook && tags.includes("ready-to-go")) return true;
+  if (tier.allStarters || !tags.includes("starter")) return false;
+  const name = (play.name ?? "").replace(/ \(copy\)$/, "");
+  return !SAMPLE_STARTER_NAMES.includes(name);
+}
+
+export function gateReadyBook(tier: Tier): Gate {
+  if (tier.readyBook) return { ok: true };
+  return {
+    ok: false,
+    reason: `The Ready-to-Go playbook comes with Head Coach. ${tier.name} keeps the five sample starter plays and everything you draw yourself.`,
+    cta: "See plans",
+  };
+}
+
+export function gateLibrary(tier: Tier): Extract<Gate, { ok: false }> {
+  return {
+    ok: false,
+    reason: `That play is from the GridIronVault library, which comes with Head Coach. ${tier.name} opens the five sample starter plays.`,
+    cta: "See plans",
+  };
+}
+
+export function gateExportCount(tier: Tier, count: number): Gate {
+  if (count <= tier.exportPlays) return { ok: true };
+  return {
+    ok: false,
+    reason: `${tier.name} exports and prints ${tier.exportPlays} plays at a time. Pick ${tier.exportPlays} or fewer, or move up to Head Coach for whole-playbook PDFs, wristband runs and clean prints.`,
+    cta: "See plans",
+  };
 }
 
 export type Gate =

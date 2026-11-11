@@ -16,6 +16,8 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["list"]] : "list",
   use: {
     baseURL: "http://localhost:4173",
+    // Most tests drive the full kit, so the browser starts on Head Coach; tests of Sideline and beta limits set their own plan.
+    storageState: { cookies: [], origins: [{ origin: "http://localhost:4173", localStorage: [{ name: "nextplay.tier.v1", value: "solo" }] }] },
     // The cloud sandbox has Chromium at this path; CI installs Playwright's own.
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },

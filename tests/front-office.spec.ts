@@ -20,6 +20,8 @@ test("a director starts a Front Office, shares a playbook, invites coaches and t
   let n = 1;
   const state = () => ({ mine, joined: [], invites: [] });
   await signIn(context, async (route, path, method) => {
+    // Running a Front Office comes with Staff.
+    if (path === "me" && method === "GET") return (await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "crew" } }), true);
     if (path === "orgs" && method === "GET") return (await route.fulfill({ json: state() }), true);
     if (path === "orgs" && method === "POST") {
       const { name } = JSON.parse(route.request().postData() ?? "{}") as { name: string };

@@ -22,12 +22,12 @@ import {
 } from "../lib/export";
 import { CARD_LOOK, FIELD_OPTIONS, FIT_OPTIONS, FULL_LOOK, WEIGHT_STEPS, cutOffs, type PrintLook } from "../lib/printLook";
 import { PdfPreview } from "./PrintPreview";
-import { cappedDpi, gateSheets, gateSize, gateVector, type Tier } from "../lib/plan";
+import { cappedDpi, gateExportCount, gateSheets, gateSize, gateVector, heldBack, type Tier } from "../lib/plan";
 import type { StoredPlay } from "../lib/types";
 import { loadRules } from "../lib/rules";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 
-type Exportable = Pick<StoredPlay, "name" | "formation" | "playType" | "description" | "scene">;
+type Exportable = Pick<StoredPlay, "name" | "formation" | "playType" | "description" | "scene"> & { tags?: readonly string[] };
 
 type Props = {
   plays: Exportable[];
@@ -75,7 +75,11 @@ const EXPORT_PRESETS: { id: string; label: string; hint: string; options: Partia
 /** Small cards print zoomed in and heavier; big pages print the field as drawn. */
 const lookForSize = (w: number, h: number): PrintLook => (w < 5.5 && h < 5.5 ? CARD_LOOK : FULL_LOOK);
 
-export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props) {
+export function ExportDialog({ plays: asked, tier, onClose, onUpgrade, onDone }: Props) {
+  // Library plays this plan doesn't open (Ready-to-Go, starters past the sample) stay in the Vault but never export.
+  const [plays] = useState(() => asked.filter((p) => !heldBack(tier, p)));
+  const held = asked.length - plays.length;
+  const countGate = gateExportCount(tier, plays.length);
   const [kind, setKind] = useState<Kind>("pdf");
   // Rule lines start on when the coach has them on in Field controls.
   const [options, setOptions] = useState<SheetOptions>(() => ({
@@ -126,7 +130,7 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
   const title = plays.length === 1 ? plays[0].name || "Untitled play" : `${plays.length} plays`;
 
   async function run() {
-    if (!sizeGate.ok) return;
+    if (!sizeGate.ok || !countGate.ok || !plays.length) return;
     if (options.perPage > 1 && !sheetGate.ok) return;
     setBusy(true);
     setProblem(null);
@@ -228,13 +232,28 @@ export function ExportDialog({ plays, tier, onClose, onUpgrade, onDone }: Props)
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary" onClick={run} disabled={busy || !sizeGate.ok}>
+          <button type="button" className="btn btn-primary" onClick={run} disabled={busy || !sizeGate.ok || !countGate.ok || !plays.length}>
             <Icon name={kind === "pdf" ? "print" : "download"} size={15} />
             {busy ? "Building…" : kind === "pdf" ? "Preview and print" : kind === "pptx" ? "Download the deck" : `Download ${kind.toUpperCase()}`}
           </button>
         </>
       }
     >
+      {(held > 0 || !countGate.ok) && (
+        <div className="lock-note" role="note">
+          <Icon name="lock" size={15} />
+          <span>
+            {held > 0 &&
+              (plays.length
+                ? `${held} of these ${held === 1 ? "is a library play" : "are library plays"} (Ready-to-Go or a Head Coach starter) and won't export on ${tier.name}. `
+                : `${held === 1 ? "This is a library play" : "These are library plays"} (Ready-to-Go or a Head Coach starter). They stay in your Vault, but exporting and printing them comes with Head Coach. `)}
+            {!countGate.ok && countGate.reason}{" "}
+            <button type="button" className="btn btn-quiet btn-sm" onClick={onUpgrade}>
+              See plans
+            </button>
+          </span>
+        </div>
+      )}
       <p className="eyebrow" id="ex-file">File</p>
       <div className="chip-row" style={{ marginBottom: 16 }} role="group" aria-labelledby="ex-file">
         {KINDS.map((k) => (
