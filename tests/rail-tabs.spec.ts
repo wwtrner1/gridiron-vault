@@ -69,7 +69,7 @@ test("the rail's Players, Sets, Layers and Routes tabs build a play on a blank f
   await reach(page, page.getByRole("button", { name: "Drop Trips Right" }));
   await expect(status).toHaveText("Three receivers to the right — floods a third of the field fast.");
   await expect(players).toHaveCount(7);
-  expect((await transforms()).slice(2)).toEqual(["translate(520 420)", "translate(520 490)", "translate(920 424)", "translate(810 446)", "translate(720 424)"]);
+  expect((await transforms()).slice(2)).toEqual(["translate(520 438)", "translate(520 490)", "translate(920 438)", "translate(810 464)", "translate(720 438)"]);
   await expect(selectionTab).toContainText("5");
   await page.locator("#insp-tab-play").click();
   await expect(page.locator('label.field:has(span:text-is("Formation")) select')).toHaveValue("Trips Right");
@@ -94,7 +94,7 @@ test("the rail's Players, Sets, Layers and Routes tabs build a play on a blank f
   await tiles.nth(6).click();
   await expect(status).toHaveText("Corner for Z.");
   await expect(paths).toHaveCount(1);
-  await expect(paths.first()).toHaveAttribute("transform", /^translate\(920 424\)/);
+  await expect(paths.first()).toHaveAttribute("transform", /^translate\(920 438\)/);
   await expect(paths.first().locator("path").first()).toHaveAttribute("d", "M 0 0 L 0 -120 L 104 -234");
   await at(44, 632);
   await expect(selectionTab).not.toContainText("1");
@@ -102,7 +102,7 @@ test("the rail's Players, Sets, Layers and Routes tabs build a play on a blank f
   await go.click();
   await expect(status).toHaveText("Go loaded. Click a player to give it to him, or click the field to drop it there.");
   await expect(go).toHaveAttribute("aria-pressed", "true");
-  await at(810, 446);
+  await at(810, 464);
   await expect(status).toHaveText("Go for S.");
   await expect(paths).toHaveCount(2);
   await expect(go).toHaveAttribute("aria-pressed", "false");

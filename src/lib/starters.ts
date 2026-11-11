@@ -21,6 +21,7 @@ const ZONE = "#16C8E8";
 /* ------------------------------------------------------------------ routes */
 
 import { ROUTES, type Seg } from "./routes";
+import { seat } from "./formations";
 
 /* -------------------------------------------------------- formation layouts */
 
@@ -93,7 +94,7 @@ function tokenScene(spec: StarterSpec) {
 
   const drop = (slots: Slot[], group: string, base: number) =>
     slots.forEach(([key, code, dx, dy], i) => {
-      const node = { ...makePlayer(preset(code), CX + dx, LOS + dy), groupId: group, z: base + i };
+      const node = { ...makePlayer(preset(code), CX + dx, LOS + (dy >= 0 ? seat(dy) : dy)), groupId: group, z: base + i };
       byKey.set(key, node);
       nodes.push(node);
     });

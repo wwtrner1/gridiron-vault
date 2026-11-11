@@ -176,6 +176,19 @@ const LINE_SPOTS: [number, string][] = [
 ];
 const LINE_NAMES: Record<number, string> = { [-100]: "Left tackle", [-50]: "Left guard", 50: "Right guard", 100: "Right tackle" };
 
+/** Half a 36-wide token: a player on the line stands with his front edge on the LOS, not centred on it. */
+export const ON_BALL = 18;
+
+/**
+ * Where a spot's depth puts the token: players on the line (within a few
+ * units of it) sit with their front edge on the LOS, players just off it move
+ * back by the same half token so their front edge is where their middle was,
+ * and the backfield keeps its depth.
+ */
+export const seat = (dy: number) => (dy <= 12 ? ON_BALL : dy < 50 ? dy + ON_BALL : dy);
+/** A quarterback under center stands clear of the center's token. */
+const UNDER_CENTER = ON_BALL * 3 + 4;
+
 /** A lineman on the field: today's labelled T/G circles, or the unlabelled squares older plays saved. */
 export const isLineman = (p: { shape: string; label: string; name: string }) =>
   (p.shape === "square" && !p.label) || /\b(tackle|guard|lineman)\b/i.test(p.name);
@@ -229,7 +242,7 @@ export function layoutFormation(game: GameType, personnelCode: string, name: str
     const spot = nextWr();
     out.push({ dx: spot[0], dy: spot[1], ...claim(spot[2] ?? [], "wr"), role: "wr" });
   }
-  return out;
+  return out.map((p) => ({ ...p, dy: p.role === "qb" ? Math.max(p.dy, UNDER_CENTER) : seat(p.dy) }));
 }
 
 /** Token for each placed player: the coach's position colors, or the canvas's plain line and extra tokens. */
@@ -265,14 +278,14 @@ export function tokenFor(p: Placed, tokens: TokenPreset[]): TokenPreset {
 export function backSpot(name: string): { dx: number; dy: number } {
   const f = LIBRARY.find((x) => x.name === name) ?? LIBRARY[0];
   const [dx, dy] = f.backs[0] ?? [f.qb[0] + 56, f.qb[1]];
-  return { dx, dy };
+  return { dx, dy: seat(dy) };
 }
 
 /** Where the full formation lines up a token code (X wide left in Trips Right), for a player the call adds. */
 export function letterSpot(name: string, code: string): { dx: number; dy: number } | null {
   const f = LIBRARY.find((x) => x.name === name) ?? LIBRARY[0];
   const spot = f.spots.find((s) => s[2]?.[0] === code);
-  return spot ? { dx: spot[0], dy: spot[1] } : null;
+  return spot ? { dx: spot[0], dy: seat(spot[1]) } : null;
 }
 
 export function describeFormation(game: GameType, personnelCode: string, name: string): string {

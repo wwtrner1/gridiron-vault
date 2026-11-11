@@ -180,7 +180,7 @@ export function assignmentPath(a: Assignment, from: Point, losY: number, z: numb
   const points: Point[] = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;
-  if (a.kind === "route" && from.y - losY > 40 && !BACKFIELD_ROUTES.includes(a.action)) {
+  if (a.kind === "route" && from.y - losY > 60 && !BACKFIELD_ROUTES.includes(a.action)) {
     x = mirror ? -80 : 80;
     y = losY - from.y - 12;
     points.push({ x, y });
