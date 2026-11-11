@@ -40,6 +40,15 @@ test("View from the defense turns the play round, back again, and Save keeps it"
   const sums = after.map(([, y], i) => y + before[i][1]);
   sums.forEach((v) => expect(v).toBeCloseTo(sums[0], 0));
   expect(after.some(([, y], i) => Math.abs(y - before[i][1]) > 20)).toBe(true);
+  // The play is turned, but every letter still reads upright (the coach's view, not the field's).
+  const upright = await svg.evaluate((el) =>
+    [...el.querySelectorAll('g[data-kind="player"] text, g[data-kind="text"] text')].map((t) => {
+      const m = (t as SVGGraphicsElement).getScreenCTM();
+      return m ? m.d > 0 : true;
+    }),
+  );
+  expect(upright.length).toBeGreaterThan(4);
+  expect(upright.every(Boolean)).toBe(true);
 
   // The button reads the other way and a second press puts everything back.
   await extras.click();
