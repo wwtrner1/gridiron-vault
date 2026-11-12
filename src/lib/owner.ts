@@ -11,7 +11,7 @@ type OwnerState = { owner: boolean; hint?: string };
 const known = new Map<string, OwnerState>();
 
 export function useOwnerState(): { owner: boolean | null; hint?: string } {
-  const { account, status } = useAuth();
+  const { account, status, renew } = useAuth();
   const [state, setState] = useState<{ owner: boolean | null; hint?: string }>(
     account ? known.get(account.id) ?? { owner: null } : { owner: null },
   );
@@ -21,11 +21,17 @@ export function useOwnerState(): { owner: boolean | null; hint?: string } {
     const cached = known.get(account.id);
     if (cached) return setState(cached);
     let live = true;
-    api
-      .me()
+    // The account can answer "nobody signed in" while this page still shows a coach (the sign-in cookie ran out).
+    // That isn't a "not the owner": refresh the sign-in and ask once more, and never remember that answer.
+    const ask = async () => {
+      const r = await api.me();
+      if (r.user || !(await renew())) return r;
+      return api.me();
+    };
+    ask()
       .then((r) => {
-        const next = { owner: Boolean(r.owner), hint: r.ownerHint };
-        known.set(account.id, next);
+        const next = { owner: Boolean(r.user && r.owner), hint: r.ownerHint };
+        if (r.user) known.set(account.id, next);
         if (live) setState(next);
       })
       // A failed look-up isn't remembered, so the next screen asks again.
@@ -33,7 +39,7 @@ export function useOwnerState(): { owner: boolean | null; hint?: string } {
     return () => {
       live = false;
     };
-  }, [account, status]);
+  }, [account, status, renew]);
   return state;
 }
 

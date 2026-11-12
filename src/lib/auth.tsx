@@ -7,6 +7,7 @@ import {
   login as identityLogin,
   logout as identityLogout,
   oauthLogin,
+  refreshSession,
   requestPasswordRecovery,
   signup as identitySignup,
   updateUser,
@@ -28,6 +29,11 @@ type AuthValue = {
   recovering: boolean;
   /** An emailed link (password reset, confirmation, invite) that Identity refused: expired, used, or not ours. */
   linkFailed: LinkKind | null;
+  /**
+   * The account answered as if nobody were signed in while this page still shows a coach: refresh the sign-in
+   * and say whether it is good again. When it can't be, the page signs out so it stops looking signed in.
+   */
+  renew: () => Promise<boolean>;
   setNewPassword: (password: string) => Promise<void>;
 };
 
@@ -77,6 +83,16 @@ const jwtExpiry = (jwt: string): number => {
 type Saved = { token?: { access_token?: string; refresh_token?: string; expires_at?: number; expires_in?: number } };
 
 async function restoreSession() {
+  // Identity's own copy of the sign-in refreshes first, when it holds one. Two refreshers used to share one
+  // refresh token: Identity's timer and the trade below. Identity hands out a new refresh token each time and
+  // retires the old one, so whichever went second failed, and Identity's failure wipes the saved copy. The page
+  // still showed the coach signed in, but the cookie the API reads ran out an hour later: every call was then
+  // answered as signed out, and the owner lost the Admin link (2026-11-12, iPhone Safari).
+  try {
+    await refreshSession();
+  } catch {
+    /* offline or no Identity: the saved copy below decides */
+  }
   let saved: Saved | null;
   try {
     saved = JSON.parse(localStorage.getItem(SAVED) ?? "null");
@@ -86,7 +102,9 @@ async function restoreSession() {
   const token = saved?.token;
   if (!saved || !token?.refresh_token) return;
   const expiresAt = token.expires_at ?? (token.access_token ? jwtExpiry(token.access_token) : 0);
-  if (token.access_token && expiresAt - Date.now() > 2 * 60_000) {
+  // Identity refreshes inside its last minute, so anything with more left is still Identity's to refresh: a trade
+  // here would retire the refresh token Identity holds and its next refresh would fail.
+  if (token.access_token && expiresAt - Date.now() > 30_000) {
     // Still current: put the cookies back (or keep them) with a life past closing the app.
     writeAuthCookies(token.access_token, token.refresh_token);
     return;
@@ -185,6 +203,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return "Check your inbox and confirm your email to finish signing up.";
   }, []);
 
+  const renew = useCallback(async () => {
+    await restoreSession();
+    try {
+      const user = await getUser();
+      if (user) return true;
+    } catch {
+      /* fall through: no sign-in to keep */
+    }
+    setAccount(null);
+    return false;
+  }, []);
+
   const signOut = useCallback(async () => {
     await identityLogout();
     setAccount(null);
@@ -204,12 +234,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       recovering,
       linkFailed,
+      renew,
       setNewPassword: async (password: string) => {
         await updateUser({ password });
         setRecovering(false);
       },
     }),
-    [account, status, available, signIn, signUp, signOut, recovering, linkFailed],
+    [account, status, available, signIn, signUp, signOut, recovering, linkFailed, renew],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
