@@ -1217,3 +1217,5 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-draftbar p { margin: 0; flex: 1 1 260px; }
 .dz-draftbar span { color: var(--muted); }
 .dz-draftbar.is-missing { border-color: var(--amber); }
+/* Film notes inside Run play: a light card so the notes read on the dark dialog. */
+.rp-notes { padding: 12px; border-radius: var(--radius-lg); background: var(--surface); color: var(--text); }
