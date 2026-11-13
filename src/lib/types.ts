@@ -1,3 +1,4 @@
+import type { FilmNote } from "./filmNotes";
 export type Point = { x: number; y: number };
 
 export type FieldView = "full" | "half" | "redzone" | "flag" | "blank";
@@ -119,7 +120,8 @@ export type Scene = {
   pov?: "defense";
   nodes: SceneNode[];
   /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */
-  film?: { link?: string; snapAt?: number };
+  /** Film for the play: a Hudl or YouTube link, where the snap is in it, and the coach's notes on it (`filmNotes.ts`). */
+  film?: { link?: string; snapAt?: number; notes?: FilmNote[] };
 };
 
 export type PlayMeta = {
