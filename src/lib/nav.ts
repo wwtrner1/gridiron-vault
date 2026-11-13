@@ -103,7 +103,7 @@ const TOOLS: NavItem[] = [
 const GROUP_OF: { id: string; label: string; paths: string[] }[] = [
   { id: "plays", label: "Plays", paths: ["/vault", "/playbooks", "/upload", "/starters"] },
   { id: "gameplan", label: "Game plan", paths: ["/grid", "/wristbands", "/coverage"] },
-  { id: "practice", label: "Practice", paths: ["/practice", "/drills", "/assignments"] },
+  { id: "practice", label: "Practice", paths: ["/practice", "/drills", "/library", "/assignments"] },
   { id: "team", label: "Team", paths: ["/roster", "/front-office"] },
   { id: "tools", label: "Tools", paths: ["/language", "/tools"] },
 ];
