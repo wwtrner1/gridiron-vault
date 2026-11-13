@@ -588,22 +588,25 @@ export const GUIDES: Guide[] = [
       {
         heading: "Print",
         steps: [
-          { title: "Call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands. Opens in the print preview, where you print or download it.", target: ".wb-head-actions" },
+          { title: "Undo and Redo", text: "Step back through any change to the settings, the call order or the plays printed, and forward again. Ctrl+Z and Ctrl+Shift+Z work too.", target: tour("wb-undo") },
+          { title: "Call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands: a call list, the diagrams, both, or every call's diagram on one page. Opens in the print preview, where you print or download it.", target: ".wb-head-actions" },
           { title: "Print cards", text: "Opens the print preview: every page of the real PDF, exactly as it prints, with a warning if a player or route will be cut off. Print or Download PDF from there.", target: tour("wb-print") },
         ],
       },
       {
         heading: "Set up the card",
         steps: [
-          { title: "One-click styles", text: "Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
+          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
+          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
           { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
           { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
           { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
-          { title: "Plays per card", text: "Columns × rows. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
+          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
           { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
           { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
           { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
+          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet") },
         ],
       },
       {

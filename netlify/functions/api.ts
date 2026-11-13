@@ -12,6 +12,7 @@ import {
   myTeams,
   playerFiles,
   teamBrands,
+  wristbandSetups,
   playbookTerms,
   organizations,
   orgMembers,
@@ -60,6 +61,7 @@ import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldB
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
+import { cleanSetupsDoc, mergeSetups } from "../../src/lib/bandSetupsData.js";
 import { cleanTerms, sharedWithStaff, type StaffTerms } from "../../src/lib/termsData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
@@ -564,6 +566,27 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .values({ ownerId: me.id, data: brand, updatedAt: new Date() })
           .onConflictDoUpdate({ target: teamBrands.ownerId, set: { data: brand, updatedAt: new Date() } });
         return mine({ brand });
+      }
+    }
+
+    /* ------------------------------------------ saved wristband setups --- */
+    // One row per coach; a PUT merges with what the account holds, so two devices' setups both survive.
+    if (resource === "wristband-setups" && !id) {
+      const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
+      if (!me) return req.method === "GET" ? mine({ setups: null }) : fail("Sign in to keep your wristband setups on your account.", 401);
+      const [row] = await db.select().from(wristbandSetups).where(eq(wristbandSetups.ownerId, me.id));
+      const held = row ? cleanSetupsDoc(row.data) : null;
+      if (req.method === "GET") return mine({ setups: held });
+      if (req.method === "PUT") {
+        await ensureProfile(me);
+        const body = (await req.json().catch(() => ({}))) as { setups?: unknown };
+        if (!body.setups || typeof body.setups !== "object") return fail("Those setups didn't come through. Try saving again.", 400);
+        const merged = held ? mergeSetups(held, cleanSetupsDoc(body.setups)) : cleanSetupsDoc(body.setups);
+        await db
+          .insert(wristbandSetups)
+          .values({ ownerId: me.id, data: merged, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: wristbandSetups.ownerId, set: { data: merged, updatedAt: new Date() } });
+        return mine({ setups: merged });
       }
     }
 
@@ -1307,6 +1330,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
+    await tx.delete(wristbandSetups).where(eq(wristbandSetups.ownerId, me.id));
     await tx.delete(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));

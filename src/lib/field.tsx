@@ -35,6 +35,8 @@ type Props = {
 const MIN_LABEL_PT = 4.5;
 const MIN_CHALK_PT = 0.35;
 const MIN_LOS_PT = 0.75;
+/** Deepest yard lines a printed card marks, past and behind the line of scrimmage. */
+const PRINT_YARDS = { up: 30, back: 15 };
 /** Print LOS colour: lighter than the routes so a route run along it still stands out. */
 const LOS_PRINT = "#7D8B99";
 
@@ -116,7 +118,9 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
     const los = atLeast(1.3 * weight, MIN_LOS_PT);
     const left = frame ? frame.x : -CANVAS_W;
     const right = frame ? frame.x + frame.w : CANVAS_W * 2;
-    const lines = yards ? yardLines(view === "blank" ? "half" : view, losY, (frame?.y ?? 0) - gap, (frame ? frame.y + frame.h : CANVAS_H) + gap) : [];
+    const all = yards ? yardLines(view === "blank" ? "half" : view, losY, (frame?.y ?? 0) - gap, (frame ? frame.y + frame.h : CANVAS_H) + gap) : [];
+    // A tall printed box frames far more field than any route runs; past these depths the lines are only noise.
+    const lines = ptPerUnit ? all.filter((l) => l.yards <= (l.y < losY ? PRINT_YARDS.up : PRINT_YARDS.back)) : all;
     const edge = numSize * 0.35;
     return (
       <g pointerEvents="none">
@@ -138,6 +142,21 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
           strokeDasharray={`${los * 4} ${los * 3}`}
           opacity={ptPerUnit ? 1 : 0.55}
         />
+        {/* On a printed card the line of scrimmage is named at both edges, like the yard lines above it. */}
+        {yards && ptPerUnit && (["start", "end"] as const).map((anchor) => (
+          <text
+            key={`los-${anchor}`}
+            x={anchor === "start" ? left + edge : right - edge}
+            y={losY - numSize * 0.3}
+            fontSize={numSize * 0.8}
+            fill={numFill}
+            fontWeight={700}
+            fontFamily={MONO}
+            textAnchor={anchor}
+          >
+            LOS
+          </text>
+        ))}
       </g>
     );
   }

@@ -39,6 +39,18 @@
   background: var(--white);
   container-type: inline-size;
 }
+/* Play card style: a heavy black edge drawn inside the card, as the PDF does, and darker box lines. */
+.wb-card[data-border="bold"] { border-width: 0; }
+.wb-card[data-border="bold"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: var(--wb-edge) solid;
+  border-color: inherit;
+  pointer-events: none;
+}
+.wb-card[data-border="bold"] .wb-cell { outline-width: var(--wb-box); }
 .wb-card-head {
   position: absolute;
   inset: 0 0 auto 0;
@@ -180,3 +192,11 @@
 .wb-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px 10px; }
 .wb-color { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .wb-color input { width: 30px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; cursor: pointer; }
+
+/* Undo/Redo beside the print buttons, and the Saved setups rows. */
+.wb-undo { display: flex; gap: 4px; align-items: center; }
+.wb-setup-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.wb-setup-row .select,
+.wb-setup-row .input { flex: 1 1 160px; min-width: 0; }
+.wb-sheet-table td.wb-sheet-notes { white-space: normal; min-width: 180px; max-width: 320px; font-size: 12.5px; color: var(--muted); }
+.wb-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
