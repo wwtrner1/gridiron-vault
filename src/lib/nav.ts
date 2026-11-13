@@ -1,10 +1,12 @@
 export type NavItem = { to: string; icon: string; label: string; hint: string };
+export type NavGroup = { id: string; label: string; items: NavItem[] };
 
 /**
- * The side menu, the same on every signed-in page. The home page lists the
- * same items, so a tool added here shows up in both places.
+ * Every tool in one list. The side menu shows them in the groups below
+ * (NAV_GROUPS) and the home page lists them flat, so a tool added here
+ * shows up in both places; give it a group in GROUP_OF too.
  */
-export const PLAYBOOK_NAV: NavItem[] = [
+const TOOLS: NavItem[] = [
   {
     to: "/vault",
     icon: "folder",
@@ -57,7 +59,13 @@ export const PLAYBOOK_NAV: NavItem[] = [
     to: "/practice",
     icon: "board",
     label: "Practice",
-    hint: "Build tonight's practice script and print scout cards for the plays you'll rep.",
+    hint: "Build tonight's practice script: timed periods with plays and drills, printed with scout cards.",
+  },
+  {
+    to: "/drills",
+    icon: "play",
+    label: "Drill Vault",
+    hint: "Drills with animated diagrams, coaching points and film. Add your own and drop them into practice.",
   },
   {
     to: "/wristbands",
@@ -84,3 +92,46 @@ export const PLAYBOOK_NAV: NavItem[] = [
     hint: "Formation and defense libraries, the route tree and the other Designer tools in one place.",
   },
 ];
+
+/** The side menu's groups, in order, and the tools in each. */
+const GROUP_OF: { id: string; label: string; paths: string[] }[] = [
+  { id: "plays", label: "Plays", paths: ["/vault", "/playbooks", "/upload", "/starters"] },
+  { id: "gameplan", label: "Game plan", paths: ["/grid", "/wristbands", "/coverage"] },
+  { id: "practice", label: "Practice", paths: ["/practice", "/drills", "/assignments"] },
+  { id: "team", label: "Team", paths: ["/roster", "/front-office"] },
+  { id: "tools", label: "Tools", paths: ["/language", "/tools"] },
+];
+
+export const NAV_GROUPS: NavGroup[] = GROUP_OF.map((g) => ({
+  id: g.id,
+  label: g.label,
+  items: g.paths.map((p) => TOOLS.find((t) => t.to === p)).filter((t): t is NavItem => !!t),
+}));
+
+/** Every tool in the side menu's order (the home page's grid). */
+export const PLAYBOOK_NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+
+/** The group holding a page, so the side menu opens it. */
+export const groupOf = (pathname: string) =>
+  NAV_GROUPS.find((g) => g.items.some((t) => pathname === t.to || pathname.startsWith(`${t.to}/`)))?.id ?? null;
+
+const OPEN_KEY = "grid1ronvault.railGroups.v1";
+
+/** The groups a coach opened by hand (this browser). The first visit opens Plays. */
+export function loadOpenGroups(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "null");
+    if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
+  } catch {
+    /* fall through */
+  }
+  return ["plays"];
+}
+
+export function saveOpenGroups(ids: string[]) {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify(ids));
+  } catch {
+    /* kept for this visit */
+  }
+}

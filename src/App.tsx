@@ -43,6 +43,7 @@ const PlaybookLanguage = lazyPage(() => import("./pages/PlaybookLanguage"), "Pla
 const Upload = lazyPage(() => import("./pages/Upload"), "Upload");
 const Assignments = lazyPage(() => import("./pages/Assignments"), "Assignments");
 const Practice = lazyPage(() => import("./pages/Practice"), "Practice");
+const Drills = lazyPage(() => import("./pages/Drills"), "Drills");
 const Coverage = lazyPage(() => import("./pages/Coverage"), "Coverage");
 const Team = lazyPage(() => import("./pages/Team"), "Team");
 const Join = lazyPage(() => import("./pages/Join"), "Join");
@@ -76,6 +77,7 @@ const NAMES: Record<string, string> = {
   "/team": "Player playbook",
   "/join": "Team texts sign-up",
   "/practice": "Practice",
+  "/drills": "Drill Vault",
   "/coverage": "Coverage report",
   "/admin": "Admin",
   "/tools": "More tools",
@@ -182,6 +184,7 @@ export function App() {
         <Route path="/team/:token" element={<Team />} />
         <Route path="/join/:token" element={<Join />} />
         <Route path="/practice" element={<Practice />} />
+        <Route path="/drills" element={<Drills />} />
         <Route path="/coverage" element={<Coverage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/tools" element={<Tools />} />

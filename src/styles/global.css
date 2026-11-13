@@ -145,6 +145,21 @@ footer.mkt a:focus-visible,
 .rail-link.is-active { background: var(--ink-3); color: var(--white); font-weight: 600; }
 .rail-link.is-active svg { color: var(--cyan); }
 .rail-link b { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+/* The Playbook menu in groups (Plays, Game plan, Practice, Team, Tools), each opening and closing. */
+.rail-sec + .rail-sec { margin-top: 2px; }
+.rail-sec-head {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius-md);
+  background: none; color: var(--panel-head); font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+}
+.rail-sec-head:hover { background: var(--ink-2); color: var(--white); }
+.rail-sec-head small { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0; color: var(--muted-2); }
+.rail-sec-head svg { flex: none; transition: transform .15s; transform: rotate(-90deg); }
+.rail-sec-head span + svg { margin-left: auto; }
+.rail-sec.is-open .rail-sec-head svg { transform: none; }
+.rail-sec-body { display: grid; gap: 1px; padding: 0 0 6px 6px; margin-left: 10px; border-left: 1px solid var(--ink-3); }
+.rail-sec-body > .tip-anchor { display: flex; }
+.rail-sec-body > .tip-anchor > .rail-link { flex: 1; padding: 7px 10px; }
+@media (prefers-reduced-motion: reduce) { .rail-sec-head svg { transition: none; } }
 .rail-foot { margin-top: auto; padding: 14px; border-top: 1px solid var(--ink-3); }
 .rail-plan { background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 9px; padding: 12px; }
 .rail-plan p { margin: 0 0 8px; font-size: 12px; color: var(--muted-2); line-height: 1.4; }

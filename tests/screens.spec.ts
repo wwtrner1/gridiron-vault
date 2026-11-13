@@ -17,6 +17,7 @@ const SCREENS: [string, RegExp][] = [
   ["/upload", /Upload plays/],
   ["/assignments", /Assignments/],
   ["/practice", /Practice/],
+  ["/drills", /Drill Vault/],
   ["/coverage", /Coverage report/],
   ["/tools", /More tools/],
   ["/front-office", /Front Office/],

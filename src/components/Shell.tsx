@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { useAuth } from "../lib/auth";
 import { useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
-import { PLAYBOOK_NAV, type NavItem } from "../lib/nav";
+import { NAV_GROUPS, groupOf, loadOpenGroups, saveOpenGroups, type NavItem } from "../lib/nav";
 import { PlaybookTree } from "./PlaybookTree";
 import { PaymentBanner, SuspendedBanner } from "./PaymentBanner";
 import { FocusBoundary } from "./FocusBoundary";
@@ -44,6 +44,19 @@ export function Shell({ title, actions, tabs, children }: Props) {
   }, []);
   const plays = useStore((s) => s.plays);
   const owner = useOwner();
+  // The side menu's groups: the one holding this page is always open; the rest stay as the coach left them.
+  const { pathname } = useLocation();
+  const here = groupOf(pathname);
+  const [picked, setPicked] = useState(loadOpenGroups);
+  const [hereShut, setHereShut] = useState(false);
+  const openGroups = here && !hereShut && !picked.includes(here) ? [...picked, here] : picked;
+  const toggleGroup = (id: string) => {
+    const closing = openGroups.includes(id);
+    const next = closing ? picked.filter((x) => x !== id) : [...picked, id];
+    if (id === here) setHereShut(closing);
+    setPicked(next);
+    saveOpenGroups(next);
+  };
 
   return (
     <div className="shell">
@@ -80,11 +93,33 @@ export function Shell({ title, actions, tabs, children }: Props) {
 
         <nav className="rail-group" aria-labelledby="rail-playbook">
           <p id="rail-playbook">Playbook</p>
-          {PLAYBOOK_NAV.map((item) => (
-            <RailLink key={item.to} item={item} onNavigate={() => setOpen(false)}>
-              {item.to === "/vault" && plays.length > 0 && <b>{plays.length}</b>}
-            </RailLink>
-          ))}
+          {NAV_GROUPS.map((g) => {
+            const shown = openGroups.includes(g.id);
+            return (
+              <div key={g.id} className={`rail-sec${shown ? " is-open" : ""}`}>
+                <button
+                  type="button"
+                  className="rail-sec-head"
+                  aria-expanded={shown}
+                  aria-controls={`rail-sec-${g.id}`}
+                  onClick={() => toggleGroup(g.id)}
+                >
+                  <span>{g.label}</span>
+                  {!shown && <small aria-hidden="true">{g.items.length}</small>}
+                  <Icon name="chevron" size={14} />
+                </button>
+                {shown && (
+                  <div id={`rail-sec-${g.id}`} className="rail-sec-body">
+                    {g.items.map((item) => (
+                      <RailLink key={item.to} item={item} onNavigate={() => setOpen(false)}>
+                        {item.to === "/vault" && plays.length > 0 && <b>{plays.length}</b>}
+                      </RailLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="rail-group rail-tree">
