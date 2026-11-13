@@ -627,6 +627,18 @@ export const teamBrands = pgTable("team_brands", {
 });
 
 /**
+ * Playbook language: one row per coach holding the whole term list
+ * (`TermsState` in src/lib/termsData.ts, cleaned by `cleanTerms`), starter
+ * terms the coach renamed or deleted included, so every device and Griddy
+ * read the coach's own words. Owner only.
+ */
+export const playbookTerms = pgTable("playbook_terms", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
  * A play the Staff plan's coaches draw together (src/lib/live.ts). One row
  * per play: the whole scene, a revision that goes up with every accepted
  * patch, and who has been looking at it lately. Access follows the

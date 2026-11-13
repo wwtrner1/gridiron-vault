@@ -12,6 +12,7 @@ import {
   myTeams,
   playerFiles,
   teamBrands,
+  playbookTerms,
   organizations,
   orgMembers,
   playbookPlays,
@@ -57,6 +58,7 @@ import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldB
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
+import { cleanTerms, sharedWithStaff, type StaffTerms } from "../../src/lib/termsData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
@@ -543,6 +545,42 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .values({ ownerId: me.id, data: brand, updatedAt: new Date() })
           .onConflictDoUpdate({ target: teamBrands.ownerId, set: { data: brand, updatedAt: new Date() } });
         return mine({ brand });
+      }
+    }
+
+    /* ----------------------------------------------- playbook language --- */
+    if (resource === "terms" && !id) {
+      const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
+      if (!me) return req.method === "GET" ? mine({ terms: null, staff: null, director: false }) : fail("Sign in to keep your playbook language on your account.", 401);
+      if (req.method === "GET") {
+        const [row] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
+        const [own] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
+        // A coach on a director's staff reads the director's shared list (never the "Just you" terms).
+        const [membership] = await db
+          .select({ org: organizations.name, from: organizations.ownerName, ownerId: organizations.ownerId })
+          .from(orgMembers)
+          .innerJoin(organizations, eq(orgMembers.orgId, organizations.id))
+          .where(and(eq(orgMembers.userId, me.id), eq(orgMembers.status, "active"), ne(organizations.ownerId, me.id)))
+          .orderBy(orgMembers.joinedAt)
+          .limit(1);
+        let staff: StaffTerms | null = null;
+        if (membership) {
+          const [theirs] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, membership.ownerId));
+          const shared = theirs ? sharedWithStaff(cleanTerms(theirs.data)) : [];
+          if (shared.length) staff = { org: membership.org, from: membership.from || "Your head coach", terms: shared };
+        }
+        return mine({ terms: row ? cleanTerms(row.data) : null, staff, director: !!own });
+      }
+      if (req.method === "PUT") {
+        await ensureProfile(me);
+        const body = (await req.json().catch(() => ({}))) as { terms?: unknown };
+        const terms = cleanTerms(body.terms);
+        if (!terms.updatedAt) terms.updatedAt = new Date().toISOString();
+        await db
+          .insert(playbookTerms)
+          .values({ ownerId: me.id, data: terms, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: playbookTerms.ownerId, set: { data: terms, updatedAt: new Date() } });
+        return mine({ terms });
       }
     }
 
@@ -1218,6 +1256,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
+    await tx.delete(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
     await tx.delete(events).where(eq(events.ownerId, me.id));

@@ -14,7 +14,7 @@ import type { TokenPreset } from "../lib/presets";
 import { loadRules } from "../lib/rules";
 import { reconcileConnections } from "../lib/scene";
 import { store } from "../lib/store";
-import { useTerms } from "../lib/terms";
+import { spokenTerms, useStaffTerms, useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
 import type { PlayMeta, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { GriddyMascot } from "./GriddyMascot";
@@ -140,7 +140,9 @@ async function rosterContext(wanted: boolean): Promise<GriddyContext["roster"]> 
 export function GriddyProvider({ children }: { children: React.ReactNode }) {
   const { account } = useAuth();
   const tier = useTier();
-  const { terms } = useTerms();
+  const { terms: own } = useTerms();
+  const { staff } = useStaffTerms();
+  const terms = useMemo(() => spokenTerms(own, staff), [own, staff]);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<GriddyTurn[]>([]);
   const [busy, setBusy] = useState(false);

@@ -275,7 +275,7 @@ Five `label.field` blocks wrapped their `small.hint` as well as the box, so the 
 - **Playbooks → Players** was named "Player link for …" while the button says Players. It is now "Players: link for …", so a voice user who says "click Players" hits it.
 - **Wristbands layout chips** show "8 4×2" but were named "8 plays, 4 across and 2 down". The name now starts with what is on the chip: "8 4×2: 8 plays, 4 across and 2 down".
 
-Two of axe's readings are allowed in the test on purpose, with the reason beside the filter: a button whose only visible text is a play diagram's yard numbers and letters (Starters previews, Assignments cards), and a playbook folder opened in the tree, whose children's names axe counts as the folder's visible text; and the Designer's `maximum-scale=1` viewport, which is deliberate (see above).
+Two of axe's readings are allowed in the test on purpose, with the reason beside the filter: a button whose only visible text is a play diagram's yard numbers and letters (Starters previews, Assignments cards, the example beside each Playbook language term, named "Show the … example"), and a playbook folder opened in the tree, whose children's names axe counts as the folder's visible text; and the Designer's `maximum-scale=1` viewport, which is deliberate (see above).
 
 ### Dialogs answer Escape from their first frame (2026-10-31)
 
