@@ -1,9 +1,9 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { uid } from "./types";
 import type { StoredPlay } from "./types";
-import { cleanTerms, GAP_GLOSSARY, STARTER_BY_ID, STARTER_GLOSSARY, type Term, type TermsState, type TermType } from "./termsData";
+import { cleanTerm, cleanTerms, GAP_GLOSSARY, STARTER_BY_ID, STARTER_GLOSSARY, type StaffTerms, type Term, type TermsState, type TermType } from "./termsData";
 
 export * from "./termsData";
 
@@ -131,6 +131,10 @@ export const termStore = {
     if (back.length) commit({ ...state, terms: [...state.terms, ...back] });
     return back.length;
   },
+  /** A director's choice: the staff reads this list (default) or not. */
+  setShare(on: boolean) {
+    commit({ ...state, shareWithStaff: on });
+  },
   ignore(word: string) {
     commit({ ...state, ignored: [...state.ignored, norm(word)] });
   },
@@ -139,6 +143,59 @@ export const termStore = {
 
 export function useTerms(): State {
   return useSyncExternalStore(termStore.subscribe, termStore.get, termStore.get);
+}
+
+/**
+ * The head coach's shared list for a coach on a Front Office staff, plus
+ * whether this coach runs a Front Office. Kept in this browser too, so
+ * Griddy still speaks the staff's language with no signal.
+ */
+type StaffState = { staff: StaffTerms | null; director: boolean };
+const STAFF_KEY = "grid1ronvault.staffTerms.v1";
+
+function readStaff(): StaffState {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STAFF_KEY) ?? "null") as StaffState | null;
+    if (!raw) return { staff: null, director: false };
+    const terms = (raw.staff?.terms ?? []).map(cleanTerm).filter((t): t is Term => !!t);
+    return { staff: raw.staff && terms.length ? { org: String(raw.staff.org ?? ""), from: String(raw.staff.from ?? ""), terms } : null, director: !!raw.director };
+  } catch {
+    return { staff: null, director: false };
+  }
+}
+
+let staffState = typeof localStorage === "undefined" ? { staff: null, director: false } : readStaff();
+const staffListeners = new Set<() => void>();
+
+function setStaff(next: StaffState) {
+  staffState = next;
+  try {
+    localStorage.setItem(STAFF_KEY, JSON.stringify(next));
+  } catch {
+    /* storage blocked */
+  }
+  staffListeners.forEach((l) => l());
+}
+
+const staffStore = {
+  get: () => staffState,
+  subscribe(l: () => void) {
+    staffListeners.add(l);
+    return () => void staffListeners.delete(l);
+  },
+};
+
+export const useStaffTerms = (): StaffState => useSyncExternalStore(staffStore.subscribe, staffStore.get, staffStore.get);
+
+/**
+ * The words Griddy reads: the head coach's shared list first, so the whole
+ * staff speaks one language, then this coach's own terms the staff list
+ * doesn't name.
+ */
+export function spokenTerms(own: Term[], staff: StaffTerms | null): Term[] {
+  if (!staff) return own;
+  const named = new Set(staff.terms.map((t) => norm(t.term)));
+  return [...staff.terms, ...own.filter((t) => !named.has(norm(t.term)))];
 }
 
 /** What the account holds, so an unchanged list isn't sent again. */
@@ -166,7 +223,11 @@ export function TermSync() {
   const { account } = useAuth();
   const id = account?.id;
 
+  const was = useRef(id);
   useEffect(() => {
+    // Signing out leaves no staff list here (a page still loading the sign-in keeps the cached one).
+    if (was.current && !id) setStaff({ staff: null, director: false });
+    was.current = id;
     if (!id) return;
     let alive = true;
     let timer: number | undefined;
@@ -177,8 +238,10 @@ export function TermSync() {
     });
     api
       .terms()
-      .then(({ terms: raw }) => {
-        if (!alive || !raw) return;
+      .then(({ terms: raw, staff, director }) => {
+        if (!alive) return;
+        setStaff({ staff: staff ?? null, director: !!director });
+        if (!raw) return;
         const remote = cleanTerms(raw);
         const local = termStore.get();
         if ((remote.updatedAt ?? "") > (local.updatedAt ?? "")) {
