@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { quiet, seedReady } from "./helpers";
+import { quiet, seedReady, signIn } from "./helpers";
 
 /**
  * Wristbands page settings: the source, plays per card, numbering, a one-click
@@ -222,7 +222,50 @@ test("Undo and Redo, saved setups, the call sheet's columns and the one-page she
     date: true,
     blankRows: 6,
   });
-  const setups = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbandSetups.v1") ?? "[]"));
-  expect(setups.map((s: { name: string }) => s.name)).toEqual(["Varsity Friday"]);
+  const setups = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbandSetups.v1") ?? "{}"));
+  expect(setups.setups.map((s: { name: string }) => s.name)).toEqual(["Varsity Friday"]);
   await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(1);
+});
+
+test("saved setups live on the account: another device's setup loads here, and a new one or a delete goes up", async ({ page, context }) => {
+  // The account already holds a setup saved on the coach's phone.
+  let held = {
+    setups: [{ id: "setup-phone", name: "Phone setup", prefs: { grid: "3x2-5", numberInk: "card" }, savedAt: "2026-11-13T08:00:00.000Z" }],
+    deleted: [] as { id: string; at: string }[],
+  };
+  const puts: (typeof held)[] = [];
+  await signIn(context, async (route, path, method) => {
+    if (path !== "wristband-setups") return false;
+    if (method === "PUT") {
+      const sent = route.request().postDataJSON().setups as typeof held;
+      puts.push(sent);
+      const gone = new Set(sent.deleted.map((d) => d.id));
+      held = { setups: [...sent.setups, ...held.setups.filter((s) => !sent.setups.some((x) => x.id === s.id) && !gone.has(s.id))], deleted: sent.deleted };
+    }
+    await route.fulfill({ json: { setups: held } });
+    return true;
+  });
+  await seedReady(page);
+  await page.goto("/wristbands");
+  await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
+  const pick = page.getByLabel("Setup to load");
+  await expect(pick.locator("option", { hasText: "Phone setup" })).toHaveCount(1);
+  await expect(page.locator(".wb-setups")).toContainText("Saved to your account");
+
+  // Loading the phone's setup sets this page: 5 a card, a color per card.
+  await pick.selectOption({ label: "Phone setup" });
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(chip(page, "Plays per card (columns × rows)", /5 plays, 3 over 2/)).toHaveAttribute("aria-pressed", "true");
+
+  // A setup saved here goes to the account beside the phone's.
+  await page.getByLabel("Name for these settings").fill("Laptop setup");
+  await page.getByRole("button", { name: "Save setup" }).click();
+  await expect(page.locator(".toast", { hasText: 'Saved "Laptop setup" on your account' })).toBeVisible();
+  await expect.poll(() => held.setups.map((s) => s.name).sort()).toEqual(["Laptop setup", "Phone setup"]);
+
+  // A delete goes up as well, so the phone drops it too.
+  await pick.selectOption({ label: "Phone setup" });
+  await page.getByRole("button", { name: "Delete the picked setup" }).click();
+  await expect.poll(() => held.setups.map((s) => s.name)).toEqual(["Laptop setup"]);
+  expect(puts[puts.length - 1].deleted.map((d) => d.id)).toEqual(["setup-phone"]);
 });

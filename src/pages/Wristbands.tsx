@@ -68,7 +68,8 @@ import {
   sheetColumns,
   type SheetPrint,
 } from "../lib/wristbands";
-import { cleanSetupName, loadSetups, SETUP_LIMITS, storeSetups, withSetup, type BandSetup } from "../lib/bandSetups";
+import { cleanSetupName, restoreSetup, SETUP_LIMITS, setupsStore, useBandSetups, withoutSetup, withSetup } from "../lib/bandSetups";
+import { useAuth } from "../lib/auth";
 import type { StoredPlay } from "../lib/types";
 import { hasBrand, useBrand } from "../lib/brand";
 import "../styles/wristbands.css";
@@ -308,13 +309,15 @@ export function Wristbands() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Saved setups: the settings under a name, to load next week.
-  const [setups, setSetups] = useState<BandSetup<BandPrefs>[]>(() => loadSetups<BandPrefs>());
+  // Saved setups: the settings under a name, on the account (BandSetupSync) so every device has them.
+  const { account } = useAuth();
+  const setupsDoc = useBandSetups();
+  const setups = setupsDoc.setups;
   const [setupName, setSetupName] = useState("");
   const [setupPick, setSetupPick] = useState("");
-  const keepSetups = (list: BandSetup<BandPrefs>[]) => {
-    setSetups(list);
-    if (!storeSetups(list)) toast("This browser wouldn't keep your setups (a private window can refuse). They work until you close the tab.", true);
+  const keepSetups = (doc: typeof setupsDoc) => {
+    if (!setupsStore.set(doc) && !account)
+      toast("This browser wouldn't keep your setups (a private window can refuse). Sign in to keep them on your account.", true);
   };
   function saveSetup() {
     const name = cleanSetupName(setupName);
@@ -323,32 +326,32 @@ export function Wristbands() {
       return;
     }
     const replacing = setups.some((s) => s.name.toLowerCase() === name.toLowerCase());
-    const next = withSetup(setups, name, prefs);
+    const next = withSetup(setupsDoc, name, prefs as unknown as Record<string, unknown>);
     if (!next) {
       toast(`You have ${SETUP_LIMITS.count} saved setups. Delete one to save another.`, true);
       return;
     }
     keepSetups(next);
-    setSetupPick(next[0].id);
+    setSetupPick(next.setups[0].id);
     setSetupName("");
-    toast(replacing ? `Updated "${name}" with these settings.` : `Saved "${name}". Load it any time from Saved setups.`);
+    const where = account ? "on your account, on any device" : "in this browser until you sign in";
+    toast(replacing ? `Updated "${name}" with these settings, ${where}.` : `Saved "${name}" ${where}. Load it any time from Saved setups.`);
   }
   function loadSetup() {
     const s = setups.find((x) => x.id === setupPick);
     if (!s) return;
-    setPrefs(withDefaults(s.prefs));
+    setPrefs(withDefaults(s.prefs as Partial<BandPrefs>));
     toast(`Loaded "${s.name}". Undo puts your last settings back.`);
   }
   function deleteSetup() {
     const s = setups.find((x) => x.id === setupPick);
     if (!s) return;
-    const before = setups;
-    keepSetups(setups.filter((x) => x.id !== s.id));
+    keepSetups(withoutSetup(setupsDoc, s.id));
     setSetupPick("");
     toast(`Deleted "${s.name}".`, false, {
       label: "Undo",
       run: () => {
-        keepSetups(before);
+        keepSetups(restoreSetup(setupsStore.get(), s));
         setSetupPick(s.id);
       },
     });
@@ -579,8 +582,11 @@ export function Wristbands() {
                 </button>
               </div>
               <p className="wb-note">
-                Keeps every card and call sheet setting under a name, in this browser. The plays aren't saved with it, so one setup works for any
-                playbook. Same name again updates it.
+                Keeps every card and call sheet setting under a name.{" "}
+                {account
+                  ? "Saved to your account, so it loads on any device you sign in on."
+                  : "Signed out, it waits in this browser and moves to your account when you sign in."}{" "}
+                The plays aren't saved with it, so one setup works for any playbook. Same name again updates it.
               </p>
             </div>
 

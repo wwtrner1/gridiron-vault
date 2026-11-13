@@ -627,6 +627,17 @@ export const teamBrands = pgTable("team_brands", {
 });
 
 /**
+ * Saved wristband setups: one row per coach holding the whole list
+ * (`SetupsDoc` in src/lib/bandSetupsData.ts, cleaned by `cleanSetupsDoc`), so
+ * a setup saved on one device loads on every other.
+ */
+export const wristbandSetups = pgTable("wristband_setups", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
  * Playbook language: one row per coach holding the whole term list
  * (`TermsState` in src/lib/termsData.ts, cleaned by `cleanTerms`), starter
  * terms the coach renamed or deleted included, so every device and Griddy

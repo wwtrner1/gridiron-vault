@@ -1,3 +1,4 @@
+import type { SetupsDoc } from "./bandSetupsData";
 import type { Scene, StoredPlay } from "./types";
 import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
@@ -188,6 +189,9 @@ export const api = {
   /* My team: the coach's own teams (rosters and depth charts), one row per account. */
   myTeams: () => request<{ teams: MyTeamsDoc | null; team: MyTeamDoc | null }>("my-team"),
   brand: () => request<{ brand: TeamBrand | null }>("brand"),
+  /* Saved wristband setups: the account merges what it is sent with what it holds and answers with the whole list. */
+  bandSetups: () => request<{ setups: SetupsDoc | null }>("wristband-setups"),
+  saveBandSetups: (setups: SetupsDoc) => request<{ setups: SetupsDoc }>("wristband-setups", { method: "PUT", body: JSON.stringify({ setups }) }),
   saveBrand: (brand: TeamBrand) => request<{ brand: TeamBrand | null }>("brand", { method: "PUT", body: JSON.stringify({ brand }) }),
   /* Playbook language: the coach's whole term list, newer copy wins (TermSync). */
   terms: () => request<{ terms: TermsState | null; staff?: StaffTerms | null; director?: boolean }>("terms"),

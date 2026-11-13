@@ -596,7 +596,7 @@ export const GUIDES: Guide[] = [
       {
         heading: "Set up the card",
         steps: [
-          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Kept in this browser; the plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
+          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
           { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
           { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
           { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
