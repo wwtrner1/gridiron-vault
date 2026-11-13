@@ -21,7 +21,8 @@ import { hubSource, type TeamSource } from "../../lib/teamSource";
 import { initials, photoFromFile } from "../../lib/playerPhoto";
 import { PlayerFace } from "./RosterTab";
 import { useToast } from "../../lib/toast";
-import { clampSpot, LOS_Y, placeSlots, type Spot } from "../../lib/depthField";
+import { clampSpot, fromFormation, LOS_Y, placeSlots, type Spot } from "../../lib/depthField";
+import { FORMATION_NAMES } from "../../lib/formations";
 
 /** List or On the field, remembered in this browser. */
 const VIEW_KEY = "grid1ronvault.depthview.v1";
@@ -254,6 +255,11 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           dragging={drag}
           onMove={(key, at) => edit(key, { at })}
           onReset={() => change(slots.map(({ at: _at, ...s }) => s))}
+          onFormation={(name) => {
+            const { slots: next, placed } = fromFormation(slots, name);
+            change(next);
+            toast(placed ? `${placed} ${placed === 1 ? "spot" : "spots"} lined up in ${name}.` : `None of these spots are in ${name}. Give them playbook letters like X, Z and H.`, !placed);
+          }}
           onDropPlayer={(key) => {
             if (drag) place(key, drag.playerId);
             setDrag(null);
@@ -413,6 +419,7 @@ function DepthField({
   dragging,
   onMove,
   onReset,
+  onFormation,
   onDropPlayer,
 }: {
   unit: DepthUnit;
@@ -421,6 +428,7 @@ function DepthField({
   dragging: Drag | null;
   onMove: (key: string, at: Spot) => void;
   onReset: () => void;
+  onFormation: (name: string) => void;
   onDropPlayer: (key: string) => void;
 }) {
   const field = useRef<HTMLDivElement>(null);
@@ -443,6 +451,16 @@ function DepthField({
             ? `${parked} ${parked === 1 ? "spot waits" : "spots wait"} on the sideline: drag ${parked === 1 ? "it" : "them"} to where ${parked === 1 ? "it lines" : "they line"} up.`
             : "Drag a spot, or pick it and use the arrow keys, to match your formation."}
         </span>
+        {unit === "offense" && (
+          <select className="select hub-from-set" value="" onChange={(e) => e.target.value && onFormation(e.target.value)} aria-label="Line up from a formation">
+            <option value="">Line up from a formation…</option>
+            {FORMATION_NAMES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        )}
         {moved && (
           <button type="button" className="btn btn-quiet btn-sm" onClick={onReset}>
             Line them up by position

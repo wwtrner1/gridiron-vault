@@ -386,3 +386,4 @@
   .hub-field { min-height: 0; aspect-ratio: 16 / 9; }
 }
 .hub-ftoken-open::before, .hub-fletter::before { content: attr(data-text); }
+.hub-from-set { width: auto; height: 32px; font-size: 13px; margin-left: auto; }
