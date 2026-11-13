@@ -3,6 +3,8 @@ import {
   boxCheck,
   cardsPerPage,
   duplicateNumbers,
+  gridLabel,
+  perCardOf,
   tightBoxes,
   type BandEntry,
   type BandOptions,
@@ -12,7 +14,7 @@ export type BandIssue = { level: "error" | "warn"; code: string; message: string
 
 /** Pages `wristbandSheets` should produce for these settings, excluding the coach copy. */
 export function expectedCardPages(entries: BandEntry[], o: BandOptions): number {
-  const cards = Math.ceil(entries.length / (o.grid.cols * o.grid.rows));
+  const cards = Math.ceil(entries.length / perCardOf(o.grid));
   const printed = cards * (o.copies.qb + o.copies.center);
   return o.paper === "card" ? printed : Math.ceil(printed / cardsPerPage(o));
 }
@@ -39,7 +41,7 @@ export function checkBands(entries: BandEntry[], o: BandOptions): BandIssue[] {
     issues.push({
       level: "warn",
       code: "box-small",
-      message: `Each box draws ${art.art.w.toFixed(2)} × ${art.art.h.toFixed(2)} in${art.better ? `. ${art.better.cols}×${art.better.rows} reads on this card.` : ", too small on this card. Use a bigger card."}`,
+      message: `Each box draws ${art.art.w.toFixed(2)} × ${art.art.h.toFixed(2)} in${art.better ? `. ${gridLabel(art.better)} reads on this card.` : ", too small on this card. Use a bigger card."}`,
     });
 
   const tight = tightBoxes(entries, o);

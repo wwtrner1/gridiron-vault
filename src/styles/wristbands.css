@@ -39,6 +39,18 @@
   background: var(--white);
   container-type: inline-size;
 }
+/* Play card style: a heavy black edge drawn inside the card, as the PDF does, and darker box lines. */
+.wb-card[data-border="bold"] { border-width: 0; }
+.wb-card[data-border="bold"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: var(--wb-edge) solid;
+  border-color: inherit;
+  pointer-events: none;
+}
+.wb-card[data-border="bold"] .wb-cell { outline-width: var(--wb-box); }
 .wb-card-head {
   position: absolute;
   inset: 0 0 auto 0;

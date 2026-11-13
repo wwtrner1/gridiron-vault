@@ -4,10 +4,15 @@ import { PrintDiagram } from "../lib/export";
 import {
   bandChrome,
   bandPalette,
+  boxLine,
+  cardInk,
   cardLetter,
+  cardLines,
+  cellAt,
   cellType,
   diagramBox,
   fillBandText,
+  perCardOf,
   type BandEntry,
   type BandOptions,
 } from "../lib/wristbands";
@@ -15,7 +20,7 @@ import {
 type Props = {
   /** Entries in print order. */
   entries: BandEntry[];
-  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "numberStyle" | "header" | "footer" | "source" | "colors" | "watermark">;
+  options: Pick<BandOptions, "card" | "grid" | "shows" | "look" | "numberSize" | "numberStyle" | "header" | "footer" | "source" | "colors" | "watermark" | "numberInk" | "border">;
   /** Draw at the card's real size in inches instead of filling the column. */
   actualSize: boolean;
   /** Move the entry at `from` to position `to` in print order. */
@@ -34,7 +39,7 @@ const pct = (part: number, whole: number) => `${(part / whole) * 100}%`;
 export function BandPreview({ entries, options: o, actualSize, onMove, onEditHeader }: Props) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
-  const perCard = o.grid.cols * o.grid.rows;
+  const perCard = perCardOf(o.grid);
   const cards = Math.max(1, Math.ceil(entries.length / perCard));
   const { w, h } = o.card;
   const { headH, footH } = bandChrome(o);
@@ -42,7 +47,8 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
   const art = diagramBox(o);
   // The same colors the PDF uses: the coach's picks, then team branding, then GridIronVault.
   const pal = bandPalette(o, useBrand());
-  const grid = pal.grid;
+  const grid = o.border === "bold" ? boxLine(pal.line, 0.25) : pal.grid;
+  const lines = cardLines(o);
   // Type sizes in container units, so text keeps the printed proportion at any preview width.
   const cq = (pt: number) => `${((pt / 72) / w) * 100}cqw`;
 
@@ -57,11 +63,21 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
       {Array.from({ length: cards }, (_, c) => {
         const slice = entries.slice(c * perCard, c * perCard + perCard);
         const vars = { role: "QB wristband", card: cardLetter(c), source: o.source, count: slice.length };
+        const ink = cardInk(o, c);
         return (
           <div
             key={c}
             className="wb-card"
-            style={{ width: actualSize ? `${w}in` : "100%", aspectRatio: `${w} / ${h}`, borderColor: pal.line, ["--wb-line" as string]: grid }}
+            style={{
+              width: actualSize ? `${w}in` : "100%",
+              aspectRatio: `${w} / ${h}`,
+              borderColor: pal.line,
+              ["--wb-line" as string]: grid,
+              // Edge and box lines in container units, so they keep the printed weight at any preview width.
+              ["--wb-edge" as string]: `max(1px, ${(lines.edge / w) * 100}cqw)`,
+              ["--wb-box" as string]: `max(1px, ${(lines.box / w) * 100}cqw)`,
+            }}
+            data-border={o.border === "bold" ? "bold" : undefined}
             aria-label={`Card ${cardLetter(c)}, ${slice.length} ${slice.length === 1 ? "play" : "plays"}, ${w} by ${h.toFixed(2)} inches`}
           >
             {headH > 0 && (
@@ -80,9 +96,10 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
             {Array.from({ length: perCard }, (_, i) => {
               const index = c * perCard + i;
               const e = slice[i];
+              const at = cellAt(i, o.grid);
               const style = {
-                left: pct((i % o.grid.cols) * cellW, w),
-                top: pct(headH + Math.floor(i / o.grid.cols) * cellH, h),
+                left: pct(at.col * cellW, w),
+                top: pct(headH + at.row * cellH, h),
                 width: pct(cellW, w),
                 height: pct(cellH, h),
               };
@@ -116,12 +133,12 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                   {diagram ? (
                     <>
                       {o.numberStyle === "band" ? (
-                        <div className="wb-cell-band" style={{ height: pct(strip, cellH), fontSize: cq(numPt), background: pal.strip, color: pal.tabText }}>
+                        <div className="wb-cell-band" style={{ height: pct(strip, cellH), fontSize: cq(numPt), background: pal.strip, color: ink ?? pal.tabText }}>
                           {o.shows.name ? `${e.number} · ${e.name}` : e.number}
                         </div>
                       ) : (
                         <div className="wb-cell-top" style={{ height: pct(strip, cellH) }}>
-                          <b style={{ fontSize: cq(numPt), background: pal.tab, color: pal.tabText }}>{e.number}</b>
+                          <b style={{ fontSize: cq(numPt), background: ink ?? pal.tab, color: pal.tabText }}>{e.number}</b>
                           {o.shows.name && <span style={{ fontSize: cq(Math.max(5.5, numPt * 0.66)) }}>{e.name}</span>}
                         </div>
                       )}
@@ -138,7 +155,7 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                     </>
                   ) : (
                     <div className="wb-cell-num">
-                      <b style={{ fontSize: cq(bigPt) }}>{e.number}</b>
+                      <b style={{ fontSize: cq(bigPt), color: ink ?? undefined }}>{e.number}</b>
                       {o.shows.name && <span style={{ fontSize: cq(namePt) }}>{e.name}</span>}
                     </div>
                   )}

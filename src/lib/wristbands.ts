@@ -22,21 +22,50 @@ export type BandEntry = {
 };
 export type CellShows = { diagram: boolean; name: boolean; numberOnly: boolean };
 export type BandCopies = { qb: number; center: number; coach: number };
-export type BandGrid = { cols: number; rows: number };
+/**
+ * Plays per card as columns × rows. `count` is set when the last row is short
+ * (5 as 3 over 2, 7 as 4 over 3): its boxes keep the same size and sit in the
+ * middle, so every play still prints at one scale.
+ */
+export type BandGrid = { cols: number; rows: number; count?: number };
 
-/** Plays per card, as columns × rows. */
+/** Plays per card: every count from 1 to 10, then 12. */
 export const BAND_GRIDS: BandGrid[] = [
   { cols: 1, rows: 1 },
   { cols: 2, rows: 1 },
   { cols: 3, rows: 1 },
   { cols: 2, rows: 2 },
+  { cols: 3, rows: 2, count: 5 },
   { cols: 3, rows: 2 },
+  { cols: 4, rows: 2, count: 7 },
   { cols: 4, rows: 2 },
   { cols: 3, rows: 3 },
   { cols: 5, rows: 2 },
   { cols: 4, rows: 3 },
 ];
-export const gridKey = (g: BandGrid) => `${g.cols}x${g.rows}`;
+/** Boxes on one card. */
+export const perCardOf = (g: BandGrid) => Math.min(g.cols * g.rows, g.count ?? g.cols * g.rows);
+const shortRow = (g: BandGrid) => perCardOf(g) < g.cols * g.rows;
+/** Saved in the browser, so a full grid keeps its old "3x2" key. */
+export const gridKey = (g: BandGrid) => (shortRow(g) ? `${g.cols}x${g.rows}-${perCardOf(g)}` : `${g.cols}x${g.rows}`);
+/** How the grid reads to a coach: "3×2", or "3 + 2" when the last row is short. */
+export const gridLabel = (g: BandGrid) => {
+  if (!shortRow(g)) return `${g.cols}×${g.rows}`;
+  const n = perCardOf(g);
+  return Array.from({ length: g.rows }, (_, r) => Math.min(g.cols, n - r * g.cols)).join(" + ");
+};
+export const gridByKey = (key: string): BandGrid | undefined => BAND_GRIDS.find((g) => gridKey(g) === key);
+
+/**
+ * Where box `i` sits on a card, in box widths across and box heights down.
+ * A short last row is centred, so its boxes keep the same size as the rest.
+ * Shared by the PDF and the preview so they always place boxes alike.
+ */
+export function cellAt(i: number, g: BandGrid): { col: number; row: number } {
+  const row = Math.floor(i / g.cols);
+  const inRow = Math.min(g.cols, perCardOf(g) - row * g.cols);
+  return { col: (i % g.cols) + (g.cols - inRow) / 2, row };
+}
 
 /**
  * Printed card sizes: the insert window of the wristbands coaches actually
@@ -155,7 +184,26 @@ export type BandOptions = {
   vector: boolean;
   /** The coach's own card colors; anything left out follows team branding or the GridIronVault look. */
   colors?: Partial<BandColors> | null;
+  /** "card": each card's numbers print in its own color (A red, B blue, C green…), so a player grabs the right card. */
+  numberInk?: NumberInk;
+  /** "bold": a heavy black card edge and darker box lines, like a print-shop play card. */
+  border?: CardBorder;
 };
+
+export type NumberInk = "one" | "card";
+export type CardBorder = "thin" | "bold";
+
+/** Number colors per card in "card" ink: red, blue, green, then orange, purple and black. Bright enough to tell apart at arm's length. */
+export const CARD_INKS = ["#E0201B", "#1F47E0", "#14912F", "#E07B00", "#7B2CBF", "#0B1524"] as const;
+
+/** The number color for card `n`, or null to keep the palette's number color. */
+export const cardInk = (o: Pick<BandOptions, "numberInk">, n: number): string | null =>
+  o.numberInk === "card" ? CARD_INKS[n % CARD_INKS.length] : null;
+
+/** Card edge and box line widths in inches, shared by the PDF and the preview. */
+export function cardLines(o: Pick<BandOptions, "border">) {
+  return o.border === "bold" ? { edge: 0.035, box: 0.012 } : { edge: 0.01, box: 0.008 };
+}
 
 /** Every color on a printed card, as hex. */
 export type BandColors = {
@@ -208,9 +256,9 @@ export function bandPalette(
 }
 
 /** Box lines a shade lighter than the border, so the card edge still reads as the cut line. */
-export function boxLine(line: string): string {
+export function boxLine(line: string, lighten = 0.45): string {
   const [r, g, b] = hexToRgb(line);
-  const mix = (v: number) => Math.round(v + (255 - v) * 0.45);
+  const mix = (v: number) => Math.round(v + (255 - v) * lighten);
   return `#${[mix(r), mix(g), mix(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
@@ -286,18 +334,23 @@ export function cardLetter(n: number): string {
   return n < 26 ? String.fromCharCode(65 + n) : cardLetter(Math.floor(n / 26) - 1) + cardLetter(n % 26);
 }
 
-async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], vars: Parameters<typeof fillBandText>[1], o: BandOptions) {
-  const { cols, rows } = o.grid;
+async function drawCard(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  entries: BandEntry[],
+  vars: Parameters<typeof fillBandText>[1],
+  o: BandOptions,
+  cardIndex = 0,
+) {
   const { w: CARD_W, h: CARD_H } = o.card;
   const { headH, footH } = bandChrome(o);
-  const perCard = cols * rows;
+  const perCard = perCardOf(o.grid);
   // The coach's card colors, then team branding, then GridIronVault ink and cyan.
   const pal = bandPalette(o);
-  const grid = hexToRgb(pal.grid);
-
-  doc.setDrawColor(...hexToRgb(pal.line));
-  doc.setLineWidth(0.01);
-  doc.rect(x, y, CARD_W, CARD_H);
+  const lines = cardLines(o);
+  const grid = hexToRgb(o.border === "bold" ? boxLine(pal.line, 0.25) : pal.grid);
+  const ink = cardInk(o, cardIndex);
   if (headH) {
     const head = { fill: pal.head, ink: pal.headText, logo: pal.logo };
     doc.setFillColor(...hexToRgb(head.fill));
@@ -325,10 +378,11 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
 
   const { cellW, cellH, numPt, strip, bigPt, namePt } = cellType(o);
   for (let i = 0; i < perCard; i++) {
-    const cx = x + (i % cols) * cellW;
-    const cy = y + headH + Math.floor(i / cols) * cellH;
+    const at = cellAt(i, o.grid);
+    const cx = x + at.col * cellW;
+    const cy = y + headH + at.row * cellH;
     doc.setDrawColor(...grid);
-    doc.setLineWidth(0.008);
+    doc.setLineWidth(lines.box);
     doc.rect(cx, cy, cellW, cellH);
     const e = entries[i];
     if (!e) continue;
@@ -336,8 +390,10 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
     doc.setTextColor(11, 21, 36);
     if (o.shows.numberOnly || !e.scene || !o.shows.diagram) {
       doc.setFontSize(bigPt);
+      if (ink) doc.setTextColor(...hexToRgb(ink));
       doc.text(e.number, cx + cellW / 2, cy + cellH / 2 + 0.05, { align: "center", baseline: "middle" });
       if (o.shows.name) {
+        doc.setTextColor(11, 21, 36);
         doc.setFontSize(namePt);
         doc.text(doc.splitTextToSize(e.name.toUpperCase(), cellW - 0.08).slice(0, 2), cx + cellW / 2, cy + cellH - 0.12, { align: "center" });
       }
@@ -350,14 +406,15 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
       doc.rect(cx, cy, cellW, strip, "F");
       doc.setDrawColor(...grid);
       doc.line(cx, cy + strip, cx + cellW, cy + strip);
-      doc.setTextColor(...hexToRgb(pal.tabText));
+      doc.setTextColor(...hexToRgb(ink ?? pal.tabText));
       const label = o.shows.name ? `${e.number} · ${e.name.toUpperCase()}` : e.number;
       fitSize(doc, label, cellW - 0.08, numPt, numPt * 0.7);
       doc.text(fitText(doc, label, cellW - 0.08), cx + cellW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
     } else {
       // Number in a solid tab, name beside it, diagram filling the rest of the cell.
       const tabW = Math.max(strip, doc.getTextWidth(e.number) + 0.08);
-      doc.setFillColor(...hexToRgb(pal.tab));
+      // In card ink the tab takes the card's color, so the white number stands out on it.
+      doc.setFillColor(...hexToRgb(ink ?? pal.tab));
       doc.rect(cx, cy, tabW, strip, "F");
       doc.setTextColor(...hexToRgb(pal.tabText));
       doc.text(e.number, cx + tabW / 2, cy + strip / 2, { align: "center", baseline: "middle" });
@@ -378,6 +435,10 @@ async function drawCard(doc: jsPDF, x: number, y: number, entries: BandEntry[], 
       dpi: o.dpi,
     });
   }
+  // The card edge goes on last, over the box lines, so a bold edge stays one clean cut line.
+  doc.setDrawColor(...hexToRgb(pal.line));
+  doc.setLineWidth(lines.edge);
+  doc.rect(x + lines.edge / 2, y + lines.edge / 2, CARD_W - lines.edge, CARD_H - lines.edge);
 }
 
 /** Gap between a box's border and its diagram, in inches. */
@@ -409,7 +470,7 @@ export function boxCheck(o: Pick<BandOptions, "card" | "grid" | "header" | "foot
   const fits = BAND_GRIDS.map((g) => ({ ...g, art: diagramBox({ ...o, grid: g }) })).filter(
     (g) => g.art.w >= READABLE_BOX.w && g.art.h >= READABLE_BOX.h,
   );
-  fits.sort((a, b) => b.cols * b.rows - a.cols * a.rows);
+  fits.sort((a, b) => perCardOf(b) - perCardOf(a));
   return { art, readable, better: fits[0] ?? null };
 }
 
@@ -566,7 +627,7 @@ function fitText(doc: jsPDF, text: string, width: number) {
 
 /** Sheet(s) of wristband cards, then the coach sheet. */
 export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Promise<jsPDF> {
-  const perCard = o.grid.cols * o.grid.rows;
+  const perCard = perCardOf(o.grid);
   const { paper, slots } = sheetSlots(o);
   const orient = paper.w > paper.h ? "landscape" : "portrait";
   const { jsPDF } = await import("jspdf");
@@ -590,7 +651,7 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
       }
       const { x, y } = slots[slot];
       const vars = { role, card: cardLetter(c), source: o.source, count: cards[c].length };
-      await drawCard(doc, x, y, cards[c], vars, o);
+      await drawCard(doc, x, y, cards[c], vars, o, c);
       if (o.cutMarks && o.paper !== "card") cutMarks(doc, x, y, o.card.w, o.card.h);
       slot++;
     }
@@ -657,9 +718,31 @@ export type BandPresetPrefs = {
   numberSize?: NumberSize;
   numberStyle?: NumberStyle;
   header?: BandOptions["header"];
+  numberInk?: NumberInk;
+  border?: CardBorder;
+  sameSize?: boolean;
+  colors?: Partial<BandColors> | null;
 };
 
 export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: BandPresetPrefs }[] = [
+  {
+    // The print-shop play card coaches order (Football Play Card's layout): it keeps the coach's plays-per-card pick, 3 to 10.
+    id: "playcard",
+    label: "Play card",
+    hint:
+      "The print-shop play card: gray number strip with each card's numbers in its own color, a bold black edge, yard lines, lettered players, and every play at one scale with the line of scrimmage lined up. Works at 3 to 10 plays a card.",
+    prefs: {
+      shows: { diagram: true, name: false, numberOnly: false },
+      look: { fit: "play", weight: "auto", field: "yards", dots: false, icons: 1.3, lines: 1.25, zoom: 1, lineUp: true },
+      numberSize: "m",
+      numberStyle: "band",
+      numberInk: "card",
+      border: "bold",
+      header: { show: false, ...defaultBandText },
+      sameSize: true,
+      colors: { line: "#000000" },
+    },
+  },
   {
     id: "sideline",
     label: "Sideline 2×4",
@@ -670,6 +753,8 @@ export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: Ban
       look: { fit: "play", weight: "auto", field: "none", dots: true, icons: 1, lines: 1, zoom: 1 },
       numberSize: "m",
       numberStyle: "band",
+      numberInk: "one",
+      border: "thin",
       header: { show: false, ...defaultBandText },
     },
   },
@@ -683,6 +768,8 @@ export const BAND_PRESETS: { id: string; label: string; hint: string; prefs: Ban
       look: { fit: "play", weight: "auto", field: "yards", dots: false, icons: 1.3, lines: 1.5, zoom: 1 },
       numberSize: "l",
       numberStyle: "tab",
+      numberInk: "one",
+      border: "thin",
       header: { show: true, ...defaultBandText },
     },
   },
@@ -700,22 +787,23 @@ const ROOMY_BOX = { w: 1.15, h: 0.75 };
 export function bestLayout(card: { w: number; h: number }): { grid: string; prefs: BandPresetPrefs; why: string } {
   const at = (g: BandGrid) => diagramBox({ card, grid: g, header: { show: true, ...defaultBandText }, footer: "", numberSize: "m" });
   // Fewer than four plays a card is a poor wristband, so a card that only manages that falls through to the denser dot layout.
-  const multi = BAND_GRIDS.filter((g) => g.cols * g.rows >= 4);
+  // Full grids only: a short last row leaves card space unused, so it is the coach's pick, never the suggestion.
+  const multi = BAND_GRIDS.filter((g) => perCardOf(g) >= 4 && !shortRow(g));
   const densest = (ok: (a: { w: number; h: number }) => boolean) =>
-    multi.filter((g) => ok(at(g))).sort((a, b) => b.cols * b.rows - a.cols * a.rows)[0];
+    multi.filter((g) => ok(at(g))).sort((a, b) => perCardOf(b) - perCardOf(a))[0];
   const roomy = densest((a) => a.w >= ROOMY_BOX.w && a.h >= ROOMY_BOX.h);
   const bold = BAND_PRESETS.find((p) => p.id === "bold")!.prefs;
   const side = BAND_PRESETS.find((p) => p.id === "sideline")!.prefs;
   if (roomy) {
-    const n = roomy.cols * roomy.rows;
+    const n = perCardOf(roomy);
     return { grid: gridKey(roomy), prefs: { ...bold, grid: gridKey(roomy) }, why: `${n} plays a card with lettered players and bold routes` };
   }
   const readable = densest((a) => a.w >= READABLE_BOX.w && a.h >= READABLE_BOX.h);
   if (readable) {
-    const n = readable.cols * readable.rows;
+    const n = perCardOf(readable);
     return { grid: gridKey(readable), prefs: { ...side, grid: gridKey(readable) }, why: `${n} plays a card as solid dots, the most that stay readable on this card` };
   }
-  const biggest = [...BAND_GRIDS].sort((a, b) => at(b).w * at(b).h - at(a).w * at(a).h)[0];
+  const biggest = [...BAND_GRIDS].filter((g) => !shortRow(g)).sort((a, b) => at(b).w * at(b).h - at(a).w * at(a).h)[0];
   return { grid: gridKey(biggest), prefs: { ...side, grid: gridKey(biggest) }, why: "this card is small; one play to a box is as big as it gets" };
 }
 

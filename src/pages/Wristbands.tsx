@@ -37,7 +37,10 @@ import {
   defaultBandText,
   duplicateNumbers,
   entryFromPlay,
+  gridByKey,
   gridKey,
+  gridLabel,
+  perCardOf,
   NUMBER_SIZES,
   NUMBERING_MODES,
   numberEntries,
@@ -53,6 +56,8 @@ import {
   type CellShows,
   type NumberSize,
   type NumberStyle,
+  type NumberInk,
+  type CardBorder,
   BAND_PREFS_EVENT,
   BAND_PREFS_KEY,
   BAND_PRESETS,
@@ -114,6 +119,10 @@ type BandPrefs = {
   sameSize: boolean;
   /** The coach's card colors; null follows team branding or the GridIronVault look. */
   colors: Partial<BandColors> | null;
+  /** Numbers in one color, or each card's numbers in its own color. */
+  numberInk: NumberInk;
+  /** Thin card edge, or the Play card's bold black one. */
+  border: CardBorder;
 };
 
 const PREFS_KEY = BAND_PREFS_KEY;
@@ -134,6 +143,8 @@ const DEFAULT_PREFS: BandPrefs = {
   coachSheet: "list",
   sameSize: false,
   colors: null,
+  numberInk: "one",
+  border: "thin",
 };
 
 function loadPrefs(): BandPrefs {
@@ -239,8 +250,8 @@ export function Wristbands() {
   }
 
   const sourceName = source ? source.label.replace(/^[^·]+·\s*/, "") : "Hand-picked";
-  const grid = BAND_GRIDS.find((g) => gridKey(g) === prefs.grid) ?? BAND_GRIDS[5];
-  const perCard = grid.cols * grid.rows;
+  const grid = gridByKey(prefs.grid) ?? gridByKey("4x2")!;
+  const perCard = perCardOf(grid);
   // Numbers are worked out on the print order, so they follow a box when it's dragged.
   const entries = numberEntries(
     list.map((i) => formatted[i]),
@@ -285,6 +296,8 @@ export function Wristbands() {
     dpi: cappedDpi(tier, 600),
     vector,
     colors: prefs.colors,
+    numberInk: prefs.numberInk,
+    border: prefs.border,
   };
   const palette = bandPalette(options, brand);
   const setColor = (k: keyof BandColors, v: string) => setPrefs((p) => ({ ...p, colors: { ...(p.colors ?? {}), [k]: v } }));
@@ -530,10 +543,12 @@ export function Wristbands() {
                     type="button"
                     className={`chip${gridKey(g) === gridKey(grid) ? " is-on" : ""}`}
                     aria-pressed={gridKey(g) === gridKey(grid)}
-                    aria-label={`${g.cols * g.rows} ${g.cols}×${g.rows}: ${g.cols * g.rows} plays, ${g.cols} across and ${g.rows} down`}
+                    aria-label={`${perCardOf(g)} ${gridLabel(g)}: ${perCardOf(g)} plays, ${
+                      perCardOf(g) < g.cols * g.rows ? `${gridLabel(g).replace(" + ", " over ")}, the short row centred` : `${g.cols} across and ${g.rows} down`
+                    }`}
                     onClick={() => set({ grid: gridKey(g) })}
                   >
-                    {g.cols * g.rows} <small>{g.cols}×{g.rows}</small>
+                    {perCardOf(g)} <small>{gridLabel(g)}</small>
                   </button>
                 ))}
               </div>
@@ -547,10 +562,10 @@ export function Wristbands() {
                   with the box, but a box this short stays crowded.{" "}
                   {boxes.better ? (
                     <>
-                      {boxes.better.cols}×{boxes.better.rows} gives {boxes.better.art.w.toFixed(2)} × {boxes.better.art.h.toFixed(2)} in and{" "}
-                      {boxes.better.cols * boxes.better.rows} plays a card.{" "}
+                      {gridLabel(boxes.better)} gives {boxes.better.art.w.toFixed(2)} × {boxes.better.art.h.toFixed(2)} in and{" "}
+                      {perCardOf(boxes.better)} plays a card.{" "}
                       <button type="button" className="link" onClick={() => set({ grid: gridKey(boxes.better!) })}>
-                        Use {boxes.better.cols}×{boxes.better.rows}
+                        Use {gridLabel(boxes.better)}
                       </button>
                     </>
                   ) : (
@@ -585,6 +600,12 @@ export function Wristbands() {
                   ? "Players, routes and yard lines print the same size on every play. The widest play sets how much field each box shows."
                   : "Each play fills its own box, so players and routes can differ a little from box to box. Turn this on to match them."}
               </p>
+              {prefs.sameSize && prefs.look.fit === "play" && (
+                <label className="switch">
+                  <input type="checkbox" checked={!!prefs.look.lineUp} onChange={(e) => setLook({ lineUp: e.target.checked })} />
+                  Line up the line of scrimmage in every box
+                </label>
+              )}
               <label className="wb-sub">
                 Line and player weight
                 <select
@@ -663,6 +684,20 @@ export function Wristbands() {
                 <select className="select" value={prefs.numberStyle} onChange={(e) => set({ numberStyle: e.target.value as NumberStyle })}>
                   <option value="tab">Dark tab, name beside it</option>
                   <option value="band">Gray strip across the top</option>
+                </select>
+              </label>
+              <label className="wb-sub">
+                Number color
+                <select className="select" value={prefs.numberInk} onChange={(e) => set({ numberInk: e.target.value as NumberInk })}>
+                  <option value="one">One color on every card</option>
+                  <option value="card">A color per card (red, blue, green…)</option>
+                </select>
+              </label>
+              <label className="wb-sub">
+                Card edge
+                <select className="select" value={prefs.border} onChange={(e) => set({ border: e.target.value as CardBorder })}>
+                  <option value="thin">Thin line</option>
+                  <option value="bold">Bold black edge</option>
                 </select>
               </label>
               <label className="wb-sub">

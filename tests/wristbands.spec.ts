@@ -94,3 +94,53 @@ test("plays picked by hand make the cards, and nothing picked says so", async ({
   await picks.nth(1).uncheck();
   await expect(cards.first()).toHaveAttribute("aria-label", /^Card A, 2 plays/);
 });
+
+test("Play card style prints 3 to 10 plays a card, with 5 and 7 on a centred short row", async ({ page }) => {
+  await seedReady(page);
+  await page.goto("/wristbands");
+  await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
+  const cards = page.locator('.wb-preview [aria-label^="Card "]');
+  await expect(cards.first()).toBeVisible();
+  const per = "Plays per card (columns × rows)";
+
+  // Every count from 3 to 10 has a chip; 24 calls make that many cards.
+  for (const [count, name, made] of [
+    [3, "3 plays, 3 across and 1 down", 8],
+    [4, "4 plays, 2 across and 2 down", 6],
+    [5, "5 plays, 3 over 2, the short row centred", 5],
+    [6, "6 plays, 3 across and 2 down", 4],
+    [7, "7 plays, 4 over 3, the short row centred", 4],
+    [8, "8 plays, 4 across and 2 down", 3],
+    [9, "9 plays, 3 across and 3 down", 3],
+    [10, "10 plays, 5 across and 2 down", 3],
+  ] as const) {
+    await chip(page, per, name).click();
+    await expect(cards, `${count} a card`).toHaveCount(made);
+  }
+
+  // 5 a card: the second row's two boxes keep the top row's width and sit in the middle.
+  await chip(page, per, "5 plays, 3 over 2, the short row centred").click();
+  const boxes = cards.first().locator(".wb-cell");
+  await expect(boxes).toHaveCount(5);
+  const [top, low] = [(await boxes.nth(0).boundingBox())!, (await boxes.nth(3).boundingBox())!];
+  expect(Math.abs(low.width - top.width)).toBeLessThan(1);
+  expect(low.x - top.x).toBeCloseTo(top.width / 2, 0);
+
+  // The Play card style: gray strip, each card's numbers in its own color, a bold edge, the line of scrimmage lined up.
+  await chip(page, "One-click styles", "Play card").click();
+  await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
+  await expect(chip(page, per, "5 plays, 3 over 2, the short row centred")).toHaveAttribute("aria-pressed", "true");
+  await expect(cards.first()).toHaveAttribute("data-border", "bold");
+  await expect(cards.nth(0).locator(".wb-cell-band").first()).toHaveCSS("color", "rgb(224, 32, 27)");
+  await expect(cards.nth(1).locator(".wb-cell-band").first()).toHaveCSS("color", "rgb(31, 71, 224)");
+  await expect(page.getByLabel("Same size in every box")).toBeChecked();
+  await expect(page.getByLabel("Line up the line of scrimmage in every box")).toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Number color" })).toHaveValue("card");
+
+  // Kept after a reload.
+  await page.reload();
+  await expect(cards).toHaveCount(5);
+  await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
+  expect(saved).toMatchObject({ grid: "3x2-5", numberInk: "card", border: "bold", sameSize: true, look: { lineUp: true } });
+});
