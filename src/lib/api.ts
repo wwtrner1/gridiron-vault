@@ -8,6 +8,7 @@ import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
 import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, MyTeamsDoc, PlayerFile, TextSignup } from "./teamHub";
 import type { TeamBrand } from "./brandData";
+import type { TermsState } from "./termsData";
 import type { LivePatch, LivePlay } from "./live";
 
 export type ApiPlay = {
@@ -181,6 +182,9 @@ export const api = {
   myTeams: () => request<{ teams: MyTeamsDoc | null; team: MyTeamDoc | null }>("my-team"),
   brand: () => request<{ brand: TeamBrand | null }>("brand"),
   saveBrand: (brand: TeamBrand) => request<{ brand: TeamBrand | null }>("brand", { method: "PUT", body: JSON.stringify({ brand }) }),
+  /* Playbook language: the coach's whole term list, newer copy wins (TermSync). */
+  terms: () => request<{ terms: TermsState | null }>("terms"),
+  saveTerms: (terms: TermsState) => request<{ terms: TermsState | null }>("terms", { method: "PUT", body: JSON.stringify({ terms }) }),
   saveMyTeams: (teams: MyTeamsDoc) => request<{ teams: MyTeamsDoc }>("my-team", { method: "PUT", body: JSON.stringify({ teams }) }),
   /* Team hub: teams and rosters, for the director and each team's staff. */
   hub: (orgId: string) => request<HubState>(`hub/${orgId}`),
