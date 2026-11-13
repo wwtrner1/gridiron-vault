@@ -144,6 +144,10 @@ export function Privacy() {
           <b>Stripe</b> takes payments for paid plans. Your card goes straight to Stripe; GridIronVault never sees or stores
           it.
         </li>
+        <li>
+          <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you
+          press play; after that, YouTube's own privacy policy applies. Hudl links open on Hudl.
+        </li>
       </ul>
       <p>Each only gets what it needs for that job.</p>
 
@@ -185,6 +189,21 @@ export function Privacy() {
           <b>Forget a device</b> from Your account → Devices.
         </li>
       </ul>
+
+      <h2>Your rights</h2>
+      <p>
+        Wherever you live, you can ask to see, correct, download or delete the information we hold about you, and we'll
+        answer within 30 days at no charge. We don't sell personal information or share it for advertising, so there is
+        nothing to opt out of; if that ever changed, we'd ask first. We keep your information while your account is open
+        and delete it when you delete the account, apart from the short sign-up record above.
+      </p>
+
+      <h2>Keeping it safe</h2>
+      <p>
+        Everything travels over an encrypted connection, each coach's work is walled off from every other account, and
+        only the few of us who need it to help you can see it. No system is perfect: if something ever went wrong
+        with your information, we'd tell you promptly and say what we're doing about it.
+      </p>
 
       <h2>Changes and questions</h2>
       <p>
