@@ -8,10 +8,11 @@ import "../styles/legal.css";
 /*
  * Plain-language Privacy Policy and Terms of Use (Phase 6). They describe what
  * the app actually does today; update them whenever data handling changes.
- * Drafted without a lawyer — have one review before charging for plans.
+ * Drafted without a lawyer. Have an attorney review both pages (especially the
+ * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "October 30, 2026";
+const UPDATED = "November 13, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -86,6 +87,19 @@ export function Privacy() {
           it was a mistake, then removed. Deleting your account removes your work at once.
         </li>
         <li>
+          <b>Play archive:</b> a copy of every play saved to your account (drawn, copied, imported or read from a scan or
+          photo), shared or not, is kept in an archive that only the site owner can see. It stays when you delete a play, so we
+          can look back at how GridIronVault is used, fix problems and recover lost work, and the owner can purge it. It is
+          never shown to other coaches, and deleting your account deletes your copies. Plays you keep only in your browser are
+          not in it.
+        </li>
+        <li>
+          <b>What the play reader learns:</b> when you fix a play read from a scan or photo (a mark that means another
+          player, a route read as the wrong shape), we keep that fix with your account so your next reads get it right. A fix
+          is used for every coach's reads only after three or more coaches have made the same one, and it never carries your
+          name, plays or images. Upload → What the reader learned lists yours, with Forget.
+        </li>
+        <li>
           <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
           from, your device type and how many seconds the page was in view. We keep no IP address and set no cookie for this,
           and the visitor count uses a code that changes every day, so we can't follow you from one day to the next. If your
@@ -99,12 +113,19 @@ export function Privacy() {
           <b>Your work:</b> plays, playbooks and Call Sheets you save to your account.
         </li>
         <li>
+          <b>Team information:</b> if you keep a team in GridIronVault, what you add to it: rosters (players' names, numbers, positions, birth dates, sizes, photos, their contact details and their parents' or guardians'), medical notes, player documents, depth charts, schedules and team messages.
+        </li>
+        <li>
           <b>What you send to Griddy:</b> your messages, any file of plays you attach, a whiteboard photo, and — so Griddy can
           find your plays — the names, formations and tags of the plays in your Vault go to our AI provider, and the answer
           comes back to you. We don't keep the photo or the conversation.
         </li>
         <li>
           <b>Feedback:</b> whatever you write on Help &amp; feedback, plus an optional email and screenshot.
+        </li>
+        <li>
+          <b>Team links:</b> a player or family who opens a coach's team link can type a name for quiz scores. Only that coach
+          sees them.
         </li>
         <li>
           <b>Team texts:</b> when a parent, guardian or player signs up on a team's texts link, we keep the mobile number,
@@ -122,13 +143,23 @@ export function Privacy() {
       <h2>Who helps us run GridIronVault</h2>
       <ul>
         <li>
-          <b>Netlify</b> hosts the site and stores accounts, plays and feedback.
+          <b>Netlify</b> hosts the site and stores accounts, plays, team information and feedback.
         </li>
         <li>
           <b>Twilio</b> sends the text-message codes and team texts.
         </li>
         <li>
-          <b>Anthropic</b> (Claude) powers Griddy: it reads your messages, play calls and whiteboard photos.
+          <b>Anthropic</b> (Claude) powers Griddy: it reads your messages, play calls and whiteboard photos, and, when you
+          ask Griddy about your roster, players' names, numbers, positions and status (never contacts, guardians or medical
+          notes).
+        </li>
+        <li>
+          <b>Stripe</b> takes payments for paid plans. Your card goes straight to Stripe; GridIronVault never sees or stores
+          it.
+        </li>
+        <li>
+          <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you
+          press play; after that, YouTube's own privacy policy applies. Hudl links open on Hudl.
         </li>
       </ul>
       <p>Each only gets what it needs for that job.</p>
@@ -141,11 +172,21 @@ export function Privacy() {
         team text to stop them, or ask the team's coach to take you off.
       </p>
 
-      <h2>Players and kids</h2>
+      <h2>Players, parents and kids</h2>
       <p>
-        Accounts are for coaches, 18 and older. Players appear on plays by position letter or number, not by name, and we
-        don't knowingly collect information from children. If you think a child made an account, tell us and we'll delete
-        it.
+        Accounts are for coaches, 18 and older. Children under 13 can't make an account, and we don't knowingly collect
+        personal information directly from them. If you think a child made an account, tell us and we'll delete it.
+      </p>
+      <p>
+        Coaches can keep a team roster in GridIronVault, and many players are minors. The coach adds that information and
+        controls it. We store it only to run the coach's account: we never show it on a public page or to anyone outside the
+        team's staff, never sell it, and never use it for advertising. A coach who adds a player's information confirms they have
+        permission from the player's parent or guardian, or from the school or league the team plays for.
+      </p>
+      <p>
+        Players see a coach's team link without an account. A name typed there goes only to that coach, so we suggest a
+        first name or initials. A parent or guardian can ask the coach, or us, to see, correct or delete a child's
+        information.
       </p>
 
       <h2>Your choices</h2>
@@ -162,6 +203,21 @@ export function Privacy() {
         </li>
       </ul>
 
+      <h2>Your rights</h2>
+      <p>
+        Wherever you live, you can ask to see, correct, download or delete the information we hold about you, and we'll
+        answer within 30 days at no charge. We don't sell personal information or share it for advertising, so there is
+        nothing to opt out of; if that ever changed, we'd ask first. We keep your information while your account is open
+        and delete it when you delete the account, apart from the short sign-up record above.
+      </p>
+
+      <h2>Keeping it safe</h2>
+      <p>
+        Everything travels over an encrypted connection, each coach's work is walled off from every other account, and
+        only the few of us who need it to help you can see it. No system is perfect: if something ever went wrong
+        with your information, we'd tell you promptly and say what we're doing about it.
+      </p>
+
       <h2>Changes and questions</h2>
       <p>
         If this policy changes, we'll update the date at the top and tell signed-in coaches about anything important. For
@@ -177,6 +233,9 @@ export function Terms() {
       <h2>Using GridIronVault</h2>
       <ul>
         <li>Accounts are for coaches and staff, 18 and older. One account per person, tied to one mobile number.</li>
+        <li>
+          If you add players' or families' details, you confirm you're allowed to, and you use them only to run your team.
+        </li>
         <li>Keep your password and devices safe — you're responsible for what happens on your account.</li>
         <li>
           GridIronVault is in <b>beta</b>. It's free while we test, features may change, and things may break. Download a
@@ -203,7 +262,8 @@ export function Terms() {
       <p>
         You own the plays, playbooks, notes and files you create or upload. You let us store, display and process them only
         to run the service for you — for example to show them on your devices, print wristbands, or read a whiteboard photo.
-        Nothing you make is shown to other coaches unless you share it.
+        Nothing you make is shown to other coaches unless you share it. The site owner keeps a private archive copy of plays
+        saved to accounts, as the Privacy page explains, and may purge it at any time.
       </p>
 
       <h2>Only upload what you have the right to use</h2>
@@ -234,11 +294,22 @@ export function Terms() {
         damages, and our total liability is limited to what you paid us in the past 12 months.
       </p>
 
-      <h2>Plans and changes</h2>
+      <h2>Plans and billing</h2>
+      <ul>
+        <li>
+          Sideline is free. Paid plans show their price and terms before you pay. Stripe handles payment, so card numbers
+          never touch GridIronVault. Where sales tax applies, it is added at Checkout and shown before you pay.
+        </li>
+        <li>
+          Monthly and yearly plans renew until you cancel. Cancel any time from Your account; you keep the plan until the
+          end of the period you paid for. A Season Pass is paid once and does not renew.
+        </li>
+      </ul>
+
+      <h2>Changes</h2>
       <p>
-        Paid plans aren't live yet. When they are, prices and billing terms will be shown before you pay, and payments will
-        be handled by a payment processor — card numbers never touch GridIronVault. We may update these terms; if a change
-        matters, we'll tell signed-in coaches before it takes effect. Leaving is always free: delete your account any time.
+        We may update these terms; if a change matters, we'll tell signed-in coaches before it takes effect. Leaving is
+        always free: delete your account any time.
       </p>
 
       <h2>Questions</h2>

@@ -52,7 +52,7 @@ const SHELL: GuideSection = {
   steps: [
     {
       title: "Side menu",
-      text: "Every tool in one list: the Vault, Upload, Playbooks, My team, Front Office, Assignments, Call Sheet, Coverage report, Practice, Wristbands, Starter plays, Playbook language and More tools. On a phone, the menu button at the top left opens it.",
+      text: "Every tool in five groups you open and close: Plays (the Vault, Playbooks, Upload, Starter plays), Game plan (Call Sheet, Wristbands, Coverage report), Practice (Practice, Drill Vault, Assignments), Team (My team, Front Office) and Tools (Playbook language, More tools). The group for the screen you are on stays open. On a phone, the menu button at the top left opens it.",
       target: "#rail-nav .rail-group:nth-of-type(2)",
     },
     {
@@ -588,22 +588,25 @@ export const GUIDES: Guide[] = [
       {
         heading: "Print",
         steps: [
-          { title: "Call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands. Opens in the print preview, where you print or download it.", target: ".wb-head-actions" },
+          { title: "Undo and Redo", text: "Step back through any change to the settings, the call order or the plays printed, and forward again. Ctrl+Z and Ctrl+Shift+Z work too.", target: tour("wb-undo") },
+          { title: "Call sheet", text: "A coach's sheet listing every call with its number and card, to match the wristbands: a call list, the diagrams, both, or every call's diagram on one page. Opens in the print preview, where you print or download it.", target: ".wb-head-actions" },
           { title: "Print cards", text: "Opens the print preview: every page of the real PDF, exactly as it prints, with a warning if a player or route will be cut off. Print or Download PDF from there.", target: tour("wb-print") },
         ],
       },
       {
         heading: "Set up the card",
         steps: [
-          { title: "One-click styles", text: "Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
+          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
+          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
           { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
           { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
           { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
-          { title: "Plays per card", text: "Columns × rows. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
+          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
           { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
           { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
           { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
+          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet") },
         ],
       },
       {
@@ -631,6 +634,15 @@ export const GUIDES: Guide[] = [
           { title: "Drop plays here", text: "Drop JPG, PNG, HEIC, PDF or PPTX files, or press Ctrl+V anywhere on the page.", target: ".up-drop" },
           { title: "Choose files and paste", text: "Choose files opens your computer or phone; Paste from clipboard takes a copied image.", target: ".up-drop-acts" },
           { title: "Check before it saves", text: "Each play is found, redrawn on the field and shown for you to check. Check and fix opens it to correct a route; nothing saves until you press Save. A PDF's plays file into a new playbook named after the file." },
+        ],
+      },
+      {
+        heading: "Fix a read and keep going",
+        steps: [
+          { title: "Fix the read", text: "Under Check and fix: change who a board mark is, his route, block or motion and which way it breaks, add a player the read missed or drop one it made up. For a defense, each defender's responsibility and the coverage. A player with no line behind the center is read as the quarterback." },
+          { title: "The green check", text: "A play you checked wears a green Checked. Plays saved without a check show Needs a check in the Vault until you save them in the Designer (or press Looks right: mark as checked)." },
+          { title: "Leave while it reads", text: "Pages keep being read when you leave; a bar at the bottom shows how far it got and brings you back. Send to my Vault to check later files every play as Needs a check when it's done." },
+          { title: "What the reader learned", text: "Every fix teaches the reader how your boards are written, for your next read. Forget one or all here.", target: ".up-memory" },
         ],
       },
     ],
@@ -679,9 +691,11 @@ export const GUIDES: Guide[] = [
       {
         heading: "Build the script",
         steps: [
-          { title: "Script name and start time", text: "Each period gets a clock time from the start time and the minutes before it.", target: ".pr-top" },
-          { title: "Periods", text: "Name each period, set its minutes, add a coaching point, then add plays one at a time or a whole playbook. Remove takes the period out.", target: ".pr-period" },
-          { title: "Add period", text: "A new 10-minute period at the end.", target: ".pr-add" },
+          { title: "Script name and start time", text: "Each period gets a clock time from the start time and the minutes before it. The tiles beside them add up the minutes, the end time, the periods, plays and drills.", target: ".pr-hero" },
+          { title: "Timeline", text: "One colored bar per period, as wide as its minutes. Click a bar to jump to that period.", target: ".pr-timeline" },
+          { title: "Periods", text: "Each card shows its clock time and number. Name it, pick its type (which sets the color), set the minutes with − and + or by typing, and write the focus. Every field has an ⓘ that says what it is for. ↑ and ↓ reorder; Remove takes it out.", target: ".pr-period" },
+          { title: "Plays and drills", text: "Add plays one at a time or a whole playbook, and drills from the Drill Vault. A drill's name opens it in the Drill Vault.", target: ".pr-lists" },
+          { title: "Add a period", text: "A new 10-minute period at the end. Browse the Drill Vault opens the drills.", target: ".pr-foot" },
           { title: "Print script and scout cards", text: "Print script previews the timed plan. Print scout cards previews one diagram card per play, two per row, for the scout team. Print from the bar at the top.", target: ".topbar" },
         ],
       },
@@ -699,6 +713,36 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Search and filter", text: "Search by name, skill or age, pick Drill or game, Teach a skill or Read, or narrow to one topic.", target: ".lib-filters" },
           { title: "Watch or read", text: "Watch plays the video here in YouTube's privacy-enhanced player. A reading opens on MOJO's site.", target: ".lib-list" },
+          ],
+        },
+      ],
+    },
+    {
+    id: "drills",
+    title: "Drill Vault",
+    path: "/drills",
+    intro: "Drills with diagrams that play, coaching points and film. Add your own and put them into practice.",
+    when: "Planning individual and group periods.",
+    sections: [
+      {
+        heading: "Find a drill",
+        steps: [
+          { title: "Search and filters", text: "Search by name, skill or equipment. The chips narrow it to a position group, a side of the ball, or the drills you starred.", target: ".dr-filters" },
+          { title: "Drill cards", text: "Each card shows the diagram, the group, the minutes and whether it has film. Star a drill to find it fast; Add to practice files it in a period of tonight's script.", target: ".dr-grid" },
+        ],
+      },
+      {
+        heading: "Open a drill",
+        steps: [
+          { title: "Play the drill", text: "The diagram runs the drill: players, coach and ball move along their lines. Pause stops it. Solid lines are sprints, dashed are backpedals, purple are shuffles, dotted are the ball.", target: ".dr-detail-pic" },
+          { title: "Film", text: "Find film on YouTube searches for the drill. Your own YouTube links play right in the drill.", target: ".dr-detail-bar" },
+          { title: "Copy and make it mine", text: "Copies a built-in drill into your own, diagram and all, so you can change the words and add your film.", target: ".modal-foot" },
+        ],
+      },
+      {
+        heading: "Your drills",
+        steps: [
+          { title: "New drill", text: "Name, group, minutes, setup, steps, coaching points, a film link and a diagram: any built-in drill's, or a play you drew in the Designer. Saved in this browser.", target: ".topbar" },
         ],
       },
     ],
@@ -732,7 +776,8 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Tabs", text: "Roster and Depth chart.", target: ".hub-tabs" },
           { title: "Roster", text: "Add player, Import spreadsheet (open an Excel .xlsx or .xls file or a CSV, or paste the rows: Dad and Mom columns, middle name, grad year and uniform sizes come across), Download CSV and Print a contact sheet. Open a player for their picture, uniform sizes, contacts, up to three guardians, medical notes, and documents such as physicals and birth certificates. Tick players and press Remove selected, or the X on a row, to take them off. Only you see it.", target: ".hub-panel .hub-head .fo-actions" },
-          { title: "Depth chart", text: "Offense, defense and special teams. Start from a preset (flag 5/7, 11-man), drag or arrow players into order, tap a player's circle to add their picture, and Starters to Assignments sends each lettered spot's starter to the position sheets.", target: ".hub-tabs" },
+          { title: "Columns and Edit in the table", text: "Columns picks what the roster shows, prints and downloads (the x on a heading hides one), and adds fields of your own like Waiver signed or Fee paid. Edit in the table turns every cell into a box: type, then Enter or Tab saves it, Escape puts it back.", target: ".hub-view-tools" },
+          { title: "Depth chart", text: "Offense, defense and special teams. Start from a preset (flag 5/7, 11-man), drag or arrow players into order, tap a player's circle to add their picture, and Starters to Assignments sends each lettered spot's starter to the position sheets. On the field shows every spot where it lines up with its starter and backups; drag a spot, or pick it and use the arrow keys, to match your formation, Line up from a formation (Offense) sets them like a formation in the library, and Line them up by position puts them back.", target: ".hub-tabs" },
         ],
       },
     ],
@@ -814,7 +859,8 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Suggestions", text: "Words you use often in your Vault. Teach it or Ignore.", target: ".lang-suggest" },
           { title: "Teach a term", text: "The term, what it means, and its type (formation, route, call).", target: ".topbar .btn-primary" },
-          { title: "The list", text: "Filter by type, edit or delete a term.", target: ".lang-table" },
+          { title: "See what it means", text: "The picture beside each term. Hover for a quick look; click or tap for the full diagram, and pick a play from your Vault to show it your way.", target: ".lang-thumb" },
+          { title: "The list", text: "Filter by type. Edit renames any term, starter ones too (Griddy reads your word); Delete has Undo.", target: ".lang-table" },
         ],
       },
     ],

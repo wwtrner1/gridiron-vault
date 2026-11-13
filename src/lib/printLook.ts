@@ -37,6 +37,10 @@ export type PrintLook = {
   span?: number;
   /** How far tokens may grow before the most crowded play in the set runs together. Set by `matchLook`. */
   room?: number;
+  /** Line the line of scrimmage up at one height in every box (with Same size), like a print-shop play card. */
+  lineUp?: boolean;
+  /** Where the line of scrimmage sits, as a share of the frame's height from the top. Set by `matchLook`. */
+  losAt?: number;
 };
 
 export const FULL_LOOK: PrintLook = { fit: "field", weight: "auto", field: "full" };
@@ -92,8 +96,11 @@ const THIN_ROUTE_PT = 1.1;
 const MIN_TOKEN_SHRINK = 0.4;
 /** Crowded sets (bunch, stack) may print smaller than MIN_TOKEN_IN, but never below this. */
 const FLOOR_TOKEN_IN = 0.09;
-/** Below this a token's letter can't be read, so an auto-weighted token prints as a plain colored dot. */
-const LETTER_TOKEN_IN = 0.11;
+/**
+ * Below this a token's letter can't be read, so an auto-weighted token prints as a plain colored dot.
+ * Football Play Card letters its 0.10 in players and they read on the wrist, so letters hold down to there.
+ */
+const LETTER_TOKEN_IN = 0.095;
 /** Smallest route tag or text label we let reach paper, in points. */
 const MIN_TEXT_PT = 5.5;
 const BASE_ROUTE = 2.6;
@@ -319,7 +326,10 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   const play = pad(playBox(boosted) ?? raw, PAD * Math.min(w.line, 2));
   box = toAspect(play, aspect);
   if (box.w < across) box = toAspect({ ...box, x: box.x + box.w / 2 - across / 2, w: across }, aspect);
-  box = keepPlay(zoomBox(box, look.zoom), play, aspect);
+  box = zoomBox(box, look.zoom);
+  // A lined-up set puts the line of scrimmage at the same height in every box.
+  if (look.losAt !== undefined) box = { ...box, y: scene.losY - look.losAt * box.h };
+  box = keepPlay(box, play, aspect);
   return { scene: boosted, box, weight: w.line, ptPerUnit: ppu(box) };
 }
 
@@ -350,9 +360,31 @@ export function matchLook(scenes: Scene[], look: PrintLook, wIn: number, hIn: nu
   // Tokens in that bunch may touch, and their white rings keep them apart.
   const rooms = scenes.map(tokenRoom).sort((a, b) => a - b);
   const room = rooms[Math.floor(rooms.length / 2)];
-  const span = look.fit === "play" ? Math.max(...scenes.map((s) => frameScene(s, { ...plain, room }, wIn, hIn).box.w)) : undefined;
-  return { ...look, span, room };
+  const plainLos: PrintLook = { ...plain, losAt: undefined };
+  const span = look.fit === "play" ? Math.max(...scenes.map((s) => frameScene(s, { ...plainLos, room }, wIn, hIn).box.w)) : undefined;
+  if (!span || !look.lineUp) return { ...look, span, room, losAt: undefined };
+  // Lined up: the frame must hold the deepest route above the line and the deepest back below it in every play.
+  let above = 0;
+  let below = 0;
+  for (const s of scenes) {
+    const f = frameScene(s, { ...plainLos, room, span }, wIn, hIn);
+    const b = playBox(f.scene);
+    if (!b) continue;
+    const p = PAD * Math.min(f.weight, 2);
+    above = Math.max(above, s.losY - (b.y - p));
+    below = Math.max(below, b.y + b.h + p - s.losY);
+  }
+  above = Math.max(above, 1);
+  below = Math.max(below, 1);
+  const aspect = wIn / hIn;
+  const tall = Math.max(above + below, span / aspect);
+  // Spare height goes mostly above the line, where the routes run, like a printed play card.
+  const losAt = (above + (tall - above - below) * SPARE_ABOVE) / tall;
+  return { ...look, span: tall * aspect, room, losAt };
 }
+
+/** Share of a lined-up frame's spare height that goes above the line of scrimmage. */
+const SPARE_ABOVE = 0.75;
 
 /** Bounds a node may overrun the frame by (an arrowhead tip, a stroke's edge) before it counts as cut off. */
 const CUT_SLACK = 6;

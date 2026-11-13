@@ -627,6 +627,29 @@ export const teamBrands = pgTable("team_brands", {
 });
 
 /**
+ * Saved wristband setups: one row per coach holding the whole list
+ * (`SetupsDoc` in src/lib/bandSetupsData.ts, cleaned by `cleanSetupsDoc`), so
+ * a setup saved on one device loads on every other.
+ */
+export const wristbandSetups = pgTable("wristband_setups", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
+ * Playbook language: one row per coach holding the whole term list
+ * (`TermsState` in src/lib/termsData.ts, cleaned by `cleanTerms`), starter
+ * terms the coach renamed or deleted included, so every device and Griddy
+ * read the coach's own words. Owner only.
+ */
+export const playbookTerms = pgTable("playbook_terms", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
  * A play the Staff plan's coaches draw together (src/lib/live.ts). One row
  * per play: the whole scene, a revision that goes up with every accepted
  * patch, and who has been looking at it lately. Access follows the
@@ -649,4 +672,66 @@ export const livePlays = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (t) => [index("live_plays_org_idx").on(t.orgId)],
+);
+
+/**
+ * What a coach's fixes to scanned and photographed plays taught the reader
+ * (netlify/ai/lessons.ts): a board mark that means another Vault letter, or a
+ * route shape read as one thing that was another, with how many times. A
+ * coach's own rows go into their next read; a lesson three or more coaches
+ * share goes into everyone's, unless the owner switched it off.
+ */
+export const readLessons = pgTable(
+  "read_lessons",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    kind: text().notNull(),
+    fromValue: text("from_value").notNull(),
+    toValue: text("to_value").notNull(),
+    times: integer().notNull().default(1),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("read_lessons_owner_lesson_idx").on(t.ownerId, t.kind, t.fromValue, t.toValue), index("read_lessons_lesson_idx").on(t.kind, t.fromValue, t.toValue)],
+);
+
+/** The owner's switch on an app-wide lesson: `off` keeps it out of every coach's reads. */
+export const readLessonRules = pgTable(
+  "read_lesson_rules",
+  {
+    kind: text().notNull(),
+    fromValue: text("from_value").notNull(),
+    toValue: text("to_value").notNull(),
+    off: boolean().notNull().default(false),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("read_lesson_rules_idx").on(t.kind, t.fromValue, t.toValue)],
+);
+
+/**
+ * The owner's archive (netlify/admin/archive.ts): a copy of every play a
+ * signed-in coach creates, copies, imports or scans to their account,
+ * shared or not, kept when the coach deletes the play, so the owner can look
+ * back over what the app is used for and purge it. Erased with the coach's
+ * account. Plays that never leave a browser are not here.
+ */
+export const playArchive = pgTable(
+  "play_archive",
+  {
+    playId: text("play_id").primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    ownerName: text("owner_name").notNull().default(""),
+    ownerEmail: text("owner_email").notNull().default(""),
+    name: text().notNull().default(""),
+    playType: text("play_type").notNull().default(""),
+    /** created, copied, imported or scanned (from the play's tags). */
+    source: text().notNull().default("created"),
+    tags: jsonb().$type<string[]>().notNull().default([]),
+    scene: jsonb().$type<unknown>().notNull(),
+    deletedAt: timestamp("deleted_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [index("play_archive_owner_idx").on(t.ownerId), index("play_archive_updated_idx").on(t.updatedAt)],
 );

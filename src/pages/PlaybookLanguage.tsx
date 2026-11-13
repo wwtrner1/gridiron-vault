@@ -2,13 +2,20 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
+import { Modal } from "../components/Modal";
+import { PlayThumb } from "../components/PlayThumb";
 import { useStore } from "../lib/store";
+import { useToast } from "../lib/toast";
+import { exampleFor, playsUsing, type TermExample } from "../lib/termExamples";
 import {
   SCOPE_LABEL,
+  starterOriginal,
+  STARTER_BY_ID,
   suggestTerms,
   termStore,
   TYPE_LABEL,
   usesOf,
+  useStaffTerms,
   useTerms,
   type Term,
   type TermScope,
@@ -39,6 +46,23 @@ export function PlaybookLanguage() {
   const [filter, setFilter] = useState<"all" | TermType>("all");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
+  const [peek, setPeek] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ id: string; staff: boolean } | null>(null);
+  const { staff, director } = useStaffTerms();
+  const { shareWithStaff } = useTerms();
+  const toast = useToast();
+  const examples = useMemo(() => new Map(terms.map((t) => [t.id, exampleFor(t, plays)])), [terms, plays]);
+  const staffExamples = useMemo(() => new Map((staff?.terms ?? []).map((t) => [t.id, exampleFor(t, plays)])), [staff, plays]);
+  const missing = termStore.missingStarters();
+  const opened = open ? (open.staff ? staff?.terms : terms)?.find((t) => t.id === open.id) : undefined;
+  /** The term being edited as it is saved, so the form keeps its name while the coach retypes it. */
+  const editing = draft?.id ? terms.find((t) => t.id === draft.id) : undefined;
+
+  function remove(t: Term) {
+    const at = terms.findIndex((x) => x.id === t.id);
+    termStore.remove(t.id);
+    toast(`“${t.term}” deleted.`, false, { label: "Undo", run: () => termStore.restore(t, at) });
+  }
 
   const suggestions = useMemo(() => suggestTerms(plays, terms, ignored), [plays, terms, ignored]);
   const top = suggestions[0];
@@ -90,6 +114,45 @@ export function PlaybookLanguage() {
           </p>
         </div>
 
+        {director && (
+          <label className="lang-share">
+            <input type="checkbox" checked={shareWithStaff !== false} onChange={(e) => termStore.setShare(e.target.checked)} />
+            <span>
+              <b>Share my terms with my Front Office staff</b>
+              Your coaches see every term here except the ones marked Just you, read-only, and Griddy reads your words for them too.
+            </span>
+          </label>
+        )}
+
+        {staff && (
+          <section className="card lang-staff" aria-labelledby="lang-staff-h">
+            <h3 id="lang-staff-h">
+              From {staff.from} · {staff.org}
+            </h3>
+            <p className="lang-muted">
+              Your head coach's terms, read-only. Griddy reads these first, so the whole staff speaks one language; your own terms below fill in the rest.
+            </p>
+            <ul className="lang-staff-list">
+              {staff.terms.map((t) => (
+                <li key={t.id}>
+                  <ExampleThumb
+                    term={t}
+                    example={staffExamples.get(t.id) ?? null}
+                    peeking={peek === `staff:${t.id}`}
+                    onPeek={(on) => setPeek(on ? `staff:${t.id}` : null)}
+                    onOpen={() => (setPeek(null), setOpen({ id: t.id, staff: true }))}
+                  />
+                  <span>
+                    <b>{t.term}</b>
+                    <span>{t.means}</span>
+                  </span>
+                  <span className="pill pill-type">{TYPE_LABEL[t.type]}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="lang-stats">
           <div className="card stat">
             <b>{terms.length}</b>
@@ -126,8 +189,8 @@ export function PlaybookLanguage() {
         )}
 
         {draft && (
-          <form className="card lang-form" onSubmit={(e) => (e.preventDefault(), save())} aria-label={draft.id ? `Edit ${draft.term}` : "New term"}>
-            <h3>{draft.id ? `Edit “${draft.term}”` : "Teach a new term"}</h3>
+          <form className="card lang-form" onSubmit={(e) => (e.preventDefault(), save())} aria-label={editing ? `Edit ${editing.term}` : "New term"}>
+            <h3>{editing ? `Edit “${editing.term}”` : "Teach a new term"}</h3>
             <div className="lang-form-grid">
               <label className="field">
                 <span>Term</span>
@@ -155,6 +218,23 @@ export function PlaybookLanguage() {
               <span>Means</span>
               <input className="input" value={draft.means} onChange={(e) => setDraft({ ...draft, means: e.target.value })} placeholder="Z go · Y 10-yard out · H flat" />
             </label>
+            {draft.id && STARTER_BY_ID.has(draft.id) && (
+              <p className="lang-starter-note">
+                A starter term, yours to change. Rename it to the word your staff says and Griddy reads your word; its diagram stays with it.
+                {(() => {
+                  const seed = STARTER_BY_ID.get(draft.id!)!;
+                  return seed.term !== draft.term || seed.means !== draft.means || seed.type !== draft.type ? (
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      onClick={() => setDraft({ ...draft, term: seed.term, means: seed.means, type: seed.type })}
+                    >
+                      Back to the starter wording (“{seed.term}”)
+                    </button>
+                  ) : null;
+                })()}
+              </p>
+            )}
             {error && (
               <p className="error-line" role="alert">
                 {error}
@@ -211,13 +291,25 @@ export function PlaybookLanguage() {
               )}
               {shown.map((t) => (
                 <tr key={t.id}>
-                  <th scope="row">{t.term}</th>
+                  <th scope="row">
+                    <div className="lang-term">
+                      <ExampleThumb
+                        term={t}
+                        example={examples.get(t.id) ?? null}
+                        peeking={peek === t.id}
+                        onPeek={(on) => setPeek(on ? t.id : null)}
+                        onOpen={() => (setPeek(null), setOpen({ id: t.id, staff: false }))}
+                      />
+                      <span>{t.term}</span>
+                    </div>
+                  </th>
                   <td>{t.means}</td>
                   <td>
                     <span className="pill pill-type">{TYPE_LABEL[t.type]}</span>
                   </td>
                   <td className="lang-muted">
                     {t.source}
+                    {starterOriginal(t) && " · edited"}
                     {t.source !== "Starter glossary" && ` · ${new Date(`${t.added}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
                   </td>
                   <td className="mono">{usesOf(t.term, plays)}×</td>
@@ -226,7 +318,7 @@ export function PlaybookLanguage() {
                     <button type="button" className="btn btn-quiet btn-sm" onClick={() => edit(t)} aria-label={`Edit ${t.term}`}>
                       Edit
                     </button>
-                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => termStore.remove(t.id)} aria-label={`Delete ${t.term}`}>
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => remove(t)} aria-label={`Delete ${t.term}`}>
                       Delete
                     </button>
                   </td>
@@ -235,11 +327,163 @@ export function PlaybookLanguage() {
             </tbody>
           </table>
         </div>
+        {missing.length > 0 && (
+          <div className="lang-restore">
+            <span>
+              {missing.length} starter {missing.length === 1 ? "term is" : "terms are"} off your list.
+            </span>
+            <button
+              type="button"
+              className="btn btn-quiet btn-sm"
+              onClick={() => {
+                const n = termStore.bringBackStarters();
+                toast(`${n} starter ${n === 1 ? "term" : "terms"} back on your list.`);
+              }}
+            >
+              Bring back the starter terms
+            </button>
+          </div>
+        )}
         <p className="lang-note">
           Your terms are used for you and your staff. A term joins the shared glossary only as a suggestion once many coaches use it
           the same way, and it never overrides your own meaning.
         </p>
       </div>
+      {opened && (
+        <ExampleDialog
+          term={opened}
+          example={(open?.staff ? staffExamples : examples).get(opened.id) ?? null}
+          onClose={() => setOpen(null)}
+          onEdit={open?.staff ? undefined : () => (setOpen(null), edit(opened))}
+        />
+      )}
     </Shell>
+  );
+}
+
+/**
+ * The small picture beside a term. Hover or focus shows it large (a peek);
+ * a click or tap opens the example dialog, where the coach picks their own.
+ */
+function ExampleThumb({
+  term,
+  example,
+  peeking,
+  onPeek,
+  onOpen,
+}: {
+  term: Term;
+  example: TermExample | null;
+  peeking: boolean;
+  onPeek: (on: boolean) => void;
+  onOpen: () => void;
+}) {
+  if (!example)
+    return (
+      <button type="button" className="lang-thumb is-empty" onClick={onOpen} aria-label={`Add an example for ${term.term}`}>
+        <Icon name="plus" size={14} />
+      </button>
+    );
+  return (
+    <span className="lang-thumb-wrap" onMouseEnter={() => onPeek(true)} onMouseLeave={() => onPeek(false)}>
+      <button
+        type="button"
+        className="lang-thumb"
+        onClick={onOpen}
+        onFocus={() => onPeek(true)}
+        onBlur={() => onPeek(false)}
+        onKeyDown={(e) => e.key === "Escape" && peeking && (e.stopPropagation(), onPeek(false))}
+        aria-label={`Show the ${term.term} example`}
+      >
+        <PlayThumb scene={example.scene} zoom={{ w: 0.9, h: 0.6 }} decorative lazy />
+      </button>
+      {peeking && (
+        <span className="lang-peek" role="tooltip">
+          <PlayThumb scene={example.scene} zoom={{ w: 3.2, h: 2.1 }} label={term.term} />
+          <b>{term.term}</b>
+          <span>{term.means}</span>
+          <small>{example.caption}</small>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** A term's example, large, with a play from the Vault to pick as the coach's own. */
+function ExampleDialog({ term, example, onClose, onEdit }: { term: Term; example: TermExample | null; onClose: () => void; onEdit?: () => void }) {
+  const plays = useStore((s) => s.plays);
+  const using = useMemo(() => playsUsing(term.term, plays), [term.term, plays]);
+  const rest = useMemo(() => plays.filter((p) => !using.includes(p)).sort((a, b) => a.name.localeCompare(b.name)), [plays, using]);
+  const toast = useToast();
+  const pick = (id: string) => {
+    termStore.setExample(term.id, id || null);
+    const play = plays.find((p) => p.id === id);
+    toast(play ? `${play.name} now shows what “${term.term}” means.` : `“${term.term}” is back to its own example.`);
+  };
+  return (
+    <Modal
+      title={term.term}
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          {onEdit && (
+            <button type="button" className="btn btn-quiet btn-sm" onClick={onEdit}>
+              <Icon name="pencil" size={15} /> Edit the term
+            </button>
+          )}
+          {example?.playId && (
+            <Link to={`/build/${example.playId}`} className="btn btn-ghost btn-sm">
+              Open in the Designer
+            </Link>
+          )}
+          <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>
+            Done
+          </button>
+        </>
+      }
+    >
+      <div className="lang-example">
+        <p className="lang-example-means">{term.means}</p>
+        {example ? (
+          <figure className="lang-example-fig">
+            <PlayThumb scene={example.scene} zoom={{ w: 6, h: 3.6 }} label={`${term.term} example`} />
+            <figcaption>{example.caption}</figcaption>
+          </figure>
+        ) : (
+          <p className="lang-example-none">
+            No picture yet. Pick a play from your Vault that shows “{term.term}”, and every coach on your staff sees the same thing.
+          </p>
+        )}
+        {!onEdit && <p className="lang-muted">From your head coach's list. Only they can change it.</p>}
+        {onEdit && (
+          <label className="field">
+            <span>Show it with a play from your Vault</span>
+            <select className="select" value={term.exampleId && plays.some((p) => p.id === term.exampleId) ? term.exampleId : ""} onChange={(e) => pick(e.target.value)}>
+              <option value="">{STARTER_BY_ID.has(term.id) ? "The starter glossary diagram" : "The first play that uses the word"}</option>
+              {using.length > 0 && (
+                <optgroup label={`Plays that say “${term.term}”`}>
+                  {using.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {rest.length > 0 && (
+                <optgroup label="Every other play">
+                  {rest.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+        )}
+        {onEdit && plays.length === 0 && <p className="lang-muted">Your Vault is empty. Draw or copy a play first, then pick it here.</p>}
+      </div>
+    </Modal>
   );
 }

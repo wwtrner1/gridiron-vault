@@ -10,7 +10,14 @@ import { errorsOf, quiet, seedReady } from "./helpers";
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-const TOOLS = ["The Vault", "Upload plays", "Playbooks", "My team", "Front Office", "Assignments", "Call Sheet", "Coverage report", "Practice", "Coaching videos", "Wristbands", "Starter plays", "Playbook language", "More tools"];
+const GROUPS: [string, string[]][] = [
+  ["Plays", ["The Vault", "Playbooks", "Upload plays", "Starter plays"]],
+  ["Game plan", ["Call Sheet", "Wristbands", "Coverage report"]],
+  ["Practice", ["Practice", "Drill Vault", "Coaching videos", "Assignments"]],
+  ["Team", ["My team", "Front Office"]],
+  ["Tools", ["Playbook language", "More tools"]],
+];
+const TOOLS = GROUPS.flatMap(([, t]) => t);
 
 test("the side menu lists every tool, marks the screen, opens from the phone button and matches the home page grid", async ({ page }) => {
   const errors = errorsOf(page);
@@ -19,9 +26,26 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   const playbook = rail.getByRole("navigation", { name: "Playbook" });
   const account = rail.getByRole("navigation", { name: "Account" });
 
-  // Draft a play, the fourteen tools with the Vault's count, and the Account links without Admin.
+  // Draft a play, then five groups: Plays open on a first visit, the rest closed with their counts.
   await expect(rail.getByRole("link", { name: "Draft a play" })).toHaveAttribute("href", "/build");
+  const head = (g: string) => playbook.getByRole("button", { name: new RegExp(`^${g}`) });
+  for (const [g] of GROUPS) await expect(head(g)).toHaveAttribute("aria-expanded", g === "Plays" ? "true" : "false");
+  await expect(head("Game plan")).toContainText("3");
+  await expect(playbook.getByRole("link")).toHaveText(["The Vault24", "Playbooks", "Upload plays", "Starter plays"]);
+  // Opening every group shows all fifteen tools, and the open groups are kept after a reload.
+  for (const [g] of GROUPS.slice(1)) await head(g).click();
   await expect(playbook.getByRole("link")).toHaveText(TOOLS.map((t) => (t === "The Vault" ? `${t}24` : t)));
+  await head("Tools").click();
+  await expect(head("Tools")).toHaveAttribute("aria-expanded", "false");
+  await page.reload();
+  await expect(head("Team")).toHaveAttribute("aria-expanded", "true");
+  await expect(head("Tools")).toHaveAttribute("aria-expanded", "false");
+  // The group holding the screen opens itself: Playbook language lives under Tools.
+  await page.goto("/language");
+  await expect(head("Tools")).toHaveAttribute("aria-expanded", "true");
+  await expect(playbook.getByRole("link", { name: "Playbook language" })).toHaveAttribute("aria-current", "page");
+  await page.goto("/vault");
+  await page.locator(".play-card").first().waitFor();
   await expect(playbook.getByRole("link", { name: /^The Vault/ })).toHaveAttribute("aria-current", "page");
   await expect(playbook.getByRole("link", { name: "Call Sheet" })).not.toHaveAttribute("aria-current", "page");
   await expect(account.getByRole("link")).toHaveText(["Plans", "Your account", "Tutorials", "Help & feedback"]);

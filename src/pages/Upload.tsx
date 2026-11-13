@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
 import { PhotoReview } from "../components/PhotoReview";
 import { ScanReview } from "../components/ScanReview";
+import { ReaderMemory } from "../components/ReaderMemory";
+import { scanJob, useScanJob } from "../lib/scanJob";
 import { store, useStore } from "../lib/store";
 import { useTier } from "../lib/tier";
 import { gateSave } from "../lib/plan";
@@ -42,7 +44,12 @@ export function Upload() {
     const handed = (location.state as { photo?: unknown } | null)?.photo;
     return handed instanceof File ? handed : null;
   });
-  const [scan, setScan] = useState<File[] | null>(null);
+  // A scan keeps reading after the coach leaves this page; coming back shows it (lib/scanJob.ts).
+  const job = useScanJob();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const setScan = (files: File[]) => scanJob.start(files);
+  const toSingle = useCallback((file: File) => setPhoto(file), []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
@@ -95,19 +102,18 @@ export function Upload() {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
+  // A scan saved to the Vault (by the coach, or by itself when they asked for that) lands there.
+  useEffect(() => {
+    if (job?.phase.kind !== "saved") return;
+    const { count: n, book } = job.phase;
+    scanJob.clear();
+    toast(`${n} ${n === 1 ? "play" : "plays"} saved to your Vault${book ? ` in ${book}` : ""}. Open any one to fine-tune it.`);
+    navigate("/vault");
+  }, [job?.phase, navigate, toast]);
+
   if (deck) return <DeckReview deck={deck} onBack={() => setDeck(null)} />;
   if (photo) return <PhotoReview file={photo} onBack={() => setPhoto(null)} />;
-  if (scan)
-    return (
-      <ScanReview
-        files={scan}
-        onBack={() => setScan(null)}
-        onSingle={(file) => {
-          setScan(null);
-          setPhoto(file);
-        }}
-      />
-    );
+  if (job && job.phase.kind !== "saved") return <ScanReview onBack={() => scanJob.clear()} onSingle={toSingle} />;
 
   return (
     <Shell
@@ -194,6 +200,8 @@ export function Upload() {
             </div>
           ))}
         </div>
+
+        <ReaderMemory />
 
         <p className="up-note">
           Nothing is saved until you press Import or Save. Your files stay on your own plays and are never shared with other coaches.

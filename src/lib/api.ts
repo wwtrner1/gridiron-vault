@@ -1,13 +1,15 @@
+import type { SetupsDoc } from "./bandSetupsData";
 import type { Scene, StoredPlay } from "./types";
 import { deviceId } from "./device";
 import type { AssistantRead, AssistantRequest } from "./assistant";
-import type { PhotoRead, PhotoRequest } from "./photo";
+import type { Correction, PhotoRead, PhotoRequest } from "./photo";
 import type { ScanFind, ScanRequest } from "./scan";
 import type { GriddyReply, GriddyRequest } from "./griddy";
 import type { QuizScore, ShareInfo, Snapshot } from "./share";
 import type { FrontOfficeState, OrgShareDetail } from "./frontOffice";
 import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft, HubMessage, MessageChannel, HubEvent, HubPlayer, HubState, HubTeam, PlayerInfo, MyTeamDoc, MyTeamsDoc, PlayerFile, TextSignup } from "./teamHub";
 import type { TeamBrand } from "./brandData";
+import type { StaffTerms, TermsState } from "./termsData";
 import type { LivePatch, LivePlay } from "./live";
 
 export type ApiPlay = {
@@ -96,6 +98,13 @@ export const api = {
   scan: (body: ScanRequest) =>
     request<ScanFind>("ai/scan", { method: "POST", body: JSON.stringify(body) }),
 
+  /** What the coach fixed on a scanned or photographed play, so the reader learns their boards (netlify/ai/lessons.ts). */
+  teachReader: (corrections: Correction[]) =>
+    request<{ learned: number }>("read-lessons", { method: "POST", body: JSON.stringify({ corrections }) }),
+  readLessons: () =>
+    request<{ lessons: { id: string; kind: string; from: string; to: string; times: number }[] }>("read-lessons"),
+  forgetLesson: (id?: string) => request<{ ok: true }>(id ? `read-lessons/${id}` : "read-lessons", { method: "DELETE" }),
+
   me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; security?: Security }>("me"),
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
@@ -180,7 +189,13 @@ export const api = {
   /* My team: the coach's own teams (rosters and depth charts), one row per account. */
   myTeams: () => request<{ teams: MyTeamsDoc | null; team: MyTeamDoc | null }>("my-team"),
   brand: () => request<{ brand: TeamBrand | null }>("brand"),
+  /* Saved wristband setups: the account merges what it is sent with what it holds and answers with the whole list. */
+  bandSetups: () => request<{ setups: SetupsDoc | null }>("wristband-setups"),
+  saveBandSetups: (setups: SetupsDoc) => request<{ setups: SetupsDoc }>("wristband-setups", { method: "PUT", body: JSON.stringify({ setups }) }),
   saveBrand: (brand: TeamBrand) => request<{ brand: TeamBrand | null }>("brand", { method: "PUT", body: JSON.stringify({ brand }) }),
+  /* Playbook language: the coach's whole term list, newer copy wins (TermSync). */
+  terms: () => request<{ terms: TermsState | null; staff?: StaffTerms | null; director?: boolean }>("terms"),
+  saveTerms: (terms: TermsState) => request<{ terms: TermsState | null }>("terms", { method: "PUT", body: JSON.stringify({ terms }) }),
   saveMyTeams: (teams: MyTeamsDoc) => request<{ teams: MyTeamsDoc }>("my-team", { method: "PUT", body: JSON.stringify({ teams }) }),
   /* Team hub: teams and rosters, for the director and each team's staff. */
   hub: (orgId: string) => request<HubState>(`hub/${orgId}`),

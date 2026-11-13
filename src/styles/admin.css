@@ -20,3 +20,13 @@
 .adm-card { padding: 14px 16px; }
 .adm-top { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .adm-top li { display: flex; justify-content: space-between; gap: 10px; }
+
+/* Play archive and Reader memory (pages/admin/ArchiveTab.tsx, LessonsTab.tsx) */
+.adm-arch { display: flex; flex-direction: column; gap: 12px; }
+.adm-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.adm-arch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.adm-arch-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; }
+.adm-arch-card h3 { margin: 0; font-size: 15px; }
+.adm-arch-card .hint { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.adm-arch-art { overflow: hidden; border: 1px solid var(--border-2); border-radius: var(--radius-md); }
+.adm-arch-art svg { display: block; width: 100%; height: auto; }

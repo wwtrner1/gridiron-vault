@@ -4,9 +4,12 @@ import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
 import { StorageWatch } from "./components/StorageWatch";
+import { ScanJobBar } from "./components/ScanJobBar";
 import { PlaybookSync } from "./lib/playbookSync";
 import { PlaySync } from "./lib/playSync";
 import { BrandSync } from "./lib/brand";
+import { BandSetupSync } from "./lib/bandSetups";
+import { TermSync } from "./lib/terms";
 import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
@@ -44,6 +47,7 @@ const Upload = lazyPage(() => import("./pages/Upload"), "Upload");
 const Assignments = lazyPage(() => import("./pages/Assignments"), "Assignments");
 const Practice = lazyPage(() => import("./pages/Practice"), "Practice");
 const Library = lazyPage(() => import("./pages/Library"), "Library");
+const Drills = lazyPage(() => import("./pages/Drills"), "Drills");
 const Coverage = lazyPage(() => import("./pages/Coverage"), "Coverage");
 const Team = lazyPage(() => import("./pages/Team"), "Team");
 const Join = lazyPage(() => import("./pages/Join"), "Join");
@@ -78,6 +82,7 @@ const NAMES: Record<string, string> = {
   "/join": "Team texts sign-up",
   "/practice": "Practice",
   "/library": "Coaching videos",
+  "/drills": "Drill Vault",
   "/coverage": "Coverage report",
   "/admin": "Admin",
   "/tools": "More tools",
@@ -150,12 +155,15 @@ export function App() {
       <RouteChrome />
       <CarryOver />
       <StorageWatch />
+      <ScanJobBar />
       <PlaySync />
       <PlaybookSync />
       <Suspense fallback={null}>
         <MyTeamSync />
       </Suspense>
       <BrandSync />
+      <BandSetupSync />
+      <TermSync />
       <SheetSync />
       <PhoneGate />
       <NewPassword />
@@ -185,6 +193,7 @@ export function App() {
         <Route path="/join/:token" element={<Join />} />
         <Route path="/practice" element={<Practice />} />
         <Route path="/library" element={<Library />} />
+        <Route path="/drills" element={<Drills />} />
         <Route path="/coverage" element={<Coverage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/tools" element={<Tools />} />
