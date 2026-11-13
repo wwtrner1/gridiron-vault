@@ -1,0 +1,21 @@
+/* Coaching videos (pages/Library.tsx). Colors from tokens.css. */
+.lib-page { max-width: 960px; }
+.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 12px; }
+.lib-search { flex: 1 1 240px; }
+.lib-search .input { width: 100%; }
+.lib-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-topic { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+.lib-notice { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--cyan-soft); }
+.lib-count { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.lib-empty { padding: 18px; color: var(--muted); }
+.lib-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.lib-card { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--white); }
+.lib-card h3 { margin: 6px 0 4px; font-size: 17px; }
+.lib-card p { margin: 0 0 6px; }
+.lib-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.lib-kind { font-weight: 700; color: var(--ink); }
+.lib-credit { font-size: 13px; color: var(--muted); }
+.lib-frame { position: relative; margin: 6px 0 8px; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; background: #000; }
+.lib-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lib-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 6px; }
+@media print { .lib-filters, .lib-acts, .lib-frame { display: none; } }

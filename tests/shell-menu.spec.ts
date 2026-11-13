@@ -13,7 +13,7 @@ test.beforeEach(async ({ context }) => quiet(context));
 const GROUPS: [string, string[]][] = [
   ["Plays", ["The Vault", "Playbooks", "Upload plays", "Starter plays"]],
   ["Game plan", ["Call Sheet", "Wristbands", "Coverage report"]],
-  ["Practice", ["Practice", "Drill Vault", "Assignments"]],
+  ["Practice", ["Practice", "Drill Vault", "Coaching videos", "Assignments"]],
   ["Team", ["My team", "Front Office"]],
   ["Tools", ["Playbook language", "More tools"]],
 ];
@@ -32,7 +32,7 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   for (const [g] of GROUPS) await expect(head(g)).toHaveAttribute("aria-expanded", g === "Plays" ? "true" : "false");
   await expect(head("Game plan")).toContainText("3");
   await expect(playbook.getByRole("link")).toHaveText(["The Vault24", "Playbooks", "Upload plays", "Starter plays"]);
-  // Opening every group shows all fourteen tools, and the open groups are kept after a reload.
+  // Opening every group shows all fifteen tools, and the open groups are kept after a reload.
   for (const [g] of GROUPS.slice(1)) await head(g).click();
   await expect(playbook.getByRole("link")).toHaveText(TOOLS.map((t) => (t === "The Vault" ? `${t}24` : t)));
   await head("Tools").click();
