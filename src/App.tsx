@@ -8,6 +8,7 @@ import { ScanJobBar } from "./components/ScanJobBar";
 import { PlaybookSync } from "./lib/playbookSync";
 import { PlaySync } from "./lib/playSync";
 import { BrandSync } from "./lib/brand";
+import { TermSync } from "./lib/terms";
 import { SheetSync } from "./lib/sheetSync";
 import { PhoneGate } from "./components/PhoneGate";
 import { NewPassword } from "./components/NewPassword";
@@ -156,6 +157,7 @@ export function App() {
         <MyTeamSync />
       </Suspense>
       <BrandSync />
+      <TermSync />
       <SheetSync />
       <PhoneGate />
       <NewPassword />

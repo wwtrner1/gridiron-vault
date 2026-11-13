@@ -807,7 +807,8 @@ export const GUIDES: Guide[] = [
         steps: [
           { title: "Suggestions", text: "Words you use often in your Vault. Teach it or Ignore.", target: ".lang-suggest" },
           { title: "Teach a term", text: "The term, what it means, and its type (formation, route, call).", target: ".topbar .btn-primary" },
-          { title: "The list", text: "Filter by type, edit or delete a term.", target: ".lang-table" },
+          { title: "See what it means", text: "The picture beside each term. Hover for a quick look; click or tap for the full diagram, and pick a play from your Vault to show it your way.", target: ".lang-thumb" },
+          { title: "The list", text: "Filter by type. Edit renames any term, starter ones too (Griddy reads your word); Delete has Undo.", target: ".lang-table" },
         ],
       },
     ],
