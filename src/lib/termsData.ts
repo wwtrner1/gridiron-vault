@@ -84,7 +84,15 @@ export type TermsState = {
   seeded?: string[];
   /** When this browser last changed the list; the newer copy wins between devices. */
   updatedAt?: string;
+  /** A Front Office director's list goes to their staff (read-only) unless this is false. */
+  shareWithStaff?: boolean;
 };
+
+/** The head coach's list as a staff coach sees it: read-only, from the Front Office they joined. */
+export type StaffTerms = { org: string; from: string; terms: Term[] };
+
+/** What a director shares: every term but the ones marked "Just you". */
+export const sharedWithStaff = (s: TermsState): Term[] => (s.shareWithStaff === false ? [] : s.terms.filter((t) => t.scope !== "you"));
 
 export const TERM_LIMITS = { terms: 400, term: 60, means: 300, ignored: 400 } as const;
 
@@ -127,5 +135,6 @@ export function cleanTerms(raw: unknown): TermsState {
   if (Array.isArray(r.seeded)) out.seeded = words(r.seeded, 200);
   const at = text(r.updatedAt, 40);
   if (at && !Number.isNaN(Date.parse(at))) out.updatedAt = at;
+  if (typeof r.shareWithStaff === "boolean") out.shareWithStaff = r.shareWithStaff;
   return out;
 }
