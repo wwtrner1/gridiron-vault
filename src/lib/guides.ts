@@ -52,7 +52,7 @@ const SHELL: GuideSection = {
   steps: [
     {
       title: "Side menu",
-      text: "Every tool in one list: the Vault, Upload, Playbooks, My team, Front Office, Assignments, Call Sheet, Coverage report, Practice, Wristbands, Starter plays, Playbook language and More tools. On a phone, the menu button at the top left opens it.",
+      text: "Every tool in five groups you open and close: Plays (the Vault, Playbooks, Upload, Starter plays), Game plan (Call Sheet, Wristbands, Coverage report), Practice (Practice, Drill Vault, Assignments), Team (My team, Front Office) and Tools (Playbook language, More tools). The group for the screen you are on stays open. On a phone, the menu button at the top left opens it.",
       target: "#rail-nav .rail-group:nth-of-type(2)",
     },
     {
@@ -688,10 +688,42 @@ export const GUIDES: Guide[] = [
       {
         heading: "Build the script",
         steps: [
-          { title: "Script name and start time", text: "Each period gets a clock time from the start time and the minutes before it.", target: ".pr-top" },
-          { title: "Periods", text: "Name each period, set its minutes, add a coaching point, then add plays one at a time or a whole playbook. Remove takes the period out.", target: ".pr-period" },
-          { title: "Add period", text: "A new 10-minute period at the end.", target: ".pr-add" },
+          { title: "Script name and start time", text: "Each period gets a clock time from the start time and the minutes before it. The tiles beside them add up the minutes, the end time, the periods, plays and drills.", target: ".pr-hero" },
+          { title: "Timeline", text: "One colored bar per period, as wide as its minutes. Click a bar to jump to that period.", target: ".pr-timeline" },
+          { title: "Periods", text: "Each card shows its clock time and number. Name it, pick its type (which sets the color), set the minutes with − and + or by typing, and write the focus. Every field has an ⓘ that says what it is for. ↑ and ↓ reorder; Remove takes it out.", target: ".pr-period" },
+          { title: "Plays and drills", text: "Add plays one at a time or a whole playbook, and drills from the Drill Vault. A drill's name opens it in the Drill Vault.", target: ".pr-lists" },
+          { title: "Add a period", text: "A new 10-minute period at the end. Browse the Drill Vault opens the drills.", target: ".pr-foot" },
           { title: "Print script and scout cards", text: "Print script previews the timed plan. Print scout cards previews one diagram card per play, two per row, for the scout team. Print from the bar at the top.", target: ".topbar" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "drills",
+    title: "Drill Vault",
+    path: "/drills",
+    intro: "Drills with diagrams that play, coaching points and film. Add your own and put them into practice.",
+    when: "Planning individual and group periods.",
+    sections: [
+      {
+        heading: "Find a drill",
+        steps: [
+          { title: "Search and filters", text: "Search by name, skill or equipment. The chips narrow it to a position group, a side of the ball, or the drills you starred.", target: ".dr-filters" },
+          { title: "Drill cards", text: "Each card shows the diagram, the group, the minutes and whether it has film. Star a drill to find it fast; Add to practice files it in a period of tonight's script.", target: ".dr-grid" },
+        ],
+      },
+      {
+        heading: "Open a drill",
+        steps: [
+          { title: "Play the drill", text: "The diagram runs the drill: players, coach and ball move along their lines. Pause stops it. Solid lines are sprints, dashed are backpedals, purple are shuffles, dotted are the ball.", target: ".dr-detail-pic" },
+          { title: "Film", text: "Find film on YouTube searches for the drill. Your own YouTube links play right in the drill.", target: ".dr-detail-bar" },
+          { title: "Copy and make it mine", text: "Copies a built-in drill into your own, diagram and all, so you can change the words and add your film.", target: ".modal-foot" },
+        ],
+      },
+      {
+        heading: "Your drills",
+        steps: [
+          { title: "New drill", text: "Name, group, minutes, setup, steps, coaching points, a film link and a diagram: any built-in drill's, or a play you drew in the Designer. Saved in this browser.", target: ".topbar" },
         ],
       },
     ],
