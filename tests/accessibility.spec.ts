@@ -11,7 +11,7 @@ import { quiet, seedReady, signIn } from "./helpers";
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-const SCREENS = ["/", "/vault", "/playbooks", "/grid", "/starters", "/pricing", "/account", "/signin", "/help", "/wristbands", "/language", "/upload", "/assignments", "/practice", "/coverage", "/tools", "/front-office", "/roster", "/tutorials", "/privacy", "/terms", "/nope", "/build"];
+const SCREENS = ["/", "/vault", "/playbooks", "/grid", "/starters", "/pricing", "/account", "/signin", "/help", "/wristbands", "/language", "/upload", "/assignments", "/practice", "/library", "/coverage", "/tools", "/front-office", "/roster", "/tutorials", "/privacy", "/terms", "/nope", "/build"];
 
 type Violation = { id: string; impact: string | null | undefined; help: string; nodes: { target: unknown[]; html: string }[] };
 

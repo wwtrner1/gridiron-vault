@@ -60,6 +60,12 @@ export const PLAYBOOK_NAV: NavItem[] = [
     hint: "Build tonight's practice script and print scout cards for the plays you'll rep.",
   },
   {
+    to: "/library",
+    icon: "play",
+    label: "Coaching videos",
+    hint: "Flag football drill games and coaching reads from MOJO, with credit. Videos play right here.",
+  },
+  {
     to: "/wristbands",
     icon: "wristband",
     label: "Wristbands",

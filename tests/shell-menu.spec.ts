@@ -10,7 +10,7 @@ import { errorsOf, quiet, seedReady } from "./helpers";
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-const TOOLS = ["The Vault", "Upload plays", "Playbooks", "My team", "Front Office", "Assignments", "Call Sheet", "Coverage report", "Practice", "Wristbands", "Starter plays", "Playbook language", "More tools"];
+const TOOLS = ["The Vault", "Upload plays", "Playbooks", "My team", "Front Office", "Assignments", "Call Sheet", "Coverage report", "Practice", "Coaching videos", "Wristbands", "Starter plays", "Playbook language", "More tools"];
 
 test("the side menu lists every tool, marks the screen, opens from the phone button and matches the home page grid", async ({ page }) => {
   const errors = errorsOf(page);
@@ -19,7 +19,7 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   const playbook = rail.getByRole("navigation", { name: "Playbook" });
   const account = rail.getByRole("navigation", { name: "Account" });
 
-  // Draft a play, the thirteen tools with the Vault's count, and the Account links without Admin.
+  // Draft a play, the fourteen tools with the Vault's count, and the Account links without Admin.
   await expect(rail.getByRole("link", { name: "Draft a play" })).toHaveAttribute("href", "/build");
   await expect(playbook.getByRole("link")).toHaveText(TOOLS.map((t) => (t === "The Vault" ? `${t}24` : t)));
   await expect(playbook.getByRole("link", { name: /^The Vault/ })).toHaveAttribute("aria-current", "page");

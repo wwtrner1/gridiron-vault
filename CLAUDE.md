@@ -238,6 +238,9 @@ There is no unit test suite, linter, or formatter. `npx tsc -p .` and `npm run b
 ### Practice planner
 - `/practice` (`pages/Practice.tsx`, `lib/practice.ts`): one script per browser (`grid1ronvault.practice.v1`) of timed periods, each with Vault plays (single or a whole playbook). "Print script" and "Print scout cards" (one diagram card per play, two per row) render only while printing, then return to the editor. Global print CSS now sets `.shell` to block so printed pages use the full paper width.
 
+### Coaching videos (`/library`)
+- `pages/Library.tsx` (`styles/library.css`, in `PLAYBOOK_NAV`) lists MOJO's flag football drill games and Coach's Corner reads (Wes, 2026-11-13): title, topic, ages, a note in our own words and the credit. Only links are kept, never their text or video ("do not copyright"): a video plays in the youtube-nocookie player (already in `frame-src`), an article opens on mojo.sport. The pure part is `lib/coachLibrary.ts` (the same file in Hoops and OnDeck, where the page also has "Add to my drills"; GridIronVault has no drill library, so it doesn't); this sport's list is `LIBRARY` in `lib/starters/library.ts`. `tests/library.spec.ts` covers search, the no-match wording, Watch and Hide video, and a reading's link.
+
 ### Copy style
 - `lib/styleCopy.ts`: Ctrl+Alt+C copies one element's look (colors, weight, size; never labels, points, first read or tags), Ctrl+Alt+V (or "Paste style" in the right-click menu) puts it on every selected element of the same kind and skips locked ones. The copied style is kept in `grid1ronvault.styleclip.v1`. `tests/floating-tools.spec.ts` covers the floating tools and Copy style together (tool, palette and weight picks on the selection, 1st read, Undo/Redo on the head, a player's look pasted on another and refused on a line, the grip's arrow keys and Home, collapse kept after a reload).
 

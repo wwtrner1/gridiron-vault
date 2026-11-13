@@ -688,6 +688,22 @@ export const GUIDES: Guide[] = [
     ],
   },
   {
+    id: "library",
+    title: "Coaching videos",
+    path: "/library",
+    intro: "Flag football drill games and coaching reads we picked from MOJO, with credit to them.",
+    when: "Planning practice or learning the game.",
+    sections: [
+      {
+        heading: "Find and watch",
+        steps: [
+          { title: "Search and filter", text: "Search by name, skill or age, pick Drill or game, Teach a skill or Read, or narrow to one topic.", target: ".lib-filters" },
+          { title: "Watch or read", text: "Watch plays the video here in YouTube's privacy-enhanced player. A reading opens on MOJO's site.", target: ".lib-list" },
+        ],
+      },
+    ],
+  },
+  {
     id: "myteam",
     title: "My team and branding",
     path: "/roster",
