@@ -60,7 +60,19 @@ export type PlayerInfo = {
   sizes: UniformSizes;
   /** A small square JPEG data URL (`photoFromFile`), or "". */
   photo: string;
+  /**
+   * Fields the coach added to the roster ("Waiver", "T-shirt paid"): field
+   * name to value. Empty values are dropped, so a field nobody filled in
+   * lives only in the coach's roster view (`lib/rosterView.ts`).
+   */
+  custom: Record<string, string>;
 };
+
+/** Fields a coach can add to a roster. */
+export const CUSTOM_LIMITS = { fields: 12, name: 30, value: 120 };
+
+/** A field name as the coach typed it, tidied; "" when nothing is left. */
+export const customName = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, CUSTOM_LIMITS.name) : "");
 
 export type HubPlayer = PlayerInfo & { id: string; teamId: string; updatedAt: string };
 
@@ -122,6 +134,7 @@ export const emptyPlayer = (): PlayerInfo => ({
   notes: "",
   sizes: emptySizes(),
   photo: "",
+  custom: {},
 });
 
 /** A player picture is at most this long as a data URL (about 9 KB of JPEG). */
@@ -134,6 +147,20 @@ function year(v: unknown): string {
   if (/^\d{4}$/.test(s)) return s;
   if (/^\d{2}$/.test(s)) return `20${s}`;
   return "";
+}
+
+/** A player's added fields, held to the limits; empty values dropped. */
+function cleanCustom(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const name = customName(k);
+    const value = clip(v, CUSTOM_LIMITS.value);
+    if (!name || !value || name in out) continue;
+    if (Object.keys(out).length >= CUSTOM_LIMITS.fields) break;
+    out[name] = value;
+  }
+  return out;
 }
 
 /** A player as the coach sent it, held to the limits; a string says what is missing. */
@@ -169,6 +196,7 @@ export function cleanPlayer(raw: unknown): PlayerInfo | string {
       return { jersey: clip(o.jersey, 12), shirt: clip(o.shirt, 12), pants: clip(o.pants, 12) };
     })(),
     photo: typeof r.photo === "string" && r.photo.length <= PHOTO_MAX_CHARS && PHOTO.test(r.photo) ? r.photo : "",
+    custom: cleanCustom(r.custom),
   };
   if (!p.firstName && !p.lastName) return "Give the player a first or last name.";
   return p;
@@ -263,7 +291,7 @@ const HEADINGS: [RegExp, Field][] = [
 const GUARDIAN = /^(dad|father|mom|mother|parent|guardian|parent \/ guardian|emergency|emergency contact)( ?([123]))?( (name|cell|cell phone|phone|mobile|number|#|phone #|cell #|phone number|email|e mail|email address|relation|relationship))?$/;
 const RELATION: Record<string, string> = { dad: "Father", father: "Father", mom: "Mother", mother: "Mother", emergency: "Emergency contact", "emergency contact": "Emergency contact" };
 
-type Column = { field: Field } | { guardian: string; relation: string; key: "name" | "phone" | "email" | "relation" } | null;
+type Column = { field: Field } | { guardian: string; relation: string; key: "name" | "phone" | "email" | "relation" } | { custom: string } | null;
 
 const norm = (h: string) =>
   h
@@ -363,12 +391,14 @@ const whole = (v: string) => v.replace(/^(\d+)\.0+$/, "$1");
  * is fine. Columns nobody recognises are skipped and reported, so the coach
  * can see what didn't come across.
  */
-export function playersFromRows(rows: string[][]): { players: PlayerInfo[]; skipped: string[] } {
+export function playersFromRows(rows: string[][], customFields: string[] = []): { players: PlayerInfo[]; skipped: string[] } {
   const at = rows.slice(0, 10).findIndex((r) => r.filter((h) => column(h)).length >= 2);
   if (at < 0) return { players: [], skipped: [] };
   const head = rows[at];
   const body = rows.slice(at + 1);
-  const cols: Column[] = head.map(column);
+  // A heading named like one of the team's added fields fills that field (a downloaded roster comes back whole).
+  const ownField = (h: string) => customFields.find((f) => f.toLowerCase() === customName(h).toLowerCase());
+  const cols: Column[] = head.map((h) => (ownField(h) ? { custom: ownField(h)! } : column(h)));
 
   // A bare "EMAIL" or "CELL" right after a parent's column belongs to that parent.
   cols.forEach((c, i) => {
@@ -398,12 +428,17 @@ export function playersFromRows(rows: string[][]): { players: PlayerInfo[]; skip
   const players: PlayerInfo[] = [];
   for (const cells of body.slice(0, HUB_LIMITS.importRows)) {
     const raw: Record<string, unknown> = {};
+    const custom: Record<string, string> = {};
     const sizes = emptySizes();
     const gs: Guardian[] = order.map((key) => ({ ...emptyGuardian(), relation: relationOf[key] }));
     cells.forEach((cell, i) => {
       const c = cols[i];
       const value = whole(cell.trim());
       if (!c || !value) return;
+      if ("custom" in c) {
+        custom[c.custom] ||= value;
+        return;
+      }
       if ("guardian" in c) {
         const g = gs[order.indexOf(c.guardian)];
         if (!g[c.key]) (g as Record<string, unknown>)[c.key] = value;
@@ -420,6 +455,7 @@ export function playersFromRows(rows: string[][]): { players: PlayerInfo[]; skip
       else raw[f] ||= value;
     });
     raw.sizes = sizes;
+    raw.custom = custom;
     // A guardian with only a relation filled in is no contact at all.
     raw.guardians = gs.filter((g) => g.name || g.phone || g.email);
     const p = cleanPlayer(raw);
@@ -434,10 +470,10 @@ export const playersFromTable = (text: string) => playersFromRows(parseTable(tex
 const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 /** The roster as a spreadsheet the coach can open in Excel or Sheets (and import again). */
-export function rosterCsv(players: PlayerInfo[]): string {
+export function rosterCsv(players: PlayerInfo[], customFields: string[] = []): string {
   const head = ["First name", "Middle name", "Last name", "Jersey #", "Positions", "Grade", "Grad year", "Birth date", "Height", "Weight", "Status", "Jersey size", "Shirt size", "Pants size", "Player phone", "Player email", "Address"];
   for (let g = 1; g <= HUB_LIMITS.guardians; g++) head.push(`Guardian ${g} name`, `Guardian ${g} relation`, `Guardian ${g} phone`, `Guardian ${g} email`);
-  head.push("Medical", "Notes");
+  head.push("Medical", "Notes", ...customFields);
   const rows = players.map((p) => {
     const s = p.sizes ?? emptySizes();
     const cells = [p.firstName, p.middleName ?? "", p.lastName, p.jersey, p.positions, p.grade, p.gradYear ?? "", p.birthDate, p.height, p.weight, STATUS_LABEL[p.status], s.jersey, s.shirt, s.pants, p.phone, p.email, p.address];
@@ -445,7 +481,7 @@ export function rosterCsv(players: PlayerInfo[]): string {
       const x = p.guardians[g];
       cells.push(x?.name ?? "", x?.relation ?? "", x?.phone ?? "", x?.email ?? "");
     }
-    cells.push(p.medical, p.notes);
+    cells.push(p.medical, p.notes, ...customFields.map((f) => p.custom?.[f] ?? ""));
     return cells.map(csvCell).join(",");
   });
   return [head.map(csvCell).join(","), ...rows].join("\n");
@@ -462,7 +498,14 @@ export const UNIT_LABEL: Record<DepthUnit, string> = { offense: "Offense", defen
  * `letter` is the playbook letter it plays (X, Q, H...), so the starters can
  * fill the Assignments roster.
  */
-export type DepthSlot = { key: string; label: string; letter: string; playerIds: string[] };
+export type DepthSlot = {
+  key: string;
+  label: string;
+  letter: string;
+  playerIds: string[];
+  /** Where the coach dragged this spot on the field view, in percent of the field (x across, y down); unset spots line up by their name. */
+  at?: { x: number; y: number };
+};
 export type DepthChart = { unit: DepthUnit; slots: DepthSlot[]; updatedAt: string };
 
 export const DEPTH_LIMITS = { slots: 30, deep: 6, label: 20 };
@@ -502,12 +545,18 @@ export function cleanDepth(raw: unknown, players: Set<string>): DepthSlot[] {
   return list.map((s, i) => {
     const o = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
     const ids = (Array.isArray(o.playerIds) ? o.playerIds : []).map(String).filter((id) => players.has(id));
-    return {
+    const slot: DepthSlot = {
       key: clip(o.key, 24) || `s${i}`,
       label: clip(o.label, DEPTH_LIMITS.label) || "Spot",
       letter: clip(o.letter, 2).toUpperCase(),
       playerIds: [...new Set(ids)].slice(0, DEPTH_LIMITS.deep),
     };
+    const at = (o.at && typeof o.at === "object" ? o.at : null) as { x?: unknown; y?: unknown } | null;
+    const pct = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(100, Math.max(0, v)) * 10) / 10 : null);
+    const x = pct(at?.x);
+    const y = pct(at?.y);
+    if (x !== null && y !== null) slot.at = { x, y };
+    return slot;
   });
 }
 
