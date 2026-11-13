@@ -62,7 +62,13 @@ import {
   BAND_PREFS_KEY,
   BAND_PRESETS,
   bestLayout,
+  DEFAULT_SHEET_PRINT,
+  ONE_PAGE_MAX,
+  SHEET_COLUMNS,
+  sheetColumns,
+  type SheetPrint,
 } from "../lib/wristbands";
+import { cleanSetupName, loadSetups, SETUP_LIMITS, storeSetups, withSetup, type BandSetup } from "../lib/bandSetups";
 import type { StoredPlay } from "../lib/types";
 import { hasBrand, useBrand } from "../lib/brand";
 import "../styles/wristbands.css";
@@ -94,6 +100,8 @@ function gridEntries(sheet: SheetDoc, plays: StoredPlay[]): BandEntry[] {
         scene: play?.scene ?? null,
         formation: play?.formation || cell(r, "group"),
         type: play?.playType || typedType,
+        personnel: play?.personnel,
+        notes: play?.description,
       };
     })
     .filter((e) => e.name);
@@ -115,6 +123,8 @@ type BandPrefs = {
   cutMarks: boolean;
   numbering: BandNumbering;
   coachSheet: CoachSheet;
+  /** The coach printout: title, columns and extras. */
+  sheet: SheetPrint;
   /** Every box at one scale: players, routes and yard lines print the same size in each. */
   sameSize: boolean;
   /** The coach's card colors; null follows team branding or the GridIronVault look. */
@@ -141,16 +151,26 @@ const DEFAULT_PREFS: BandPrefs = {
   cutMarks: false,
   numbering: DEFAULT_NUMBERING,
   coachSheet: "list",
+  sheet: DEFAULT_SHEET_PRINT,
   sameSize: false,
   colors: null,
   numberInk: "one",
   border: "thin",
 };
 
+/** Saved settings (this browser's or a saved setup) over today's defaults, so a newer setting is never missing. */
+function withDefaults(saved: Partial<BandPrefs>): BandPrefs {
+  return { ...DEFAULT_PREFS, ...saved, sheet: { ...DEFAULT_SHEET_PRINT, ...(saved.sheet ?? {}) } };
+}
+
+/** One step the page's Undo can go back to. */
+type Snap = { prefs: BandPrefs; order: { key: string; list: number[] } | null; sourceId: string; picked: string[] };
+const HISTORY_MAX = 60;
+
 function loadPrefs(): BandPrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null");
-    return saved ? { ...DEFAULT_PREFS, ...saved } : DEFAULT_PREFS;
+    return saved ? withDefaults(saved) : DEFAULT_PREFS;
   } catch {
     return DEFAULT_PREFS;
   }
@@ -218,7 +238,125 @@ export function Wristbands() {
     return () => window.removeEventListener(BAND_PREFS_EVENT, reload);
   }, []);
 
+  // Undo and Redo: every change to the settings, the call order or the plays printed is one step.
+  // Typing in a box counts as one step until the coach pauses.
+  const history = useRef<{ past: Snap[]; future: Snap[]; last: Snap; at: number; skip: boolean } | null>(null);
+  if (!history.current) history.current = { past: [], future: [], last: { prefs, order, sourceId, picked }, at: 0, skip: false };
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const h = history.current!;
+    const snap: Snap = { prefs, order, sourceId, picked };
+    const same = snap.prefs === h.last.prefs && snap.order === h.last.order && snap.sourceId === h.last.sourceId && snap.picked === h.last.picked;
+    if (same) return;
+    if (h.skip) {
+      h.skip = false;
+      h.last = snap;
+      return;
+    }
+    const now = Date.now();
+    const el = document.activeElement;
+    const typing =
+      (el instanceof HTMLInputElement && ["text", "number", "search"].includes(el.type)) || el instanceof HTMLTextAreaElement;
+    if (!(typing && now - h.at < 1000 && h.past.length)) {
+      h.past.push(h.last);
+      if (h.past.length > HISTORY_MAX) h.past.shift();
+    }
+    h.future = [];
+    h.last = snap;
+    h.at = typing ? now : 0;
+    redraw((n) => n + 1);
+  }, [prefs, order, sourceId, picked]);
+  const restore = (snap: Snap) => {
+    history.current!.skip = true;
+    setPrefs(snap.prefs);
+    setOrder(snap.order);
+    setSourceId(snap.sourceId);
+    setPicked(snap.picked);
+    redraw((n) => n + 1);
+  };
+  function undo() {
+    const h = history.current!;
+    const prev = h.past.pop();
+    if (!prev) return;
+    h.future.push(h.last);
+    restore(prev);
+  }
+  function redo() {
+    const h = history.current!;
+    const next = h.future.pop();
+    if (!next) return;
+    h.past.push(h.last);
+    restore(next);
+  }
+  const canUndo = history.current.past.length > 0;
+  const canRedo = history.current.future.length > 0;
+  const undoRef = useRef({ undo, redo });
+  undoRef.current = { undo, redo };
+  useEffect(() => {
+    // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) on the page; a text box keeps its own undo.
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest("input, textarea, select, [contenteditable='true']") || t.closest("[role='dialog']"))) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) undoRef.current.undo();
+      else if ((k === "z" && e.shiftKey) || k === "y") undoRef.current.redo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Saved setups: the settings under a name, to load next week.
+  const [setups, setSetups] = useState<BandSetup<BandPrefs>[]>(() => loadSetups<BandPrefs>());
+  const [setupName, setSetupName] = useState("");
+  const [setupPick, setSetupPick] = useState("");
+  const keepSetups = (list: BandSetup<BandPrefs>[]) => {
+    setSetups(list);
+    if (!storeSetups(list)) toast("This browser wouldn't keep your setups (a private window can refuse). They work until you close the tab.", true);
+  };
+  function saveSetup() {
+    const name = cleanSetupName(setupName);
+    if (!name) {
+      toast("Give the setup a name first, coach, like \"Varsity Friday\".", true);
+      return;
+    }
+    const replacing = setups.some((s) => s.name.toLowerCase() === name.toLowerCase());
+    const next = withSetup(setups, name, prefs);
+    if (!next) {
+      toast(`You have ${SETUP_LIMITS.count} saved setups. Delete one to save another.`, true);
+      return;
+    }
+    keepSetups(next);
+    setSetupPick(next[0].id);
+    setSetupName("");
+    toast(replacing ? `Updated "${name}" with these settings.` : `Saved "${name}". Load it any time from Saved setups.`);
+  }
+  function loadSetup() {
+    const s = setups.find((x) => x.id === setupPick);
+    if (!s) return;
+    setPrefs(withDefaults(s.prefs));
+    toast(`Loaded "${s.name}". Undo puts your last settings back.`);
+  }
+  function deleteSetup() {
+    const s = setups.find((x) => x.id === setupPick);
+    if (!s) return;
+    const before = setups;
+    keepSetups(setups.filter((x) => x.id !== s.id));
+    setSetupPick("");
+    toast(`Deleted "${s.name}".`, false, {
+      label: "Undo",
+      run: () => {
+        keepSetups(before);
+        setSetupPick(s.id);
+      },
+    });
+  }
+
   const set = (patch: Partial<BandPrefs>) => setPrefs((p) => ({ ...p, ...patch }));
+  const setSheet = (patch: Partial<SheetPrint>) => setPrefs((p) => ({ ...p, sheet: { ...p.sheet, ...patch } }));
+  const shownCols = sheetColumns(prefs.sheet);
   // A preset shows as on while every setting it sets is still as it left it.
   const presetOn = (pre: (typeof BAND_PRESETS)[number]) =>
     (Object.keys(pre.prefs) as (keyof typeof pre.prefs)[]).every((k) => JSON.stringify(prefs[k]) === JSON.stringify(pre.prefs[k]));
@@ -291,6 +429,7 @@ export function Wristbands() {
     cutMarks: prefs.cutMarks,
     copies: prefs.copies,
     coachSheet: prefs.coachSheet,
+    sheet: prefs.sheet,
     source: sourceName,
     watermark: tier.watermark ? "GRIDIRONVAULT" : null,
     dpi: cappedDpi(tier, 600),
@@ -371,6 +510,14 @@ export function Wristbands() {
             </p>
           </div>
           <div className="wb-head-actions">
+            <div className="wb-undo" role="group" aria-label="Undo and redo" data-tour="wb-undo">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={undo} disabled={!canUndo} title="Undo the last change (Ctrl+Z)">
+                <Icon name="undo" size={14} /> Undo
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+                <Icon name="redo" size={14} /> Redo
+              </button>
+            </div>
             <button type="button" className="btn btn-ghost" onClick={() => setPreview("sheet")} disabled={!entries.length || !gate.ok}>
               <Icon name="table" size={15} /> Call sheet
             </button>
@@ -388,6 +535,55 @@ export function Wristbands() {
 
         <div className="wb-body">
           <div className="wb-controls card">
+            <div className="wb-field wb-setups" role="group" aria-labelledby="wb-setups" data-tour="wb-setups">
+              <span id="wb-setups">Saved setups</span>
+              <div className="wb-setup-row">
+                <select
+                  className="select"
+                  aria-label="Setup to load"
+                  value={setupPick}
+                  onChange={(e) => setSetupPick(e.target.value)}
+                  disabled={!setups.length}
+                >
+                  <option value="">{setups.length ? "Pick a saved setup" : "No saved setups yet"}</option>
+                  {setups.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={loadSetup} disabled={!setupPick}>
+                  Load
+                </button>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={deleteSetup} disabled={!setupPick} aria-label="Delete the picked setup">
+                  <Icon name="trash" size={13} /> Delete
+                </button>
+              </div>
+              <div className="wb-setup-row">
+                <input
+                  className="input"
+                  aria-label="Name for these settings"
+                  placeholder="Name these settings, e.g. Varsity Friday"
+                  maxLength={SETUP_LIMITS.name}
+                  value={setupName}
+                  onChange={(e) => setSetupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveSetup();
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn-primary btn-sm" onClick={saveSetup}>
+                  <Icon name="save" size={13} /> Save setup
+                </button>
+              </div>
+              <p className="wb-note">
+                Keeps every card and call sheet setting under a name, in this browser. The plays aren't saved with it, so one setup works for any
+                playbook. Same name again updates it.
+              </p>
+            </div>
+
             <div className="wb-field" role="group" aria-labelledby="wb-presets">
               <span id="wb-presets">One-click styles</span>
               <div className="chip-row">
@@ -822,20 +1018,87 @@ export function Wristbands() {
                   </button>
                 </div>
               ))}
+            </div>
+
+            <div className="wb-field" role="group" aria-labelledby="wb-callsheet" data-tour="wb-callsheet">
+              <span id="wb-callsheet">Coach's call sheet</span>
               <label className="wb-sub">
-                Coach sheet prints
-                <select className="select" value={prefs.coachSheet} onChange={(e) => set({ coachSheet: e.target.value as CoachSheet })}>
+                Prints
+                <select className="select" aria-label="Call sheet prints" value={prefs.coachSheet} onChange={(e) => set({ coachSheet: e.target.value as CoachSheet })}>
                   {COACH_SHEETS.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.id === "list"
-                        ? "Call list: number, play, formation, type, card"
+                        ? "Call list: the columns below"
                         : c.id === "diagrams"
-                          ? "Diagrams: every call with its picture and notes"
-                          : "Both: the call list, then the diagrams"}
+                          ? "Diagrams: every call with its picture, 8 a page"
+                          : c.id === "both"
+                            ? "Both: the call list, then the diagrams"
+                            : "One page with diagrams: every call on one sheet"}
                     </option>
                   ))}
                 </select>
               </label>
+              <label className="wb-sub">
+                Title
+                <input
+                  className="input"
+                  value={prefs.sheet.title}
+                  maxLength={80}
+                  onChange={(e) => setSheet({ title: e.target.value })}
+                  placeholder={DEFAULT_SHEET_PRINT.title}
+                />
+              </label>
+              <div className="wb-sub" role="group" aria-label="Columns on the call sheet">
+                <span>Show on the sheet</span>
+                <div className="chip-row">
+                  {SHEET_COLUMNS.map((c) => {
+                    const on = c.id === "number" || prefs.sheet.columns.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`chip${on ? " is-on" : ""}`}
+                        aria-pressed={on}
+                        disabled={c.id === "number"}
+                        title={c.id === "number" ? "The number always prints, so a call can be found." : undefined}
+                        onClick={() =>
+                          setSheet({
+                            columns: on ? prefs.sheet.columns.filter((x) => x !== c.id) : SHEET_COLUMNS.map((x) => x.id).filter((x) => x === c.id || prefs.sheet.columns.includes(x)),
+                          })
+                        }
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="switch">
+                <input type="checkbox" checked={prefs.sheet.date} onChange={(e) => setSheet({ date: e.target.checked })} />
+                Today's date by the title
+              </label>
+              <label className="switch">
+                <input type="checkbox" checked={prefs.sheet.playerNotes} onChange={(e) => setSheet({ playerNotes: e.target.checked })} />
+                Player notes under the diagrams
+              </label>
+              <label className="wb-sub">
+                Blank lines for game-day notes
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={prefs.sheet.blankRows}
+                  onChange={(e) => setSheet({ blankRows: Math.max(0, Math.min(40, Math.floor(Number(e.target.value)) || 0)) })}
+                />
+              </label>
+              <p className="wb-note">
+                {"{source}"}, {"{team}"} and {"{count}"} fill in the title. Play, Formation, Type and Card spot also label each diagram. One page fits
+                up to {ONE_PAGE_MAX} calls, sized to fill the sheet.{" "}
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => set({ sheet: DEFAULT_SHEET_PRINT })}>
+                  Reset call sheet
+                </button>
+              </p>
             </div>
 
             <div className="wb-field">
@@ -906,6 +1169,7 @@ export function Wristbands() {
                   <div className="wb-preview-bar">
                     <p className="eyebrow" id="wb-sheet-title">
                       Coach's call sheet
+                      {prefs.coachSheet === "onepage" ? " · prints on one page with diagrams" : prefs.coachSheet === "diagrams" ? " · prints as diagrams" : ""}
                     </p>
                     <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPreview("sheet")} disabled={!gate.ok}>
                       <Icon name="print" size={13} /> Preview and print
@@ -915,21 +1179,24 @@ export function Wristbands() {
                     <table className="wb-sheet-table">
                       <thead>
                         <tr>
-                          <th scope="col">#</th>
-                          <th scope="col">Play</th>
-                          <th scope="col">Formation</th>
-                          <th scope="col">Type</th>
-                          <th scope="col">Card</th>
+                          {shownCols.map((c) => (
+                            <th key={c.id} scope="col">
+                              {c.id === "spot" ? "Card" : c.label}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {sheetRows.map((r, i) => (
                           <tr key={`${r.spot}-${i}`} className={dupes.includes(r.number) ? "is-dupe" : undefined}>
-                            <td className="wb-sheet-num">{r.number}</td>
-                            <td>{r.name}</td>
-                            <td>{r.formation || "—"}</td>
-                            <td>{r.type || "—"}</td>
-                            <td className="wb-sheet-spot">{r.spot}</td>
+                            {shownCols.map((c) => (
+                              <td
+                                key={c.id}
+                                className={c.id === "number" ? "wb-sheet-num" : c.id === "spot" ? "wb-sheet-spot" : c.id === "notes" ? "wb-sheet-notes" : undefined}
+                              >
+                                {c.id === "notes" ? <span className="wb-clamp">{r.notes}</span> : r[c.id] || "—"}
+                              </td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>

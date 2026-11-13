@@ -144,3 +144,85 @@ test("Play card style prints 3 to 10 plays a card, with 5 and 7 on a centred sho
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
   expect(saved).toMatchObject({ grid: "3x2-5", numberInk: "card", border: "bold", sameSize: true, look: { lineUp: true } });
 });
+
+test("Undo and Redo, saved setups, the call sheet's columns and the one-page sheet with diagrams", async ({ page }) => {
+  await seedReady(page);
+  await page.goto("/wristbands");
+  await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
+  const cards = page.locator('.wb-preview [aria-label^="Card "]');
+  const grid = "Plays per card (columns × rows)";
+  const undo = page.getByRole("button", { name: "Undo", exact: true });
+  const redo = page.getByRole("button", { name: "Redo", exact: true });
+
+  // Undo and Redo step through the changes, from the buttons and from the keyboard.
+  await chip(page, grid, "8 plays, 4 across and 2 down").click();
+  await expect(cards).toHaveCount(3);
+  await chip(page, grid, "4 plays, 2 across and 2 down").click();
+  await expect(cards).toHaveCount(6);
+  await undo.click();
+  await expect(cards).toHaveCount(3);
+  await redo.click();
+  await expect(cards).toHaveCount(6);
+  await expect(redo).toBeDisabled();
+  await page.locator(".wb-lede").click();
+  await page.keyboard.press("Control+z");
+  await expect(cards).toHaveCount(3);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(cards).toHaveCount(6);
+
+  // Save these settings under a name, change them, then load the setup back.
+  await chip(page, "One-click styles", "Play card").click();
+  await page.getByLabel("Name for these settings").fill("Varsity Friday");
+  await page.getByRole("button", { name: "Save setup" }).click();
+  await expect(page.locator(".toast", { hasText: 'Saved "Varsity Friday"' })).toBeVisible();
+  await chip(page, "One-click styles", "Sideline 2×4").click();
+  await expect(cards).toHaveCount(3);
+  await page.getByLabel("Setup to load").selectOption({ label: "Varsity Friday" });
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
+  await expect(cards).toHaveCount(6);
+  // Loading is one step: Undo puts the Sideline settings back.
+  await undo.click();
+  await expect(chip(page, "One-click styles", "Sideline 2×4")).toHaveAttribute("aria-pressed", "true");
+  // Delete, then the toast's Undo brings the setup back.
+  await page.getByRole("button", { name: "Delete the picked setup" }).click();
+  await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(0);
+  await page.locator(".toast button", { hasText: "Undo" }).click();
+  await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(1);
+
+  // The call sheet prints the columns the coach picks; the number always stays.
+  const sheet = page.getByRole("group", { name: "Coach's call sheet" });
+  const cols = sheet.getByRole("group", { name: "Columns on the call sheet" });
+  const heads = page.locator(".wb-sheet-table thead th");
+  await expect(heads).toHaveText(["#", "Play", "Formation", "Type", "Card"]);
+  await expect(cols.getByRole("button", { name: "#" })).toBeDisabled();
+  await cols.getByRole("button", { name: "Formation" }).click();
+  await cols.getByRole("button", { name: "Personnel" }).click();
+  await cols.getByRole("button", { name: "Notes" }).click();
+  await expect(heads).toHaveText(["#", "Play", "Personnel", "Type", "Card", "Notes"]);
+  await sheet.getByLabel("Title", { exact: true }).fill("{team} · Friday plan");
+  await sheet.getByRole("checkbox", { name: "Today's date by the title" }).check();
+  await sheet.getByLabel("Blank lines for game-day notes").fill("6");
+
+  // One page with diagrams: all 24 calls on a single letter page.
+  await sheet.getByLabel("Call sheet prints").selectOption({ label: "One page with diagrams: every call on one sheet" });
+  await page.locator(".wb-head-actions").getByRole("button", { name: "Call sheet" }).click();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.locator('.modal button:has-text("Download PDF")').click()]);
+  const bytes = await (await download.createReadStream()).toArray();
+  const pdf = Buffer.concat(bytes).toString("latin1");
+  expect(pdf.match(/\/Type \/Page\b(?!s)/g)?.length).toBe(1);
+
+  // Every call sheet choice and the saved setup are kept after a reload.
+  await page.reload();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
+  expect(saved.coachSheet).toBe("onepage");
+  expect(saved.sheet).toMatchObject({
+    title: "{team} · Friday plan",
+    columns: ["number", "name", "personnel", "type", "spot", "notes"],
+    date: true,
+    blankRows: 6,
+  });
+  const setups = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbandSetups.v1") ?? "[]"));
+  expect(setups.map((s: { name: string }) => s.name)).toEqual(["Varsity Friday"]);
+  await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(1);
+});

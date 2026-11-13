@@ -19,6 +19,9 @@ export type BandEntry = {
   /** For the coach's call sheet; blank when the call has no linked play. */
   formation?: string;
   type?: string;
+  personnel?: string;
+  /** The play's coaching notes (Play intel), for the call sheet's Notes column. */
+  notes?: string;
 };
 export type CellShows = { diagram: boolean; name: boolean; numberOnly: boolean };
 export type BandCopies = { qb: number; center: number; coach: number };
@@ -138,22 +141,102 @@ export const cardSpot = (index: number, perCard: number) => `${cardLetter(Math.f
 const TYPE_LABEL: Record<string, string> = { pass: "Pass", run: "Run", defense: "Defense", special: "Special" };
 export const playTypeLabel = (t?: string) => (t ? TYPE_LABEL[t] ?? t : "");
 
-export type CallSheetRow = { number: string; name: string; formation: string; type: string; spot: string };
+export type CallSheetRow = {
+  number: string;
+  name: string;
+  formation: string;
+  personnel: string;
+  type: string;
+  spot: string;
+  notes: string;
+};
 
 /** The coach's call sheet: every call sorted by number, with its spot on the wristband. */
 export function callSheetRows(entries: BandEntry[], perCard: number): CallSheetRow[] {
   return entries
-    .map((e, i) => ({ number: e.number, name: e.name, formation: e.formation ?? "", type: playTypeLabel(e.type), spot: cardSpot(i, perCard) }))
+    .map((e, i) => ({
+      number: e.number,
+      name: e.name,
+      formation: e.formation ?? "",
+      personnel: e.personnel ?? "",
+      type: playTypeLabel(e.type),
+      spot: cardSpot(i, perCard),
+      notes: (e.notes ?? "").replace(/\s+/g, " ").trim(),
+    }))
     .sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
 }
 
-/** What the coach copy holds: the number list, a diagram per call, or the list followed by the diagrams. */
-export type CoachSheet = "list" | "diagrams" | "both";
+/** What the coach copy holds: the number list, a diagram per call, both, or every call's diagram on one page. */
+export type CoachSheet = "list" | "diagrams" | "both" | "onepage";
 export const COACH_SHEETS = [
   { id: "list", label: "Call list" },
   { id: "diagrams", label: "Diagrams" },
   { id: "both", label: "Both" },
+  { id: "onepage", label: "One page with diagrams" },
 ] as const;
+
+/** A column the coach can put on the call sheet. `weight` shares out the page width among the columns that print. */
+export type SheetColumn = keyof CallSheetRow;
+export const SHEET_COLUMNS: { id: SheetColumn; label: string; head: string; weight: number }[] = [
+  { id: "number", label: "#", head: "#", weight: 0.8 },
+  { id: "name", label: "Play", head: "PLAY", weight: 3 },
+  { id: "formation", label: "Formation", head: "FORMATION", weight: 1.9 },
+  { id: "personnel", label: "Personnel", head: "PERSONNEL", weight: 1.3 },
+  { id: "type", label: "Type", head: "TYPE", weight: 1 },
+  { id: "spot", label: "Card spot", head: "CARD", weight: 0.75 },
+  { id: "notes", label: "Notes", head: "NOTES", weight: 3.2 },
+];
+
+/** What the coach's printout carries: its title, columns, and the extras around the diagrams. */
+export type SheetPrint = {
+  /** Printed at the top; {source}, {team} and {count} fill in. */
+  title: string;
+  columns: SheetColumn[];
+  /** Today's date beside the title. */
+  date: boolean;
+  /** Player notes under each diagram (Diagrams and One page). */
+  playerNotes: boolean;
+  /** Write-in lines under the call list for game-day notes. */
+  blankRows: number;
+};
+export const DEFAULT_SHEET_PRINT: SheetPrint = {
+  title: "Call sheet · {source}",
+  columns: ["number", "name", "formation", "type", "spot"],
+  date: false,
+  playerNotes: true,
+  blankRows: 0,
+};
+
+/** The chosen columns in page order; the number is always kept so a call can be found. */
+export const sheetColumns = (sheet: Pick<SheetPrint, "columns"> | undefined) => {
+  const want = new Set<SheetColumn>(sheet?.columns ?? DEFAULT_SHEET_PRINT.columns);
+  want.add("number");
+  return SHEET_COLUMNS.filter((c) => want.has(c.id));
+};
+
+/** The printout's title with its {tokens} filled in. */
+export function sheetTitle(sheet: SheetPrint | undefined, source: string, count: number) {
+  const t = (sheet?.title ?? DEFAULT_SHEET_PRINT.title).trim() || DEFAULT_SHEET_PRINT.title;
+  return fillBandText(t, { role: "Coach", card: "", source, count });
+}
+
+/**
+ * The one-page sheet's grid: the columns × rows that give every call the
+ * biggest box on a letter page (diagrams are wider than tall, about 1.6 : 1).
+ */
+export function onePageGrid(n: number, area = { w: 7.5, h: 9.6 }, aspect = 1.6, label = 0.24) {
+  let best = { cols: 1, rows: Math.max(1, n), w: area.w, h: area.h / Math.max(1, n), score: 0 };
+  for (let cols = 1; cols <= Math.max(1, Math.min(n, 8)); cols++) {
+    const rows = Math.max(1, Math.ceil(n / cols));
+    const w = area.w / cols;
+    const h = area.h / rows;
+    // The diagram is whatever fits the box below its label at the diagram's own shape.
+    const dh = Math.max(0, h - label);
+    const score = Math.min(w, dh * aspect);
+    if (score > best.score) best = { cols, rows, w, h, score };
+  }
+  return best;
+}
 
 export const NUMBER_SIZES = { s: 8, m: 11, l: 15 } as const;
 export type NumberSize = keyof typeof NUMBER_SIZES;
@@ -178,6 +261,8 @@ export type BandOptions = {
   cutMarks: boolean;
   copies: BandCopies;
   coachSheet: CoachSheet;
+  /** The coach printout's title, columns and extras. Left out: the standard call sheet. */
+  sheet?: SheetPrint;
   source: string;
   watermark: string | null;
   dpi: number;
@@ -274,7 +359,15 @@ export function entriesFromPlays(plays: StoredPlay[], numbers?: string[]): BandE
 }
 
 export function entryFromPlay(p: StoredPlay, number = ""): BandEntry {
-  return { number, name: p.name || "Untitled play", scene: p.scene, formation: p.formation, type: p.playType };
+  return {
+    number,
+    name: p.name || "Untitled play",
+    scene: p.scene,
+    formation: p.formation,
+    type: p.playType,
+    personnel: p.personnel,
+    notes: p.description,
+  };
 }
 
 /** Fill the {tokens} in a header or footer line. */
@@ -548,65 +641,231 @@ function sheetSlots(o: BandOptions) {
 /** How many cards land on each printed page, for the summary line. */
 export const cardsPerPage = (o: BandOptions) => sheetSlots(o).slots.length;
 
-/** Call list columns on a letter page, in inches from the left margin. */
-const LIST_COLS = { number: 0.5, name: 1.35, formation: 4.55, type: 6.35, spot: 7.45 };
 const LIST_ROW = 0.3;
+const PAGE_L = 0.4;
+const PAGE_W = 7.7;
+
+/** The title line every coach page starts with: title at the left, count, date and page at the right. */
+function sheetHead(doc: jsPDF, title: string, right: string) {
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(11, 21, 36);
+  fitSize(doc, title, 5.6, 16, 10);
+  doc.text(fitText(doc, title, 5.6), 0.5, 0.62);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(60, 72, 90);
+  doc.text(right, 8, 0.62, { align: "right" });
+}
+
+const today = () => new Date().toLocaleDateString("en-US");
+
+/** "24 calls · 11/13/2026 · page 1 of 2", from what the coach turned on. */
+function headRight(sheet: SheetPrint | undefined, count: number, page: number, pages: number) {
+  return [
+    `${count} ${count === 1 ? "call" : "calls"}`,
+    (sheet?.date ?? DEFAULT_SHEET_PRINT.date) ? today() : "",
+    pages > 1 ? `page ${page + 1} of ${pages}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
- * The coach's call sheet: number, play, formation, type and card spot, sorted
- * by number in rows big enough to read on the sideline.
+ * The coach's call sheet: the columns the coach picked (number, play,
+ * formation, personnel, type, card spot, notes), sorted by number in rows big
+ * enough to read on the sideline, then any write-in lines.
  */
-function drawCallList(doc: jsPDF, rows: CallSheetRow[], source: string) {
+function drawCallList(doc: jsPDF, rows: CallSheetRow[], o: Pick<BandOptions, "sheet" | "source">) {
+  const cols = sheetColumns(o.sheet);
+  const total = cols.reduce((t, c) => t + c.weight, 0);
+  const xs: number[] = [];
+  let at = PAGE_L + 0.1;
+  for (const c of cols) {
+    xs.push(at);
+    at += ((PAGE_W - 0.2) * c.weight) / total;
+  }
+  const width = (i: number) => (i + 1 < xs.length ? xs[i + 1] : PAGE_L + PAGE_W - 0.1) - xs[i] - 0.12;
+  const notesAt = cols.findIndex((c) => c.id === "notes");
   const top = 1.15;
-  const perPage = Math.floor((11 - top - 0.5) / LIST_ROW);
-  const pages = Math.max(1, Math.ceil(rows.length / perPage));
-  for (let p = 0; p < pages; p++) {
+  const bottom = 10.5;
+
+  // Each row's height: one line, or up to three lines of notes.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  const noteLines = rows.map((r) => {
+    if (notesAt < 0 || !r.notes) return [];
+    const all = doc.splitTextToSize(r.notes, width(notesAt)) as string[];
+    if (all.length <= 3) return all;
+    return [...all.slice(0, 2), fitText(doc, `${all[2]} ${all[3]}`, width(notesAt))];
+  });
+  const heights = noteLines.map((l) => Math.max(LIST_ROW, 0.1 + l.length * 0.13));
+  const blank = Math.max(0, Math.min(40, o.sheet?.blankRows ?? 0));
+
+  // Lay the rows (then the write-in lines) out on pages.
+  type Slot = { row: number; y: number; h: number };
+  const pages: Slot[][] = [[]];
+  let y = top;
+  const place = (row: number, h: number) => {
+    if (y + h > bottom && pages[pages.length - 1].length) {
+      pages.push([]);
+      y = top;
+    }
+    pages[pages.length - 1].push({ row, y, h });
+    y += h;
+  };
+  heights.forEach((h, i) => place(i, h));
+  for (let i = 0; i < blank; i++) place(-1, LIST_ROW);
+
+  const title = sheetTitle(o.sheet, o.source, rows.length);
+  pages.forEach((slots, p) => {
     if (p > 0) doc.addPage("letter", "portrait");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(11, 21, 36);
-    doc.text(`Call sheet · ${source}`, 0.5, 0.62);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(60, 72, 90);
-    doc.text(`${rows.length} ${rows.length === 1 ? "call" : "calls"}${pages > 1 ? ` · page ${p + 1} of ${pages}` : ""}`, 8, 0.62, { align: "right" });
+    sheetHead(doc, title, headRight(o.sheet, rows.length, p, pages.length));
 
     // Column heads on a dark band.
     doc.setFillColor(11, 21, 36);
-    doc.rect(0.4, top - 0.27, 7.7, 0.27, "F");
+    doc.rect(PAGE_L, top - 0.27, PAGE_W, 0.27, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    const headY = top - 0.09;
-    doc.text("#", LIST_COLS.number, headY);
-    doc.text("PLAY", LIST_COLS.name, headY);
-    doc.text("FORMATION", LIST_COLS.formation, headY);
-    doc.text("TYPE", LIST_COLS.type, headY);
-    doc.text("CARD", LIST_COLS.spot, headY);
+    cols.forEach((c, i) => doc.text(fitText(doc, c.head, width(i) + 0.1), xs[i], top - 0.09));
 
-    rows.slice(p * perPage, (p + 1) * perPage).forEach((r, i) => {
-      const y = top + i * LIST_ROW;
+    slots.forEach((s, i) => {
       if (i % 2) {
         doc.setFillColor(236, 241, 246);
-        doc.rect(0.4, y, 7.7, LIST_ROW, "F");
+        doc.rect(PAGE_L, s.y, PAGE_W, s.h, "F");
       }
-      const mid = y + LIST_ROW / 2;
+      if (s.row < 0) {
+        doc.setDrawColor(190, 200, 210);
+        doc.setLineWidth(0.008);
+        doc.line(PAGE_L, s.y + s.h, PAGE_L + PAGE_W, s.y + s.h);
+        return;
+      }
+      const r = rows[s.row];
+      const mid = s.y + Math.min(s.h, LIST_ROW) / 2;
       doc.setTextColor(11, 21, 36);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(r.number, LIST_COLS.number, mid, { baseline: "middle" });
-      doc.setFontSize(11);
-      doc.text(fitText(doc, r.name, LIST_COLS.formation - LIST_COLS.name - 0.15), LIST_COLS.name, mid, { baseline: "middle" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(fitText(doc, r.formation, LIST_COLS.type - LIST_COLS.formation - 0.15), LIST_COLS.formation, mid, { baseline: "middle" });
-      doc.text(r.type, LIST_COLS.type, mid, { baseline: "middle" });
-      doc.setFont("helvetica", "bold");
-      doc.text(r.spot, LIST_COLS.spot, mid, { baseline: "middle" });
+      cols.forEach((c, ci) => {
+        const x = xs[ci];
+        if (c.id === "number") {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(14);
+          doc.text(fitText(doc, r.number, width(ci) + 0.1), x, mid, { baseline: "middle" });
+        } else if (c.id === "name") {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.text(fitText(doc, r.name, width(ci)), x, mid, { baseline: "middle" });
+        } else if (c.id === "notes") {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.5);
+          doc.setTextColor(40, 52, 70);
+          const lines = noteLines[s.row];
+          if (lines.length) doc.text(lines, x, s.y + 0.17);
+          doc.setTextColor(11, 21, 36);
+        } else {
+          doc.setFont("helvetica", c.id === "spot" ? "bold" : "normal");
+          doc.setFontSize(10);
+          doc.text(fitText(doc, r[c.id], width(ci)), x, mid, { baseline: "middle" });
+        }
+      });
     });
+    const last = slots[slots.length - 1];
     doc.setDrawColor(150, 164, 178);
     doc.setLineWidth(0.01);
-    doc.rect(0.4, top - 0.27, 7.7, 0.27 + Math.min(perPage, rows.length - p * perPage) * LIST_ROW);
+    doc.rect(PAGE_L, top - 0.27, PAGE_W, (last ? last.y + last.h : top) - top + 0.27);
+  });
+}
+
+/** One call's small label for the diagram pages: number and name, then the other picked columns. */
+function callLabel(r: CallSheetRow | undefined, cols: ReturnType<typeof sheetColumns>) {
+  if (!r) return "";
+  return cols
+    .filter((c) => c.id !== "number" && c.id !== "name" && c.id !== "notes")
+    .map((c) => r[c.id])
+    .filter(Boolean)
+    .join(" · ");
+}
+
+type DiagramPrint = Pick<BandOptions, "look" | "watermark" | "vector" | "dpi" | "shows">;
+const diagramLook = (o: DiagramPrint) => (o.look.fit === "play" ? { ...o.look, weight: "auto" as const } : FULL_LOOK);
+
+/** The call sheet's row for each entry, by its place in the print order. */
+function rowsByEntry(entries: BandEntry[], perCard: number) {
+  return entries.map((e, i) => ({
+    number: e.number,
+    name: e.name,
+    formation: e.formation ?? "",
+    personnel: e.personnel ?? "",
+    type: playTypeLabel(e.type),
+    spot: cardSpot(i, perCard),
+    notes: (e.notes ?? "").replace(/\s+/g, " ").trim(),
+  }));
+}
+
+/** Most calls one page holds before the boxes get too small to read; past it the sheet runs on. */
+export const ONE_PAGE_MAX = 48;
+
+/**
+ * Every call's diagram on one letter page, in print order, each box labelled
+ * with its number, name and the other columns the coach picked.
+ */
+async function drawOnePager(doc: jsPDF, entries: BandEntry[], perCard: number, o: BandOptions) {
+  const rows = rowsByEntry(entries, perCard);
+  const cols = sheetColumns(o.sheet);
+  const showNotes = o.sheet?.playerNotes ?? DEFAULT_SHEET_PRINT.playerNotes;
+  const title = sheetTitle(o.sheet, o.source, entries.length);
+  const pages = Math.max(1, Math.ceil(entries.length / ONE_PAGE_MAX));
+  for (let p = 0; p < pages; p++) {
+    if (p > 0) doc.addPage("letter", "portrait");
+    sheetHead(doc, title, headRight(o.sheet, entries.length, p, pages));
+    const chunk = entries.slice(p * ONE_PAGE_MAX, (p + 1) * ONE_PAGE_MAX);
+    const area = { x: 0.5, y: 0.85, w: 7.5, h: 9.75 };
+    const g = onePageGrid(chunk.length, area);
+    const big = g.h >= 2;
+    for (let i = 0; i < chunk.length; i++) {
+      const e = chunk[i];
+      const r = rows[p * ONE_PAGE_MAX + i];
+      const x = area.x + (i % g.cols) * g.w;
+      const y = area.y + Math.floor(i / g.cols) * g.h;
+      const pad = Math.min(0.06, g.w * 0.04);
+      doc.setDrawColor(150, 164, 178);
+      doc.setLineWidth(0.01);
+      doc.rect(x, y, g.w, g.h);
+      // Label: the number big, the name bold, then the other columns small.
+      const size = Math.max(6, Math.min(11, g.w * 5));
+      doc.setTextColor(11, 21, 36);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(size + 2);
+      const num = `${e.number}`;
+      doc.text(num, x + pad, y + 0.06, { baseline: "top" });
+      const numW = doc.getTextWidth(num) + 0.06;
+      doc.setFontSize(size);
+      doc.text(fitText(doc, e.name, g.w - numW - pad * 2), x + pad + numW, y + 0.08, { baseline: "top" });
+      const extra = callLabel(r, cols);
+      let below = y + 0.08 + (size + 2) / 72 + 0.02;
+      if (extra) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(Math.max(5.5, size - 2.5));
+        doc.setTextColor(60, 72, 90);
+        doc.text(fitText(doc, extra, g.w - pad * 2), x + pad, below, { baseline: "top" });
+        below += Math.max(5.5, size - 2.5) / 72 + 0.03;
+      }
+      const notes = showNotes && big && e.scene ? playerNoteLines(e.scene, "print") : [];
+      const notesH = notes.length ? 0.26 : 0;
+      const dh = y + g.h - below - pad - notesH;
+      if (e.scene && !o.shows.numberOnly && dh > 0.2) {
+        await placeDiagram(doc, e.scene, x + pad, below, g.w - pad * 2, dh, {
+          look: diagramLook(o),
+          watermark: o.watermark,
+          vector: o.vector,
+          dpi: o.dpi,
+        });
+      }
+      if (notes.length) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(60, 72, 90);
+        doc.text((doc.splitTextToSize(notes.join("  ·  "), g.w - pad * 2) as string[]).slice(0, 2), x + pad, y + g.h - pad - notesH + 0.1);
+      }
+    }
   }
 }
 
@@ -657,41 +916,62 @@ export async function wristbandSheets(entries: BandEntry[], o: BandOptions): Pro
     }
   }
 
-  // Coach copy: the call list, then (or instead) every call with a bigger diagram and player notes. Always on letter.
+  // Coach copy: the call list, every call with a bigger diagram, both, or all the diagrams on one page. Always on letter.
+  const cols = sheetColumns(o.sheet);
+  const showNotes = o.sheet?.playerNotes ?? DEFAULT_SHEET_PRINT.playerNotes;
+  const labels = rowsByEntry(entries, perCard);
   for (let n = 0; n < o.copies.coach; n++) {
+    if (o.coachSheet === "onepage") {
+      if (!first) doc.addPage("letter", "portrait");
+      first = false;
+      await drawOnePager(doc, entries, perCard, o);
+      continue;
+    }
     if (o.coachSheet !== "diagrams") {
       if (!first) doc.addPage("letter", "portrait");
       first = false;
-      drawCallList(doc, callSheetRows(entries, perCard), o.source);
+      drawCallList(doc, callSheetRows(entries, perCard), o);
       if (o.coachSheet === "list") continue;
     }
     if (!first) doc.addPage("letter", "portrait");
     first = false;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(11, 21, 36);
-    doc.text(`Coach sheet · ${o.source}`, 0.5, 0.6);
+    const title = sheetTitle(o.sheet, o.source, entries.length);
+    const pageCount = Math.max(1, Math.ceil(entries.length / 8));
+    sheetHead(doc, title, headRight(o.sheet, entries.length, 0, pageCount));
     const colW = 3.6;
     const rowH = 2.35;
     let i = 0;
     for (const e of entries) {
       const slotOnPage = i % 8;
-      if (i > 0 && slotOnPage === 0) doc.addPage("letter", "portrait");
+      if (i > 0 && slotOnPage === 0) {
+        doc.addPage("letter", "portrait");
+        sheetHead(doc, title, headRight(o.sheet, entries.length, i / 8, pageCount));
+      }
       const cx = 0.5 + (slotOnPage % 2) * (colW + 0.3);
       const cy = 0.85 + Math.floor(slotOnPage / 2) * rowH;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(11, 21, 36);
-      doc.text(`${e.number}  ${e.name}`, cx, cy + 0.15);
+      const head = `${e.number}  ${e.name}`;
+      const shown = fitText(doc, head, colW);
+      doc.text(shown, cx, cy + 0.15);
+      const room = colW - doc.getTextWidth(shown) - 0.2;
+      const extra = callLabel(labels[i], cols);
+      if (extra && room > 0.5) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(60, 72, 90);
+        doc.text(fitText(doc, extra, room), cx + colW, cy + 0.15, { align: "right" });
+      }
       if (e.scene && !o.shows.numberOnly) {
         const h = 1.7;
         await placeDiagram(doc, e.scene, cx, cy + 0.25, colW, h, {
-          look: o.look.fit === "play" ? { ...o.look, weight: "auto" } : FULL_LOOK,
+          look: diagramLook(o),
           watermark: o.watermark,
           vector: o.vector,
           dpi: o.dpi,
         });
-        const notes = playerNoteLines(e.scene, "print");
+        const notes = showNotes ? playerNoteLines(e.scene, "print") : [];
         if (notes.length) {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
