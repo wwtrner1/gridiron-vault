@@ -3,7 +3,9 @@ import { Navigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { useOwner } from "../lib/owner";
 import { ActivityTab } from "./admin/ActivityTab";
+import { ArchiveTab } from "./admin/ArchiveTab";
 import { AuditTab } from "./admin/AuditTab";
+import { LessonsTab } from "./admin/LessonsTab";
 import { UserDetail } from "./admin/UserDetail";
 import { VisitorsTab } from "./admin/VisitorsTab";
 import { UsersTab, useAdminUsers } from "./admin/UsersTab";
@@ -15,6 +17,8 @@ const TABS = [
   { id: "watch", label: "Watch list" },
   { id: "activity", label: "Activity" },
   { id: "recovery", label: "Account recovery" },
+  { id: "archive", label: "Play archive" },
+  { id: "lessons", label: "Reader memory" },
   { id: "audit", label: "Audit log" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -62,6 +66,8 @@ export function Admin() {
           ))}
         {tab === "activity" && <ActivityTab onOpen={open} />}
         {tab === "audit" && <AuditTab />}
+        {tab === "archive" && <ArchiveTab onOpen={open} />}
+        {tab === "lessons" && <LessonsTab />}
       </div>
     </Shell>
   );

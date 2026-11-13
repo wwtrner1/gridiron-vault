@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "./Shell";
 import { Icon } from "./Icon";
 import { PlayThumb } from "./PlayThumb";
+import { ReadEditor } from "./ReadEditor";
 import { api, coachError } from "../lib/api";
 import { ACTION_LABEL, nearMatch } from "../lib/assistant";
 import { aiUsage } from "../lib/aiUsage";
 import { useAuth } from "../lib/auth";
 import { gateAi, gateSave } from "../lib/plan";
-import { asAssistantRead, letterChanges, photoLayoutNodes, prepareImage, vaultFormatNodes } from "../lib/photo";
+import { asAssistantRead, correctionsBetween, letterChanges, photoLayoutNodes, prepareImage, vaultFormatNodes } from "../lib/photo";
+import { CHECKED, TO_CHECK } from "../lib/scanJob";
 import type { PhotoRead } from "../lib/photo";
 import { usePositionTokens } from "../lib/positions";
 import type { TokenPreset } from "../lib/presets";
@@ -36,7 +38,8 @@ export type PhotoFormat = "vault" | "photo";
 /** The play as it will save: the Formation library's spacing when the formation is known, else as drawn. */
 export function photoScene(read: PhotoRead, aspect: number, format: PhotoFormat, tokens: TokenPreset[]) {
   const base = emptyScene(420);
-  const useVault = format === "vault" && read.formation !== "Custom";
+  // A defense keeps the board's layout: the Formation library spaces offenses.
+  const useVault = format === "vault" && read.formation !== "Custom" && read.playType !== "defense";
   const nodes = useVault ? vaultFormatNodes(read, tokens, aspect, base.losY, 1) : photoLayoutNodes(read, tokens, aspect, base.losY, 1);
   return { ...base, nodes };
 }
@@ -44,6 +47,8 @@ export function photoScene(read: PhotoRead, aspect: number, format: PhotoFormat,
 /** One play from a scanned page, already read: checked here, then handed back to the page's list. */
 export type PhotoCheck = {
   read: PhotoRead;
+  /** The read as it first came back, so a second visit still learns from every fix. */
+  original?: PhotoRead;
   url: string;
   aspect: number;
   format: PhotoFormat;
@@ -68,7 +73,8 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
   const [img, setImg] = useState<{ url: string; aspect: number } | null>(check ? { url: check.url, aspect: check.aspect } : null);
   const [stage, setStage] = useState<Stage>(check ? { kind: "done", read: check.read } : { kind: "reading" });
   const [format, setFormat] = useState<PhotoFormat>(check?.format ?? "vault");
-  const [asked, setAsked] = useState(0);
+  // The read as the reader returned it, before any fix (what the reader learns from on Save).
+  const [first, setFirst] = useState<PhotoRead | null>(check?.original ?? check?.read ?? null);
 
   useEffect(() => {
     if (check) return;
@@ -92,7 +98,10 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
       try {
         const res = await api.photo({ image: prepared.data, game: currentGame(), terms: terms.map((t) => ({ term: t.term, means: t.means })) });
         aiUsage.add("photo");
-        if (live) setStage({ kind: "done", read: res.read });
+        if (live) {
+          setFirst(res.read);
+          setStage({ kind: "done", read: res.read });
+        }
       } catch (e) {
         if (live) setStage({ kind: "error", text: coachError(e, "The photo couldn't be read just now.") });
       }
@@ -109,30 +118,37 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
   const useVault = format === "vault" && known;
   const scene = useMemo(() => (read && img ? photoScene(read, img.aspect, useVault ? "vault" : "photo", tokens) : null), [read, img, useVault, tokens]);
   const match = useMemo(() => (read ? nearMatch(asAssistantRead(read), plays) : null), [read, plays]);
-  const question = read?.questions[asked];
+  const question = read?.questions[0];
   const changes = read ? letterChanges(read) : [];
   const saveGate = gateSave(tier, plays.length);
 
+  // An answer names the line as drawn, so the traced line stays; the question is done.
   const answer = (option: string) => {
     if (!read || !question) return;
     const assignments = read.assignments.map((a) =>
       a.player.toUpperCase() === question.player.toUpperCase() ? { ...a, action: option, kind: "route" as const } : a,
     );
-    setStage({ kind: "done", read: { ...read, assignments } });
-    setAsked((n) => n + 1);
+    setStage({ kind: "done", read: { ...read, assignments, questions: read.questions.slice(1) } });
   };
+  const edit = (next: PhotoRead) => setStage({ kind: "done", read: next });
 
   function save(open: boolean) {
     if (!read || !scene) return;
     if (!saveGate.ok) return toast(saveGate.reason, true);
+    if (first) {
+      const corrections = correctionsBetween(first, read);
+      if (corrections.length) api.teachReader(corrections).catch(() => {});
+    }
+    const defense = read.playType === "defense";
     const play: StoredPlay = {
       id: uid("play"),
       name: read.name,
       formation: known ? read.formation : "",
-      playType: "pass",
+      playType: defense ? "defense" : "pass",
       personnel: "",
-      description: `Read from ${file.name}.`,
-      tags: ["imported", "whiteboard"],
+      description: [defense && read.coverage ? `Coverage: ${read.coverage}.` : "", `Read from ${file.name}.`].filter(Boolean).join("\n\n"),
+      // Saved from this review, it has been looked over, unless a question is still open.
+      tags: ["imported", "whiteboard", read.questions.length ? TO_CHECK : CHECKED],
       isPublic: false,
       ownerName: "You",
       fieldView: "half",
@@ -224,6 +240,8 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
                   </div>
                 </div>
               )}
+              {read.qbNote && <p className="pr-note pr-qb">{read.qbNote}</p>}
+              {read.playType === "defense" && read.coverage && <p className="pr-note">Coverage: {read.coverage}</p>}
               {changes.length > 0 ? (
                 <p className="pr-note">
                   {changes.map(([b, v]) => `Your board used ${b} for the player your Vault calls ${v}.`).join(" ")} They're drawn with your
@@ -262,6 +280,8 @@ export function PhotoReview({ file, onBack, check }: { file: File; onBack: () =>
             </div>
           </div>
         )}
+
+        {read?.isPlay && <ReadEditor read={read} onChange={edit} />}
 
         {read?.isPlay && check && (
           <div className="pr-acts">

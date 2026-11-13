@@ -1,0 +1,95 @@
+/* Drill Vault (pages/Drills.tsx) and the drill diagrams (components/DrillField.tsx). */
+.dr-hero {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px;
+  margin-bottom: 18px; padding: 22px 24px; border-radius: var(--radius-xl); color: var(--white);
+  background: radial-gradient(120% 140% at 100% 0%, var(--ink-3) 0%, var(--ink) 60%);
+  box-shadow: var(--shadow-m);
+}
+.dr-hero h2 { margin: 2px 0 6px; font-family: var(--display); font-size: 34px; line-height: 1; color: var(--white); }
+.dr-hero p { margin: 0; max-width: 620px; color: var(--rail-text); }
+.dr-eyebrow, .pr-eyebrow { margin: 0; font-size: 10.5px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--cyan); }
+.dr-stats, .pr-stats { display: flex; gap: 10px; margin: 0; }
+.dr-stats div, .pr-stats div { min-width: 82px; padding: 10px 14px; border: 1px solid var(--ink-3); border-radius: var(--radius-lg); background: rgba(255, 255, 255, .04); }
+.dr-stats dt, .pr-stats dt { font-size: 9.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-2); }
+.dr-stats dd, .pr-stats dd { margin: 4px 0 0; font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1; color: var(--white); }
+
+.select-sm { height: var(--control-height-sm); font-size: 13px; padding-top: 0; padding-bottom: 0; }
+.dr-filters { display: grid; gap: 10px; margin-bottom: 16px; }
+.dr-search { display: flex; align-items: center; gap: 8px; max-width: 520px; padding-left: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--white); color: var(--muted); }
+.dr-search .input { border: 0; box-shadow: none; padding-left: 0; }
+
+.dr-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.dr-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--white); box-shadow: var(--shadow-s); transition: box-shadow .15s, transform .15s; }
+.dr-card:hover { box-shadow: var(--shadow-m); transform: translateY(-1px); }
+.dr-card-open { display: block; padding: 0; border: 0; background: var(--border-2); cursor: pointer; aspect-ratio: 3 / 2; }
+.dr-card-open svg, .dr-card-open .dr-nodiagram { width: 100%; height: 100%; }
+.dr-card-body { display: grid; gap: 6px; padding: 12px 14px 14px; }
+.dr-card-body h3 { margin: 0; font-family: var(--display); font-size: 21px; line-height: 1.05; }
+.dr-card-top { display: flex; align-items: center; gap: 6px; }
+.dr-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.dr-card-actions .dr-add { flex: 1 1 140px; }
+.dr-star { margin-left: auto; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 50%; background: var(--white); color: #b9c7d3; font-size: 16px; cursor: pointer; }
+.dr-star.is-on { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+.dr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; font-size: 13px; color: var(--muted); }
+.dr-cat { display: inline-block; padding: 3px 8px; border-radius: var(--radius-xs); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--special-bg); color: var(--ink-4); }
+.dr-cat-defensive-backs, .dr-cat-linebackers { background: var(--defense-bg); color: var(--defense-fg); }
+.dr-cat-receivers, .dr-cat-quarterbacks { background: var(--cyan-soft); color: var(--pass-fg); }
+.dr-cat-running-backs, .dr-cat-line { background: var(--run-bg); color: var(--run-fg); }
+.dr-cat-flag-football { background: var(--violet-bg); color: var(--violet-fg); }
+.dr-cat-team-conditioning { background: var(--green-bg); color: var(--green-fg); }
+.dr-nodiagram { display: grid; place-content: center; justify-items: center; gap: 6px; min-height: 160px; color: var(--muted); font-size: 13px; }
+
+.dr-detail { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; }
+.dr-detail-pic { display: grid; gap: 8px; align-content: start; }
+.dr-detail-pic > svg, .dr-detail-pic > .dr-nodiagram { width: 100%; height: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+.dr-film { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--radius-lg); background: #000; }
+.dr-detail-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dr-detail-text h3 { margin: 14px 0 4px; font-family: var(--display); font-size: 18px; text-transform: uppercase; letter-spacing: .02em; color: var(--accent-text); }
+.dr-detail-text p, .dr-detail-text li { font-size: 14.5px; line-height: 1.5; }
+.dr-detail-text ol, .dr-points { margin: 0; padding-left: 20px; }
+.dr-points li::marker { color: var(--cyan); }
+.dr-equip { margin: 10px 0 0; }
+.dr-fine { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); }
+.dr-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 0 auto; padding: 0; list-style: none; font-size: 11.5px; color: var(--muted); }
+.dr-legend li { display: flex; align-items: center; gap: 5px; }
+.dr-legend i { display: inline-block; width: 22px; border-top: 2.5px solid var(--ink); }
+.dr-legend .k-back { border-top-style: dashed; }
+.dr-legend .k-shuffle { border-top-style: dashed; border-top-color: var(--violet); }
+.dr-legend .k-throw { border-top-style: dotted; border-top-color: var(--amber-fg); }
+@media (max-width: 760px) { .dr-detail { grid-template-columns: 1fr; } .dr-stats { flex-wrap: wrap; } }
+
+.dr-form { display: grid; gap: 4px; }
+.dr-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.dr-form .textarea { min-height: 64px; }
+
+/* A field's label with its ⓘ. */
+.dr-fieldtip > span { display: flex; align-items: center; gap: 6px; }
+.dr-fieldtip > span label, .dr-fieldtip-name { cursor: default; }
+.tip-i {
+  display: inline-grid; place-items: center; width: 17px; height: 17px; padding: 0; border: 1px solid currentColor; border-radius: 50%;
+  background: transparent; color: var(--muted); font: italic 700 10.5px/1 Georgia, serif; letter-spacing: 0; text-transform: none; cursor: help;
+}
+.tip-i:hover, .tip-i:focus-visible { background: var(--cyan); border-color: var(--cyan); color: var(--on-cyan); }
+
+/* The diagram. */
+.dr-field { display: block; width: 100%; height: auto; }
+.dr-turf { fill: #fbfcfd; }
+.dr-yard { stroke: #d5dce2; stroke-width: 5; }
+.dr-hash { stroke: #d5dce2; stroke-width: 4; }
+.dr-line polyline, .dr-line line { stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.dr-line.dr-throw polyline { stroke: var(--amber-fg); stroke-width: 2.4; }
+.dr-line.dr-shuffle polyline { stroke: var(--violet-fg); }
+.dr-line.is-guide polyline { opacity: .45; }
+.dr-head { fill: var(--ink); }
+.dr-label { font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: .06em; fill: #c2410c; paint-order: stroke; stroke: #fbfcfd; stroke-width: 4px; }
+.dr-cone path { fill: #e8772e; stroke: #8a3b0c; stroke-width: 1.5; }
+.dr-cone-label { font-family: var(--display); font-size: 15px; font-weight: 800; fill: var(--ink); }
+.dr-ball ellipse { fill: #7a3e1d; stroke: #3d1d0b; stroke-width: 1.2; }
+.dr-ball line { stroke: #fff; stroke-width: 1.4; }
+.dr-bag { fill: #a9b8c6; stroke: #5f7385; stroke-width: 1.5; }
+.dr-def rect { fill: var(--ink); }
+.dr-def text { font-family: var(--display); font-size: 17px; font-weight: 800; fill: #fff; }
+.dr-off circle { fill: var(--pos-x); stroke: #0b1524; stroke-width: 2.5; }
+.dr-off text { font-family: var(--display); font-size: 14px; font-weight: 800; fill: #fff; }
+.dr-coach circle { fill: #e8772e; stroke: #0b1524; stroke-width: 2.5; }
+.dr-coach text { font-family: var(--display); font-size: 15px; font-weight: 800; fill: var(--ink); }

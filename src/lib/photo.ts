@@ -23,6 +23,8 @@ export type BoardPlayer = {
   /** Position in the photo, 0–1 from the left and from the top. */
   x: number;
   y: number;
+  /** A defender's responsibility as drawn (Deep 1/3, Flat, Man X, Rush…), drawn under his token. */
+  job?: string;
 };
 
 /** An assignment read from a photo, with the line as drawn. */
@@ -47,6 +49,12 @@ export type PhotoRead = {
   players: BoardPlayer[];
   assignments: PhotoAssignment[];
   questions: PhotoQuestion[];
+  /** Offense (the default) or a defense drawn on its own. */
+  playType?: "offense" | "defense";
+  /** The coverage the board names or shows, for a defense. */
+  coverage?: string;
+  /** Set when GridIronVault moved the quarterback letter (see `fixQuarterback`). */
+  qbNote?: string;
 };
 
 export type PhotoRequest = {
@@ -54,6 +62,8 @@ export type PhotoRequest = {
   image: string;
   game: GameType;
   terms: { term: string; means: string }[];
+  /** Filled in by the function from the coach's and the app's corrections; never sent by the browser. */
+  lessons?: ReadLesson[];
 };
 
 /** Longest side sent to Claude; larger photos cost more and read no better. */
@@ -85,6 +95,7 @@ export const PHOTO_TOOL = {
             side: { type: "string", enum: ["offense", "defense"] },
             x: { type: "number", description: "Center of the mark, fraction of image width." },
             y: { type: "number", description: "Center of the mark, fraction of image height." },
+            job: { type: "string", description: "Defenders only: the responsibility the board shows, e.g. Deep 1/3, Deep 1/2, Flat, Hook, Curl, Robber, Man X, Rush, Blitz, Spy." },
           },
           required: ["board", "vault", "side", "x", "y"],
         },
@@ -108,6 +119,8 @@ export const PHOTO_TOOL = {
           required: ["player", "kind", "action"],
         },
       },
+      playType: { type: "string", enum: ["offense", "defense"], description: "defense when the diagram is a defensive call (drops, rushes, coverage) rather than an offensive play." },
+      coverage: { type: "string", description: "Defense: the coverage named or shown, e.g. Cover 2, Cover 3, Cover 1, Man, Cover 0." },
       questions: {
         type: "array",
         description: "At most 3, only where a line could be two routes.",
@@ -126,7 +139,7 @@ export const PHOTO_TOOL = {
   },
 };
 
-export function photoSystem(req: Pick<PhotoRequest, "game" | "terms">): string {
+export function photoSystem(req: Pick<PhotoRequest, "game" | "terms" | "lessons">): string {
   const terms = req.terms
     .slice(0, 80)
     .map((t) => `- ${t.term}: ${t.means}`)
@@ -137,9 +150,172 @@ Players: circles or letters are offense, Xs or Vs are usually defense. Record ev
 
 Routes: for each line from an offensive player, record the line itself (path, from the player to the arrow tip), which way its last part heads in the image (breaks), and the closest shape from the tool's list. Name the shape by where the line goes relative to that player: toward the nearer sideline is out-breaking (out, corner, flat, fade, comeback); toward the middle is in-breaking (in, dig, post, slant, drag); a line that runs upfield and then turns back toward the line of scrimmage is a curl (turns back inside), a hitch (short) or a comeback (turns back outside). The route tree: 1 flat, 2 slant, 3 comeback, 4 curl, 5 out, 6 dig, 7 corner, 8 post, 9 go. A line ending in a T is a block. A squiggle before the snap is motion.
 
+The quarterback: a player with no line who stands behind the center (under center or a few yards deep in the shotgun) is the quarterback taking the snap and throwing. Map him to Q even when the board writes a number or another letter, and don't ask about him. A square or a player on the ball in the middle is usually the center (C).
+
+Defenses: when the diagram shows defenders with drops, rushes or coverage shells, record each defender's responsibility in job and set playType defense with the coverage. Lines from defenders are not offensive routes; leave them out of assignments.
+
 When a line could be two routes (a corner that might be a post), choose the likelier and ask one short question with both options. Don't ask about anything you're sure of. If there is no play in the photo, set isPlay false and say why.
 
-The coach draws ${req.game === "11" ? "11-man" : req.game} football.${terms ? `\n\nThe coach's own terms:\n${terms}` : ""}`;
+The coach draws ${req.game === "11" ? "11-man" : req.game} football.${terms ? `\n\nThe coach's own terms:\n${terms}` : ""}${lessonText(req.lessons)}`;
+}
+
+/** What corrections taught the reader, for the prompt: this coach's first, then what many coaches agree on. */
+export type ReadLesson = { kind: "letter" | "route"; from: string; to: string; times: number; scope: "coach" | "app" };
+
+export function lessonText(lessons: ReadLesson[] | undefined): string {
+  if (!lessons?.length) return "";
+  const line = (l: ReadLesson) =>
+    l.kind === "letter"
+      ? `- A mark written "${l.from}" is the player GridIronVault calls ${l.to}.`
+      : `- A line you would read as "${l.from.replace(/_/g, " ")}" was corrected to "${l.to.replace(/_/g, " ")}" (${l.times} time${l.times === 1 ? "" : "s"}); look twice before choosing ${l.from.replace(/_/g, " ")}.`;
+  const mine = lessons.filter((l) => l.scope === "coach").slice(0, 20);
+  const app = lessons.filter((l) => l.scope === "app").slice(0, 20);
+  return [
+    mine.length ? `\n\nThis coach corrected earlier reads (follow these first):\n${mine.map(line).join("\n")}` : "",
+    app.length ? `\n\nCorrections many coaches made:\n${app.map(line).join("\n")}` : "",
+  ].join("");
+}
+
+/* ----------------------------------------------- the quarterback, by rule */
+
+const isOffense = (p: BoardPlayer) => p.side === "offense";
+/** How far behind the line a player stands, in image fractions (positive is the backfield). */
+const depthOf = (read: PhotoRead, p: BoardPlayer) => (read.offenseAt === "top" ? read.losY - p.y : p.y - read.losY);
+
+/**
+ * A player with no line, standing behind the middle of the line, is the
+ * quarterback taking the snap and throwing (Wes, 2026-11-13). When the reader
+ * gave Q to someone else, the two letters change places (the old Q becomes the
+ * center when he stands on the ball and the board has no center), and any
+ * question about the quarterback is dropped.
+ */
+export function fixQuarterback(read: PhotoRead): PhotoRead {
+  const offense = read.players.filter(isOffense);
+  if (!offense.length || read.playType === "defense") return read;
+  const hasLine = (letter: string) => read.assignments.some((a) => a.player.toUpperCase() === letter.toUpperCase());
+  const center = offense.find((p) => p.vault.toUpperCase() === "C");
+  const ballX = center ? center.x : offense.reduce((s, p) => s + p.x, 0) / offense.length;
+  const q = offense.find((p) => p.vault.toUpperCase() === "Q");
+  const dropAsk = (r: PhotoRead) => ({ ...r, questions: r.questions.filter((x) => x.player.toUpperCase() !== "Q") });
+  if (q && !hasLine("Q")) return dropAsk(read);
+  // Routeless players in the backfield near the ball, the one nearest the middle first.
+  const spot = offense
+    .filter((p) => p !== q && !hasLine(p.vault) && depthOf(read, p) > 0.02 && Math.abs(p.x - ballX) < 0.12)
+    .sort((a, b) => Math.abs(a.x - ballX) - Math.abs(b.x - ballX) || depthOf(read, b) - depthOf(read, a))[0];
+  if (!spot) return read;
+  const freed = spot.vault.toUpperCase();
+  const oldQTo = q && !center && Math.abs(depthOf(read, q)) < 0.05 && Math.abs(q.x - ballX) < 0.08 ? "C" : freed;
+  const swap = (letter: string) => {
+    const l = letter.toUpperCase();
+    if (q && l === "Q") return oldQTo;
+    if (l === freed) return "Q";
+    return letter;
+  };
+  const players = read.players.map((p) => (p === spot ? { ...p, vault: "Q" } : p === q ? { ...p, vault: oldQTo } : p));
+  const assignments = read.assignments.map((a) => ({ ...a, player: swap(a.player) }));
+  const questions = read.questions.map((x) => ({ ...x, player: swap(x.player) }));
+  const qbNote = `The player marked ${spot.board} has no line and stands behind the center, so he's the quarterback taking the snap.${
+    q ? ` The ${q.board} the read called Q is now ${oldQTo}.` : ""
+  }`;
+  return dropAsk({ ...read, players, assignments, questions, qbNote });
+}
+
+/* ------------------------------------------------ the coach's corrections */
+
+/** Gives a player another Vault letter; his line follows him, and a player already wearing that letter takes the old one. */
+export function setLetter(read: PhotoRead, index: number, letter: string): PhotoRead {
+  const p = read.players[index];
+  const next = letter.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+  if (!p || !next || next === p.vault.toUpperCase()) return read;
+  const old = p.vault.toUpperCase();
+  const other = read.players.findIndex((x, i) => i !== index && x.side === p.side && x.vault.toUpperCase() === next);
+  const swap = (l: string) => (l.toUpperCase() === old ? next : other >= 0 && l.toUpperCase() === next ? old : l);
+  return {
+    ...read,
+    players: read.players.map((x, i) => (i === index ? { ...x, vault: next } : i === other ? { ...x, vault: old } : x)),
+    assignments: p.side === "offense" ? read.assignments.map((a) => ({ ...a, player: swap(a.player) })) : read.assignments,
+    questions: read.questions.map((q) => ({ ...q, player: swap(q.player) })),
+  };
+}
+
+/**
+ * Sets (or with `null` removes) one player's assignment. A new shape drops
+ * the traced line, which was the old shape, so the route library draws the
+ * new one; the same shape keeps it.
+ */
+export function setAssignment(read: PhotoRead, letter: string, next: Pick<PhotoAssignment, "kind" | "action" | "breaks"> | null): PhotoRead {
+  const L = letter.toUpperCase();
+  const old = read.assignments.find((a) => a.player.toUpperCase() === L);
+  const rest = read.assignments.filter((a) => a.player.toUpperCase() !== L);
+  const questions = read.questions.filter((q) => q.player.toUpperCase() !== L);
+  if (!next) return { ...read, assignments: rest, questions };
+  const same = old && old.action === next.action && old.kind === next.kind;
+  const made: PhotoAssignment = {
+    ...(old ?? { heard: "" }),
+    player: L,
+    kind: next.kind,
+    action: next.action,
+    breaks: next.breaks,
+    path: same && old?.breaks === next.breaks ? old?.path : undefined,
+  };
+  return { ...read, assignments: [...rest, made], questions };
+}
+
+export function setPlayer(read: PhotoRead, index: number, patch: Partial<BoardPlayer>): PhotoRead {
+  return { ...read, players: read.players.map((p, i) => (i === index ? { ...p, ...patch } : p)) };
+}
+
+export function removePlayer(read: PhotoRead, index: number): PhotoRead {
+  const p = read.players[index];
+  if (!p) return read;
+  const L = p.vault.toUpperCase();
+  const still = read.players.some((x, i) => i !== index && x.side === "offense" && x.vault.toUpperCase() === L);
+  return {
+    ...read,
+    players: read.players.filter((_, i) => i !== index),
+    assignments: p.side === "offense" && !still ? read.assignments.filter((a) => a.player.toUpperCase() !== L) : read.assignments,
+    questions: read.questions.filter((q) => q.player.toUpperCase() !== L),
+  };
+}
+
+/** A player the reader missed, dropped near the ball (offense just behind the line, defense across it). */
+export function addPlayer(read: PhotoRead, side: "offense" | "defense", letter: string): PhotoRead {
+  const offense = read.players.filter(isOffense);
+  const ballX = offense.length ? offense.reduce((s, p) => s + p.x, 0) / offense.length : 0.5;
+  const away = read.offenseAt === "top" ? -1 : 1;
+  const taken = read.players.filter((p) => p.side === side).length;
+  const x = Math.min(0.95, Math.max(0.05, ballX + ((taken % 5) - 2) * 0.06));
+  const y = Math.min(0.98, Math.max(0.02, read.losY + away * (side === "offense" ? 0.08 : -0.12)));
+  const L = letter.toUpperCase().slice(0, 3) || "?";
+  return { ...read, players: [...read.players, { board: L, vault: L, side, x, y }] };
+}
+
+/** One correction the coach made to a read, for the reader to learn from. */
+export type Correction = { kind: "letter" | "route"; from: string; to: string };
+
+/**
+ * What the coach changed between the read and the version they used: a mark
+ * the board wrote that means another Vault letter, and a route shape read as
+ * one thing that was another. Only what generalises is kept (no positions,
+ * names or players added by hand).
+ */
+export function correctionsBetween(before: PhotoRead, after: PhotoRead): Correction[] {
+  const out: Correction[] = [];
+  const seen = new Set<string>();
+  const add = (c: Correction) => {
+    const k = `${c.kind}|${c.from}|${c.to}`;
+    if (c.from && c.to && c.from !== c.to && !seen.has(k)) seen.add(k), out.push(c);
+  };
+  for (const a of after.players) {
+    const b = before.players.find((p) => p.board === a.board && Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6);
+    if (!b || a.side !== "offense") continue;
+    if (b.vault.toUpperCase() !== a.vault.toUpperCase() && a.board.toUpperCase() !== a.vault.toUpperCase())
+      add({ kind: "letter", from: a.board.toUpperCase(), to: a.vault.toUpperCase() });
+    const was = before.assignments.find((x) => x.player.toUpperCase() === b.vault.toUpperCase());
+    const now = after.assignments.find((x) => x.player.toUpperCase() === a.vault.toUpperCase());
+    if (was && now && was.kind === "route" && now.kind === "route") add({ kind: "route", from: was.action, to: now.action });
+  }
+  return out.slice(0, 12);
 }
 
 /* ------------------------------------------------------------ in the browser */
@@ -193,7 +369,7 @@ function playerNode(p: BoardPlayer, at: Point, tokens: TokenPreset[], z: number)
   const code = CODE_FOR[p.vault.toUpperCase()];
   const token = p.side === "offense" && code ? tokens.find((t) => t.code === code) : undefined;
   const node = makePlayer(token ?? neutral(p.vault.toUpperCase().slice(0, 2), p.side), at.x, at.y);
-  return { ...node, z, ...(p.side === "defense" ? { size: 30, outlineStyle: "none" as const } : {}) };
+  return { ...node, z, ...(p.side === "defense" ? { size: 30, outlineStyle: "none" as const } : {}), ...(p.job ? { job: p.job } : {}) };
 }
 
 /** A line traced from the photo, starting at its player's token. */

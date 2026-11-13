@@ -13,6 +13,9 @@ test("after the first visit, other screens still open with no signal", async ({ 
   await expect
     .poll(() => page.evaluate(() => performance.getEntriesByType("resource").filter((e) => /\/assets\/(jspdf|svg2pdf|scanPdf|pdf\.worker)/.test(e.name)).length), { timeout: 20_000 })
     .toBeGreaterThanOrEqual(4);
+  // The side menu's groups (Game plan, Practice …) open so every tool's link is on screen.
+  const shut = page.locator('.rail-sec-head[aria-expanded="false"]');
+  while ((await shut.count()) > 0) await shut.first().click();
   await context.setOffline(true);
   for (const [link, title] of [["Wristbands", /Wristbands/], ["Practice", /Practice/], ["Coverage report", /Coverage report/], ["Call Sheet", /Call Sheet/]] as const) {
     await page.locator(`nav a:has-text("${link}")`).first().click();

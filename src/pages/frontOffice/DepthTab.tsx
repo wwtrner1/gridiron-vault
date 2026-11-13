@@ -18,9 +18,22 @@ import {
   type HubTeam,
 } from "../../lib/teamHub";
 import { hubSource, type TeamSource } from "../../lib/teamSource";
-import { photoFromFile } from "../../lib/playerPhoto";
+import { initials, photoFromFile } from "../../lib/playerPhoto";
 import { PlayerFace } from "./RosterTab";
 import { useToast } from "../../lib/toast";
+import { clampSpot, fromFormation, LOS_Y, placeSlots, type Spot } from "../../lib/depthField";
+import { FORMATION_NAMES } from "../../lib/formations";
+
+/** List or On the field, remembered in this browser. */
+const VIEW_KEY = "grid1ronvault.depthview.v1";
+type DepthView = "list" | "field";
+const loadDepthView = (): DepthView => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "field" ? "field" : "list";
+  } catch {
+    return "list";
+  }
+};
 
 const STRING = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
 const SAVE_DELAY_MS = 700;
@@ -39,6 +52,15 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
   const [players, setPlayers] = useState<HubPlayer[] | null>(null);
   const [charts, setCharts] = useState<Record<DepthUnit, DepthSlot[]> | null>(null);
   const [unit, setUnit] = useState<DepthUnit>("offense");
+  const [look, setLook] = useState<DepthView>(loadDepthView);
+  const pickLook = (v: DepthView) => {
+    setLook(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* private window: for this visit only */
+    }
+  };
   const [state, setState] = useState<"saved" | "saving" | "waiting">("saved");
   const [drag, setDrag] = useState<Drag | null>(null);
   const timers = useRef<Partial<Record<DepthUnit, number>>>({});
@@ -197,6 +219,16 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
           </button>
         ))}
       </div>
+      {slots.length > 0 && (
+        <div className="chip-row hub-noprint hub-look" role="group" aria-label="Depth chart view">
+          <button type="button" className={`chip${look === "list" ? " is-on" : ""}`} aria-pressed={look === "list"} onClick={() => pickLook("list")}>
+            <Icon name="ladder" size={13} /> List
+          </button>
+          <button type="button" className={`chip${look === "field" ? " is-on" : ""}`} aria-pressed={look === "field"} onClick={() => pickLook("field")}>
+            <Icon name="board" size={13} /> On the field
+          </button>
+        </div>
+      )}
       <h4 className="hub-print-only">{UNIT_LABEL[unit]}</h4>
 
       {!players.length && <p className="hint">Add players on the Roster tab first, then set who starts where.</p>}
@@ -215,6 +247,24 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
             </button>
           </div>
         </div>
+      ) : look === "field" ? (
+        <DepthField
+          unit={unit}
+          slots={slots}
+          byId={byId}
+          dragging={drag}
+          onMove={(key, at) => edit(key, { at })}
+          onReset={() => change(slots.map(({ at: _at, ...s }) => s))}
+          onFormation={(name) => {
+            const { slots: next, placed } = fromFormation(slots, name);
+            change(next);
+            toast(placed ? `${placed} ${placed === 1 ? "spot" : "spots"} lined up in ${name}.` : `None of these spots are in ${name}. Give them playbook letters like X, Z and H.`, !placed);
+          }}
+          onDropPlayer={(key) => {
+            if (drag) place(key, drag.playerId);
+            setDrag(null);
+          }}
+        />
       ) : (
         <div className="hub-depth">
           {slots.map((s) => (
@@ -321,12 +371,12 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
         </div>
       )}
 
-      {slots.length > 0 && players.length > 0 && <p className="hint hub-noprint">Tap a player's circle to add their picture.</p>}
+      {slots.length > 0 && players.length > 0 && look === "list" && <p className="hint hub-noprint">Tap a player's circle to add their picture.</p>}
 
       {slots.length > 0 && bench.length > 0 && (
         <div className="hub-bench hub-noprint">
           <h4>Not on the {UNIT_LABEL[unit].toLowerCase()} chart yet</h4>
-          <p className="hint">Drag a name onto a spot, or use that spot's Add player list.</p>
+          <p className="hint">{look === "field" ? "Drag a name onto a spot on the field, or use the List view's Add player lists." : "Drag a name onto a spot, or use that spot's Add player list."}</p>
           <ul>
             {bench.map((p) => (
               <li key={p.id} draggable onDragStart={() => setDrag({ playerId: p.id, from: null })} onDragEnd={() => setDrag(null)}>
@@ -353,5 +403,147 @@ export function DepthTab({ team, source: given }: { team: Pick<HubTeam, "id" | "
       />
       {previewing && <PagePreview title={`${team.name} depth chart`} onClose={closePreview} />}
     </section>
+  );
+}
+
+/**
+ * The depth chart on a field: every spot where it lines up, its starter's
+ * picture and name on top and the backups under. Spots are placed from their
+ * names (QB behind the center, corners wide, safeties deep); drag one, or
+ * focus it and use the arrow keys, to put it where your scheme has it.
+ */
+function DepthField({
+  unit,
+  slots,
+  byId,
+  dragging,
+  onMove,
+  onReset,
+  onFormation,
+  onDropPlayer,
+}: {
+  unit: DepthUnit;
+  slots: DepthSlot[];
+  byId: Map<string, HubPlayer>;
+  dragging: Drag | null;
+  onMove: (key: string, at: Spot) => void;
+  onReset: () => void;
+  onFormation: (name: string) => void;
+  onDropPlayer: (key: string) => void;
+}) {
+  const field = useRef<HTMLDivElement>(null);
+  const [live, setLive] = useState<{ key: string; at: Spot } | null>(null);
+  const grab = useRef<{ key: string; x: number; y: number; moved: boolean } | null>(null);
+  const placed = useMemo(() => placeSlots(unit, slots), [unit, slots]);
+  const parked = placed.filter((p) => p.parked).length;
+  const moved = slots.some((s) => s.at);
+
+  const toSpot = (clientX: number, clientY: number): Spot => {
+    const r = field.current!.getBoundingClientRect();
+    return clampSpot(((clientX - r.left) / r.width) * 100, ((clientY - r.top) / r.height) * 100);
+  };
+
+  return (
+    <div className="hub-field-wrap">
+      <div className="hub-field-bar hub-noprint">
+        <span className="hint">
+          {parked
+            ? `${parked} ${parked === 1 ? "spot waits" : "spots wait"} on the sideline: drag ${parked === 1 ? "it" : "them"} to where ${parked === 1 ? "it lines" : "they line"} up.`
+            : "Drag a spot, or pick it and use the arrow keys, to match your formation."}
+        </span>
+        {unit === "offense" && (
+          <select className="select hub-from-set" value="" onChange={(e) => e.target.value && onFormation(e.target.value)} aria-label="Line up from a formation">
+            <option value="">Line up from a formation…</option>
+            {FORMATION_NAMES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        )}
+        {moved && (
+          <button type="button" className="btn btn-quiet btn-sm" onClick={onReset}>
+            Line them up by position
+          </button>
+        )}
+      </div>
+      <div ref={field} className={`hub-field hub-field-${unit}`} role="group" aria-label={`${UNIT_LABEL[unit]} on the field`}>
+        <span className="hub-field-los" style={{ top: `${LOS_Y[unit]}%` }} aria-hidden="true" />
+        {placed.map(({ slot, at: placedAt, parked: isParked }) => {
+          const at = live?.key === slot.key ? live.at : placedAt;
+          const [starter, ...backups] = slot.playerIds.map((id) => byId.get(id)).filter((p): p is HubPlayer => Boolean(p));
+          return (
+            <div
+              key={slot.key}
+              className={`hub-fspot${isParked ? " is-parked" : ""}${dragging ? " is-target" : ""}${live?.key === slot.key ? " is-moving" : ""}`}
+              style={{ left: `${at.x}%`, top: `${at.y}%` }}
+              data-spot={slot.label}
+              onDragOver={(e) => dragging && e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                onDropPlayer(slot.key);
+              }}
+            >
+              <button
+                type="button"
+                className={`hub-ftoken${starter?.status === "injured" ? " is-hurt" : ""}`}
+                aria-label={`${slot.label}: ${starter ? fullName(starter) : "nobody yet"}. Drag or use the arrow keys to move this spot.`}
+                title="Drag to move this spot"
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  grab.current = { key: slot.key, x: e.clientX, y: e.clientY, moved: false };
+                }}
+                onPointerMove={(e) => {
+                  const g = grab.current;
+                  if (!g || g.key !== slot.key) return;
+                  if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 4) return;
+                  g.moved = true;
+                  setLive({ key: slot.key, at: toSpot(e.clientX, e.clientY) });
+                }}
+                onPointerUp={(e) => {
+                  const g = grab.current;
+                  grab.current = null;
+                  if (g?.moved) onMove(slot.key, toSpot(e.clientX, e.clientY));
+                  setLive(null);
+                }}
+                onPointerCancel={() => {
+                  grab.current = null;
+                  setLive(null);
+                }}
+                onKeyDown={(e) => {
+                  const step = e.shiftKey ? 5 : 2;
+                  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+                  if (!d) return;
+                  e.preventDefault();
+                  onMove(slot.key, clampSpot(at.x + d[0], at.y + d[1]));
+                }}
+              >
+                {starter?.photo ? (
+                  <PlayerFace player={starter} size={34} />
+                ) : (
+                  // Drawn by CSS from the attribute, so the button's only words are its name.
+                  <span className="hub-ftoken-open" aria-hidden="true" data-text={starter ? initials(starter.firstName, starter.lastName) : slot.letter || slot.label.slice(0, 2)} />
+                )}
+                {slot.letter && starter && (
+                  <span className="hub-fletter" aria-hidden="true" data-text={slot.letter} />
+                )}
+              </button>
+              <span className="hub-flabel">{slot.label}</span>
+              <span className="hub-fname">{starter ? `${starter.jersey ? `#${starter.jersey} ` : ""}${fullName(starter)}` : "Open"}</span>
+              {backups.length > 0 && (
+                <span className="hub-fbackups">
+                  {backups.map((p, i) => (
+                    <span key={p.id}>
+                      {STRING[i + 1]} {p.lastName || p.firstName}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
