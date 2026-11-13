@@ -6,7 +6,7 @@ import { errorsOf, quiet } from "./helpers";
  * My team's roster columns (hide one from its heading, turn an extra one on,
  * add a field of your own, type into the table, download what's shown) and
  * the depth chart's On the field view (spots placed by name, a sideline spot,
- * an arrow-key move saved, Line them up by position).
+ * an arrow-key move saved, Line them up by position, a library formation).
  */
 
 test.beforeEach(async ({ context }) => quiet(context));
@@ -153,6 +153,14 @@ test("depth chart: On the field places spots by name, moves one by keys and line
   await expect(page.getByRole("group", { name: "Offense on the field" })).toBeVisible();
   await page.getByRole("button", { name: "Line them up by position" }).click();
   await expect.poll(async () => (await stored(page)).charts[0].slots.find((s) => s.key === "o1")?.at).toBeUndefined();
+  // Line up from a library formation: the spots with a formation player move there, the unknown one stays parked.
+  await page.getByLabel("Line up from a formation").selectOption("Trips Right");
+  await expect(page.locator(".toast").last()).toContainText("3 spots lined up in Trips Right");
+  await expect.poll(async () => (await stored(page)).charts[0].slots.find((s) => s.key === "o3")?.at).toBeTruthy();
+  const slotsNow = (await stored(page)).charts[0].slots;
+  expect(slotsNow.find((s) => s.key === "o1")?.at?.y).toBeGreaterThan(40);
+  expect(slotsNow.find((s) => s.key === "o2")?.at).toEqual({ x: 50, y: 38.5 });
+  expect(slotsNow.find((s) => s.key === "o4")?.at).toBeUndefined();
   await page.getByRole("button", { name: "List" }).click();
   await expect(page.locator(".hub-slot:not(.hub-slot-add)")).toHaveCount(4);
   expect(errors).toEqual([]);

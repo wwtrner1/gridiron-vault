@@ -9,6 +9,7 @@
  * `at`; any other is placed from its name and playbook letter, and a name we
  * don't know waits on the sideline row for the coach to drag it into place.
  */
+import { layoutFormation, PERSONNEL, type GameType, type Placed } from "./formations";
 import type { DepthSlot, DepthUnit } from "./teamHub";
 
 export type Spot = { x: number; y: number };
@@ -122,3 +123,70 @@ export function placeSlots(unit: DepthUnit, slots: DepthSlot[]): PlacedSlot[] {
 
 /** A dragged spot, held inside the field. */
 export const clampSpot = (x: number, y: number): Spot => ({ x: Math.round(Math.min(97, Math.max(3, x)) * 10) / 10, y: Math.round(Math.min(96, Math.max(4, y)) * 10) / 10 });
+
+/* ------------------------------------------------- line up from a formation --- */
+
+/** Formation units (dx from the ball, dy behind the line) to field percent. */
+/** Across: the line and tight ends get more room than the width (cards need it), out to 42% each side at 400 units. */
+const across = (dx: number) => Math.sign(dx) * (Math.abs(dx) <= 150 ? Math.abs(dx) * 0.14 : 21 + (Math.abs(dx) - 150) * 0.084);
+const FROM_DY = 0.25;
+const LINE_DX: Record<string, number> = { lt: -100, "left tackle": -100, lg: -50, "left guard": -50, rg: 50, "right guard": 50, rt: 100, "right tackle": 100 };
+
+/** Which game the offense chart is drawn for: linemen mean 11-man, six or more spots 7v7, else 5v5. */
+export function gameOf(slots: DepthSlot[]): GameType {
+  if (slots.some((s) => /^(lt|lg|rg|rt|t|g|ot|og|ol|left tackle|left guard|right guard|right tackle|tackle|guard)$/.test(tidy(s.label)))) return "11";
+  return slots.length >= 6 ? "7v7" : "5v5";
+}
+
+/** 11-man personnel from the chart's backs and tight ends ("21" for an I with a fullback). */
+function personnelOf(slots: DepthSlot[]): string {
+  const backs = slots.filter((s) => /^(rb|hb|tb|fb|running back|halfback|tailback|fullback|back)$/.test(tidy(s.label))).length;
+  const tes = slots.filter((s) => /^(te|tight end)$/.test(tidy(s.label))).length;
+  const code = `${Math.min(2, backs)}${Math.min(3, tes)}`;
+  return PERSONNEL.some((p) => p.code === code) ? code : "11";
+}
+
+/**
+ * The offense chart lined up the way a library formation sets it: each spot
+ * finds the player the formation puts there by its playbook letter (X, Z, H),
+ * then by its name (QB, Center, LT, TE, RB, FB, WR). Spots the formation has
+ * no one for keep where they were. Returns the slots with `at` set, and how
+ * many it placed.
+ */
+export function fromFormation(slots: DepthSlot[], name: string): { slots: DepthSlot[]; placed: number } {
+  const game = gameOf(slots);
+  const set: Placed[] = layoutFormation(game, game === "11" ? personnelOf(slots) : "11", name);
+  const used = new Set<number>();
+  const take = (ok: (p: Placed) => boolean) => {
+    const i = set.findIndex((p, n) => !used.has(n) && ok(p));
+    if (i >= 0) used.add(i);
+    return i >= 0 ? set[i] : null;
+  };
+  const find = (s: DepthSlot): Placed | null => {
+    const label = tidy(s.label);
+    const letter = s.letter.toUpperCase();
+    if (letter === "Q" || /^(qb|quarterback)$/.test(label)) return take((p) => p.code === "QB");
+    if (letter === "C" || /^(c|center|centre)$/.test(label)) return take((p) => p.code === "C");
+    if (label in LINE_DX) return take((p) => p.code === "OL" && p.dx === LINE_DX[label]);
+    if (/^(t|g|ot|og|ol|tackle|guard|lineman)$/.test(label)) return take((p) => p.code === "OL");
+    if (/^(fb|fullback)$/.test(label)) return take((p) => p.role === "rb" && p.code !== "RB") ?? take((p) => p.role === "rb");
+    if (/^(rb|hb|tb|running back|halfback|tailback)$/.test(label)) return take((p) => p.role === "rb");
+    if (/^(te|tight end)$/.test(label)) return take((p) => p.role === "te");
+    if (letter) {
+      const hit = take((p) => p.code === letter || (p.code === "EXTRA" && p.label === letter));
+      if (hit) return hit;
+      // A receiver letter the formation doesn't use (5v5 sets have three) takes the next receiver spot.
+      if (/^[A-Z]$/.test(letter) && !"QCTGE".includes(letter)) return take((p) => p.role === "wr");
+    }
+    if (/^(wr|receiver|wide receiver|wideout|slot)$/.test(label)) return take((p) => p.role === "wr");
+    return null;
+  };
+  let placed = 0;
+  const out = slots.map((s) => {
+    const p = find(s);
+    if (!p) return s;
+    placed++;
+    return { ...s, at: clampSpot(50 + across(p.dx), LOS_Y.offense + p.dy * FROM_DY) };
+  });
+  return { slots: out, placed };
+}
