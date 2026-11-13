@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3e6ebb0e-845d-41f9-9424-36455efa236c",
+  "id": "19884c9c-8068-406b-b33d-8fdbb69087fc",
   "prevIds": [
-    "e29e1033-c41b-4882-8b02-8176baebb365"
+    "4cec5839-2517-4ecf-9ad9-b703de584c43"
   ],
   "ddl": [
     {
@@ -123,6 +123,12 @@
     {
       "isRlsEnabled": false,
       "name": "playbook_shares",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "playbook_terms",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2204,6 +2210,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "playbook_shares"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "playbook_terms"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "data",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "playbook_terms"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "playbook_terms"
     },
     {
       "type": "uuid",
@@ -5405,6 +5450,16 @@
       "name": "playbook_shares_pkey",
       "schema": "public",
       "table": "playbook_shares",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "owner_id"
+      ],
+      "nameExplicit": false,
+      "name": "playbook_terms_pkey",
+      "schema": "public",
+      "table": "playbook_terms",
       "entityType": "pks"
     },
     {
