@@ -15,6 +15,7 @@ import {
   termStore,
   TYPE_LABEL,
   usesOf,
+  useStaffTerms,
   useTerms,
   type Term,
   type TermScope,
@@ -46,11 +47,14 @@ export function PlaybookLanguage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
   const [peek, setPeek] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ id: string; staff: boolean } | null>(null);
+  const { staff, director } = useStaffTerms();
+  const { shareWithStaff } = useTerms();
   const toast = useToast();
   const examples = useMemo(() => new Map(terms.map((t) => [t.id, exampleFor(t, plays)])), [terms, plays]);
+  const staffExamples = useMemo(() => new Map((staff?.terms ?? []).map((t) => [t.id, exampleFor(t, plays)])), [staff, plays]);
   const missing = termStore.missingStarters();
-  const opened = open ? terms.find((t) => t.id === open) : undefined;
+  const opened = open ? (open.staff ? staff?.terms : terms)?.find((t) => t.id === open.id) : undefined;
   /** The term being edited as it is saved, so the form keeps its name while the coach retypes it. */
   const editing = draft?.id ? terms.find((t) => t.id === draft.id) : undefined;
 
@@ -109,6 +113,45 @@ export function PlaybookLanguage() {
             way. Review, rename or delete them here.
           </p>
         </div>
+
+        {director && (
+          <label className="lang-share">
+            <input type="checkbox" checked={shareWithStaff !== false} onChange={(e) => termStore.setShare(e.target.checked)} />
+            <span>
+              <b>Share my terms with my Front Office staff</b>
+              Your coaches see every term here except the ones marked Just you, read-only, and Griddy reads your words for them too.
+            </span>
+          </label>
+        )}
+
+        {staff && (
+          <section className="card lang-staff" aria-labelledby="lang-staff-h">
+            <h3 id="lang-staff-h">
+              From {staff.from} · {staff.org}
+            </h3>
+            <p className="lang-muted">
+              Your head coach's terms, read-only. Griddy reads these first, so the whole staff speaks one language; your own terms below fill in the rest.
+            </p>
+            <ul className="lang-staff-list">
+              {staff.terms.map((t) => (
+                <li key={t.id}>
+                  <ExampleThumb
+                    term={t}
+                    example={staffExamples.get(t.id) ?? null}
+                    peeking={peek === `staff:${t.id}`}
+                    onPeek={(on) => setPeek(on ? `staff:${t.id}` : null)}
+                    onOpen={() => (setPeek(null), setOpen({ id: t.id, staff: true }))}
+                  />
+                  <span>
+                    <b>{t.term}</b>
+                    <span>{t.means}</span>
+                  </span>
+                  <span className="pill pill-type">{TYPE_LABEL[t.type]}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <div className="lang-stats">
           <div className="card stat">
@@ -255,7 +298,7 @@ export function PlaybookLanguage() {
                         example={examples.get(t.id) ?? null}
                         peeking={peek === t.id}
                         onPeek={(on) => setPeek(on ? t.id : null)}
-                        onOpen={() => (setPeek(null), setOpen(t.id))}
+                        onOpen={() => (setPeek(null), setOpen({ id: t.id, staff: false }))}
                       />
                       <span>{t.term}</span>
                     </div>
@@ -309,9 +352,9 @@ export function PlaybookLanguage() {
       {opened && (
         <ExampleDialog
           term={opened}
-          example={examples.get(opened.id) ?? null}
+          example={(open?.staff ? staffExamples : examples).get(opened.id) ?? null}
           onClose={() => setOpen(null)}
-          onEdit={() => (setOpen(null), edit(opened))}
+          onEdit={open?.staff ? undefined : () => (setOpen(null), edit(opened))}
         />
       )}
     </Shell>
@@ -367,7 +410,7 @@ function ExampleThumb({
 }
 
 /** A term's example, large, with a play from the Vault to pick as the coach's own. */
-function ExampleDialog({ term, example, onClose, onEdit }: { term: Term; example: TermExample | null; onClose: () => void; onEdit: () => void }) {
+function ExampleDialog({ term, example, onClose, onEdit }: { term: Term; example: TermExample | null; onClose: () => void; onEdit?: () => void }) {
   const plays = useStore((s) => s.plays);
   const using = useMemo(() => playsUsing(term.term, plays), [term.term, plays]);
   const rest = useMemo(() => plays.filter((p) => !using.includes(p)).sort((a, b) => a.name.localeCompare(b.name)), [plays, using]);
@@ -384,9 +427,11 @@ function ExampleDialog({ term, example, onClose, onEdit }: { term: Term; example
       wide
       footer={
         <>
-          <button type="button" className="btn btn-quiet btn-sm" onClick={onEdit}>
-            <Icon name="pencil" size={15} /> Edit the term
-          </button>
+          {onEdit && (
+            <button type="button" className="btn btn-quiet btn-sm" onClick={onEdit}>
+              <Icon name="pencil" size={15} /> Edit the term
+            </button>
+          )}
           {example?.playId && (
             <Link to={`/build/${example.playId}`} className="btn btn-ghost btn-sm">
               Open in the Designer
@@ -410,31 +455,34 @@ function ExampleDialog({ term, example, onClose, onEdit }: { term: Term; example
             No picture yet. Pick a play from your Vault that shows “{term.term}”, and every coach on your staff sees the same thing.
           </p>
         )}
-        <label className="field">
-          <span>Show it with a play from your Vault</span>
-          <select className="select" value={term.exampleId && plays.some((p) => p.id === term.exampleId) ? term.exampleId : ""} onChange={(e) => pick(e.target.value)}>
-            <option value="">{STARTER_BY_ID.has(term.id) ? "The starter glossary diagram" : "The first play that uses the word"}</option>
-            {using.length > 0 && (
-              <optgroup label={`Plays that say “${term.term}”`}>
-                {using.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {rest.length > 0 && (
-              <optgroup label="Every other play">
-                {rest.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </label>
-        {plays.length === 0 && <p className="lang-muted">Your Vault is empty. Draw or copy a play first, then pick it here.</p>}
+        {!onEdit && <p className="lang-muted">From your head coach's list. Only they can change it.</p>}
+        {onEdit && (
+          <label className="field">
+            <span>Show it with a play from your Vault</span>
+            <select className="select" value={term.exampleId && plays.some((p) => p.id === term.exampleId) ? term.exampleId : ""} onChange={(e) => pick(e.target.value)}>
+              <option value="">{STARTER_BY_ID.has(term.id) ? "The starter glossary diagram" : "The first play that uses the word"}</option>
+              {using.length > 0 && (
+                <optgroup label={`Plays that say “${term.term}”`}>
+                  {using.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {rest.length > 0 && (
+                <optgroup label="Every other play">
+                  {rest.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+        )}
+        {onEdit && plays.length === 0 && <p className="lang-muted">Your Vault is empty. Draw or copy a play first, then pick it here.</p>}
       </div>
     </Modal>
   );

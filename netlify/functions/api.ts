@@ -58,7 +58,7 @@ import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldB
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
-import { cleanTerms } from "../../src/lib/termsData.js";
+import { cleanTerms, sharedWithStaff, type StaffTerms } from "../../src/lib/termsData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
@@ -551,10 +551,25 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     /* ----------------------------------------------- playbook language --- */
     if (resource === "terms" && !id) {
       const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
-      if (!me) return req.method === "GET" ? mine({ terms: null }) : fail("Sign in to keep your playbook language on your account.", 401);
+      if (!me) return req.method === "GET" ? mine({ terms: null, staff: null, director: false }) : fail("Sign in to keep your playbook language on your account.", 401);
       if (req.method === "GET") {
         const [row] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
-        return mine({ terms: row ? cleanTerms(row.data) : null });
+        const [own] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
+        // A coach on a director's staff reads the director's shared list (never the "Just you" terms).
+        const [membership] = await db
+          .select({ org: organizations.name, from: organizations.ownerName, ownerId: organizations.ownerId })
+          .from(orgMembers)
+          .innerJoin(organizations, eq(orgMembers.orgId, organizations.id))
+          .where(and(eq(orgMembers.userId, me.id), eq(orgMembers.status, "active"), ne(organizations.ownerId, me.id)))
+          .orderBy(orgMembers.joinedAt)
+          .limit(1);
+        let staff: StaffTerms | null = null;
+        if (membership) {
+          const [theirs] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, membership.ownerId));
+          const shared = theirs ? sharedWithStaff(cleanTerms(theirs.data)) : [];
+          if (shared.length) staff = { org: membership.org, from: membership.from || "Your head coach", terms: shared };
+        }
+        return mine({ terms: row ? cleanTerms(row.data) : null, staff, director: !!own });
       }
       if (req.method === "PUT") {
         await ensureProfile(me);

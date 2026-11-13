@@ -172,3 +172,77 @@ test("signed in, the account's terms replace an older list and a change goes up 
   await expect.poll(() => sent.at(-1)?.terms.find((t) => t.id === "term-1")?.means).toBe("Skinny post at 8");
   expect(sent.at(-1)!.terms.find((t) => t.id === "glossary-flood")?.term).toBe("Sail");
 });
+
+test("a staff coach reads the head coach's terms, and Griddy speaks them first", async ({ page, context }) => {
+  let griddyTerms: { term: string; means: string }[] = [];
+  await signIn(context, async (route, path, method) => {
+    if (path === "terms" && method === "GET") {
+      await route.fulfill({
+        json: {
+          terms: null,
+          director: false,
+          staff: {
+            org: "Hawks Football",
+            from: "Coach Rivera",
+            terms: [
+              { id: "glossary-flood", term: "Sail", means: "Head coach's flood", type: "concept", source: "Starter glossary", added: "2026-09-01", scope: "shared" },
+              { id: "term-h", term: "Mesh", means: "Head coach's mesh", type: "concept", source: "You added", added: "2026-11-01", scope: "staff" },
+            ],
+          },
+        },
+      });
+      return true;
+    }
+    if (path === "ai/griddy") {
+      griddyTerms = JSON.parse(route.request().postData() ?? "{}").terms;
+      await route.fulfill({ json: { reply: { text: "Got it, Coach.", actions: [] } } });
+      return true;
+    }
+  });
+  await page.goto("/language");
+  const staff = page.getByRole("region", { name: "From Coach Rivera · Hawks Football" });
+  await expect(staff).toContainText("Head coach's flood");
+  // No share switch for a coach who doesn't run a Front Office.
+  await expect(page.getByLabel("Share my terms with my Front Office staff")).toHaveCount(0);
+
+  // The staff list is read-only: its renamed Flood keeps the diagram, with no picker or Edit.
+  await staff.getByRole("button", { name: "Show the Sail example" }).click();
+  const dialog = page.getByRole("dialog", { name: "Sail" });
+  await expect(dialog.locator("figcaption")).toHaveText("Starter glossary diagram");
+  await expect(dialog).toContainText("Only they can change it");
+  await expect(dialog.getByLabel("Show it with a play from your Vault")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Edit the term" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Griddy reads the head coach's words first; the coach's own Mesh gives way to the staff's.
+  await page.locator("button.gd-launch").click();
+  const box = page.locator("#griddy-panel").getByLabel("Message Griddy");
+  await box.fill("Draw me our mesh");
+  await box.press("Enter");
+  await expect.poll(() => griddyTerms.length).toBeGreaterThan(0);
+  expect(griddyTerms[0]).toEqual({ term: "Sail", means: "Head coach's flood" });
+  expect(griddyTerms.filter((t) => t.term === "Mesh")).toEqual([{ term: "Mesh", means: "Head coach's mesh" }]);
+  expect(griddyTerms.some((t) => t.term === "Flood")).toBe(true);
+});
+
+test("a director turns sharing with the staff off and on", async ({ page, context }) => {
+  const sent: { shareWithStaff?: boolean }[] = [];
+  await signIn(context, async (route, path, method) => {
+    if (path !== "terms") return;
+    if (method === "GET") await route.fulfill({ json: { terms: null, staff: null, director: true } });
+    else {
+      sent.push(JSON.parse(route.request().postData() ?? "{}").terms);
+      await route.fulfill({ json: { terms: sent.at(-1) } });
+    }
+    return true;
+  });
+  await page.goto("/language");
+  const share = page.getByLabel("Share my terms with my Front Office staff");
+  await expect(share).toBeChecked();
+  await share.uncheck();
+  await expect.poll(() => sent.at(-1)?.shareWithStaff).toBe(false);
+  await page.reload();
+  await expect(share).not.toBeChecked();
+  await share.check();
+  await expect.poll(() => sent.at(-1)?.shareWithStaff).toBe(true);
+});
