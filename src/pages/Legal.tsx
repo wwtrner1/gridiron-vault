@@ -11,7 +11,7 @@ import "../styles/legal.css";
  * Drafted without a lawyer — have one review before charging for plans.
  */
 
-const UPDATED = "October 30, 2026";
+const UPDATED = "November 13, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -84,6 +84,19 @@ export function Privacy() {
         <li>
           <b>Recently deleted work:</b> a play, playbook or Call Sheet you delete is kept for 30 days so it can be put back if
           it was a mistake, then removed. Deleting your account removes your work at once.
+        </li>
+        <li>
+          <b>Play archive:</b> a copy of every play saved to your account (drawn, copied, imported or read from a scan or
+          photo), shared or not, is kept in an archive that only the site owner can see. It stays when you delete a play, so we
+          can look back at how GridIronVault is used, fix problems and recover lost work, and the owner can purge it. It is
+          never shown to other coaches, and deleting your account deletes your copies. Plays you keep only in your browser are
+          not in it.
+        </li>
+        <li>
+          <b>What the play reader learns:</b> when you fix a play read from a scan or photo (a mark that means another
+          player, a route read as the wrong shape), we keep that fix with your account so your next reads get it right. A fix
+          is used for every coach's reads only after three or more coaches have made the same one, and it never carries your
+          name, plays or images. Upload → What the reader learned lists yours, with Forget.
         </li>
         <li>
           <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
@@ -203,7 +216,8 @@ export function Terms() {
       <p>
         You own the plays, playbooks, notes and files you create or upload. You let us store, display and process them only
         to run the service for you — for example to show them on your devices, print wristbands, or read a whiteboard photo.
-        Nothing you make is shown to other coaches unless you share it.
+        Nothing you make is shown to other coaches unless you share it. The site owner keeps a private archive copy of plays
+        saved to accounts, as the Privacy page explains, and may purge it at any time.
       </p>
 
       <h2>Only upload what you have the right to use</h2>
