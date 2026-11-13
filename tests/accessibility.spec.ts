@@ -11,18 +11,18 @@ import { quiet, seedReady, signIn } from "./helpers";
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-const SCREENS = ["/", "/vault", "/playbooks", "/grid", "/starters", "/pricing", "/account", "/signin", "/help", "/wristbands", "/language", "/upload", "/assignments", "/practice", "/coverage", "/tools", "/front-office", "/roster", "/tutorials", "/privacy", "/terms", "/nope", "/build"];
+const SCREENS = ["/", "/vault", "/playbooks", "/grid", "/starters", "/pricing", "/account", "/signin", "/help", "/wristbands", "/language", "/upload", "/assignments", "/practice", "/drills", "/coverage", "/tools", "/front-office", "/roster", "/tutorials", "/privacy", "/terms", "/nope", "/build"];
 
 type Violation = { id: string; impact: string | null | undefined; help: string; nodes: { target: unknown[]; html: string }[] };
 
 /**
  * Allows the diagram-label exception:
  * - "label in name" on a button whose only visible text is a play diagram's yard numbers and letters
- *   (Starters previews, Assignments cards), and on a playbook folder opened in the tree, whose
+ *   (Starters previews, Assignments cards, Playbook language's example buttons), and on a playbook folder opened in the tree, whose
  *   children's names axe counts as the folder's visible text.
  */
 function real(violations: Violation[]) {
-  const diagram = (t: string) => /play-thumb|asg-card|aria-expanded="true"/.test(t);
+  const diagram = (t: string) => /play-thumb|asg-card|lang-thumb|aria-expanded="true"/.test(t);
   return violations
     .map((v) => (v.id === "label-content-name-mismatch" ? { ...v, nodes: v.nodes.filter((n) => !diagram(n.target.join(" ")) && !diagram(n.html)) } : v))
     .filter((v) => v.nodes.length);

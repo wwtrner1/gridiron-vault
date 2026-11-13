@@ -6,6 +6,8 @@ import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positions
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
 import { Icon } from "./Icon";
+import { FilmNotes } from "./FilmNotes";
+import "../styles/filmnotes.css";
 
 const SPEEDS = [0.5, 1, 2] as const;
 
@@ -35,6 +37,7 @@ export function RunPlay({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [notesOn, setNotesOn] = useState(false);
   const [videoName, setVideoName] = useState("");
   const [sync, setSync] = useState(true);
   const [linkDraft, setLinkDraft] = useState(scene.film?.link ?? "");
@@ -205,20 +208,31 @@ export function RunPlay({
         </div>
 
         <div className="rp-right">
-          <div className="rp-video">
-            {videoUrl ? (
-              // A clip from the coach's own computer; it has no captions to offer.
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video ref={video} src={videoUrl} controls playsInline aria-label={`Clip: ${videoName}`} />
-            ) : (
-              <button type="button" className="rp-empty" onClick={() => fileRef.current?.click()}>
-                <Icon name="upload" size={22} />
-                <span>Attach a practice or game clip from this computer</span>
-              </button>
-            )}
-          </div>
+          {notesOn && scene.film?.link && !videoUrl ? (
+            <div className="rp-notes">
+              <FilmNotes link={scene.film.link} title={name || "This play"} start={snapAt} notes={scene.film.notes ?? []} onChange={(notes) => onFilm({ ...scene.film, notes })} />
+            </div>
+          ) : (
+            <div className="rp-video">
+              {videoUrl ? (
+                // A clip from the coach's own computer; it has no captions to offer.
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video ref={video} src={videoUrl} controls playsInline aria-label={`Clip: ${videoName}`} />
+              ) : (
+                <button type="button" className="rp-empty" onClick={() => fileRef.current?.click()}>
+                  <Icon name="upload" size={22} />
+                  <span>Attach a practice or game clip from this computer</span>
+                </button>
+              )}
+            </div>
+          )}
           <input ref={fileRef} type="file" accept="video/*" hidden onChange={(e) => (e.target.files?.[0] && attach(e.target.files[0]), (e.target.value = ""))} />
           <div className="rp-acts">
+            {scene.film?.link && !videoUrl && (
+              <button type="button" className="btn btn-outline-dark" aria-expanded={notesOn} onClick={() => setNotesOn((o) => !o)}>
+                {notesOn ? "Close film notes" : scene.film.notes?.length ? `Film notes (${scene.film.notes.length})` : "Add film notes"}
+              </button>
+            )}
             <button type="button" className="btn btn-outline-dark" onClick={() => fileRef.current?.click()}>
               {videoUrl ? "Attach a different video" : "Attach video"}
             </button>

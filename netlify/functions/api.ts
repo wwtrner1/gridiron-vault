@@ -12,6 +12,7 @@ import {
   myTeams,
   playerFiles,
   teamBrands,
+  playbookTerms,
   organizations,
   orgMembers,
   playbookPlays,
@@ -23,6 +24,8 @@ import {
   quizResults,
   trialClaims,
   trustedDevices,
+  playArchive,
+  readLessons,
 } from "../../db/schema.js";
 import {
   checkCode,
@@ -57,6 +60,7 @@ import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldB
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
+import { cleanTerms, sharedWithStaff, type StaffTerms } from "../../src/lib/termsData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
 import {
   ASSISTANT_TOOL,
@@ -66,7 +70,9 @@ import {
   type AssistantRequest,
 } from "../../src/lib/assistant.js";
 import { FORMATION_NAMES, GAME_TYPES } from "../../src/lib/formations.js";
-import { MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
+import { archiveList, archivePlay, markArchivedDeleted, purgeArchive } from "../admin/archive.js";
+import { appLessons, forget, lessonsFor, myLessons, purgeLesson, setLessonOff, teach } from "../ai/lessons.js";
+import { fixQuarterback, MAX_IMAGE_CHARS, PHOTO_TOOL, photoSystem, type PhotoRead, type PhotoRequest } from "../../src/lib/photo.js";
 import { cleanBoxes, SCAN_SYSTEM, SCAN_TOOL, type ScanBox, type ScanRequest } from "../../src/lib/scan.js";
 
 /** Identity user ids are UUIDs today; accept any safe id so a different provider format doesn't lock the owner out. */
@@ -334,7 +340,8 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         if (!(await spend(me, "assistant")))
           return fail(`That's ${DAILY_AI.assistant} Griddy requests today — the daily limit. It resets at midnight UTC.`, 429);
         const ask = await req.json();
-        return json({ reply: await chargedOnSuccess(me, "assistant", () => griddy(ask)) });
+        const lessons = await lessonsFor(me.id);
+        return json({ reply: await chargedOnSuccess(me, "assistant", () => griddy(ask, lessons)) });
       }
       if (id === "assistant") return await assistant(me, await req.json());
       if (id === "photo") return await photo(me, await req.json());
@@ -401,6 +408,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .insert(plays)
           .values({ ...play, ownerId: me.id, ownerName: me.name })
           .returning();
+        await archivePlay(me, row);
         return json({ play: row }, 201);
       }
 
@@ -439,6 +447,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
             isPublic: false,
           })
           .returning();
+        await archivePlay(me, row, "copied");
         await db.insert(playSaves).values({ userId: me.id, playId: source.id });
         await db
           .update(plays)
@@ -455,12 +464,14 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)))
           .returning();
         if (!row) return fail("You can only edit your own plays.", 403);
+        await archivePlay(me, row);
         return json({ play: row });
       }
 
       if (req.method === "DELETE" && id) {
         const [old] = UUID.test(id) ? await db.select().from(plays).where(and(eq(plays.id, id), eq(plays.ownerId, me.id))) : [];
         if (old) await keepInTrash(me.id, "play", old);
+        if (old) await markArchivedDeleted(old.id);
         await db
           .delete(plays)
           .where(and(eq(plays.id, id), eq(plays.ownerId, me.id)));
@@ -526,6 +537,16 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     }
 
     /* ---------------------------------------------------- team brand --- */
+    /* ------------------------------------------- the reader's memory --- */
+    // Fixes the coach made to scanned and photographed plays (netlify/ai/lessons.ts).
+    if (resource === "read-lessons") {
+      if (!me) return fail("Sign in so GridIronVault can learn from your fixes.", 401);
+      if (req.method === "GET" && !id) return json(await myLessons(me.id));
+      if (req.method === "POST" && !id) return json(await teach(me.id, ((await req.json().catch(() => ({}))) as { corrections?: unknown }).corrections));
+      if (req.method === "DELETE" && (!id || UUID.test(id))) return json(await forget(me.id, id));
+      return fail("That address is not part of the playbook API.", 404);
+    }
+
     if (resource === "brand" && !id) {
       const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
       if (!me) return req.method === "GET" ? mine({ brand: null }) : fail("Sign in to keep your team branding on your account.", 401);
@@ -543,6 +564,42 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .values({ ownerId: me.id, data: brand, updatedAt: new Date() })
           .onConflictDoUpdate({ target: teamBrands.ownerId, set: { data: brand, updatedAt: new Date() } });
         return mine({ brand });
+      }
+    }
+
+    /* ----------------------------------------------- playbook language --- */
+    if (resource === "terms" && !id) {
+      const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
+      if (!me) return req.method === "GET" ? mine({ terms: null, staff: null, director: false }) : fail("Sign in to keep your playbook language on your account.", 401);
+      if (req.method === "GET") {
+        const [row] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
+        const [own] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
+        // A coach on a director's staff reads the director's shared list (never the "Just you" terms).
+        const [membership] = await db
+          .select({ org: organizations.name, from: organizations.ownerName, ownerId: organizations.ownerId })
+          .from(orgMembers)
+          .innerJoin(organizations, eq(orgMembers.orgId, organizations.id))
+          .where(and(eq(orgMembers.userId, me.id), eq(orgMembers.status, "active"), ne(organizations.ownerId, me.id)))
+          .orderBy(orgMembers.joinedAt)
+          .limit(1);
+        let staff: StaffTerms | null = null;
+        if (membership) {
+          const [theirs] = await db.select().from(playbookTerms).where(eq(playbookTerms.ownerId, membership.ownerId));
+          const shared = theirs ? sharedWithStaff(cleanTerms(theirs.data)) : [];
+          if (shared.length) staff = { org: membership.org, from: membership.from || "Your head coach", terms: shared };
+        }
+        return mine({ terms: row ? cleanTerms(row.data) : null, staff, director: !!own });
+      }
+      if (req.method === "PUT") {
+        await ensureProfile(me);
+        const body = (await req.json().catch(() => ({}))) as { terms?: unknown };
+        const terms = cleanTerms(body.terms);
+        if (!terms.updatedAt) terms.updatedAt = new Date().toISOString();
+        await db
+          .insert(playbookTerms)
+          .values({ ownerId: me.id, data: terms, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: playbookTerms.ownerId, set: { data: terms, updatedAt: new Date() } });
+        return mine({ terms });
       }
     }
 
@@ -772,6 +829,32 @@ async function adminRoute(me: Session, req: Request, path: string[]) {
     return json(await visitorStats(days));
   }
   if (req.method === "GET" && id === "audit") return json({ entries: await recentAudit() });
+  if (req.method === "GET" && id === "archive") {
+    const q = new URL(req.url).searchParams;
+    if (q.get("owner") || q.get("q")) await audit(me, "archive_view", q.get("owner") ?? "", { q: (q.get("q") ?? "").slice(0, 80) });
+    return json(await archiveList(q));
+  }
+  if (req.method === "POST" && id === "archive" && uid === "purge") {
+    const r = await purgeArchive(body);
+    if ("error" in r) return fail(r.error);
+    await audit(me, "archive_purge", String(body.playId ?? body.ownerId ?? ""), { scope: String(body.scope ?? ""), days: body.days ?? null, purged: r.purged });
+    return json(r);
+  }
+  if (req.method === "GET" && id === "lessons") return json({ lessons: await appLessons() });
+  if (req.method === "POST" && id === "lessons" && (uid === "switch" || uid === "purge")) {
+    const kind = String(body.kind ?? "").slice(0, 12);
+    const from = String(body.from ?? "").slice(0, 24);
+    const to = String(body.to ?? "").slice(0, 24);
+    if (!kind || !from || !to) return fail("Choose a lesson first.");
+    if (uid === "switch") {
+      await setLessonOff(kind, from, to, body.off === true);
+      await audit(me, body.off === true ? "lesson_off" : "lesson_on", "", { kind, from, to });
+      return json({ ok: true });
+    }
+    const purged = await purgeLesson(kind, from, to);
+    await audit(me, "lesson_purge", "", { kind, from, to, purged });
+    return json({ purged });
+  }
   if (req.method === "GET" && id === "activity") {
     const q = new URL(req.url).searchParams;
     const filter = q.get("kind") === "access" ? "access" : q.get("kind") === "capture" ? "capture" : "all";
@@ -1016,10 +1099,11 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
   if (!(await spend(me, "photo")))
     return fail(`That's ${DAILY_AI.photo} photo reviews today — the daily limit. It resets at midnight UTC.`, 429);
 
+  const lessons = await lessonsFor(me.id);
   const raw = await chargedOnSuccess(me, "photo", () =>
     callTool<PhotoRead>({
       model: MODELS.photo,
-      system: photoSystem({ game, terms }),
+      system: photoSystem({ game, terms, lessons }),
       content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
         { type: "text", text: "Rebuild the play in this photo." },
@@ -1044,7 +1128,10 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
       side: p?.side === "defense" ? "defense" : "offense",
       x: unit(p?.x),
       y: unit(p?.y),
+      ...(p?.side === "defense" && p?.job ? { job: String(p.job).replace(/\s+/g, " ").trim().slice(0, 24) } : {}),
     })),
+    playType: raw.playType === "defense" ? "defense" : "offense",
+    coverage: raw.coverage ? String(raw.coverage).slice(0, 40) : undefined,
     // Photo reads also keep which way each line breaks and the line as drawn.
     assignments: cleanAssignments(raw.assignments).map((a, i) => {
       const src = (Array.isArray(raw.assignments) ? raw.assignments : []).find(
@@ -1063,7 +1150,7 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
       options: (Array.isArray(q?.options) ? q.options : []).filter((o) => ACTIONS.has(o)).slice(0, 3),
     })).filter((q) => q.question && q.options.length > 1),
   };
-  return json({ read });
+  return json({ read: fixQuarterback(read) });
 }
 
 /* --------------------------------------------------- one login, one coach */
@@ -1208,6 +1295,8 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
       })
       .onConflictDoNothing();
     await tx.delete(plays).where(eq(plays.ownerId, me.id));
+    await tx.delete(playArchive).where(eq(playArchive.ownerId, me.id));
+    await tx.delete(readLessons).where(eq(readLessons.ownerId, me.id));
     await tx.delete(playSaves).where(eq(playSaves.userId, me.id));
     await tx.delete(playbooks).where(eq(playbooks.ownerId, me.id));
     await tx.delete(playbookShares).where(eq(playbookShares.ownerId, me.id));
@@ -1218,6 +1307,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
+    await tx.delete(playbookTerms).where(eq(playbookTerms.ownerId, me.id));
     await tx.delete(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
     await tx.delete(aiUsage).where(eq(aiUsage.ownerId, me.id));
     await tx.delete(events).where(eq(events.ownerId, me.id));

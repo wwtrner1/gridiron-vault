@@ -9,6 +9,8 @@ import { useAuth } from "../../lib/auth";
 import { initials, photoFromFile } from "../../lib/playerPhoto";
 import {
   byJersey,
+  CUSTOM_LIMITS,
+  customName,
   emptyGuardian,
   emptyPlayer,
   emptySizes,
@@ -31,6 +33,8 @@ import {
   type UniformSizes,
 } from "../../lib/teamHub";
 import { setGriddyRoster } from "../../lib/griddyRoster";
+import { allColumns, applyEdit, columnsCsv, customColumn, customFields, customColumnId, takenNames, type RosterColumn, type RosterField } from "../../lib/rosterColumns";
+import { isShown, useRosterView, withColumn } from "../../lib/rosterView";
 import { hubSource, type TeamSource } from "../../lib/teamSource";
 import { useToast } from "../../lib/toast";
 
@@ -101,6 +105,12 @@ export function RosterTab({
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [removing, setRemoving] = useState<HubPlayer[] | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
+  // Columns: which show (and so print and download), fields the coach added, and typing straight into the table.
+  const [view, setView] = useRosterView(team.id);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [dropField, setDropField] = useState<string | null>(null);
+  const [saving, setSaving] = useState(0);
 
   useEffect(() => {
     source
@@ -130,7 +140,7 @@ export function RosterTab({
       .filter(
         (p) =>
           !q ||
-          [fullName(p), p.jersey, p.positions, p.grade, ...p.guardians.map((g) => g.name)].some((v) => v.toLowerCase().includes(q)),
+          [fullName(p), p.jersey, p.positions, p.grade, ...p.guardians.map((g) => g.name), ...Object.values(p.custom ?? {})].some((v) => v.toLowerCase().includes(q)),
       )
       .sort(byJersey);
   }, [players, find, status]);
@@ -141,8 +151,81 @@ export function RosterTab({
     return c;
   }, [players]);
 
+  const fields = useMemo(() => customFields(players ?? [], view.fields), [players, view.fields]);
+  const columns = useMemo(() => allColumns(fields), [fields]);
+  const byDefault = useCallback((c: RosterColumn) => (typeof c.byDefault === "function" ? c.byDefault(players ?? []) : c.byDefault), [players]);
+  const visible = columns.filter((c) => c.fixed || isShown(view, c.id, byDefault(c)));
+  const hiddenCount = columns.length - visible.length;
+  const toggleColumn = (c: RosterColumn, on: boolean) => setView((v) => withColumn(v, c.id, byDefault(c), on));
+
+  /*
+   * Typing in the table: the change shows at once and saves in the
+   * background, one save at a time, each sending the player as the table now
+   * has them, so two quick edits to one player can't undo each other. The
+   * server's list comes back only once nothing else is waiting.
+   */
+  const latest = useRef(players);
+  latest.current = players;
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const waiting = useRef(0);
+  const editCell = (id: string, field: RosterField, value: string) => {
+    const now = latest.current?.find((p) => p.id === id);
+    if (!now || field.get(now) === value) return;
+    const next = applyEdit(now, field, value);
+    if (typeof next === "string") {
+      toast(next, true);
+      return;
+    }
+    const list = (latest.current ?? []).map((p) => (p.id === id ? { ...p, ...next } : p));
+    latest.current = list;
+    setPlayers(list);
+    waiting.current++;
+    setSaving(waiting.current);
+    queue.current = queue.current.then(async () => {
+      const p = latest.current?.find((x) => x.id === id);
+      try {
+        if (!p) return;
+        const { id: _id, teamId: _t, updatedAt: _u, ...info } = p;
+        const res = await source.updatePlayer(id, info);
+        if (waiting.current === 1) {
+          latest.current = res.players;
+          setPlayers(res.players);
+        }
+      } catch (e) {
+        toast(coachError(e, `${p ? fullName(p) : "That player"} didn't save. Try again in a minute.`), true);
+        // Show what the roster really holds.
+        source
+          .roster()
+          .then((r) => {
+            latest.current = r.players;
+            setPlayers(r.players);
+          })
+          .catch(() => undefined);
+      } finally {
+        waiting.current--;
+        setSaving(waiting.current);
+      }
+    });
+  };
+
+  const addField = (raw: string): string => {
+    const name = customName(raw);
+    if (!name) return "Name the field first.";
+    if (fields.length >= CUSTOM_LIMITS.fields) return `A roster holds ${CUSTOM_LIMITS.fields} added fields.`;
+    if (takenNames(fields).has(name.toLowerCase())) return `The roster already has a ${name} column.`;
+    setView((v) => withColumn({ ...v, fields: [...v.fields, name] }, customColumnId(name), true, true));
+    return "";
+  };
+  const removeField = (name: string) => {
+    for (const p of players ?? []) if (p.custom?.[name]) editCell(p.id, customColumn(name).fields[0], "");
+    setView((v) => ({ ...v, fields: v.fields.filter((f) => f !== name), hide: v.hide.filter((x) => x !== customColumnId(name)) }));
+    setDropField(null);
+    toast(`${name} is off the roster.`);
+  };
+
   const changed = (next: HubPlayer[], message?: string) => {
     if (next.length !== players?.length) onCount?.();
+    latest.current = next;
     setPlayers(next);
     // Ticks on players who are gone go with them.
     setPicked((was) => new Set([...was].filter((id) => next.some((p) => p.id === id))));
@@ -194,7 +277,7 @@ export function RosterTab({
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => setImporting(true)}>
             <Icon name="upload" size={14} /> Import spreadsheet
           </button>
-          <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => download(`${team.name} roster.csv`, rosterCsv([...players].sort(byJersey)))}>
+          <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => download(`${team.name} roster.csv`, columnsCsv([...players].sort(byJersey), visible))}>
             <Icon name="download" size={14} /> Download CSV
           </button>
           <button type="button" className="btn btn-quiet btn-sm" disabled={!players.length} onClick={() => setPreviewing(true)}>
@@ -216,7 +299,33 @@ export function RosterTab({
               </button>
             ))}
           </div>
+          <div className="hub-view-tools">
+            <button type="button" className={`btn btn-quiet btn-sm${columnsOpen ? " is-on" : ""}`} aria-expanded={columnsOpen} aria-controls="hub-columns" onClick={() => setColumnsOpen((o) => !o)}>
+              <Icon name="grid" size={14} /> Columns{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
+            </button>
+            <button type="button" className={`btn btn-sm ${editing ? "btn-primary" : "btn-quiet"}`} aria-pressed={editing} onClick={() => setEditing((e) => !e)}>
+              <Icon name="pencil" size={14} /> {editing ? "Done editing" : "Edit in the table"}
+            </button>
+            {(editing || saving > 0) && (
+              <span className="hint" role="status">
+                {saving ? "Saving…" : "Changes save as you go"}
+              </span>
+            )}
+          </div>
         </div>
+      )}
+
+      {columnsOpen && players.length > 0 && (
+        <ColumnsPanel
+          columns={columns}
+          shown={(c) => c.fixed || isShown(view, c.id, byDefault(c))}
+          onToggle={toggleColumn}
+          onAdd={addField}
+          onDrop={(name) => (players.some((p) => p.custom?.[name]) ? setDropField(name) : removeField(name))}
+          onReset={() => setView((v) => ({ ...v, hide: [], show: [] }))}
+          onEverything={() => download(`${team.name} roster (every field).csv`, rosterCsv([...players].sort(byJersey), fields))}
+          onClose={() => setColumnsOpen(false)}
+        />
       )}
 
       {picked.size > 0 && (
@@ -241,20 +350,24 @@ export function RosterTab({
         </div>
       ) : (
         <div className="hub-table-wrap">
-          <table className="hub-table">
+          <table className={`hub-table${editing ? " is-editing" : ""}`}>
             <thead>
               <tr>
                 <th scope="col" className="hub-noprint hub-pick">
                   <input type="checkbox" checked={allPicked} onChange={pickAll} aria-label={allPicked ? "Clear the ticks" : "Select every player shown"} />
                 </th>
-                <th scope="col">#</th>
-                <th scope="col">Player</th>
-                <th scope="col">Pos</th>
-                <th scope="col">Grade / age</th>
-                <th scope="col">Sizes</th>
-                <th scope="col">Parent or guardian</th>
-                <th scope="col">Phone</th>
-                <th scope="col">Email</th>
+                {visible.map((c) => (
+                  <th scope="col" key={c.id} className={c.id === "jersey" ? "hub-num-h" : undefined}>
+                    <span className="hub-th">
+                      {c.label}
+                      {!c.fixed && (
+                        <button type="button" className="hub-th-hide hub-noprint" onClick={() => toggleColumn(c, false)} aria-label={`Hide the ${c.label === "#" ? "jersey number" : c.label} column`} title="Hide this column">
+                          <Icon name="close" size={11} />
+                        </button>
+                      )}
+                    </span>
+                  </th>
+                ))}
                 <th scope="col" className="hub-noprint">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -262,50 +375,16 @@ export function RosterTab({
             </thead>
             <tbody>
               {shown.map((p) => {
-                const g = p.guardians[0];
                 return (
                   <tr key={p.id} className={picked.has(p.id) ? "is-picked" : undefined}>
                     <td className="hub-noprint hub-pick">
                       <input type="checkbox" checked={picked.has(p.id)} onChange={() => pick(p.id)} aria-label={`Select ${fullName(p)}`} />
                     </td>
-                    <td className="hub-num">{p.jersey}</td>
-                    <td className="hub-player">
-                      <PlayerFace player={p} />
-                      <b>{fullName(p)}</b>
-                      {p.status !== "active" && <span className={`pill ${STATUS_PILL[p.status]}`}>{STATUS_LABEL[p.status]}</span>}
-                      {p.medical && (
-                        <span className="pill pill-amber" title="Has medical notes">
-                          Medical
-                        </span>
-                      )}
-                    </td>
-                    <td>{p.positions}</td>
-                    <td>{[p.grade, p.gradYear && `Class of ${p.gradYear}`, age(p.birthDate) && `${age(p.birthDate)} yrs`].filter(Boolean).join(" · ")}</td>
-                    <td className="hub-sizes">{sizeLine(p.sizes)}</td>
-                    <td>
-                      {g ? (
-                        <>
-                          {g.name}
-                          {g.relation && <small>{g.relation}</small>}
-                        </>
-                      ) : (
-                        <small>—</small>
-                      )}
-                    </td>
-                    <td>
-                      {[g?.phone, p.phone].filter(Boolean).map((n) => (
-                        <a key={n} href={`tel:${n}`} className="hub-contact">
-                          {n}
-                        </a>
-                      ))}
-                    </td>
-                    <td>
-                      {[g?.email, p.email].filter(Boolean).map((m) => (
-                        <a key={m} href={`mailto:${m}`} className="hub-contact">
-                          {m}
-                        </a>
-                      ))}
-                    </td>
+                    {visible.map((c) => (
+                      <td key={c.id} className={cellClass(c, editing)} data-col={c.id}>
+                        {editing ? <EditCell column={c} player={p} onEdit={(f, v) => editCell(p.id, f, v)} /> : <ReadCell column={c} player={p} />}
+                      </td>
+                    ))}
                     <td className="hub-noprint hub-row-actions">
                       <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOpen(p)} aria-label={`Open ${fullName(p)}`}>
                         <Icon name="pencil" size={14} /> Open
@@ -342,6 +421,19 @@ export function RosterTab({
         </Confirm>
       )}
 
+      {dropField && (
+        <Confirm
+          title={`Take ${dropField} off the roster?`}
+          action="Remove field"
+          danger
+          onConfirm={() => removeField(dropField)}
+          onClose={() => setDropField(null)}
+        >
+          {players.filter((p) => p.custom?.[dropField]).length} players have something in {dropField}. It comes off every one of them, and this can't be undone; download the
+          CSV first if you might want it back.
+        </Confirm>
+      )}
+
       {open && (
         <PlayerDialog
           scope={source.fileScope}
@@ -366,6 +458,7 @@ export function RosterTab({
       {importing && (
         <ImportDialog
           room={HUB_LIMITS.players - players.length}
+          fields={fields}
           onClose={() => setImporting(false)}
           onImport={async (list) => {
             const res = await source.addPlayers(list);
@@ -376,6 +469,239 @@ export function RosterTab({
       )}
       {previewing && <PagePreview title={`${team.name} roster`} onClose={closePreview} />}
     </section>
+  );
+}
+
+const cellClass = (c: RosterColumn, editing: boolean) =>
+  [c.id === "jersey" && "hub-num", c.id === "player" && "hub-player", c.id === "sizes" && "hub-sizes", editing && "hub-edit-cell"].filter(Boolean).join(" ") || undefined;
+
+const tel = (n: string) => (
+  <a key={n} href={`tel:${n}`} className="hub-contact">
+    {n}
+  </a>
+);
+const mail = (m: string) => (
+  <a key={m} href={`mailto:${m}`} className="hub-contact">
+    {m}
+  </a>
+);
+
+/** A roster cell as read: names, links to call and email, pills. */
+function ReadCell({ column, player: p }: { column: RosterColumn; player: HubPlayer }) {
+  switch (column.id) {
+    case "jersey":
+      return <>{p.jersey}</>;
+    case "player":
+      return (
+        <>
+          <PlayerFace player={p} />
+          <b>{fullName(p)}</b>
+          {p.status !== "active" && <span className={`pill ${STATUS_PILL[p.status]}`}>{STATUS_LABEL[p.status]}</span>}
+          {p.medical && (
+            <span className="pill pill-amber" title="Has medical notes">
+              Medical
+            </span>
+          )}
+        </>
+      );
+    case "grade":
+      return <>{[p.grade, p.gradYear && `Class of ${p.gradYear}`, age(p.birthDate) && `${age(p.birthDate)} yrs`].filter(Boolean).join(" · ")}</>;
+    case "sizes":
+      return <>{sizeLine(p.sizes)}</>;
+    case "status":
+      return <span className={`pill ${STATUS_PILL[p.status]}`}>{STATUS_LABEL[p.status]}</span>;
+    case "guardian": {
+      const g = p.guardians[0];
+      return g ? (
+        <>
+          {g.name}
+          {g.relation && <small>{g.relation}</small>}
+        </>
+      ) : (
+        <small>—</small>
+      );
+    }
+    case "guardian2": {
+      const g = p.guardians[1];
+      return g ? (
+        <>
+          {g.name}
+          {g.phone && tel(g.phone)}
+          {g.email && mail(g.email)}
+        </>
+      ) : (
+        <small>—</small>
+      );
+    }
+    case "phone":
+      return p.guardians[0]?.phone ? tel(p.guardians[0].phone) : null;
+    case "email":
+      return p.guardians[0]?.email ? mail(p.guardians[0].email) : null;
+    case "playerPhone":
+      return p.phone ? tel(p.phone) : null;
+    case "playerEmail":
+      return p.email ? mail(p.email) : null;
+    default: {
+      const text = column.fields.map((f) => f.get(p)).filter(Boolean).join(" · ");
+      return text.length > 60 ? <span title={text}>{text.slice(0, 58)}…</span> : <>{text}</>;
+    }
+  }
+}
+
+/** A roster cell as boxes to type in; each box saves when the coach leaves it. */
+function EditCell({ column, player, onEdit }: { column: RosterColumn; player: HubPlayer; onEdit: (field: RosterField, value: string) => void }) {
+  const name = fullName(player) || "this player";
+  return (
+    <span className={`hub-cell-boxes${column.fields.length > 1 ? " is-multi" : ""}`}>
+      {column.fields.map((f) =>
+        f.kind === "status" ? (
+          <select key={f.key} className="select hub-cell-input" value={player.status} onChange={(e) => onEdit(f, e.target.value)} aria-label={`Status for ${name}`}>
+            {PLAYER_STATUS.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <CellInput key={f.key} field={f} value={f.get(player)} label={`${f.label} for ${name}`} onCommit={(v) => onEdit(f, v)} />
+        ),
+      )}
+    </span>
+  );
+}
+
+const INPUT_TYPE: Record<string, string> = { tel: "tel", email: "email", date: "date" };
+
+/** One box: follows the player while the coach isn't in it, saves on leaving or Enter, Escape puts it back. */
+function CellInput({ field, value, label, onCommit }: { field: RosterField; value: string; label: string; onCommit: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const focused = useRef(false);
+  const undo = useRef(false);
+  useEffect(() => {
+    if (!focused.current) setDraft(value);
+  }, [value]);
+  const size = field.kind === "date" ? undefined : Math.max(3, Math.min(field.short === "#" ? 3 : 18, Math.max(draft.length, (field.short ?? field.label).length) + 1));
+  return (
+    <input
+      className="input hub-cell-input"
+      type={INPUT_TYPE[field.kind] ?? "text"}
+      inputMode={field.kind === "number" ? "numeric" : undefined}
+      value={draft}
+      maxLength={field.max}
+      size={size}
+      placeholder={field.short ?? field.label}
+      aria-label={label}
+      onFocus={() => (focused.current = true)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        focused.current = false;
+        if (undo.current) {
+          undo.current = false;
+          setDraft(value);
+        } else if (draft !== value) onCommit(draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          undo.current = true;
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
+  );
+}
+
+/** Pick the roster's columns, add a field of your own, or take one off. */
+function ColumnsPanel({
+  columns,
+  shown,
+  onToggle,
+  onAdd,
+  onDrop,
+  onReset,
+  onEverything,
+  onClose,
+}: {
+  columns: RosterColumn[];
+  shown: (c: RosterColumn) => boolean;
+  onToggle: (c: RosterColumn, on: boolean) => void;
+  onAdd: (name: string) => string;
+  onDrop: (name: string) => void;
+  onReset: () => void;
+  onEverything: () => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const added = columns.filter((c) => c.custom);
+  return (
+    <div id="hub-columns" className="hub-columns hub-noprint" role="group" aria-label="Roster columns">
+      <div className="hub-columns-head">
+        <b>Columns on the roster</b>
+        <span className="hint">What shows here is what prints and what Download CSV saves.</span>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={onClose}>
+          Done
+        </button>
+      </div>
+      <ul className="hub-columns-list">
+        {columns
+          .filter((c) => !c.custom)
+          .map((c) => (
+            <li key={c.id}>
+              <label className="check">
+                <input type="checkbox" checked={shown(c)} disabled={c.fixed} onChange={(e) => onToggle(c, e.target.checked)} />
+                {c.label === "#" ? "Jersey #" : c.label}
+              </label>
+            </li>
+          ))}
+      </ul>
+      <h4>Your fields</h4>
+      {added.length ? (
+        <ul className="hub-columns-list">
+          {added.map((c) => (
+            <li key={c.id}>
+              <label className="check">
+                <input type="checkbox" checked={shown(c)} onChange={(e) => onToggle(c, e.target.checked)} />
+                {c.label}
+              </label>
+              <button type="button" className="btn btn-quiet btn-sm hub-x" onClick={() => onDrop(c.label)} aria-label={`Remove the ${c.label} field`} title="Remove this field">
+                <Icon name="trash" size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="hint">Add what your league asks for: waiver signed, fee paid, carpool, allergies to check.</p>
+      )}
+      <form
+        className="hub-columns-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const problem = onAdd(name);
+          setError(problem);
+          if (!problem) setName("");
+        }}
+      >
+        <input className="input" value={name} maxLength={CUSTOM_LIMITS.name} onChange={(e) => setName(e.target.value)} placeholder="Waiver signed" aria-label="New field name" />
+        <button type="submit" className="btn btn-quiet btn-sm" disabled={!name.trim()}>
+          <Icon name="plus" size={14} /> Add field
+        </button>
+      </form>
+      {error && (
+        <p className="hub-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="fo-actions">
+        <button type="button" className="btn btn-quiet btn-sm" onClick={onReset}>
+          Show the usual columns
+        </button>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={onEverything}>
+          <Icon name="download" size={14} /> Download every field
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -734,13 +1060,13 @@ function PlayerDocs({ scope, playerId }: { scope: string; playerId: string }) {
   );
 }
 
-function ImportDialog({ room, onClose, onImport }: { room: number; onClose: () => void; onImport: (players: PlayerInfo[]) => Promise<void> }) {
+function ImportDialog({ room, fields, onClose, onImport }: { room: number; fields: string[]; onClose: () => void; onImport: (players: PlayerInfo[]) => Promise<void> }) {
   const [text, setText] = useState("");
   // A workbook's rows; typing in the box goes back to reading the box.
   const [fileRows, setFileRows] = useState<{ name: string; rows: string[][] } | null>(null);
   const [fileError, setFileError] = useState("");
   const { busy, error, run } = useSaving();
-  const read = useMemo(() => playersFromRows(fileRows ? fileRows.rows : parseTable(text)), [text, fileRows]);
+  const read = useMemo(() => playersFromRows(fileRows ? fileRows.rows : parseTable(text), fields), [text, fileRows, fields]);
   const take = read.players.slice(0, room);
 
   return (

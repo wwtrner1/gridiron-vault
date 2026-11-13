@@ -124,7 +124,8 @@ test("a whiteboard photo is read, checked, and saved to the Vault", async ({ pag
   const ws = await workspace(page);
   const play = (ws.plays ?? []).find((p) => p.name === "Trips Right Flood") as unknown as { tags: string[]; formation: string; description: string; scene: { nodes: { label?: string }[] } };
   expect(play).toBeTruthy();
-  expect(play.tags).toEqual(["imported", "whiteboard"]);
+  // Every question answered on the review, so it saves already checked.
+  expect(play.tags).toEqual(["imported", "whiteboard", "checked"]);
   expect(play.formation).toBe("Trips Right");
   expect(play.description).toBe("Read from board.png.");
   expect(play.scene.nodes.filter((n) => n.label === "Q" || n.label === "H").length).toBeGreaterThanOrEqual(2);
@@ -179,9 +180,37 @@ test("a scanned page: plays found, kept, read, checked, renamed and filed in a n
   await expect(page.getByText("Draft · not saved ·")).toContainText("binder-page.png · page 1");
   await page.getByRole("group").getByRole("button", { name: "Post" }).click();
   await page.getByRole("radio", { name: /Keep the photo's layout/ }).check();
+
+  // Fix the read: the board's R is the slot, not the back, and X runs a slant, not a go.
+  const fix = page.getByRole("region", { name: "Fix the read" });
+  await fix.getByLabel("Who the board's R is").selectOption("S");
+  await fix.getByLabel("X's job").selectOption("route:slant");
+  await expect(page.locator(".pr-chips .chip")).toHaveText(["Q · quarterback", "C · center", "X · slant", "Y · post", "S · flat"]);
+  // A defender's job, and a player the read missed.
+  await fix.getByLabel(/'s responsibility$/).first().fill("Deep 1/2");
+  await fix.getByLabel("Add a player the read missed").selectOption("o:Z");
+  await fix.getByRole("button", { name: "Add" }).click();
+  await expect(fix.getByLabel("Who the board's Z is")).toHaveValue("Z");
+  await fix.getByRole("button", { name: "Remove Z (board Z)" }).click();
+  await expect(fix.getByLabel("Who the board's Z is")).toHaveCount(0);
+
+  const taught = page.waitForRequest((r) => r.url().endsWith("/api/read-lessons") && r.method() === "POST");
   await page.getByRole("button", { name: "Use this version" }).click();
+  const lessons = JSON.parse((await taught).postData() ?? "{}");
+  expect(lessons.corrections).toEqual([
+    { kind: "route", from: "go", to: "slant" },
+    { kind: "route", from: "corner", to: "post" },
+    { kind: "letter", from: "R", to: "S" },
+  ]);
   await expect(page.getByRole("heading", { name: "3 plays found on 1 page" })).toBeVisible();
   expect(reads).toBe(2);
+
+  // The play just checked wears the green check; the other read play still says it hasn't been.
+  await expect(first.getByLabel("Checked and fixed")).toBeVisible();
+  await expect(first).toHaveClass(/is-checked/);
+  await expect(first.getByRole("button", { name: "Fix again" })).toBeVisible();
+  await expect(items.nth(2).getByText("Not checked yet")).toBeVisible();
+  await expect(page.getByText("1 of 2 plays checked")).toBeVisible();
 
   // Rename, file in a new playbook named after the page, save.
   await page.getByRole("textbox", { name: "Name for play 3" }).fill("Stick Concept");
@@ -189,13 +218,18 @@ test("a scanned page: plays found, kept, read, checked, renamed and filed in a n
   await expect(bookName).toHaveValue("binder-page");
   await bookName.fill("Binder scans");
   await page.getByRole("button", { name: "Save 2 plays to Vault" }).click();
-  await expect(page.getByText("2 plays saved to your Vault. Open any one to fine-tune it.")).toBeVisible();
+  await expect(page.getByText("2 plays saved to your Vault in Binder scans. Open any one to fine-tune it.")).toBeVisible();
   await expect(page).toHaveURL(/\/vault/);
   const ws = await workspace(page);
   const names = (ws.plays ?? []).map((p) => p.name).sort();
   expect(names).toEqual(["Stick Concept", "Wheel Right"]);
   const wheel = (ws.plays ?? []).find((p) => p.name === "Wheel Right") as { tags: string[]; description: string } | undefined;
-  expect(wheel?.tags).toEqual(["imported", "scan"]);
+  expect(wheel?.tags).toEqual(["imported", "scan", "checked"]);
+  const stick = (ws.plays ?? []).find((p) => p.name === "Stick Concept") as { tags: string[] } | undefined;
+  expect(stick?.tags).toEqual(["imported", "scan", "to-check"]);
+  // The Vault says which still need a look.
+  await expect(page.locator(".play-meta .pill", { hasText: "Needs a check" })).toHaveCount(1);
+  await expect(page.locator(".play-meta .pill", { hasText: "Checked" })).toHaveCount(1);
   expect(wheel?.description).toBe("Hit the wheel vs man.\n\nRead from binder-page.png.");
   const book = (ws.playbooks ?? []).find((b) => b.name === "Binder scans") as { playIds: string[] } | undefined;
   expect(book?.playIds).toHaveLength(2);
@@ -226,5 +260,65 @@ test("a read the account refuses keeps what was read and says so", async ({ page
   await expect(pills).toHaveText(["Read", "Try again"]);
   await expect(page.getByRole("button", { name: "Read 1 play" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Save 1 play to Vault" })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test("a scan keeps reading after the coach leaves, and Send to my Vault files the plays to check later", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  let reads = 0;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => (release = r));
+  await signIn(context, async (route, path, method) => {
+    if (path === "ai/scan" && method === "POST")
+      return (await route.fulfill({ json: { plays: [{ x: 0.05, y: 0.05, w: 0.4, h: 0.4, title: "Flood" }, { x: 0.55, y: 0.05, w: 0.4, h: 0.4, title: "Mesh" }] } }), true);
+    if (path === "ai/photo" && method === "POST") {
+      reads += 1;
+      await gate;
+      return (await route.fulfill({ json: { read: read(`Read ${reads}`, false) } }), true);
+    }
+  });
+  await page.goto("/upload");
+  await signedIn(page);
+  await page.locator("input[type=file]").setInputFiles(image("binder.png"));
+  await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
+  await page.getByRole("button", { name: "Read 2 plays" }).click();
+  await expect.poll(() => reads).toBe(2);
+
+  // Leave mid-read: the bar follows the coach, and the plays are waiting on the way back.
+  await page.getByRole("link", { name: /^The Vault/ }).first().click();
+  await expect(page).toHaveURL(/\/vault/);
+  const bar = page.locator(".scan-bar");
+  await expect(bar).toContainText("Reading plays from binder.png: 0 of 2 read");
+  release();
+  await expect(bar).toContainText("2 plays from binder.png are read and waiting for you.");
+  await bar.getByRole("link", { name: "Back to the review" }).click();
+  await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
+  await expect(page.locator(".sc-item .pill-green")).toHaveCount(2);
+  await expect(bar).toBeHidden();
+
+  // Send to my Vault to check later: both go in, marked Needs a check.
+  await page.getByRole("button", { name: "Save 2 plays to Vault" }).waitFor();
+  await page.getByRole("button", { name: "Upload more" }).click();
+  await page.locator("input[type=file]").setInputFiles(image("binder.png"));
+  await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
+  await page.getByRole("button", { name: "Send to my Vault to check later" }).click();
+  await expect(page.getByText("2 plays saved to your Vault in binder. Open any one to fine-tune it.")).toBeVisible();
+  await expect(page).toHaveURL(/\/vault/);
+  const ws = await workspace(page);
+  const scanned = (ws.plays ?? []) as unknown as { id: string; name: string; tags: string[] }[];
+  expect(scanned.map((p) => p.tags)).toEqual([
+    ["imported", "scan", "to-check"],
+    ["imported", "scan", "to-check"],
+  ]);
+  await expect(page.locator(".play-meta .pill", { hasText: "Needs a check" })).toHaveCount(2);
+
+  // Saving one in the Designer gives it the green check.
+  await page.goto(`/build/${scanned[0].id}`);
+  await page.getByRole("region", { name: "Needs a check" }).getByRole("button", { name: "Looks right: mark as checked" }).click();
+  await expect(page.getByText("Marked as checked.")).toBeVisible();
+  const after = await workspace(page);
+  const tags = ((after.plays ?? []) as unknown as { name: string; tags: string[] }[]).map((p) => p.tags.includes("checked")).sort();
+  expect(tags).toEqual([false, true]);
+  await expect(page.getByRole("region", { name: "Needs a check" })).toBeHidden();
   expect(errors).toEqual([]);
 });
