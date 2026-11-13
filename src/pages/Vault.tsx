@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { GettingStarted } from "../components/GettingStarted";
 import { Link, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
+import { CHECKED, TO_CHECK } from "../lib/scanJob";
 import { Icon } from "../components/Icon";
 import { Tooltip } from "../components/Tooltip";
 import { PlayThumb } from "../components/PlayThumb";
@@ -461,8 +462,18 @@ export function Vault() {
                   </p>
                   <div className="play-meta">
                     {p.tags.includes("starter") && <span className="pill pill-special">Starter</span>}
+                    {p.tags.includes(TO_CHECK) && (
+                      <span className="pill pill-amber" title="Read from a scan or photo and not checked yet. Open it, compare it with the page, and save.">
+                        Needs a check
+                      </span>
+                    )}
+                    {p.tags.includes(CHECKED) && (
+                      <span className="pill pill-green" title="Read from a scan or photo and checked by you.">
+                        <Icon name="check" size={11} /> Checked
+                      </span>
+                    )}
                     {p.tags
-                      .filter((t) => t !== "starter")
+                      .filter((t) => t !== "starter" && t !== TO_CHECK && t !== CHECKED)
                       .slice(0, 3)
                       .map((t) => (
                         <span key={t} className="pill pill-label">

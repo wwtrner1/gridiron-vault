@@ -1,3 +1,4 @@
+import { lessonText, type ReadLesson } from "../../src/lib/photo.js";
 import type Anthropic from "@anthropic-ai/sdk";
 import { GAME_TYPES, type GameType } from "../../src/lib/formations.js";
 import {
@@ -149,7 +150,7 @@ function toolInput(a: GriddyAction): unknown {
  * the coach's next message, as the API requires: what the coach did with the
  * card, or that it is still open.
  */
-function toMessages(req: GriddyRequest): Anthropic.Beta.BetaMessageParam[] {
+function toMessages(req: GriddyRequest, lessons: ReadLesson[] = []): Anthropic.Beta.BetaMessageParam[] {
   const messages: Anthropic.Beta.BetaMessageParam[] = [];
   let pending: GriddyAction[] = [];
   for (const turn of req.turns) {
@@ -173,7 +174,9 @@ function toMessages(req: GriddyRequest): Anthropic.Beta.BetaMessageParam[] {
     pending = [];
   }
   // What the coach is looking at right now, with operator authority, after their latest words.
-  messages.push({ role: "system", content: griddyContextText(req.context, req.terms) });
+  // The reader's memory (netlify/ai/lessons.ts): how this coach, and many coaches, write their boards.
+  const memory = lessonText(lessons).trim();
+  messages.push({ role: "system", content: griddyContextText(req.context, req.terms) + (memory ? `\n\nHow this coach's boards and play sheets are written, learned from their fixes to scanned plays:\n${memory}` : "") });
   return messages;
 }
 
@@ -333,13 +336,13 @@ export function forCoach(text: string): string {
 }
 
 /** One coach message in, Griddy's answer and any cards out. */
-export async function griddy(body: Partial<GriddyRequest>): Promise<GriddyReply> {
+export async function griddy(body: Partial<GriddyRequest>, lessons: ReadLesson[] = []): Promise<GriddyReply> {
   const req = cleanRequest(body);
   const { text: said, uses } = await converse({
     model: MODELS.griddy,
     system: GRIDDY_SYSTEM,
     tools: GRIDDY_TOOLS.map((t) => ({ ...t, input_schema: t.input_schema as Anthropic.Beta.BetaTool.InputSchema })),
-    messages: toMessages(req),
+    messages: toMessages(req, lessons),
     maxTokens: 16000,
   });
   const actions = toActions(uses, req.context);
