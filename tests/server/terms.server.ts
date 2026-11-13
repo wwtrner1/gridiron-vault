@@ -115,7 +115,7 @@ test("a director's terms reach the staff read-only, without the Just you ones, u
     updatedAt: "2026-11-13T07:00:00.000Z",
   };
   assert.equal((await call("PUT", "terms", { terms })).status, 200);
-  const org = await client.query("insert into organizations (owner_id, owner_name, name) values ($1, 'Coach Rivera', 'Hawks Football') returning id", [director.id]);
+  const org = await client.query<{ id: string }>("insert into organizations (owner_id, owner_name, name) values ($1, 'Coach Rivera', 'Hawks Football') returning id", [director.id]);
   assert.equal((await call("GET", "terms")).data.director, true);
   assert.equal((await call("GET", "terms")).data.staff, null);
 
