@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Sus
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
 import { Icon } from "../components/Icon";
+import { markChecked, TO_CHECK } from "../lib/scanJob";
 import { AddToPlaybook } from "../components/AddToPlaybook";
 import { Tooltip } from "../components/Tooltip";
 import { PlayCanvas, type CanvasControl, type CanvasSignal, type DrawAids, type MenuAction } from "../components/PlayCanvas";
@@ -1579,6 +1580,8 @@ export function Builder() {
     const clean = reconcileConnections(scene);
     const record: StoredPlay = {
       ...meta,
+      // A scanned play marked "Needs a check" gets its green check once the coach saves it here.
+      tags: markChecked(meta.tags),
       name,
       id: existing?.id ?? uid("play"),
       ownerName: account?.name ?? "You",
@@ -1592,6 +1595,10 @@ export function Builder() {
       ...(account ? { unsynced: true } : {}),
     };
     store.upsertPlay(record);
+    if (record.tags !== meta.tags) {
+      setMeta((m) => ({ ...m, tags: record.tags }));
+      toast("Marked as checked. The Needs a check label is off this play.");
+    }
     clearDraft(); // the play is in this browser now, so the safety copy isn't needed
     // A new play goes in the playbook picked in the setup, else the one it was started from (the tree's +, ?book=).
     const fromBook = isNew ? playbooks.find((b) => b.id === params.get("book")) : undefined;
@@ -2697,6 +2704,18 @@ export function Builder() {
               </button>
               <button type="button" className="btn btn-quiet btn-sm" onClick={discardDraft}>
                 Discard
+              </button>
+            </div>
+          )}
+
+          {!recover && !missing && meta.tags.includes(TO_CHECK) && (
+            <div className="dz-draftbar" role="region" aria-label="Needs a check">
+              <p>
+                <b>Read from a scan or photo.</b>
+                <span> Compare it with the page and fix anything that's off. Saving it marks it checked.</span>
+              </p>
+              <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={() => void save()}>
+                Looks right: mark as checked
               </button>
             </div>
           )}

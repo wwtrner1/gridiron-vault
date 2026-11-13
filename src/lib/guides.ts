@@ -633,6 +633,15 @@ export const GUIDES: Guide[] = [
           { title: "Check before it saves", text: "Each play is found, redrawn on the field and shown for you to check. Check and fix opens it to correct a route; nothing saves until you press Save. A PDF's plays file into a new playbook named after the file." },
         ],
       },
+      {
+        heading: "Fix a read and keep going",
+        steps: [
+          { title: "Fix the read", text: "Under Check and fix: change who a board mark is, his route, block or motion and which way it breaks, add a player the read missed or drop one it made up. For a defense, each defender's responsibility and the coverage. A player with no line behind the center is read as the quarterback." },
+          { title: "The green check", text: "A play you checked wears a green Checked. Plays saved without a check show Needs a check in the Vault until you save them in the Designer (or press Looks right: mark as checked)." },
+          { title: "Leave while it reads", text: "Pages keep being read when you leave; a bar at the bottom shows how far it got and brings you back. Send to my Vault to check later files every play as Needs a check when it's done." },
+          { title: "What the reader learned", text: "Every fix teaches the reader how your boards are written, for your next read. Forget one or all here.", target: ".up-memory" },
+        ],
+      },
     ],
   },
   {

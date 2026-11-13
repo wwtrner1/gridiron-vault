@@ -1740,3 +1740,14 @@ table.sheet.is-compact .row-tools { grid-template-columns: repeat(8, 24px); }
   table.sheet input { width: 100%; min-width: 0; }
   table.sheet thead th { position: static; }
 }
+
+/* A scan reading in the background (components/ScanJobBar.tsx); bottom left, clear of Griddy's launcher. */
+.scan-bar {
+  position: fixed; left: 16px; bottom: 16px; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  max-width: min(560px, calc(100vw - 32px)); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--white); color: var(--ink); box-shadow: 0 8px 24px rgb(11 21 36 / 0.16); font-size: 14px;
+}
+.scan-bar-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); animation: scan-bar-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes scan-bar-pulse { to { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .scan-bar-dot { animation: none; } }
+@media (max-width: 640px) { .scan-bar { bottom: 84px; } }

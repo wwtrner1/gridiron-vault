@@ -4,6 +4,7 @@ import { ToastProvider } from "./lib/toast";
 import { GriddyProvider } from "./components/Griddy";
 import { CarryOver } from "./components/CarryOver";
 import { StorageWatch } from "./components/StorageWatch";
+import { ScanJobBar } from "./components/ScanJobBar";
 import { PlaybookSync } from "./lib/playbookSync";
 import { PlaySync } from "./lib/playSync";
 import { BrandSync } from "./lib/brand";
@@ -151,6 +152,7 @@ export function App() {
       <RouteChrome />
       <CarryOver />
       <StorageWatch />
+      <ScanJobBar />
       <PlaySync />
       <PlaybookSync />
       <Suspense fallback={null}>

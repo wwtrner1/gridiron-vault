@@ -76,7 +76,7 @@ test("Visitors, Watch list, Audit log and Find a PDF's owner, with the console's
 
   await page.goto("/admin");
   const tabs = page.getByRole("tablist", { name: "Admin sections" });
-  await expect(tabs.getByRole("tab")).toHaveText(["Users", "Visitors", "Watch list", "Activity", "Account recovery", "Audit log"]);
+  await expect(tabs.getByRole("tab")).toHaveText(["Users", "Visitors", "Watch list", "Activity", "Account recovery", "Play archive", "Reader memory", "Audit log"]);
   await expect(page.locator(".adm-table")).toContainText("calm@example.com");
 
   // Visitors: 30 days by default, the tiles, the per-day table newest first, the tops.
@@ -173,5 +173,72 @@ test("a coach who isn't the owner is sent from /admin to the Account page", asyn
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("tablist", { name: "Admin sections" })).toHaveCount(0);
   await expect(page.locator("h1, h2").first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("Play archive and Reader memory: every coach's plays, purge one, and switch a shared lesson off", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  const purges: unknown[] = [];
+  const switches: unknown[] = [];
+  const asked: string[] = [];
+  let archive = [
+    { playId: "p1", ownerId: COACH, ownerName: "Spy", ownerEmail: "spy@example.com", name: "Scanned Mesh", playType: "pass", source: "scanned", scene: { version: 2, losY: 420, nodes: [] }, deletedAt: "2026-11-12T00:00:00.000Z", createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-11T00:00:00.000Z" },
+    { playId: "p2", ownerId: OTHER, ownerName: "Calm", ownerEmail: "calm@example.com", name: "Our Flood", playType: "pass", source: "created", scene: { version: 2, losY: 420, nodes: [] }, deletedAt: null, createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-10T00:00:00.000Z" },
+  ];
+  let lessonOff = false;
+  await signIn(context, async (route, path, method) => {
+    const answer = async (json: unknown) => (await route.fulfill({ json }), true);
+    if (path === "me") return answer({ user: { id: "u1", email: "coach@example.com", name: "Coach" }, owner: true, plan: "master" });
+    if (path === "admin/users" && method === "GET") return answer({ users, identity: true });
+    if (path.startsWith("admin/archive") && method === "GET") {
+      const q = new URL(route.request().url()).searchParams;
+      asked.push(q.toString());
+      const rows = archive.filter((r) => (!q.get("owner") || r.ownerId === q.get("owner")) && (!q.get("source") || r.source === q.get("source")));
+      return answer({ plays: rows, total: rows.length, page: 0, pageSize: 60, bySource: { scanned: 1, created: 1 } });
+    }
+    if (path === "admin/archive/purge" && method === "POST") {
+      const body = JSON.parse(route.request().postData() ?? "{}");
+      purges.push(body);
+      archive = archive.filter((r) => r.playId !== body.playId);
+      return answer({ purged: 1 });
+    }
+    if (path === "admin/lessons" && method === "GET")
+      return answer({ lessons: [{ kind: "letter", from: "0", to: "Q", coaches: 4, times: 9, off: lessonOff, live: !lessonOff }, { kind: "route", from: "out", to: "dig", coaches: 1, times: 2, off: false, live: false }] });
+    if (path === "admin/lessons/switch" && method === "POST") {
+      const body = JSON.parse(route.request().postData() ?? "{}");
+      switches.push(body);
+      lessonOff = body.off;
+      return answer({ ok: true });
+    }
+  });
+  await page.goto("/admin");
+  await page.getByRole("tab", { name: "Play archive" }).click();
+  await expect(page.getByText("2 plays", { exact: true })).toBeVisible();
+  const cards = page.locator(".adm-arch-card");
+  await expect(cards.locator("h3")).toHaveText(["Scanned Mesh", "Our Flood"]);
+  await expect(cards.first().getByText("Deleted by coach")).toBeVisible();
+
+  await page.getByRole("button", { name: /^Scanned · 1$/ }).click();
+  await expect(cards).toHaveCount(1);
+  await expect.poll(() => asked.at(-1)).toBe("source=scanned");
+  await page.getByRole("button", { name: /^All$/ }).click();
+  await cards.first().getByRole("button", { name: "spy@example.com" }).click();
+  await expect(page.getByText("Coach: spy@example.com")).toBeVisible();
+  await expect.poll(() => asked.at(-1)).toBe(`owner=${COACH}`);
+
+  await cards.first().getByRole("button", { name: "Purge" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Purge", exact: true }).click();
+  await expect(page.getByText("1 archived play purged. Coaches' own plays are untouched.")).toBeVisible();
+  expect(purges).toEqual([{ scope: "play", playId: "p1" }]);
+  await expect(page.getByText("Nothing in the archive matches.")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Reader memory" }).click();
+  const rows = page.locator(".adm-table tbody tr");
+  await expect(rows.first()).toContainText('A board mark "0" means Q');
+  await expect(rows.first()).toContainText("Yes");
+  await expect(rows.nth(1)).toContainText("Not yet (needs 3 coaches)");
+  await rows.first().getByRole("button", { name: "Switch off" }).click();
+  await expect(rows.first()).toContainText("Switched off");
+  expect(switches).toEqual([{ kind: "letter", from: "0", to: "Q", off: true }]);
   expect(errors).toEqual([]);
 });
