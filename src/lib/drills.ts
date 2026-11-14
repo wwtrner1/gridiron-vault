@@ -1,10 +1,11 @@
+import { announceLocal } from "./practice";
 import { uid } from "./types";
 
 /**
  * The Drill Vault: practice drills with a diagram that animates, the setup,
  * the steps, the coaching points and a link to film. The built-in drills are
  * written for GridIronVault (originals, drawn in our own style); a coach adds
- * his own beside them, kept in this browser like the practice script.
+ * his own beside them, kept in this browser and on the account like the practice script.
  *
  * A diagram works in yards on a small patch of field: x across, y down the
  * page (the top of the drawing is downfield). Spots are players, coaches,
@@ -848,8 +849,14 @@ export function spotsAt(d: DrillDiagram, t: number, legs = drillLegs(d)): Map<st
 
 // ---- The coach's own drills, kept in this browser ---------------------------
 
-const KEY = "grid1ronvault.drills.v1";
-type Saved = { custom: Drill[]; favorites: string[] };
+export const DRILLS_KEY = "grid1ronvault.drills.v1";
+const KEY = DRILLS_KEY;
+/**
+ * `deleted` remembers a deleted drill by id (so another device can't bring it
+ * back) and `favoritesAt` when the stars last changed; both go to the account
+ * with the drills (lib/practiceVaultData.ts).
+ */
+export type Saved = { custom: Drill[]; favorites: string[]; deleted?: { id: string; at: string }[]; favoritesAt?: string };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const list = (v: unknown, max: number, each: number) =>
@@ -911,6 +918,8 @@ export function loadDrills(): Saved {
       return {
         custom: (Array.isArray(raw.custom) ? raw.custom : []).map(cleanDrill).filter((d): d is Drill => !!d).slice(0, DRILL_LIMITS.custom),
         favorites: Array.isArray(raw.favorites) ? raw.favorites.filter((x): x is string => typeof x === "string").slice(0, 400) : [],
+        deleted: Array.isArray(raw.deleted) ? raw.deleted.filter((d) => d && typeof d.id === "string" && typeof d.at === "string").slice(0, 200) : [],
+        favoritesAt: typeof raw.favoritesAt === "string" ? raw.favoritesAt : "",
       };
     }
   } catch {
@@ -925,6 +934,7 @@ export function saveDrills(s: Saved) {
   } catch {
     /* storage blocked: kept for this visit */
   }
+  announceLocal();
 }
 
 /** Every drill a coach can pick: his own first, then the built-in ones. */

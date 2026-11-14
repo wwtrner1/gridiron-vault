@@ -2,7 +2,7 @@ import { uid } from "./types";
 
 /**
  * A practice script: timed periods, each with the plays to rep. Kept in this
- * browser. It prints as the one-page script on the clipboard and as scout
+ * browser and, while signed in, on the account (PracticeSync). It prints as the one-page script on the clipboard and as scout
  * cards, one play per card, for whoever runs the look team.
  */
 export type PeriodKind = "warmup" | "individual" | "group" | "team" | "special" | "conditioning" | "walkthrough" | "break";
@@ -33,9 +33,26 @@ export function kindOf(p: Period): PeriodKind {
   if (/water|break|rest/.test(t)) return "break";
   return "group";
 }
-export type Script = { name: string; start: string; periods: Period[] };
+/** `updatedAt` is when this browser last saved it, so the account can tell the newer script. */
+export type Script = { name: string; start: string; periods: Period[]; updatedAt?: string };
 
-const KEY = "grid1ronvault.practice.v1";
+export const PRACTICE_KEY = "grid1ronvault.practice.v1";
+const KEY = PRACTICE_KEY;
+
+/**
+ * Window events for `PracticeSync` (lib/practiceSync.ts): a change made on
+ * this device (it goes up to the account a moment later), and the account's
+ * copy written into this browser (open pages read it again).
+ */
+export const PRACTICE_LOCAL_EVENT = "grid1ronvault:practice-local";
+export const PRACTICE_SYNCED_EVENT = "grid1ronvault:practice-synced";
+export const announceLocal = () => {
+  try {
+    window.dispatchEvent(new Event(PRACTICE_LOCAL_EVENT));
+  } catch {
+    /* no window (the API function) */
+  }
+};
 
 export const newPeriod = (title: string, minutes: number, note = "", kind?: PeriodKind): Period => ({ id: uid("per"), title, minutes, note, playIds: [], drillIds: [], ...(kind ? { kind } : {}) });
 
@@ -72,10 +89,11 @@ export function hasSavedScript(): boolean {
 
 export function saveScript(script: Script) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(script));
+    localStorage.setItem(KEY, JSON.stringify({ ...script, updatedAt: new Date().toISOString() }));
   } catch {
     /* storage blocked: the script still holds this visit */
   }
+  announceLocal();
 }
 
 export const totalMinutes = (s: Script) => s.periods.reduce((n, p) => n + (p.minutes || 0), 0);

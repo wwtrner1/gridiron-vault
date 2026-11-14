@@ -22,7 +22,7 @@ import {
   type DrillSide,
 } from "../lib/drills";
 import { filmEmbed, filmYoutubeId } from "../lib/filmNotes";
-import { addDrillToScript, hasSavedScript, loadScript } from "../lib/practice";
+import { addDrillToScript, hasSavedScript, loadScript, PRACTICE_SYNCED_EVENT } from "../lib/practice";
 import { useStore } from "../lib/store";
 import { useToast } from "../lib/toast";
 import "../styles/drills.css";
@@ -49,6 +49,13 @@ export function Drills() {
   const [editing, setEditing] = useState<(Drill & { diagramFrom?: string }) | null>(null);
   const toast = useToast();
 
+  // The account's copy arrived (sign-in on a new device): read it again.
+  useEffect(() => {
+    const reload = () => setSaved(loadDrills());
+    window.addEventListener(PRACTICE_SYNCED_EVENT, reload);
+    return () => window.removeEventListener(PRACTICE_SYNCED_EVENT, reload);
+  }, []);
+
   const drills = useMemo(() => allDrills(saved.custom), [saved.custom]);
   const open = drills.find((d) => d.id === params.get("drill")) ?? null;
   const setOpen = (d: Drill | null) => {
@@ -66,7 +73,11 @@ export function Drills() {
     });
   const favs = new Set(saved.favorites);
   const toggleFav = (d: Drill) =>
-    persist((s) => ({ ...s, favorites: s.favorites.includes(d.id) ? s.favorites.filter((x) => x !== d.id) : [...s.favorites, d.id] }));
+    persist((s) => ({
+      ...s,
+      favorites: s.favorites.includes(d.id) ? s.favorites.filter((x) => x !== d.id) : [...s.favorites, d.id],
+      favoritesAt: new Date().toISOString(),
+    }));
 
   const words = q.trim().toLowerCase();
   const shown = drills.filter(
@@ -186,11 +197,22 @@ export function Drills() {
           onDelete={() => {
             const gone = open;
             const at = saved.custom.findIndex((x) => x.id === gone.id);
-            persist((s) => ({ ...s, custom: s.custom.filter((x) => x.id !== gone.id) }));
+            // The tombstone keeps another device from bringing it back.
+            persist((s) => ({
+              ...s,
+              custom: s.custom.filter((x) => x.id !== gone.id),
+              deleted: [{ id: gone.id, at: new Date().toISOString() }, ...(s.deleted ?? []).filter((t) => t.id !== gone.id)],
+            }));
             setOpen(null);
             toast(`${gone.name} deleted.`, false, {
               label: "Undo",
-              run: () => persist((s) => (s.custom.some((x) => x.id === gone.id) ? s : { ...s, custom: [...s.custom.slice(0, at), gone, ...s.custom.slice(at)] })),
+              run: () =>
+                persist((s) => {
+                  if (s.custom.some((x) => x.id === gone.id)) return s;
+                  // Saved again now, so it outranks the delete on every device.
+                  const back = { ...gone, updatedAt: new Date().toISOString() };
+                  return { ...s, custom: [...s.custom.slice(0, at), back, ...s.custom.slice(at)], deleted: (s.deleted ?? []).filter((t) => t.id !== gone.id) };
+                }),
             });
           }}
         />
@@ -234,6 +256,11 @@ function AddToPractice({ drill }: { drill: Drill }) {
   const toast = useToast();
   const [script, setScript] = useState(loadScript);
   const periods = script.periods;
+  useEffect(() => {
+    const reload = () => setScript(loadScript());
+    window.addEventListener(PRACTICE_SYNCED_EVENT, reload);
+    return () => window.removeEventListener(PRACTICE_SYNCED_EVENT, reload);
+  }, []);
   return (
     <select
       className="select select-sm dr-add"

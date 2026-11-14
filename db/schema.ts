@@ -638,6 +638,18 @@ export const wristbandSetups = pgTable("wristband_setups", {
 });
 
 /**
+ * The Drill Vault and practice script: one row per coach holding the coach's
+ * own drills, stars and script (`PracticeVault` in
+ * src/lib/practiceVaultData.ts, cleaned by `cleanVault`); a PUT merges with
+ * what the row holds (`mergeVault`), so two devices' drills both survive.
+ */
+export const practiceVaults = pgTable("practice_vaults", {
+  ownerId: text("owner_id").primaryKey(),
+  data: jsonb().$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/**
  * Playbook language: one row per coach holding the whole term list
  * (`TermsState` in src/lib/termsData.ts, cleaned by `cleanTerms`), starter
  * terms the coach renamed or deleted included, so every device and Griddy

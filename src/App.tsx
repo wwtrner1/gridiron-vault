@@ -33,6 +33,8 @@ import { setTraceUser } from "./lib/activity";
 const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
 /** My team's account sync renders nothing, and its roster code (lib/teamHub) belongs with the My team and Front Office screens, not the first download. */
 const MyTeamSync = lazyPage(() => import("./lib/teamSource"), "MyTeamSync");
+// Lazy too, so the built-in drills ship with the Practice screens, not the first download.
+const PracticeSync = lazyPage(() => import("./lib/practiceSync"), "PracticeSync");
 const Builder = lazyPage(() => import("./pages/Builder"), "Builder");
 const Vault = lazyPage(() => import("./pages/Vault"), "Vault");
 const Playbooks = lazyPage(() => import("./pages/Playbooks"), "Playbooks");
@@ -160,6 +162,9 @@ export function App() {
       <PlaybookSync />
       <Suspense fallback={null}>
         <MyTeamSync />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PracticeSync />
       </Suspense>
       <BrandSync />
       <BandSetupSync />

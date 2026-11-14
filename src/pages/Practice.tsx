@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
@@ -10,6 +10,7 @@ import { DrillField } from "../components/DrillField";
 import { FieldTip } from "./Drills";
 import {
   PERIOD_KINDS,
+  PRACTICE_SYNCED_EVENT,
   clockTimes,
   endTime,
   kindOf,
@@ -38,7 +39,17 @@ export function Practice() {
   const books = useStore((s) => s.playbooks);
   const [script, setScript] = useState<Script>(loadScript);
   const [out, setOut] = useState<"script" | "cards" | null>(null);
-  const drills = useMemo(() => allDrills(loadDrills().custom), []);
+  const [custom, setCustom] = useState(() => loadDrills().custom);
+  const drills = useMemo(() => allDrills(custom), [custom]);
+  // The account's copy arrived (sign-in on a new device): show it.
+  useEffect(() => {
+    const reload = () => {
+      setScript(loadScript());
+      setCustom(loadDrills().custom);
+    };
+    window.addEventListener(PRACTICE_SYNCED_EVENT, reload);
+    return () => window.removeEventListener(PRACTICE_SYNCED_EVENT, reload);
+  }, []);
   const drillById = useMemo(() => new Map(drills.map((d) => [d.id, d])), [drills]);
 
   const change = (next: Script) => {

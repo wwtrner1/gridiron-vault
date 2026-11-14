@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 13, 2026";
+const UPDATED = "November 14, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -110,7 +110,7 @@ export function Privacy() {
           your phone number and of your email (not the number, and none of your plays), so one person can't open an endless run of free trials.
         </li>
         <li>
-          <b>Your work:</b> plays, playbooks and Call Sheets you save to your account.
+          <b>Your work:</b> plays, playbooks and Call Sheets you save to your account, and while you're signed in your own drills, starred drills and practice script.
         </li>
         <li>
           <b>Team information:</b> if you keep a team in GridIronVault, what you add to it: rosters (players' names, numbers, positions, birth dates, sizes, photos, their contact details and their parents' or guardians'), medical notes, player documents, depth charts, schedules and team messages.
