@@ -4,7 +4,7 @@ import { errorsOf, quiet } from "./helpers";
 /**
  * Coaching videos (/library): the list with its MOJO credit, search and the no-match wording,
  * the kind chips, Watch opening the privacy-enhanced YouTube player and Hide video closing it,
- * and a reading's link to mojo.sport in a new tab.
+ * a reading's link to mojo.sport in a new tab, and Add to my drills saving a Drill Vault drill.
  */
 test.beforeEach(async ({ context }) => {
   await quiet(context);
@@ -45,5 +45,28 @@ test("Coaching videos: search, filter, watch a drill and open a reading", async 
   await expect(cards.locator("iframe")).toHaveCount(0);
   await expect(cards.getByRole("button", { name: "▶ Watch" })).toHaveCount(0);
 
+  expect(errors).toEqual([]);
+});
+
+test("Coaching videos: Add to my drills saves it in the Drill Vault with its video", async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto("/library");
+  await page.getByRole("searchbox", { name: "Search the videos" }).fill("flag attack");
+  const card = page.locator(".lib-card").first();
+  await card.getByRole("button", { name: "+ Add to my drills" }).click();
+  await expect(page.locator(".lib-notice")).toHaveText(/Flag Attack is in your Drill Vault with its video/);
+  const open = card.getByRole("link", { name: "In your Drill Vault ✓ Open" });
+  await expect(open).toHaveAttribute("href", /^\/drills\?drill=drl_/);
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.drills.v1") ?? "null"));
+  expect(saved.custom).toHaveLength(1);
+  expect(saved.custom[0]).toMatchObject({ name: "Flag Attack", custom: true, video: "https://youtu.be/LIsoJdV2U8o" });
+
+  await page.reload();
+  await page.getByRole("searchbox", { name: "Search the videos" }).fill("flag attack");
+  await expect(page.locator(".lib-card").first().getByRole("link", { name: "In your Drill Vault ✓ Open" })).toBeVisible();
+  await page.locator(".lib-card").first().getByRole("link", { name: "In your Drill Vault ✓ Open" }).click();
+  await expect(page).toHaveURL(/\/drills\?drill=drl_/);
+  await expect(page.getByText("Flag Attack").first()).toBeVisible();
   expect(errors).toEqual([]);
 });

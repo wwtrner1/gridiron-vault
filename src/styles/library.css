@@ -7,6 +7,8 @@
 .lib-topic { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
 .lib-notice { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--cyan-soft); }
 .lib-count { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.lib-notice { margin: 0 0 12px; font-size: 14px; color: var(--ink); }
+.lib-notice:empty { display: none; }
 .lib-empty { padding: 18px; color: var(--muted); }
 .lib-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
 .lib-card { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--white); }
