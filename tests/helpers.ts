@@ -69,6 +69,7 @@ export async function signIn(context: BrowserContext, api: (route: Route, path: 
     if (path === "brand" && route.request().method() === "GET") return route.fulfill({ json: { brand: null } });
     if (path === "terms" && route.request().method() === "GET") return route.fulfill({ json: { terms: null } });
     if (path === "wristband-setups" && route.request().method() === "GET") return route.fulfill({ json: { setups: null } });
+    if (path === "practice" && route.request().method() === "GET") return route.fulfill({ json: { vault: null } });
     return route.fulfill({ status: 204, body: "" });
   });
 }
