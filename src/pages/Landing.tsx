@@ -88,7 +88,7 @@ export function Landing() {
             <h1 id="hero-h">
               Draw the play
               <br />
-              <span className="hl-teal">print the wristband</span>
+              <span className="hl-teal">print the wristbands</span>
               <br />
               <span className="hl-cyan">Win the game</span>
             </h1>
