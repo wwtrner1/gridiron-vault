@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { repLine } from "../lib/breakdown";
 import { filmLinkFrom } from "../lib/filmNotes";
 import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positionsAt } from "../lib/runPlay";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
@@ -47,6 +48,7 @@ export function RunPlay({
   const [linkDraft, setLinkDraft] = useState(scene.film?.link ?? "");
   const [linkError, setLinkError] = useState("");
   const snapAt = scene.film?.snapAt ?? 0;
+  const reps = scene.film?.reps ?? [];
   const video = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const tRef = useRef(0);
@@ -306,6 +308,28 @@ export function RunPlay({
             <a className="rp-open" href={linkAt(scene.film.link, snapAt)} target="_blank" rel="noopener noreferrer">
               Open the film{snapAt ? ` at the snap (${clock(snapAt)})` : ""} ↗
             </a>
+          )}
+          {reps.length > 0 && (
+            <div className="rp-reps" role="group" aria-label="From your film">
+              <b>From your film</b>
+              <p>{repLine(reps)}</p>
+              <ul>
+                {reps
+                  .slice(-6)
+                  .reverse()
+                  .map((r, ri) => (
+                    <li key={ri}>
+                      {r.game} · rep {r.n}
+                      {r.down ? ` · ${["1st", "2nd", "3rd", "4th"][r.down - 1]}${r.dist !== undefined ? ` & ${r.dist}` : ""}` : ""}
+                      {r.result ? ` · ${r.result}` : ""}
+                      {r.gain !== undefined ? ` · ${r.gain > 0 ? "+" : ""}${r.gain} yd` : ""}
+                    </li>
+                  ))}
+              </ul>
+              <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => onFilm({ ...scene.film, reps: undefined })}>
+                Clear these reps
+              </button>
+            </div>
           )}
         </div>
       </div>

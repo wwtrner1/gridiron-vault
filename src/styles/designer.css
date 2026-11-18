@@ -1219,3 +1219,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-draftbar.is-missing { border-color: var(--amber); }
 /* Film notes inside Run play: a light card so the notes read on the dark dialog. */
 .rp-notes { padding: 12px; border-radius: var(--radius-lg); background: var(--surface); color: var(--text); }
+
+/* Run play: what a film breakdown says about this play. */
+.rp-reps { display: grid; gap: 6px; justify-items: start; padding-top: 10px; border-top: 1px solid var(--ink-3); color: var(--white); }
+.rp-reps b { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--panel-head); }
+.rp-reps p { margin: 0; font-size: 14px; font-weight: 600; }
+.rp-reps ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--rail-text); }

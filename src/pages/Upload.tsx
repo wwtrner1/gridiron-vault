@@ -1,3 +1,4 @@
+import { Breakdown } from "../components/Breakdown";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
@@ -200,6 +201,8 @@ export function Upload() {
             </div>
           ))}
         </div>
+
+        <Breakdown />
 
         <ReaderMemory />
 

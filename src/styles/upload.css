@@ -165,3 +165,19 @@
 .up-memory ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .up-memory li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
 .up-memory .mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* Film breakdown: a CSV of reps matched to Vault plays. */
+.up-break { display: grid; gap: 10px; justify-items: start; padding: 18px; }
+.up-break h3 { margin: 0; font-size: 17px; }
+.up-break p { margin: 0; font-size: 14px; color: var(--muted); }
+.up-break-pick { position: relative; cursor: pointer; }
+.up-break-pick:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.up-break-note { font-size: 12.5px !important; }
+.up-break-sum { margin: 12px 0 8px !important; }
+.up-break-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.up-break-table th, .up-break-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.up-break-table thead th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.up-break-table tbody th { font-weight: 600; }
+.up-break-table tbody th span { font-weight: 400; color: var(--muted); }
+.up-break-table tr.is-open th { color: var(--muted); }
+.up-break-table select { width: 100%; min-height: 34px; padding: 0 8px; border: 1px solid var(--line-strong, var(--line)); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: 14px; }
