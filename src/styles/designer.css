@@ -571,7 +571,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rp-link .input { border-color: var(--ink-3); background: var(--ink-2); color: var(--white); }
 .rp-error { margin: 0; font-size: 13px; color: #ffb4a8; }
 .rp-open { font-weight: 600; color: var(--cyan); }
-.rp-top .rp-cov + .btn { margin-left: 0; }
+.rp-top .rp-cov ~ .btn { margin-left: 0; }
 
 /* Coverage check: the play against a live defense. */
 .cov-looks { display: flex; flex-wrap: wrap; gap: 6px; }

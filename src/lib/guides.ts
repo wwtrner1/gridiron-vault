@@ -176,6 +176,13 @@ export const GUIDES: Guide[] = [
             close: EXTRAS,
           },
           {
+            title: "Film Room",
+            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Those picks save with the play. Also in Run play as Teach it in the Film Room.",
+            target: tour("dz-film-room"),
+            open: [EXTRAS],
+            close: EXTRAS,
+          },
+          {
             title: "Turn this offense into a defense",
             text: "Reads the offense on the field (personnel, trips or 2x2, where the strength is) and drops a front and coverage that fit it, lined up on the real blockers by technique, with every defender's gap, technique or coverage job written under him. A defense already on the field is replaced; Undo brings it back. Also on the Sets tab's Defense list.",
             target: tour("dz-match-defense"),

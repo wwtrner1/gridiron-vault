@@ -1,0 +1,135 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
+import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+
+/**
+ * Film Room: a play opens as a six-step lesson (the look, zones, the call,
+ * snap, the read, your job) in the dark look, each step with its caption and
+ * card; Play the lesson runs through the steps and moves the players; the
+ * read shows the Coverage check's table; Your job spotlights one letter; the
+ * look (Dark, Light, Match my device), the defense and the team switch are
+ * saved in the play; Run play hands off to it; Escape closes it.
+ */
+test.beforeEach(async ({ context }) => quiet(context));
+
+test("Film Room teaches a play step by step and keeps its settings in the play", async ({ page }) => {
+  const errors = errorsOf(page);
+  await seedReady(page);
+  await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+
+  // From Extras.
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+  await expect(room.locator("h2")).toHaveText("Film Room 17 · Stick");
+  await expect(room).toHaveAttribute("data-theme", "dark");
+  const steps = room.locator(".fr-steps button");
+  await expect(steps).toHaveText(["1The look", "2Zones", "3The call", "4Snap", "5The read", "6Your job"]);
+  await expect(steps.nth(0)).toHaveAttribute("aria-current", "step");
+  const caption = room.locator(".fr-cap p");
+  const clock = room.locator(".fr-clock");
+  await expect(caption).toContainText("17 · Stick. Line up and find the defense:");
+  await expect(clock).toHaveText("0.0 S");
+  await expect(room.getByRole("button", { name: "Back a step" })).toBeDisabled();
+
+  // Zones: every defender's job, and the zone names on the field.
+  await room.getByRole("button", { name: "Next step" }).click();
+  await expect(caption).toContainText("Count the defense:");
+  await expect(room.locator(".fr-rows li").first()).toBeVisible();
+  await expect(room.locator(".fr-zone-tag").first()).toBeVisible();
+
+  // The call: the receivers in read order.
+  await steps.nth(2).click();
+  await expect(caption).toContainText("The call:");
+  await expect(room.locator(".fr-rows span").first()).toHaveText("Read 1");
+
+  // The read: the Coverage check's table, and the teaching-model note.
+  await steps.nth(4).click();
+  await expect(room.getByRole("columnheader")).toHaveText(["Read", "Player", "Route", "Space", "Status"]);
+  await expect(room.locator(".fr-pill").first()).toHaveText(/open|tight|covered/);
+  await expect(room.locator(".fr-foot")).toContainText("teaching model");
+  expect(Number((await clock.textContent())!.split(" ")[0])).toBeGreaterThan(1);
+
+  // Your job: pick a letter and the caption talks to that player.
+  await steps.nth(5).click();
+  const letters = room.getByRole("group", { name: "Show the job for" }).getByRole("button");
+  await expect(letters.first()).toHaveAttribute("aria-pressed", "true");
+  await letters.nth(1).click();
+  await expect(letters.nth(1)).toHaveAttribute("aria-pressed", "true");
+  const letter = (await letters.nth(1).textContent())!;
+  await expect(caption).toContainText(`${letter}, you`);
+
+  // Play the lesson from the snap step: the clock runs and the players move, Pause holds it.
+  await steps.nth(3).click();
+  const firstPlayer = room.locator("[data-kind=player]").first();
+  const start = await firstPlayer.getAttribute("transform");
+  await room.getByRole("button", { name: "Play the lesson" }).click();
+  await expect.poll(async () => Number((await clock.textContent())!.split(" ")[0]), { timeout: 8000 }).toBeGreaterThan(0.4);
+  expect(await firstPlayer.getAttribute("transform")).not.toBe(start);
+  await room.getByRole("button", { name: "Pause" }).click();
+  const held = await clock.textContent();
+  await page.waitForTimeout(300);
+  await expect(clock).toHaveText(held!);
+
+  // The dark look passes axe.
+  const darkAxe = await new AxeBuilder({ page }).include(".fr").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(darkAxe.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+  // Light, and another defense: the lesson starts over against it.
+  await room.getByRole("group", { name: "Look" }).getByRole("button", { name: "Light" }).click();
+  await expect(room).toHaveAttribute("data-theme", "light");
+  const lightAxe = await new AxeBuilder({ page }).include(".fr").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(lightAxe.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+  const against = room.getByRole("combobox", { name: "Against" });
+  const now = await against.inputValue();
+  const options = await against.locator("option").evaluateAll((os) => os.map((o) => ({ value: (o as HTMLOptionElement).value, text: o.textContent })));
+  const next = options.find((o) => o.value !== now)!;
+  const other = next.text;
+  await against.selectOption(next.value);
+  await expect(steps.nth(0)).toHaveAttribute("aria-current", "step");
+  await expect(room.locator(".fr-vs")).toHaveText(`vs ${other}`);
+  await expect(room.getByRole("link", { name: "Add your team colors on My team" })).toBeVisible();
+
+  // Escape goes back to drawing; Save keeps the lesson's settings in the play.
+  await page.keyboard.press("Escape");
+  await expect(room).toBeHidden();
+  await page.locator('[data-tour="dz-save"]').click();
+  await expect
+    .poll(async () => {
+      const ws = await workspace(page);
+      return (ws.plays!.find((p) => p.name === "17 · Stick")?.scene as { teach?: unknown } | undefined)?.teach;
+    })
+    .toMatchObject({ look: "light", against: expect.any(String) });
+
+  // Opened again it is still light; Run play hands off to it too.
+  await page.locator('[data-tour="dz-run"]').first().click();
+  await page.getByRole("dialog", { name: /Run play/ }).getByRole("button", { name: "Teach it in the Film Room" }).click();
+  await expect(room).toHaveAttribute("data-theme", "light");
+  await room.getByRole("button", { name: "Back to drawing" }).click();
+  await expect(room).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test("Film Room wears the team's colors and logo, with a switch per play", async ({ page }) => {
+  await seedReady(page);
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "grid1ronvault.brand.v1",
+      JSON.stringify({ name: "Hawks", logo: null, primary: "#7A1420", secondary: "#F2C14E", logoOnField: true, endZones: true, prints: true, updatedAt: new Date().toISOString() }),
+    ),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+  await expect(room.locator(".fr-team")).toHaveText("Hawks");
+  await expect(room.locator(".fr-cap")).toHaveCSS("border-left-color", "rgb(122, 20, 32)");
+  const team = room.getByLabel("Team colors and logo");
+  await expect(team).toBeChecked();
+  await team.uncheck();
+  await expect(room.locator(".fr-team")).toHaveCount(0);
+  await expect(room.locator(".fr-cap")).not.toHaveCSS("border-left-color", "rgb(122, 20, 32)");
+});

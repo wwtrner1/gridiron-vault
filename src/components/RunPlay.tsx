@@ -22,6 +22,7 @@ export function RunPlay({
   name,
   onFilm,
   onCoverage,
+  onTeach,
   onClose,
 }: {
   scene: Scene;
@@ -30,6 +31,8 @@ export function RunPlay({
   onFilm: (film: Scene["film"]) => void;
   /** Opens the Coverage check: the same play against a live defense. */
   onCoverage?: () => void;
+  /** Opens the Film Room: the same play as a step-by-step lesson. */
+  onTeach?: () => void;
   onClose: () => void;
 }) {
   const tl = useMemo(() => buildTimeline(scene), [scene]);
@@ -122,6 +125,11 @@ export function RunPlay({
         {onCoverage && (
           <button type="button" className="btn btn-outline-dark btn-sm rp-cov" onClick={onCoverage}>
             Run it against a defense
+          </button>
+        )}
+        {onTeach && (
+          <button type="button" className={`btn btn-outline-dark btn-sm${onCoverage ? "" : " rp-cov"}`} onClick={onTeach}>
+            Teach it in the Film Room
           </button>
         )}
         <button type="button" className="btn btn-outline-dark btn-sm" onClick={onClose}>
