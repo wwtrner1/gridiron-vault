@@ -605,6 +605,27 @@ export const playerFiles = pgTable(
 );
 
 /**
+ * A coach's own voice on a Film Room lesson: one short clip per row, named from
+ * the play (`scene.teach.voice`). Bytes live in the private `lesson-voices`
+ * Blobs store under `blobKey`. A clip plays for anyone holding its random id
+ * (a player on a team link has no account); only its coach can remove it, and
+ * deleting the account removes every one.
+ */
+export const lessonVoices = pgTable(
+  "lesson_voices",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    type: text().notNull().default(""),
+    size: integer().notNull().default(0),
+    ms: integer().notNull().default(0),
+    blobKey: text("blob_key").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("lesson_voices_owner_idx").on(t.ownerId)],
+);
+
+/**
  * My team: a coach's own roster and depth chart, no Front Office needed. One
  * row per coach holding the whole `MyTeamDoc` (src/lib/teamHub.ts), cleaned by
  * `cleanMyTeam`. Holds minors' contacts: owner only, never public.

@@ -4,6 +4,9 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
+import { LessonVoice } from "./LessonVoice";
+import { voiceUrl } from "../lib/voice";
+import type { VoiceClip } from "../lib/voice";
 import { buildLesson, canTeach, captionParts, clockAt, defaultLook, plainCaption, stepLength, teachLooks, TEACH_LOOKS, TEACH_LOOK_NAME } from "../lib/teach";
 import type { TeachLook, TeachSettings } from "../lib/teach";
 import type { Scene } from "../lib/types";
@@ -105,6 +108,27 @@ export function FilmRoom({
   }, [look.id]);
 
   const [making, setMaking] = useState(false);
+
+  // The coach's own voice, where a step has one: it starts with the step and stops with Pause.
+  const spoken = steps.some((s) => s.voice);
+  const [sound, setSound] = useState(true);
+  const voiceEl = useRef<HTMLAudioElement | null>(null);
+  const clipNow = step.voice;
+  useEffect(() => {
+    if (!playing || !sound || !clipNow) {
+      voiceEl.current?.pause();
+      return;
+    }
+    const u = atRef.current.u;
+    if (u * 1000 >= clipNow.ms) return;
+    const el = (voiceEl.current ??= new Audio());
+    el.muted = false;
+    el.src = voiceUrl(clipNow.id);
+    // Picking the lesson up mid-step picks the words up there too.
+    if (u > 0.3) el.addEventListener("loadedmetadata", () => (el.currentTime = u), { once: true });
+    el.play().catch(() => undefined);
+    return () => el.pause();
+  }, [playing, sound, i, clipNow?.id, clipNow?.ms]);
   const panel = useRef<HTMLDivElement>(null);
   useDialogFocus(panel, onClose);
 
@@ -141,6 +165,13 @@ export function FilmRoom({
   };
   const play = () => {
     if (atEnd) setAt({ i: 0, u: 0 });
+    // Phones only let a page speak after a press, so the voice is woken here, inside the press.
+    if (spoken && sound && !voiceEl.current) {
+      const el = (voiceEl.current = new Audio());
+      el.muted = true;
+      el.src = voiceUrl(steps.find((s) => s.voice)!.voice!.id);
+      el.play().catch(() => undefined);
+    }
     setPlaying(true);
   };
   const save = (patch: TeachSettings) => {
@@ -154,6 +185,13 @@ export function FilmRoom({
         /* storage full: the play still keeps the look */
       }
     }
+  };
+
+  const keepClip = (clip: VoiceClip | undefined) => {
+    const voice = { ...settings.voice };
+    if (clip) voice[step.id] = clip;
+    else delete voice[step.id];
+    save({ voice: Object.keys(voice).length ? voice : undefined });
   };
 
   const id = step.id;
@@ -230,6 +268,11 @@ export function FilmRoom({
                   ))}
                 </select>
               </label>
+              {spoken && (
+                <button type="button" className="btn btn-outline-dark btn-sm" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
+                  {sound ? "Voice on" : "Voice off"}
+                </button>
+              )}
               {coach && (
                 <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => (setPlaying(false), setMaking(true))}>
                   Make a video
@@ -245,6 +288,7 @@ export function FilmRoom({
                 </a>
               ) : null}
             </div>
+            {coach && <LessonVoice step={step} clip={step.voice} onClip={keepClip} />}
           </div>
 
           <aside className="fr-side-panel" aria-label="Lesson steps">

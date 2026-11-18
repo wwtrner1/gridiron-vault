@@ -6,6 +6,8 @@ import { LOOKS, formatOf, simulate, wins, yardScale, yards } from "./coverage";
 import type { Look, Result, SimDefender, SimOptions } from "./coverage";
 import { CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Scene } from "./types";
+import { cleanClip } from "./voice";
+import type { VoiceClip } from "./voice";
 
 /**
  * Film Room: a coach's own play turned into a short lesson. The steps, the
@@ -26,7 +28,11 @@ export type TeachSettings = {
   against?: string;
   /** Team colors and logo on the lesson. On when unset. */
   team?: boolean;
+  /** The coach's own voice, one clip per step (`lib/voice.ts`; the bytes are on the account). */
+  voice?: Partial<Record<StepId, VoiceClip>>;
 };
+
+export const STEP_IDS = ["look", "zones", "call", "snap", "read", "job"] as const;
 
 /** Keeps only what a lesson can use; undefined when nothing is set. */
 export function cleanTeach(raw: unknown): TeachSettings | undefined {
@@ -36,10 +42,18 @@ export function cleanTeach(raw: unknown): TeachSettings | undefined {
   if (typeof r.look === "string" && (TEACH_LOOKS as readonly string[]).includes(r.look)) out.look = r.look as TeachLook;
   if (typeof r.against === "string" && r.against.length <= 60) out.against = r.against;
   if (typeof r.team === "boolean") out.team = r.team;
+  if (r.voice && typeof r.voice === "object") {
+    const voice: Partial<Record<StepId, VoiceClip>> = {};
+    for (const id of STEP_IDS) {
+      const clip = cleanClip((r.voice as Record<string, unknown>)[id]);
+      if (clip) voice[id] = clip;
+    }
+    if (Object.keys(voice).length) out.voice = voice;
+  }
   return Object.keys(out).length ? out : undefined;
 }
 
-export type StepId = "look" | "zones" | "call" | "snap" | "read" | "job";
+export type StepId = (typeof STEP_IDS)[number];
 
 export type TeachStep = {
   id: StepId;
@@ -53,7 +67,23 @@ export type TeachStep = {
   to: number;
   /** Play speed while it moves (0.5 is half speed). */
   rate: number;
+  /** The coach's voice over this step, when one is recorded. The step waits for it to finish. */
+  voice?: VoiceClip;
 };
+
+/** A beat of quiet after the coach stops talking, before the next step. */
+export const VOICE_TAIL = 0.5;
+
+/** Puts the coach's clips on their steps, and holds each picture long enough for the words to finish. */
+export function withVoice(steps: TeachStep[], voice: TeachSettings["voice"]): TeachStep[] {
+  if (!voice) return steps;
+  return steps.map((s) => {
+    const clip = voice[s.id];
+    if (!clip) return s;
+    const short = clip.ms / 1000 + VOICE_TAIL - stepLength(s);
+    return { ...s, voice: clip, hold: short > 0 ? s.hold + short : s.hold };
+  });
+}
 
 /** One defender's job in a coach's words. */
 export type DefJob = { label: string; job: string; kind: SimDefender["job"]; deep: boolean };
@@ -222,5 +252,5 @@ export function buildLesson(scene: Scene, name: string, look: Look, letter: stri
     const who = letters.includes(letter.trim().toUpperCase()) ? letter.trim().toUpperCase() : letters[0];
     steps.push({ id: "job", title: "Your job", caption: jobFor(scene, who).replace(`${who},`, `{${who}},`), hold: 1.6, from: 0, to: end, rate: 1 });
   }
-  return { look, result, steps, jobs, counts, letters };
+  return { look, result, steps: withVoice(steps, cleanTeach(scene.teach)?.voice), jobs, counts, letters };
 }

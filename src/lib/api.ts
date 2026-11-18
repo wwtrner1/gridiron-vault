@@ -255,6 +255,22 @@ export const api = {
   deletePlayers: (teamId: string, ids: string[]) =>
     request<{ players: HubPlayer[] }>(`teams/${teamId}/players`, { method: "DELETE", body: JSON.stringify({ ids }) }),
 
+  /* A coach's own voice on a Film Room lesson: the clip's bytes go as the body, its length in a header. */
+  saveVoice: async (clip: Blob, ms: number) => {
+    const res = await fetch("/api/voice", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": clip.type || "audio/webm", "X-Voice-Ms": String(Math.round(ms)), "X-Device": deviceId() },
+      body: clip,
+    }).catch(() => {
+      throw new Error(OFFLINE_MESSAGE);
+    });
+    const data = (await res.json().catch(() => ({}))) as { id?: string; ms?: number; error?: string };
+    if (!res.ok || !data.id) throw new ApiError(data.error ?? "That recording didn't save. Try again in a minute.", res.status);
+    return { id: data.id, ms: data.ms ?? Math.round(ms) };
+  },
+  deleteVoice: (id: string) => request<{ ok: boolean }>(`voice/${id}`, { method: "DELETE" }),
+
   /* A player's documents and pictures: `scope` is `my.<team>` or a Front Office team id. */
   playerFiles: (scope: string, playerId: string) => request<{ files: PlayerFile[] }>(`player-files/${encodeURIComponent(scope)}/${encodeURIComponent(playerId)}`),
   uploadPlayerFile: async (scope: string, playerId: string, file: File) => {

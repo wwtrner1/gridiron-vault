@@ -89,6 +89,18 @@
 .fr-check input { accent-color: var(--cyan); }
 .fr-link { font-size: 12.5px; font-weight: 600; color: #5fd6ea; }
 
+/* The coach's own voice on the step in view. */
+.fr-voice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 14px; border-radius: var(--radius-lg); background: #122036; color: #fff; }
+.fr-voice .btn:disabled { opacity: 0.45; }
+.fr-voice-k { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #5fd6ea; }
+.fr-voice-has { font-size: 12.5px; color: var(--rail-text); }
+.fr-voice-note { flex: 1 1 220px; font-size: 12.5px; color: var(--rail-text); }
+.fr-voice-note:empty { display: none; }
+.fr-voice-live { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; }
+.fr-voice-live i { width: 10px; height: 10px; border-radius: 50%; background: #ff5a5f; animation: fr-rec 1s ease-in-out infinite; }
+@keyframes fr-rec { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .fr-voice-live i { animation: none; } }
+
 .fr-side-panel { display: flex; flex: 1; flex-direction: column; gap: 12px; min-width: 250px; padding: 16px; overflow: auto; border: 1px solid var(--fr-line); border-radius: var(--radius-lg); background: var(--fr-panel); }
 .fr-k { margin: 0; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fr-key); }
 .fr-steps { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }

@@ -177,7 +177,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Film Room",
-            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Those picks save with the play. Make a video saves the whole lesson as an MP4, wide for the meeting room or tall for phones, made in your browser. Also in Run play as Teach it in the Film Room.",
+            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Those picks save with the play. Make a video saves the whole lesson as an MP4, wide for the meeting room or tall for phones, made in your browser. Record this step adds your own voice to the step in view (up to 45 seconds; sign in first): it plays when the lesson reaches that step, on your players' team link once you update the link, and inside the video. Hear it, Record again and Remove sit beside it, and Voice on or off mutes it. Also in Run play as Teach it in the Film Room.",
             target: tour("dz-film-room"),
             open: [EXTRAS],
             close: EXTRAS,

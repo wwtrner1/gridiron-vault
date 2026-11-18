@@ -12,7 +12,14 @@ test("a player opens the team link, sees only his job, runs a play and takes the
   await seedReady(page);
   const plays = await page.evaluate(() => {
     const all = JSON.parse(localStorage.getItem("snapline.workspace.v1")!).plays as (Shared & { description?: string; tags?: string[] })[];
-    return all.slice(0, 6).map((p) => ({ id: p.id, name: p.name, formation: p.formation ?? "", playType: p.playType ?? "pass", personnel: p.personnel, description: p.description ?? "", tags: p.tags ?? [], scene: p.scene }));
+    // The coach recorded his own voice on the first step of every lesson; the link carries the clip's id, never the sound.
+    const teach = { voice: { look: { id: "7b0c3c1e-2f64-4f0a-9d53-1c2a4e5f6a7b", ms: 2400 } } };
+    return all.slice(0, 6).map((p) => ({ id: p.id, name: p.name, formation: p.formation ?? "", playType: p.playType ?? "pass", personnel: p.personnel, description: p.description ?? "", tags: p.tags ?? [], scene: { ...(p.scene as object), teach } }));
+  });
+  const heard: string[] = [];
+  await context.route("**/api/voice/**", (route) => {
+    heard.push(new URL(route.request().url()).pathname);
+    return route.fulfill({ contentType: "audio/webm", body: "not a real clip" });
   });
   const scores: { name: string; letter: string; score: number; total: number }[] = [];
   await context.route("**/api/shares/tok-varsity/results", (route) => {
@@ -52,6 +59,15 @@ test("a player opens the team link, sees only his job, runs a play and takes the
   await expect(room.locator(".fr-cap p")).toContainText("X, you");
   await expect(room.getByLabel("Team colors and logo")).toHaveCount(0);
   await expect(room.getByRole("link", { name: /My team/ })).toHaveCount(0);
+  // The coach's voice plays here with no account: Voice on, nothing to record, and the clip asked for when the lesson plays.
+  await expect(room.getByRole("group", { name: /^Your voice on/ })).toHaveCount(0);
+  await expect(room.getByRole("button", { name: "Voice on" })).toHaveAttribute("aria-pressed", "true");
+  await room.locator(".fr-steps button").first().click();
+  await room.getByRole("button", { name: "Play the lesson" }).click();
+  await expect.poll(() => heard).toContain("/api/voice/7b0c3c1e-2f64-4f0a-9d53-1c2a4e5f6a7b");
+  await room.getByRole("button", { name: "Pause" }).click();
+  await room.getByRole("button", { name: "Voice on" }).click();
+  await expect(room.getByRole("button", { name: "Voice off" })).toHaveAttribute("aria-pressed", "false");
   await room.getByRole("group", { name: "Look" }).getByRole("button", { name: "Light" }).click();
   await expect(room).toHaveAttribute("data-theme", "light");
   await room.getByRole("button", { name: "Back to the play" }).click();

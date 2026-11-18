@@ -1,3 +1,4 @@
+import { voiceUrl } from "./voice";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LESSON_FPS, LessonField } from "../components/LessonField";
 import { captionParts, clockAt, stepLength } from "./teach";
@@ -39,8 +40,58 @@ export type VideoJob = {
   /** Team name, logo and colors, when the coach has them switched on. */
   team?: { name: string; logo?: string; primary: string; secondary: string; ink: string };
   onProgress?: (done: number) => void;
+  /** Called once when the lesson has the coach's voice: whether it went into the file. */
+  onVoice?: (state: "in" | "left-out") => void;
   signal?: AbortSignal;
 };
+
+const VOICE_RATE = 48_000;
+
+/** The coach's clips laid on the lesson's clock as one mono track, or null when no clip could be read. */
+async function voiceTrack(lesson: Lesson): Promise<AudioBuffer | null> {
+  const Offline = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+  if (!Offline) return null;
+  const total = lesson.steps.reduce((a, s) => a + stepLength(s), 0);
+  const ctx = new Offline(1, Math.ceil(total * VOICE_RATE), VOICE_RATE);
+  let start = 0;
+  let placed = 0;
+  for (const s of lesson.steps) {
+    if (s.voice) {
+      try {
+        const res = await fetch(voiceUrl(s.voice.id));
+        if (!res.ok) throw new Error("gone");
+        const clip = await ctx.decodeAudioData(await res.arrayBuffer());
+        const src = ctx.createBufferSource();
+        src.buffer = clip;
+        src.connect(ctx.destination);
+        // Never past its own step, so one clip can't talk over the next.
+        src.start(start, 0, stepLength(s));
+        placed++;
+      } catch {
+        /* a clip that is gone or can't be read is left out; the rest still play */
+      }
+    }
+    start += stepLength(s);
+  }
+  return placed ? await ctx.startRendering() : null;
+}
+
+/** AAC plays everywhere; Opus is what a browser without an AAC encoder can still write. */
+async function voiceCodec(): Promise<{ codec: string; mux: "aac" | "opus" } | null> {
+  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined") return null;
+  for (const c of [
+    { codec: "mp4a.40.2", mux: "aac" as const },
+    { codec: "opus", mux: "opus" as const },
+  ]) {
+    try {
+      const ok = await AudioEncoder.isConfigSupported({ codec: c.codec, sampleRate: VOICE_RATE, numberOfChannels: 1, bitrate: 96_000 });
+      if (ok.supported) return c;
+    } catch {
+      /* try the next one */
+    }
+  }
+  return null;
+}
 
 const NAVY = "#011628";
 const CYAN = "#0ea2be";
@@ -164,7 +215,17 @@ export async function lessonVideo(job: VideoJob): Promise<Blob> {
 
   const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
   const target = new ArrayBufferTarget();
-  const muxer = new Muxer({ target, video: { codec: pick.mux, width: w, height: h, frameRate: VIDEO_FPS }, fastStart: "in-memory" });
+  // The coach's voice, when the lesson has one and this browser can write sound into the file.
+  const spoken = lesson.steps.some((s) => s.voice);
+  const sound = spoken ? await voiceCodec() : null;
+  const track = sound ? await voiceTrack(lesson) : null;
+  if (spoken) job.onVoice?.(sound && track ? "in" : "left-out");
+  const muxer = new Muxer({
+    target,
+    video: { codec: pick.mux, width: w, height: h, frameRate: VIDEO_FPS },
+    ...(sound && track ? { audio: { codec: sound.mux, numberOfChannels: 1, sampleRate: VOICE_RATE } } : {}),
+    fastStart: "in-memory",
+  });
   let failed: Error | null = null;
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -327,6 +388,28 @@ export async function lessonVideo(job: VideoJob): Promise<Blob> {
     }
     await encoder.flush();
     if (failed) throw failed;
+    if (sound && track) {
+      const voice = new AudioEncoder({
+        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+        error: (e) => {
+          failed = e;
+        },
+      });
+      voice.configure({ codec: sound.codec, sampleRate: VOICE_RATE, numberOfChannels: 1, bitrate: 96_000 });
+      const samples = track.getChannelData(0);
+      const size = VOICE_RATE / 10;
+      for (let o = 0; o < samples.length; o += size) {
+        if (job.signal?.aborted) throw new VideoError("Stopped. No video was made.");
+        const part = samples.slice(o, Math.min(samples.length, o + size));
+        const data = new AudioData({ format: "f32-planar", sampleRate: VOICE_RATE, numberOfFrames: part.length, numberOfChannels: 1, timestamp: Math.round((o * 1_000_000) / VOICE_RATE), data: part });
+        voice.encode(data);
+        data.close();
+        if (voice.encodeQueueSize > 20) await new Promise((r) => setTimeout(r, 0));
+      }
+      await voice.flush();
+      voice.close();
+      if (failed) throw failed;
+    }
     muxer.finalize();
   } catch (e) {
     try {

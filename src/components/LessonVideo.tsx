@@ -56,9 +56,10 @@ export function LessonVideo({
     setBusy(0);
     const ctl = new AbortController();
     stop.current = ctl;
+    let voice: "in" | "left-out" | null = null;
     try {
       const { lessonVideo, videoFileName } = await import("../lib/lessonVideo");
-      const blob = await lessonVideo({ scene, lesson, name, who, dark, shape, team, signal: ctl.signal, onProgress: (p) => setBusy(p) });
+      const blob = await lessonVideo({ scene, lesson, name, who, dark, shape, team, signal: ctl.signal, onProgress: (p) => setBusy(p), onVoice: (v) => (voice = v) });
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       const url = URL.createObjectURL(blob);
       urlRef.current = url;
@@ -70,7 +71,12 @@ export function LessonVideo({
       a.click();
       a.remove();
       setFile({ url, name: fileName });
-      setNote({ ok: true, text: `Saved ${fileName} to your downloads.` });
+      setNote({
+        ok: true,
+        text: `Saved ${fileName} to your downloads${(voice as string | null) === "in" ? ", with your voice" : ""}.${
+          (voice as string | null) === "left-out" ? " Your voice couldn't go into the file in this browser; make it in Chrome or Edge on a computer to hear it." : ""
+        }`,
+      });
       track("play_exported", { kind: "video" });
     } catch (e) {
       // Only our own wording reaches the coach; a library's error text never does.
