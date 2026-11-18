@@ -113,7 +113,7 @@ export function RunPlay({
   const saveLink = () => {
     // Hudl's embed code is fine to paste: only the address inside it is kept.
     const v = filmLinkFrom(linkDraft);
-    if (v && !isFilmLink(v)) return setLinkError("Paste a Hudl or YouTube link that starts with https://.");
+    if (v && !isFilmLink(v)) return setLinkError("Paste a Hudl, YouTube or GameChanger link that starts with https://.");
     setLinkError("");
     if (v !== linkDraft) setLinkDraft(v);
     onFilm({ ...scene.film, link: v || undefined });

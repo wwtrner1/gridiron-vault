@@ -57,6 +57,7 @@ export function FilmNotes({
   // Hudl's player loads only when the coach asks for it, so nothing comes from Hudl before that.
   const hudl = ytId ? null : filmHudlEmbed(link);
   const [hudlOn, setHudlOn] = useState(false);
+  const site = /^https:\/\/([a-z0-9-]+\.)*gc\.com\//i.test(link.trim()) ? "GameChanger" : "Hudl";
   const frame = useRef<HTMLIFrameElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const chan = useRef(newId());
@@ -259,14 +260,14 @@ export function FilmNotes({
         </>
       ) : (
         <p className="fn-hudl">
-          {hudl ? "This Hudl film can play right here beside your notes. " : "Hudl film opens on Hudl, so type the time from Hudl's player for each note. "}
+          {hudl ? "This Hudl film can play right here beside your notes. " : `${site} film opens on ${site}, so type the time from ${site}'s player for each note. `}
           {hudl && (
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setHudlOn(true)}>
               Show the film here
             </button>
           )}{" "}
           <a href={link} target="_blank" rel="noopener noreferrer">
-            Open the film on Hudl ↗
+            Open the film on {site} ↗
           </a>
         </p>
       )}

@@ -60,7 +60,7 @@ test("a YouTube link is checked, kept with the snap time, and opens at the snap"
   // Anything else is refused in words.
   await link.fill("https://example.com/film");
   await link.blur();
-  await expect(dialog.getByRole("alert")).toHaveText("Paste a Hudl or YouTube link that starts with https://.");
+  await expect(dialog.getByRole("alert")).toHaveText("Paste a Hudl, YouTube or GameChanger link that starts with https://.");
   await expect(dialog.getByLabel("The snap happens at (m:ss)")).toHaveCount(0);
 
   // A YouTube link is kept; the snap time opens the link at that second.
@@ -130,6 +130,15 @@ test("a shared Hudl video plays in Hudl's own player beside the notes, only once
   await dialog.getByRole("button", { name: "Add film notes" }).click();
   await expect(dialog.getByRole("button", { name: "Show the film here" })).toHaveCount(0);
   await expect(dialog.getByText("Hudl film opens on Hudl, so type the time from Hudl's player for each note.")).toBeVisible();
+
+  // A GameChanger link is kept too and opens on GameChanger.
+  await dialog.getByRole("button", { name: "Close film notes" }).click();
+  await link.fill("https://web.gc.com/teams/abc123/schedule/def456/video");
+  await link.blur();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Add film notes" }).click();
+  await expect(dialog.getByText("GameChanger film opens on GameChanger, so type the time from GameChanger's player for each note.")).toBeVisible();
+  await expect(dialog.getByRole("link", { name: /Open the film on GameChanger/ })).toHaveAttribute("href", "https://web.gc.com/teams/abc123/schedule/def456/video");
   expect(errors).toEqual([]);
 });
 
