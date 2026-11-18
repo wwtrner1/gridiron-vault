@@ -116,7 +116,7 @@ export function Privacy() {
           <b>Team information:</b> if you keep a team in GridIronVault, what you add to it: rosters (players' names, numbers, positions, birth dates, sizes, photos, their contact details and their parents' or guardians'), medical notes, player documents, depth charts, schedules and team messages.
         </li>
         <li>
-          <b>Your voice on a lesson:</b> if you press Record in the Film Room, the short clips you keep are stored on your account so they play with that play on your devices. A clip plays for anyone who has its address, which is a long random code found only inside your play, so players on your team link can hear it without an account. We never record until you press Record, we don't use your voice for anything else, and Remove, or deleting your account, deletes the clips.
+          <b>Your voice on a lesson:</b> if you press Record in the Film Room, the short clips you keep are stored on your account so they play with that play on your devices. A clip plays for anyone who has its address, which is a long random code found only inside your play, so players on your team link can hear it without an account. We never record until you press Record, we don't use your voice for anything else, and Remove, or deleting your account, deletes the clips. If you press Read it for me instead, a stock voice reads the step's caption. That speech is made inside your own browser, so the words are not sent to a voice service, and the finished clip is stored the same way as a recording.
         </li>
         <li>
           <b>What you send to Griddy:</b> your messages, any file of plays you attach, a whiteboard photo, and — so Griddy can

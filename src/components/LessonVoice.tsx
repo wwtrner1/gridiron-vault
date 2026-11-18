@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, coachError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import type { TeachStep } from "../lib/teach";
+import { plainCaption } from "../lib/teach";
+import type { StepId, TeachStep } from "../lib/teach";
 import { VOICE_LIMITS, voiceUrl } from "../lib/voice";
 import type { VoiceClip } from "../lib/voice";
 
@@ -21,17 +22,35 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
  * (`/api/voice`) and the play names it (`scene.teach.voice`), so it follows
  * the play to every device and onto the team link. Nothing is recorded until
  * the coach presses Record, and the microphone is let go the moment it stops.
+ *
+ * A coach who would rather not record can have the Film Room voice read the
+ * step (or every step that has no voice yet): a stock voice made in this
+ * browser by `lib/readAloud`, kept on the account the same way.
  */
-export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: VoiceClip; onClip: (clip: VoiceClip | undefined) => void }) {
+export function LessonVoice({
+  step,
+  steps,
+  clip,
+  onClip,
+  onClips,
+}: {
+  step: TeachStep;
+  steps: TeachStep[];
+  clip?: VoiceClip;
+  onClip: (clip: VoiceClip | undefined) => void;
+  onClips: (clips: Partial<Record<StepId, VoiceClip>>) => void;
+}) {
   const { account } = useAuth();
   const type = recorderType();
-  const [state, setState] = useState<"idle" | "asking" | "recording" | "saving">("idle");
+  const [state, setState] = useState<"idle" | "asking" | "recording" | "saving" | "reading">("idle");
   const [took, setTook] = useState(0);
   const [note, setNote] = useState("");
   const rec = useRef<{ recorder: MediaRecorder; stream: MediaStream; started: number; timer: number; keep: boolean } | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const live = useRef(true);
   const stepRef = useRef(step.id);
+  /** A read keeps going when the coach looks at another step. */
+  const reading = useRef(false);
 
   const letGo = (keep: boolean) => {
     const r = rec.current;
@@ -56,6 +75,7 @@ export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: Vo
     stepRef.current = step.id;
     letGo(false);
     audio.current?.pause();
+    if (reading.current) return;
     setState("idle");
     setNote("");
   }, [step.id]);
@@ -114,6 +134,46 @@ export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: Vo
     setState("recording");
   };
 
+  /** The Film Room voice reads this step, or every step with no voice yet, and the clips are kept like recordings. */
+  const readFor = async (which: TeachStep[]) => {
+    setState("reading");
+    const first = performance.now();
+    const kept: Partial<Record<StepId, VoiceClip>> = {};
+    try {
+      const { readAloud } = await import("../lib/readAloud");
+      reading.current = true;
+      for (const [i, s] of which.entries()) {
+        const of = which.length > 1 ? ` (step ${i + 1} of ${which.length})` : "";
+        const made = await readAloud(plainCaption(s.caption), (stage) => {
+          if (!live.current) return;
+          setNote(stage === "loading" ? "Getting the Film Room voice ready. The first time takes a minute (about 92 MB), then this browser keeps it." : `Reading ${s.title}${of}…`);
+        });
+        if (!live.current) return;
+        if (made.ms > VOICE_LIMITS.ms || made.clip.size > VOICE_LIMITS.size) throw new Error("long");
+        const saved = await api.saveVoice(made.clip, made.ms);
+        if (!live.current) return void api.deleteVoice(saved.id).catch(() => undefined);
+        kept[s.id] = { ...saved, by: "reader" };
+        if (s.voice) api.deleteVoice(s.voice.id).catch(() => undefined);
+      }
+      const took = Math.round((performance.now() - first) / 1000);
+      setNote(which.length > 1 ? `Read ${which.length} steps in ${took} s. Press Play to hear the lesson, then save the play to keep it.` : `Read. The Film Room voice plays on ${which[0].title}. Save the play to keep it.`);
+    } catch (e) {
+      if (live.current)
+        setNote(
+          e instanceof Error && e.message === "long"
+            ? "That step is too long to read in one clip. Record it in your own voice instead."
+            : e instanceof Error && e.name === "ReaderError"
+              ? e.message
+              : coachError(e, "The Film Room voice didn't finish. Try again in a minute."),
+        );
+    } finally {
+      reading.current = false;
+      if (Object.keys(kept).length && live.current) onClips(kept);
+      if (live.current) setState("idle");
+    }
+  };
+  const unvoiced = steps.filter((s) => !s.voice);
+
   const hear = () => {
     if (!clip) return;
     const a = (audio.current ??= new Audio());
@@ -127,7 +187,7 @@ export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: Vo
     audio.current?.pause();
     onClip(undefined);
     api.deleteVoice(clip.id).catch(() => undefined);
-    setNote(`Removed your voice from ${step.title}.`);
+    setNote(`Removed ${clip.by === "reader" ? "the Film Room voice" : "your voice"} from ${step.title}.`);
   };
 
   const busy = state !== "idle";
@@ -161,7 +221,11 @@ export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: Vo
         </>
       ) : (
         <>
-          {clip && <span className="fr-voice-has">Recorded · {secs(clip.ms)}</span>}
+          {clip && (
+            <span className="fr-voice-has">
+              {clip.by === "reader" ? "Film Room voice" : "Recorded"} · {secs(clip.ms)}
+            </span>
+          )}
           {clip && (
             <button type="button" className="btn btn-outline-dark btn-sm" onClick={hear} disabled={busy}>
               Hear it
@@ -170,6 +234,14 @@ export function LessonVoice({ step, clip, onClip }: { step: TeachStep; clip?: Vo
           <button type="button" className="btn btn-outline-dark btn-sm" onClick={record} disabled={busy}>
             {state === "asking" ? "Waiting for the microphone…" : state === "saving" ? "Saving…" : clip ? "Record again" : "Record this step"}
           </button>
+          <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => readFor([step])} disabled={busy}>
+            {state === "reading" ? "Reading…" : "Read it for me"}
+          </button>
+          {unvoiced.length > 1 && (
+            <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => readFor(unvoiced)} disabled={busy}>
+              Read the {unvoiced.length} steps with no voice
+            </button>
+          )}
           {clip && (
             <button type="button" className="btn btn-outline-dark btn-sm" onClick={remove} disabled={busy}>
               Remove

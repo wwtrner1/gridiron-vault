@@ -10,7 +10,7 @@ import { LessonVoice } from "./LessonVoice";
 import { voiceUrl } from "../lib/voice";
 import type { VoiceClip } from "../lib/voice";
 import { buildLesson, canTeach, captionParts, clockAt, defaultLook, plainCaption, stepLength, teachLooks, TEACH_LOOKS, TEACH_LOOK_NAME } from "../lib/teach";
-import type { TeachLook, TeachSettings } from "../lib/teach";
+import type { StepId, TeachLook, TeachSettings } from "../lib/teach";
 import type { Scene } from "../lib/types";
 import "../styles/filmroom.css";
 
@@ -198,6 +198,8 @@ export function FilmRoom({
     else delete voice[step.id];
     save({ voice: Object.keys(voice).length ? voice : undefined });
   };
+  /** Several steps' clips in one save (the Film Room voice reading every step). */
+  const keepClips = (clips: Partial<Record<StepId, VoiceClip>>) => save({ voice: { ...settings.voice, ...clips } });
 
   const id = step.id;
   const who = lesson.letters.includes(letter) ? letter : lesson.letters[0] ?? "";
@@ -294,7 +296,7 @@ export function FilmRoom({
                 </a>
               ) : null}
             </div>
-            {coach && <LessonVoice step={step} clip={step.voice} onClip={keepClip} />}
+            {coach && <LessonVoice step={step} steps={steps} clip={step.voice} onClip={keepClip} onClips={keepClips} />}
           </div>
 
           <aside className="fr-side-panel" aria-label="Lesson steps">

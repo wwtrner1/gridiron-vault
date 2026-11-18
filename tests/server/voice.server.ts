@@ -114,4 +114,13 @@ describe("A lesson's voice recording", () => {
     assert.equal((await call("GET", `voice/${a.data.id}`)).status, 404);
     assert.equal((await call("GET", `voice/${b.data.id}`)).status, 404);
   });
+
+  test("keeps a step the Film Room voice read (a WAV) and plays it back as one", async () => {
+    await newCoach();
+    const made = await record(4100, { "content-type": "audio/wav" });
+    assert.equal(made.status, 201);
+    const heard = await call("GET", `voice/${made.data.id}`);
+    assert.equal(heard.headers.get("content-type"), "audio/wav");
+    assert.equal((await record(4100, { "content-type": "text/html" })).status, 400);
+  });
 });

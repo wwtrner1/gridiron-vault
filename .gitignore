@@ -4,3 +4,6 @@ node_modules/
 out/
 test-results/
 playwright-report/
+
+# The Film Room voice model (92 MB): not in git until its hosting is decided.
+public/voice-model/*.onnx

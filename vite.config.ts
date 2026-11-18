@@ -32,6 +32,31 @@ function pdfjsAssets(): Plugin {
 }
 
 /**
+ * The Film Room voice runs a speech model with onnxruntime's WebAssembly
+ * build. Its two runtime files are served from /ort/ on our own origin (the
+ * CSP allows nothing else) and only fetched when a coach asks for a step to
+ * be read.
+ */
+function ortAssets(): Plugin {
+  const root = join("node_modules", "onnxruntime-web", "dist");
+  const files = ["ort-wasm-simd-threaded.mjs", "ort-wasm-simd-threaded.wasm"];
+  return {
+    name: "ort-assets",
+    configureServer(server) {
+      server.middlewares.use("/ort/", (req, res, next) => {
+        const name = decodeURIComponent((req.url ?? "").split("?")[0]).replace(/^\//, "");
+        if (!files.includes(name)) return next();
+        res.setHeader("Content-Type", name.endsWith(".wasm") ? "application/wasm" : "text/javascript");
+        res.end(readFileSync(join(root, name)));
+      });
+    },
+    generateBundle() {
+      for (const name of files) this.emitFile({ type: "asset", fileName: `ort/${name}`, source: readFileSync(join(root, name)) });
+    },
+  };
+}
+
+/**
  * Stamps public/sw.js (copied to dist/sw.js) with this release's id and the
  * list of /assets/ files it ships, so the service worker changes with every
  * release and can drop the chunks of earlier ones from its cache.
@@ -57,6 +82,7 @@ function swRelease(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), pdfjsAssets(), swRelease()],
+  plugins: [react(), pdfjsAssets(), ortAssets(), swRelease()],
+  worker: { format: "es" },
   build: { outDir: "dist", sourcemap: false },
 });

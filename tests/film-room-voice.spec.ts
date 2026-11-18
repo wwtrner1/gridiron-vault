@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
 
@@ -154,4 +154,98 @@ test("a coach records a step, hears it in the lesson and in the video, replaces 
   await expect(room.getByRole("button", { name: /^Voice o/ })).toHaveCount(0);
   await expect.poll(() => removed).toEqual(IDS);
   expect(errors).toEqual([]);
+});
+
+/** `/api/voice` answered here: what was posted, kept by id. */
+async function voiceAccount(context: import("@playwright/test").BrowserContext) {
+  const posts: { type: string; ms: number; body: Buffer }[] = [];
+  const removed: string[] = [];
+  await signIn(context, async (route, path, method) => {
+    if (path === "voice" && method === "POST") {
+      const body = route.request().postDataBuffer() ?? Buffer.alloc(0);
+      const ms = Number(route.request().headers()["x-voice-ms"]);
+      posts.push({ type: route.request().headers()["content-type"], ms, body });
+      await route.fulfill({ status: 201, json: { id: `${String(posts.length).repeat(8)}-1111-4111-8111-111111111111`, ms } });
+      return true;
+    }
+    if (path.startsWith("voice/")) {
+      if (method === "DELETE") removed.push(path.slice(6));
+      const n = Number(path.slice(6, 7));
+      await route.fulfill(method === "DELETE" || !posts[n - 1] ? { json: { ok: true } } : { contentType: "audio/wav", body: posts[n - 1].body });
+      return true;
+    }
+  });
+  return { posts, removed };
+}
+
+/**
+ * The Film Room voice reads a step for a coach who would rather not record.
+ * This runs the real speech model in the browser, so it needs the model file
+ * (`public/voice-model/`, about 92 MB) and is skipped where the file isn't
+ * there. It checks the clip is a real WAV of sensible length that reaches the
+ * account, the step saying whose voice it is, a second press replacing the
+ * first clip, and the play naming the clip as read.
+ */
+test("the Film Room voice reads a step and the clip is kept like a recording", async ({ page, context }) => {
+  test.skip(!existsSync("dist/voice-model/kokoro-v1-q8.onnx"), "The speech model isn't in this checkout.");
+  test.setTimeout(240_000);
+  const errors = errorsOf(page);
+  const { posts, removed } = await voiceAccount(context);
+  const room = await openRoom(page);
+  const voice = room.getByRole("group", { name: "Your voice on The look" });
+  const note = voice.getByRole("status");
+
+  await voice.getByRole("button", { name: "Read it for me" }).click();
+  await expect(note).toContainText("Read. The Film Room voice plays on The look.", { timeout: 120_000 });
+  await expect(voice.getByText(/^Film Room voice · \d+\.\d s$/)).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(posts[0].type).toBe("audio/wav");
+  expect(posts[0].body.subarray(0, 4).toString()).toBe("RIFF");
+  expect(posts[0].body.readUInt32LE(24)).toBe(24_000);
+  // The clip runs as long as its samples say, and it isn't silence.
+  const samples = (posts[0].body.length - 44) / 2;
+  expect(Math.abs(posts[0].ms - (samples / 24_000) * 1000)).toBeLessThan(2);
+  expect(posts[0].ms).toBeGreaterThan(1500);
+  expect(posts[0].ms).toBeLessThan(45_000);
+  let loud = 0;
+  for (let i = 44; i < posts[0].body.length; i += 2) loud = Math.max(loud, Math.abs(posts[0].body.readInt16LE(i)));
+  expect(loud).toBeGreaterThan(3000);
+  expect((await new AxeBuilder({ page }).include(".fr-voice").analyze()).violations).toEqual([]);
+
+  // Reading it again replaces the clip on the account.
+  await voice.getByRole("button", { name: "Read it for me" }).click();
+  await expect.poll(() => posts.length, { timeout: 60_000 }).toBe(2);
+  await expect.poll(() => removed).toEqual(["11111111-1111-4111-8111-111111111111"]);
+
+  // One press reads every step that has no voice yet, and leaves the one that has.
+  await voice.getByRole("button", { name: "Read the 5 steps with no voice" }).click();
+  await expect(note).toContainText(/^Read 5 steps in \d+ s\./, { timeout: 150_000 });
+  expect(posts).toHaveLength(7);
+  await expect(voice.getByRole("button", { name: /with no voice/ })).toHaveCount(0);
+
+  // Saved with the play, marked as read by the Film Room voice.
+  await page.keyboard.press("Escape");
+  await expect(room).toBeHidden();
+  await page.locator('[data-tour="dz-save"]').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const ws = JSON.parse(localStorage.getItem("snapline.workspace.v1") ?? "{}") as { plays?: { name: string; scene: unknown }[] };
+        return (ws.plays!.find((p) => p.name === "17 · Stick")?.scene as { teach?: { voice?: Record<string, { by?: string }> } } | undefined)?.teach?.voice?.look?.by;
+      }),
+    )
+    .toBe("reader");
+  expect(errors).toEqual([]);
+});
+
+test("a site without the speech model says so and keeps the recorder", async ({ page, context }) => {
+  const { posts } = await voiceAccount(context);
+  // A missing file on the live site comes back as the app's own page.
+  await context.route("**/voice-model/**", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>GridIronVault</title>" }));
+  const room = await openRoom(page);
+  const voice = room.getByRole("group", { name: "Your voice on The look" });
+  await voice.getByRole("button", { name: "Read it for me" }).click();
+  await expect(voice.getByRole("status")).toHaveText("The Film Room voice isn't set up on this site yet. Record the step in your own voice for now.", { timeout: 30_000 });
+  await expect(voice.getByRole("button", { name: "Record this step" })).toBeEnabled();
+  expect(posts).toHaveLength(0);
 });
