@@ -1,0 +1,17 @@
+/* The Concept Library (/concepts): a public page of Film Room lessons. */
+.cl-wrap { max-width: 1160px; margin: 0 auto; padding: 32px 16px 8px; }
+.cl-games { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.cl-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.cl-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.cl-thumb { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--line); }
+.cl-thumb svg { display: block; width: 100%; height: auto; }
+.cl-card h3 { margin: 6px 0 0; font-family: var(--display); font-size: 26px; line-height: 1.1; text-transform: uppercase; }
+.cl-why { margin: 0; font-weight: 600; }
+.cl-read { margin: 0; color: var(--ink-2); }
+.cl-beats { margin: 0; font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.cl-card .btn { margin-top: auto; align-self: flex-start; }
+.cl-note { margin: 20px 0 0; max-width: 720px; font-size: 13.5px; color: var(--ink-2); }
+.cl-cta { max-width: 1160px; margin: 0 auto; padding: 40px 16px 56px; }
+.cl-cta h2 { margin: 0 0 8px; font-family: var(--display); font-size: 32px; text-transform: uppercase; }
+.cl-cta p { margin: 0 0 16px; max-width: 620px; color: var(--ink-2); }
+.cl-cta-links { display: flex; flex-wrap: wrap; gap: 12px; }

@@ -48,6 +48,7 @@ const FOOTER_COLUMNS: { id: string; title: string; links: [to: string, label: st
     title: "Learn",
     links: [
       ["/starters", "Starter plays"],
+      ["/concepts", "Concept Library"],
       ["/starters", "Route tree"],
       ["/guides/flag-football-plays-vs-zone/", "Plays that beat zone"],
       ["/guides/flag-football-plays-vs-man/", "Plays that beat man"],
