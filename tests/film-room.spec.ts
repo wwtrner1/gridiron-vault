@@ -140,3 +140,60 @@ test("Film Room wears the team's colors and logo, with a switch per play", async
   await expect(room.locator(".fr-team")).toHaveCount(0);
   await expect(room.locator(".fr-cap")).not.toHaveCSS("border-left-color", "rgb(122, 20, 32)");
 });
+
+test("Make a video saves the lesson as an MP4 in both shapes, and Sideline sees the plan instead", async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = errorsOf(page);
+  await seedReady(page);
+  await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+
+  // The dialog: two shapes, wide first, and the promise that nothing is uploaded.
+  await room.getByRole("button", { name: "Make a video" }).click();
+  const box = page.getByRole("dialog", { name: "Make a video of this lesson" });
+  await expect(box).toContainText("Nothing is uploaded.");
+  await expect(box.getByRole("radio", { name: /Wide \(16:9\)/ })).toBeChecked();
+  expect((await new AxeBuilder({ page }).include(".modal").analyze()).violations).toEqual([]);
+
+  const make = async (tag: string, width: number, height: number) => {
+    const [download] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), box.getByRole("button", { name: /^Make (the video|it again)$/ }).click()]);
+    expect(download.suggestedFilename()).toBe(`17-stick-film-room-${tag}.mp4`);
+    await expect(box.getByRole("status")).toContainText(`Saved 17-stick-film-room-${tag}.mp4`);
+    const path = await download.path();
+    const bytes = (await import("node:fs")).readFileSync(path);
+    expect(bytes.length).toBeGreaterThan(40_000);
+    // An MP4: the file type box up front, and the picture's size in its track header.
+    expect(bytes.subarray(4, 8).toString("latin1")).toBe("ftyp");
+    const tkhd = bytes.indexOf("tkhd", 0, "latin1");
+    expect(tkhd).toBeGreaterThan(0);
+    const size = bytes.indexOf(Buffer.from([width >> 8, width & 255, 0, 0, height >> 8, height & 255, 0, 0]), tkhd);
+    expect(size).toBeGreaterThan(tkhd);
+    expect(size - tkhd).toBeLessThan(120);
+    return path;
+  };
+  const wide = await make("16x9", 1280, 720);
+  if (process.env.FR_KEEP) (await import("node:fs")).copyFileSync(wide, `${process.env.FR_KEEP}/wide.mp4`);
+  await box.getByRole("radio", { name: /Tall \(9:16\)/ }).check();
+  const tall = await make("9x16", 720, 1280);
+  if (process.env.FR_KEEP) (await import("node:fs")).copyFileSync(tall, `${process.env.FR_KEEP}/tall.mp4`);
+  await expect(box.getByRole("link", { name: "Download it again" })).toHaveAttribute("download", "17-stick-film-room-9x16.mp4");
+  await box.getByRole("button", { name: "Close Make a video of this lesson" }).click();
+  await expect(box).toBeHidden();
+  await expect(room).toBeVisible();
+
+  // Sideline: the lesson still plays, the file comes with a plan.
+  await page.evaluate(() => localStorage.setItem("nextplay.tier.v1", "free"));
+  await page.reload();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  await room.getByRole("button", { name: "Make a video" }).click();
+  await expect(box).toContainText("A video file of the lesson comes with Head Coach.");
+  await expect(box.getByRole("button", { name: "Make the video" })).toHaveCount(0);
+  await expect(box.getByRole("link", { name: "See plans" })).toHaveAttribute("href", "/pricing");
+
+  expect(errors).toEqual([]);
+});

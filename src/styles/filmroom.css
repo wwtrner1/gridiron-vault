@@ -118,6 +118,19 @@
 .fr-letters button { min-width: 34px; height: 34px; padding: 0 8px; border: 1px solid var(--fr-line); border-radius: var(--radius-md); background: transparent; color: var(--fr-text); font-weight: 700; }
 .fr-letters button[aria-pressed="true"] { border-color: var(--cyan); background: var(--cyan); color: var(--on-cyan); }
 
+.fr-video { display: grid; gap: 14px; justify-items: start; }
+.fr-video p { margin: 0; line-height: 1.45; }
+.fr-shapes { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; border: 0; }
+.fr-shapes legend { margin-bottom: 6px; padding: 0; font-weight: 700; }
+.fr-shapes label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer; }
+.fr-shapes label:has(input:checked) { border-color: var(--cyan-ink); background: var(--cyan-soft); }
+.fr-shapes input { margin-top: 3px; accent-color: var(--cyan-ink); }
+.fr-shapes b { display: block; }
+.fr-making { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; }
+.fr-making progress { flex: 1; min-width: 140px; height: 10px; accent-color: var(--cyan-ink); }
+.fr-video-ok { color: var(--green-fg); }
+.fr-video-bad { color: var(--red-fg); }
+
 @media (max-width: 900px) {
   .fr-body { flex-direction: column; padding: 12px; }
   .fr-side-panel { min-width: 0; overflow: visible; }
