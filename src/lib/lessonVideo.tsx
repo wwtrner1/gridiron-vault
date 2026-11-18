@@ -35,6 +35,8 @@ export type VideoJob = {
   name: string;
   /** The letter "Your job" teaches. */
   who: string;
+  /** A line under the step list, such as the rep on film this lesson teaches. */
+  note?: string;
   dark: boolean;
   shape: VideoShape;
   /** Team name, logo and colors, when the coach has them switched on. */
@@ -370,6 +372,11 @@ export async function lessonVideo(job: VideoJob): Promise<Blob> {
     });
     ctx.font = `600 ${tall ? 14 : 11}px ${MONO}`;
     ctx.fillStyle = sub;
+    if (job.note) {
+      ctx.fillStyle = dark ? "#eaf3fa" : "#0b1524";
+      ctx.fillText(fitText(ctx, job.note, at.steps.w), at.steps.x, at.steps.y + at.steps.h - (tall ? 24 : 20));
+      ctx.fillStyle = sub;
+    }
     ctx.fillText("gridiron-vault.com", at.steps.x, at.steps.y + at.steps.h);
   };
 

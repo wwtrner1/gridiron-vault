@@ -167,6 +167,15 @@ export function repStats(reps: FilmRep[]): { calls: number; counted: number; avg
   };
 }
 
+/** "Week 3 vs Central · rep 6 · 1st & 10 · TD · +18 yd" */
+export function repText(r: FilmRep): string {
+  const parts = [r.game, `rep ${r.n}`];
+  if (r.down) parts.push(`${["1st", "2nd", "3rd", "4th"][r.down - 1]}${r.dist !== undefined ? ` & ${r.dist}` : ""}`);
+  if (r.result) parts.push(r.result);
+  if (r.gain !== undefined) parts.push(`${r.gain > 0 ? "+" : ""}${r.gain} yd`);
+  return parts.join(" · ");
+}
+
 /** "Called 6 times on film · 5.2 yards a call · best 18" */
 export function repLine(reps: FilmRep[]): string {
   const s = repStats(reps);

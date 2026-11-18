@@ -4,6 +4,8 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
+import { repText } from "../lib/breakdown";
+import type { FilmRep } from "../lib/breakdown";
 import { LessonVoice } from "./LessonVoice";
 import { voiceUrl } from "../lib/voice";
 import type { VoiceClip } from "../lib/voice";
@@ -53,6 +55,7 @@ export function FilmRoom({
   rushYards = 7,
   onTeach,
   forLetter,
+  rep,
   closeLabel = "Back to drawing",
   onClose,
 }: {
@@ -64,6 +67,8 @@ export function FilmRoom({
   onTeach?: (teach: TeachSettings) => void;
   /** The player's own letter on a team link: "Your job" opens on it. */
   forLetter?: string;
+  /** A rep of this play on film (from a breakdown): the lesson and its video say which one. */
+  rep?: FilmRep;
   closeLabel?: string;
   onClose: () => void;
 }) {
@@ -207,6 +212,7 @@ export function FilmRoom({
           Film Room <span>{title}</span>
         </h2>
         <span className="fr-vs">vs {look.name}</span>
+        {rep && <span className="fr-rep">On film: {repText(rep)}</span>}
         {teamOn && (
           <span className="fr-team">
             {brand.logo && <img src={brand.logo} alt="" />}
@@ -411,6 +417,7 @@ export function FilmRoom({
             lesson={lesson}
             name={name}
             who={who}
+            note={rep ? `On film: ${repText(rep)}` : undefined}
             dark={dark}
             team={teamOn ? { name: brand.name, logo: brand.logo ?? undefined, primary: brand.primary, secondary: brand.secondary, ink: inkOn(brand.primary) } : undefined}
             onClose={() => setMaking(false)}

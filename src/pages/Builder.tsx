@@ -1,3 +1,4 @@
+import type { FilmRep } from "../lib/breakdown";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
@@ -1841,6 +1842,7 @@ export function Builder() {
   const [running, setRunning] = useState(false);
   const [covering, setCovering] = useState(false);
   const [teaching, setTeaching] = useState(false);
+  const [teachRep, setTeachRep] = useState<FilmRep | undefined>(undefined);
   const coverScene = useMemo(() => (covering || teaching ? reconcileConnections(scene) : scene), [covering, teaching, scene]);
 
   // Saved play format (canvas): save this play's look, or give this play the saved look.
@@ -2317,7 +2319,7 @@ export function Builder() {
           name={meta.name}
           onFilm={(film) => applyScene({ ...scene, film }, "Film")}
           onCoverage={() => (setRunning(false), setCovering(true))}
-          onTeach={() => (setRunning(false), setTeaching(true))}
+          onTeach={(rep) => (setRunning(false), setTeachRep(rep), setTeaching(true))}
           onClose={() => setRunning(false)}
         />
       )}
@@ -2327,8 +2329,9 @@ export function Builder() {
           scene={coverScene}
           name={meta.name}
           rushYards={rules.rush || 7}
+          rep={teachRep}
           onTeach={(teach) => applyScene({ ...scene, teach }, "Film Room")}
-          onClose={() => setTeaching(false)}
+          onClose={() => (setTeaching(false), setTeachRep(undefined))}
           />
         </Suspense>
       )}

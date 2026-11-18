@@ -7,7 +7,8 @@ import { errorsOf, quiet, seedReady, workspace } from "./helpers";
  * offensive rep is matched to the Vault play with the same name (defense and
  * kicking reps left out), the coach picks a play for a name that didn't match,
  * names the film and keeps the reps in the plays. Run play then says what the
- * film shows about the play, the same film brought in again replaces its reps,
+ * film shows about the play, Teach this rep opens the Film Room lesson on that
+ * rep, the same film brought in again replaces its reps,
  * and Clear these reps takes them off. A file that isn't a CSV, or has no play
  * column, is refused in coach words.
  */
@@ -80,7 +81,15 @@ test("a breakdown CSV is matched to Vault plays, kept in them and shown in Run p
   const run = page.getByRole("dialog", { name: /Run play/ });
   const film = run.getByRole("group", { name: "From your film" });
   await expect(film).toContainText("Called 3 times on film · 8 yards a call · best 18");
-  await expect(film.locator("li").first()).toHaveText("Week 3 vs Central · rep 6 · 1st & 10 · TD · +18 yd");
+  await expect(film.locator("li span").first()).toHaveText("Week 3 vs Central · rep 6 · 1st & 10 · TD · +18 yd");
+
+  // Teach this rep: the Film Room lesson says which rep on film it is about.
+  await film.getByRole("button", { name: "Teach Week 3 vs Central rep 6 in the Film Room" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+  await expect(room.locator(".fr-rep")).toHaveText("On film: Week 3 vs Central · rep 6 · 1st & 10 · TD · +18 yd");
+  await room.getByRole("button", { name: "Back to drawing" }).click();
+  await expect(room).toBeHidden();
+  await page.locator('[data-tour="dz-run"]').first().click();
   await film.getByRole("button", { name: "Clear these reps" }).click();
   await expect(film).toHaveCount(0);
   expect(errors).toEqual([]);

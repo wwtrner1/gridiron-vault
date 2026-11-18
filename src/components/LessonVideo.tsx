@@ -22,6 +22,7 @@ export function LessonVideo({
   lesson,
   name,
   who,
+  note: line,
   dark,
   team,
   onClose,
@@ -30,6 +31,8 @@ export function LessonVideo({
   lesson: Lesson;
   name: string;
   who: string;
+  /** A line for the video, such as the rep on film it teaches. */
+  note?: string;
   dark: boolean;
   team?: VideoJob["team"];
   onClose: () => void;
@@ -59,7 +62,7 @@ export function LessonVideo({
     let voice: "in" | "left-out" | null = null;
     try {
       const { lessonVideo, videoFileName } = await import("../lib/lessonVideo");
-      const blob = await lessonVideo({ scene, lesson, name, who, dark, shape, team, signal: ctl.signal, onProgress: (p) => setBusy(p), onVoice: (v) => (voice = v) });
+      const blob = await lessonVideo({ scene, lesson, name, who, note: line, dark, shape, team, signal: ctl.signal, onProgress: (p) => setBusy(p), onVoice: (v) => (voice = v) });
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       const url = URL.createObjectURL(blob);
       urlRef.current = url;

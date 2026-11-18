@@ -650,7 +650,7 @@ export const GUIDES: Guide[] = [
           { title: "The green check", text: "A play you checked wears a green Checked. Plays saved without a check show Needs a check in the Vault until you save them in the Designer (or press Looks right: mark as checked)." },
           { title: "Leave while it reads", text: "Pages keep being read when you leave; a bar at the bottom shows how far it got and brings you back. Send to my Vault to check later files every play as Needs a check when it's done." },
           { title: "What the reader learned", text: "Every fix teaches the reader how your boards are written, for your next read. Forget one or all here.", target: ".up-memory" },
-          { title: "Film breakdown", text: "Choose a breakdown file takes a game's play-by-play as a CSV (Hudl's breakdown download or your own sheet with a Play column). Each offensive rep is matched to the Vault play with the same name; pick a play for any that didn't match, name the film and add the reps. Run play then shows how often you called the play and what it gained. The file is read in your browser and never uploaded.", target: ".up-break" },
+          { title: "Film breakdown", text: "Choose a breakdown file takes a game's play-by-play as a CSV (Hudl's breakdown download or your own sheet with a Play column). Each offensive rep is matched to the Vault play with the same name; pick a play for any that didn't match, name the film and add the reps. Run play then shows how often you called the play and what it gained, and Teach this rep opens the Film Room lesson for that rep. The file is read in your browser and never uploaded.", target: ".up-break" },
         ],
       },
     ],
