@@ -167,7 +167,7 @@ export function Privacy() {
         </li>
         <li>
           <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you
-          press play; after that, YouTube's own privacy policy applies. Hudl links open on Hudl.
+          press play; after that, YouTube's own privacy policy applies. A Hudl film you link opens on Hudl, or plays in Hudl's own player here once you press Show the film here; from then on Hudl's privacy policy applies to that player.
         </li>
       </ul>
       <p>Each only gets what it needs for that job.</p>

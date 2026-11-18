@@ -61,6 +61,29 @@ export function filmYoutubeId(link: string): string | null {
   }
 }
 
+/**
+ * Hudl's own player for a shared video: the share link (`/video/3/<owner>/<id>`) or the address
+ * inside Hudl's embed code (`/embed/video/3/<owner>/<id>`). Null for a team page, a playlist or
+ * anything else, which only opens on Hudl. It plays only when the film's owner allows sharing.
+ */
+export function filmHudlEmbed(link: string): string | null {
+  try {
+    const u = new URL(link.trim());
+    if (u.protocol !== "https:" || !/^(www\.)?hudl\.com$/i.test(u.hostname)) return null;
+    const m = /^\/(?:embed\/)?video\/(\d{1,3})\/(\d{1,12})\/([0-9a-f]{8,40})\/?$/i.exec(u.pathname);
+    return m ? `https://www.hudl.com/embed/video/${m[1]}/${m[2]}/${m[3].toLowerCase()}` : null;
+  } catch {
+    return null;
+  }
+}
+
+/** What a coach pasted: a link, or a player's embed code, from which only the address is kept. */
+export function filmLinkFrom(pasted: string): string {
+  const src = /<iframe[^>]*?\ssrc\s*=\s*["']([^"']+)["']/i.exec(pasted)?.[1]?.trim();
+  if (!src) return pasted.trim();
+  return src.startsWith("//") ? `https:${src}` : src;
+}
+
 /** The film link opened at a moment: YouTube gets ?t=, Hudl opens as pasted (it has no time in its links). */
 export function filmAt(link: string, at: number): string {
   if (!filmYoutubeId(link)) return link;

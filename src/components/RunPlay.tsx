@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { filmLinkFrom } from "../lib/filmNotes";
 import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positionsAt } from "../lib/runPlay";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
@@ -110,9 +111,11 @@ export function RunPlay({
     setVideoName(file.name);
   };
   const saveLink = () => {
-    const v = linkDraft.trim();
+    // Hudl's embed code is fine to paste: only the address inside it is kept.
+    const v = filmLinkFrom(linkDraft);
     if (v && !isFilmLink(v)) return setLinkError("Paste a Hudl or YouTube link that starts with https://.");
     setLinkError("");
+    if (v !== linkDraft) setLinkDraft(v);
     onFilm({ ...scene.film, link: v || undefined });
   };
 

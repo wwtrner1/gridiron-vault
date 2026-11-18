@@ -6,6 +6,7 @@ import {
   MARK_COLORS,
   cleanNotes,
   filmEmbed,
+  filmHudlEmbed,
   filmYoutubeId,
   markPath,
   noteCrossed,
@@ -53,6 +54,9 @@ export function FilmNotes({
   onChange: (notes: FilmNote[]) => void;
 }) {
   const ytId = filmYoutubeId(link);
+  // Hudl's player loads only when the coach asks for it, so nothing comes from Hudl before that.
+  const hudl = ytId ? null : filmHudlEmbed(link);
+  const [hudlOn, setHudlOn] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const chan = useRef(newId());
@@ -241,9 +245,26 @@ export function FilmNotes({
             </svg>
           )}
         </div>
+      ) : hudl && hudlOn ? (
+        <>
+          <div className="fn-stage">
+            <iframe src={hudl} title={`${title} film on Hudl`} sandbox="allow-scripts allow-same-origin allow-presentation" allow="fullscreen" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+          </div>
+          <p className="fn-hudl">
+            Hudl's player doesn't tell us the time, so type it for each note. If the film stays blank, its owner hasn't turned on sharing for it.{" "}
+            <a href={link} target="_blank" rel="noopener noreferrer">
+              Open the film on Hudl ↗
+            </a>
+          </p>
+        </>
       ) : (
         <p className="fn-hudl">
-          Hudl film opens on Hudl, so type the time from Hudl's player for each note.{" "}
+          {hudl ? "This Hudl film can play right here beside your notes. " : "Hudl film opens on Hudl, so type the time from Hudl's player for each note. "}
+          {hudl && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setHudlOn(true)}>
+              Show the film here
+            </button>
+          )}{" "}
           <a href={link} target="_blank" rel="noopener noreferrer">
             Open the film on Hudl ↗
           </a>

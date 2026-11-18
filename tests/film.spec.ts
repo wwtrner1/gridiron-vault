@@ -89,6 +89,50 @@ test("a YouTube link is checked, kept with the snap time, and opens at the snap"
   expect(errors).toEqual([]);
 });
 
+test("a shared Hudl video plays in Hudl's own player beside the notes, only once the coach asks", async ({ page }) => {
+  const errors = errorsOf(page);
+  const asked: string[] = [];
+  await page.route("https://www.hudl.com/**", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Hudl</title><body style='background:#111;color:#fff'>Hudl player</body>" });
+  });
+  const dialog = await openRun(page);
+  const link = dialog.getByLabel("Hudl or YouTube link");
+
+  // Hudl's embed code can be pasted whole: only the address inside it is kept.
+  await link.fill("<iframe src='//www.hudl.com/embed/video/3/1234567/5a7b9c0d1e2f3a4b5c6d7e8f' width='640' height='360' frameborder='0' allowfullscreen></iframe>");
+  await link.blur();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await expect(link).toHaveValue("https://www.hudl.com/embed/video/3/1234567/5a7b9c0d1e2f3a4b5c6d7e8f");
+
+  // Nothing loads from Hudl until the coach presses Show the film here.
+  await dialog.getByRole("button", { name: "Add film notes" }).click();
+  await expect(dialog.locator(".fn-stage")).toHaveCount(0);
+  expect(asked).toEqual([]);
+  await dialog.getByRole("button", { name: "Show the film here" }).click();
+  const frame = dialog.locator(".fn-stage iframe");
+  await expect(frame).toHaveAttribute("src", "https://www.hudl.com/embed/video/3/1234567/5a7b9c0d1e2f3a4b5c6d7e8f");
+  await expect(frame).toHaveAttribute("sandbox", /allow-scripts/);
+  await expect(page.frameLocator(".fn-stage iframe").getByText("Hudl player")).toBeVisible();
+  await expect(dialog.getByRole("link", { name: /Open the film on Hudl/ })).toHaveAttribute("href", "https://www.hudl.com/embed/video/3/1234567/5a7b9c0d1e2f3a4b5c6d7e8f");
+  await expect(dialog.getByText("If the film stays blank, its owner hasn't turned on sharing for it.")).toBeVisible();
+
+  // A share link plays the same way; a team page or playlist only opens on Hudl.
+  await dialog.getByRole("button", { name: "Close film notes" }).click();
+  await link.fill("https://www.hudl.com/video/3/1234567/5A7B9C0D1E2F3A4B5C6D7E8F");
+  await link.blur();
+  await dialog.getByRole("button", { name: "Add film notes" }).click();
+  await dialog.getByRole("button", { name: "Show the film here" }).click();
+  await expect(frame).toHaveAttribute("src", "https://www.hudl.com/embed/video/3/1234567/5a7b9c0d1e2f3a4b5c6d7e8f");
+  await dialog.getByRole("button", { name: "Close film notes" }).click();
+  await link.fill("https://www.hudl.com/team/v2/12345/video");
+  await link.blur();
+  await dialog.getByRole("button", { name: "Add film notes" }).click();
+  await expect(dialog.getByRole("button", { name: "Show the film here" })).toHaveCount(0);
+  await expect(dialog.getByText("Hudl film opens on Hudl, so type the time from Hudl's player for each note.")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("film notes: a note and a drawing pinned to a moment, kept in the saved play, copied for players", async ({ page, context }) => {
   const errors = errorsOf(page);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
