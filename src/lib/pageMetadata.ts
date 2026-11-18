@@ -40,7 +40,7 @@ export const PUBLIC_PAGES: Record<string, string> = {
   "/pricing":
     "GridIronVault plans for flag football coaches: free Sideline, Head Coach for one coach, Staff for a coaching staff and Program for a league. Compare what each includes.",
   "/concepts":
-    "Smash, Flood, Mesh, Four Verts and Stick taught step by step for 5v5, 7v7 and 11-man: the look, the read and every player's job. Free Film Room lessons to share with your players.",
+    "Smash, Flood, Mesh, Four Verts and Stick taught step by step for 5v5, 7v7 and 11-man: the look, the read and every player's job. Three lessons are free to watch and share with your players.",
   "/starters":
     "56 flag football starter plays drawn on a real field: passing concepts, runs, trick plays and defenses, each with why it works. Copy any of them into your Vault.",
   "/tutorials":

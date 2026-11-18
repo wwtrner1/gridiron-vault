@@ -23,13 +23,33 @@ async function load(r: Reader) {
   // One thread: it needs no cross-origin isolation and reads faster than real time.
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.wasmPaths = "/ort/";
-  const [model, table, style] = await Promise.all([fetch(r.model), fetch(r.vocab), fetch(r.voice)]);
   // A missing file comes back as the app's own page, not a 404, so the type is checked too.
-  const missing = [model, table, style].some((f) => !f.ok || (f.headers.get("content-type") ?? "").includes("text/html"));
-  if (missing) return say({ kind: "failed", n: -1, missing: true });
+  const there = (f: Response) => f.ok && !(f.headers.get("content-type") ?? "").includes("text/html");
+  const [table, style] = await Promise.all([fetch(r.vocab), fetch(r.voice)]);
+  if (!there(table) || !there(style)) return say({ kind: "failed", n: -1, missing: true });
   vocab = (await table.json()) as Record<string, number>;
   voice = new Float32Array(await style.arrayBuffer());
-  session = await ort.InferenceSession.create(new Uint8Array(await model.arrayBuffer()), { executionProviders: ["wasm"] });
+  // The model arrives in parts, four at a time, and is put back together here.
+  const model = new Uint8Array(r.bytes);
+  const count = Math.ceil(r.bytes / r.partBytes);
+  let next = 0;
+  let got = 0;
+  let missing = false;
+  const take = async () => {
+    while (next < count && !missing) {
+      const i = next++;
+      const f = await fetch(`${r.model}.${i}.part`);
+      if (!there(f)) return void (missing = true);
+      const part = new Uint8Array(await f.arrayBuffer());
+      if (i * r.partBytes + part.length > r.bytes) return void (missing = true);
+      model.set(part, i * r.partBytes);
+      got += part.length;
+      say({ kind: "fetched", pct: Math.round((got / r.bytes) * 100) });
+    }
+  };
+  await Promise.all([take(), take(), take(), take()]);
+  if (missing || got !== r.bytes) return say({ kind: "failed", n: -1, missing: true });
+  session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"] });
   say({ kind: "ready" });
 }
 

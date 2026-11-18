@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "node scripts/voice-model.mjs && npm run build"
   publish = "dist"
   # Skip the build when a push changes nothing the site ships: docs, tests,
   # scripts, CI and agent config, Markdown. A production deploy costs 15

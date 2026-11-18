@@ -91,6 +91,15 @@ export const CONCEPT_SETS: ConceptSet[] = [
   { id: "5", label: "5v5", personnel: "5-on-5 offense", formation: "Trips Right", view: "flag" },
 ];
 
+/**
+ * What anyone can watch without a plan (Wes, 2026-11-18): three concepts, each against
+ * one defensive scheme. The other concepts and the other defenses open with a plan
+ * that opens the whole library (`Tier.allStarters`).
+ */
+export const PUBLIC_CONCEPTS = ["smash", "flood", "mesh"];
+export const PUBLIC_LOOK = "Cover 3";
+export const conceptOpen = (whole: boolean, id: string) => whole || PUBLIC_CONCEPTS.includes(id);
+
 export const conceptById = (id: string | null) => CONCEPTS.find((c) => c.id === id);
 export const conceptSet = (id: string | null) => CONCEPT_SETS.find((s) => s.id === id);
 

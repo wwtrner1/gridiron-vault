@@ -4,6 +4,7 @@ import { STATUS_COLOR } from "../lib/coverage";
 import { DEFENSE_INK } from "../lib/defense";
 import { fieldInset, yardLines } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { pointAt } from "../lib/motion";
 import { linesFor } from "../lib/teach";
 import type { Lesson, TeachStep } from "../lib/teach";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
@@ -70,8 +71,9 @@ export function LessonField({
   label?: string;
   standalone?: boolean;
 }) {
-  const { result } = lesson;
-  const k = Math.min(Math.round(t * FPS), Math.round(result.duration * FPS));
+  const { result, motion } = lesson;
+  // Between the model's frames, so the picture moves at the screen's rate (and stays smooth at half speed).
+  const now = Math.min(t, result.duration);
   const id = step.id;
   const mine = useMemo(() => new Set(id === "job" ? linesFor(scene, who).map((l) => l.id) : []), [scene, who, id]);
   const nodes = useMemo(() => drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => (dark ? onDark(n) : n)), [scene, dark]);
@@ -90,8 +92,8 @@ export function LessonField({
       const n = scene.nodes.find((x) => x.id === pid);
       return n?.kind === "player" && n.label.toUpperCase() === "Q";
     });
-    const from = qbId ? result.offense.get(qbId)![Math.round(result.throwAt * FPS)] : null;
-    const to = result.offense.get(result.target.id)?.[k];
+    const from = qbId ? pointAt(motion.offense.get(qbId)!, result.throwAt, FPS) : null;
+    const to = pointAt(motion.offense.get(result.target.id) ?? [], now, FPS);
     const p = Math.min(1, (t - result.throwAt) / BALL_FLIGHT);
     if (from && to) ball = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p - Math.sin(Math.PI * p) * 26 };
   }
@@ -132,7 +134,7 @@ export function LessonField({
 
       {nodes.map((n) => {
         if (n.kind !== "player") return <NodeLayer key={n.id} node={n} opacity={inkOpacity(n)} className={n.kind === "path" && n.firstRead && id === "call" ? "fr-first" : undefined} />;
-        const p = result.offense.get(n.id)?.[k] ?? n;
+        const p = pointAt(motion.offense.get(n.id) ?? [], now, FPS) ?? n;
         const s = thrown ? statusOf.get(n.id) : undefined;
         const dim = id === "job" && n.label.trim().toUpperCase() !== who;
         return (
@@ -155,7 +157,7 @@ export function LessonField({
         ))}
 
       {result.defenders.map((d, di) => {
-        const p = result.defense[k]?.[di] ?? d.start;
+        const p = pointAt(motion.defense[di] ?? [], now, FPS) ?? d.start;
         return (
           <g key={`d${di}`} aria-hidden="true" opacity={id === "job" ? 0.35 : 1} data-defender={d.label}>
             <circle cx={p.x} cy={p.y} r={15 * grow} fill={dark ? "#2A1717" : "#fff"} stroke={defInk} strokeWidth={2.6} />

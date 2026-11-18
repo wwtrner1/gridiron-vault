@@ -27,6 +27,8 @@ export type Format = "5v5" | "7v7" | "11";
 
 /** Steps per second of simulated time. */
 const FPS = 30;
+/** Frames a second in a `Result`. */
+export const SIM_FPS = FPS;
 /** Yards per second, by job (youth speeds; the ratios are what matter). */
 const SPEED = { route: 6, man: 5.85, zone: 5, rush: 4.4, lineRush: 0.8, qb: 3 };
 /** Seconds before a defender reacts to the snap. */

@@ -15,3 +15,5 @@
 .cl-cta h2 { margin: 0 0 8px; font-family: var(--display); font-size: 32px; text-transform: uppercase; }
 .cl-cta p { margin: 0 0 16px; max-width: 620px; color: var(--ink-2); }
 .cl-cta-links { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.cl-card.is-held .cl-thumb { opacity: 0.6; }

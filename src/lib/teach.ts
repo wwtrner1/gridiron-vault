@@ -2,10 +2,11 @@ import { linesOf } from "./assignments";
 import { FILM_LOOKS } from "./brandData";
 import type { FilmLook } from "./brandData";
 import { explainPlay } from "./explain";
-import { LOOKS, formatOf, simulate, wins, yardScale, yards } from "./coverage";
+import { LOOKS, SIM_FPS, formatOf, simulate, wins, yardScale, yards } from "./coverage";
+import { smoothTrack } from "./motion";
 import type { Look, Result, SimDefender, SimOptions } from "./coverage";
 import { CANVAS_W } from "./types";
-import type { PathNode, PlayerNode, Scene } from "./types";
+import type { PathNode, PlayerNode, Point, Scene } from "./types";
 import { cleanClip } from "./voice";
 import type { VoiceClip } from "./voice";
 
@@ -91,6 +92,8 @@ export type DefJob = { label: string; job: string; kind: SimDefender["job"]; dee
 export type Lesson = {
   look: Look;
   result: Result;
+  /** The same frames eased for the screen (`lib/motion.ts`): what the field draws. */
+  motion: { offense: Map<string, Point[]>; defense: Point[][] };
   steps: TeachStep[];
   jobs: DefJob[];
   counts: { deep: number; under: number; man: number; rush: number };
@@ -252,5 +255,11 @@ export function buildLesson(scene: Scene, name: string, look: Look, letter: stri
     const who = letters.includes(letter.trim().toUpperCase()) ? letter.trim().toUpperCase() : letters[0];
     steps.push({ id: "job", title: "Your job", caption: jobFor(scene, who).replace(`${who},`, `{${who}},`), hold: 1.6, from: 0, to: end, rate: 1 });
   }
-  return { look, result, steps: withVoice(steps, cleanTeach(scene.teach)?.voice), jobs, counts, letters };
+  // Each defender's frames are kept across (frame, defender); ease them one defender at a time.
+  const byDefender = result.defenders.map((_, di) => smoothTrack(result.defense.map((frame) => frame[di]), SIM_FPS));
+  const motion = {
+    offense: new Map([...result.offense].map(([id, pts]) => [id, smoothTrack(pts, SIM_FPS)])),
+    defense: byDefender,
+  };
+  return { look, result, motion, steps: withVoice(steps, cleanTeach(scene.teach)?.voice), jobs, counts, letters };
 }

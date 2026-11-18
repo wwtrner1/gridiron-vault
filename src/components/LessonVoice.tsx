@@ -144,9 +144,15 @@ export function LessonVoice({
       reading.current = true;
       for (const [i, s] of which.entries()) {
         const of = which.length > 1 ? ` (step ${i + 1} of ${which.length})` : "";
-        const made = await readAloud(plainCaption(s.caption), (stage) => {
+        const made = await readAloud(plainCaption(s.caption), (stage, pct) => {
           if (!live.current) return;
-          setNote(stage === "loading" ? "Getting the Film Room voice ready. The first time takes a minute (about 92 MB), then this browser keeps it." : `Reading ${s.title}${of}…`);
+          // Every tenth, so a screen reader isn't told each percent.
+          const tenth = pct === undefined ? "" : ` ${Math.floor(pct / 10) * 10}% here.`;
+          setNote(
+            stage === "loading"
+              ? `Getting the Film Room voice ready. The first time is a big download (about 325 MB, a few minutes on home Wi-Fi), then this browser keeps it.${tenth}`
+              : `Reading ${s.title}${of}…`,
+          );
         });
         if (!live.current) return;
         if (made.ms > VOICE_LIMITS.ms || made.clip.size > VOICE_LIMITS.size) throw new Error("long");

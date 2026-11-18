@@ -2,7 +2,9 @@ import { Suspense, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { PlayThumb } from "../components/PlayThumb";
-import { CONCEPTS, CONCEPT_SETS, conceptById, conceptScene, conceptSet } from "../lib/concepts";
+import { CONCEPTS, CONCEPT_SETS, PUBLIC_CONCEPTS, PUBLIC_LOOK, conceptById, conceptOpen, conceptScene, conceptSet } from "../lib/concepts";
+import { useTier } from "../lib/tier";
+import type { Scene } from "../lib/types";
 import { lazyPage } from "../lib/lazyPage";
 import "../styles/home.css";
 import "../styles/pricing.css";
@@ -10,9 +12,15 @@ import "../styles/concepts.css";
 
 const FilmRoom = lazyPage(() => import("../components/FilmRoom"), "FilmRoom");
 
+/** A held-back concept's card: where the players line up, none of the routes. */
+const lineup = (scene: Scene): Scene => ({ ...scene, nodes: scene.nodes.filter((n) => n.kind === "player") });
+
 /**
- * The Concept Library: five pass concepts every flag football coach teaches,
- * each as a Film Room lesson anyone can watch, in 5v5, 7v7 or 11-man. The
+ * The Concept Library: pass concepts every flag football coach teaches, each
+ * as a Film Room lesson, in 5v5, 7v7 or 11-man. Anyone can watch three of them
+ * against one defense (`PUBLIC_CONCEPTS`, `PUBLIC_LOOK`); the rest, and every
+ * other defense, open with a plan that opens the whole library. A held-back
+ * card shows the formation only, like a held-back starter. The
  * diagrams are our own teaching drawings (`lib/concepts.ts`), not starter
  * plays. The game and the open lesson live in the address (`?game=7&watch=smash`),
  * so a coach can send a player straight to one.
@@ -20,7 +28,9 @@ const FilmRoom = lazyPage(() => import("../components/FilmRoom"), "FilmRoom");
 export function Concepts() {
   const [params, setParams] = useSearchParams();
   const set = conceptSet(params.get("game")) ?? CONCEPT_SETS[2];
-  const watching = conceptById(params.get("watch"));
+  const whole = useTier().allStarters;
+  const asked = conceptById(params.get("watch"));
+  const watching = asked && conceptOpen(whole, asked.id) ? asked : undefined;
   const scenes = useMemo(() => new Map(CONCEPTS.map((c) => [c.id, conceptScene(set, c)])), [set]);
 
   const go = (next: { game?: string; watch?: string | null }) => {
@@ -40,10 +50,12 @@ export function Concepts() {
       <main id="main">
         <section className="price-hero" aria-labelledby="concepts-h">
           <p className="home-eyebrow">Concept Library</p>
-          <h1 id="concepts-h">Five pass concepts, taught step by step</h1>
+          <h1 id="concepts-h">Pass concepts, taught step by step</h1>
           <p className="price-hero-lede">
-            Pick your game, then watch a concept as a Film Room lesson: the look, the zones, the call, the snap, the read and each player's job. Free to watch
-            and free to share with your players.
+            Pick your game, then watch a concept as a Film Room lesson: the look, the zones, the call, the snap, the read and each player's job.{" "}
+            {whole
+              ? "Every concept, against every defense."
+              : `${PUBLIC_CONCEPTS.length} concepts against ${PUBLIC_LOOK} are free to watch and free to share with your players.`}
           </p>
         </section>
 
@@ -61,20 +73,34 @@ export function Concepts() {
               ))}
           </div>
           <ul className="cl-grid">
-            {CONCEPTS.map((c) => (
-              <li key={c.id} className="cl-card">
-                <div className="cl-thumb">
-                  <PlayThumb scene={scenes.get(c.id)!} zoom={{ w: 3.2, h: 2 }} decorative lazy />
-                </div>
-                <h3>{c.name}</h3>
-                <p className="cl-why">{c.why}</p>
-                <p className="cl-read">{c.read}</p>
-                <p className="cl-beats">Built to beat {c.beats.join(" and ")}</p>
-                <button type="button" className="btn btn-primary" onClick={() => go({ watch: c.id })}>
-                  Watch the {c.name} lesson
-                </button>
-              </li>
-            ))}
+            {CONCEPTS.map((c) => {
+              const open = conceptOpen(whole, c.id);
+              return (
+                <li key={c.id} className={`cl-card${open ? "" : " is-held"}`}>
+                  <div className="cl-thumb">
+                    <PlayThumb scene={open ? scenes.get(c.id)! : lineup(scenes.get(c.id)!)} zoom={{ w: 3.2, h: 2 }} decorative lazy />
+                  </div>
+                  <h3>{c.name}</h3>
+                  <p className="cl-why">{c.why}</p>
+                  {open ? (
+                    <>
+                      <p className="cl-read">{c.read}</p>
+                      <p className="cl-beats">{whole ? `Built to beat ${c.beats.join(" and ")}` : `Taught against ${PUBLIC_LOOK}`}</p>
+                      <button type="button" className="btn btn-primary" onClick={() => go({ watch: c.id })}>
+                        Watch the {c.name} lesson
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="cl-beats">Comes with a Head Coach plan</p>
+                      <Link to="/pricing" className="btn btn-ghost" aria-label={`See plans to open the ${c.name} lesson`}>
+                        See plans
+                      </Link>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <p className="cl-note">
             The lessons run on a teaching model of each coverage. Real defenses disguise and adjust, so use them to teach the idea, not to promise a result.
@@ -97,7 +123,7 @@ export function Concepts() {
       <MarketingFooter />
       {watching && (
         <Suspense fallback={null}>
-          <FilmRoom scene={scenes.get(watching.id)!} name={`${watching.name} · ${set.label}`} closeLabel="Back to the concepts" onClose={() => go({ watch: null })} />
+          <FilmRoom scene={scenes.get(watching.id)!} name={`${watching.name} · ${set.label}`} closeLabel="Back to the concepts" onlyLook={whole ? undefined : PUBLIC_LOOK} onClose={() => go({ watch: null })} />
         </Suspense>
       )}
     </div>

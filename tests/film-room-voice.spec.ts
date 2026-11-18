@@ -181,13 +181,13 @@ async function voiceAccount(context: import("@playwright/test").BrowserContext) 
 /**
  * The Film Room voice reads a step for a coach who would rather not record.
  * This runs the real speech model in the browser, so it needs the model file
- * (`public/voice-model/`, about 92 MB) and is skipped where the file isn't
+ * (`node scripts/voice-model.mjs`, about 325 MB, cut into parts by the build) and is skipped where the file isn't
  * there. It checks the clip is a real WAV of sensible length that reaches the
  * account, the step saying whose voice it is, a second press replacing the
  * first clip, and the play naming the clip as read.
  */
 test("the Film Room voice reads a step and the clip is kept like a recording", async ({ page, context }) => {
-  test.skip(!existsSync("dist/voice-model/kokoro-v1-q8.onnx"), "The speech model isn't in this checkout.");
+  test.skip(!existsSync("dist/voice-model/kokoro-v1.0.0.part"), "The speech model isn't in this checkout.");
   test.setTimeout(240_000);
   const errors = errorsOf(page);
   const { posts, removed } = await voiceAccount(context);

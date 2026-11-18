@@ -11,11 +11,14 @@
  */
 export const READER = {
   /** The speech model, its sounds table and the stock voice. Versioned names, so they can be cached for good. */
-  model: "/voice-model/kokoro-v1-q8.onnx",
+  /** The model comes in parts (`<model>.<n>.part`), because one file this size is too big for the CDN; see `voiceModel` in vite.config.ts. */
+  model: "/voice-model/kokoro-v1.0",
+  bytes: 325_532_387,
+  partBytes: 8 * 1024 * 1024,
   vocab: "/voice-model/vocab.json",
   voice: "/voice-model/voice-c.bin",
   /** Megabytes the coach's browser fetches the first time. */
-  megabytes: 92,
+  megabytes: 325,
   /** Samples a second in what the model makes. */
   rate: 24_000,
   /** A touch under the model's natural pace, so a step is never rushed. */
@@ -74,12 +77,14 @@ export class ReaderError extends Error {
   name = "ReaderError";
 }
 
-export type ReaderMessage = { kind: "ready" } | { kind: "done"; n: number; samples: Float32Array } | { kind: "failed"; n: number; missing?: boolean };
+export type ReaderMessage = { kind: "ready" } | { kind: "fetched"; pct: number } | { kind: "done"; n: number; samples: Float32Array } | { kind: "failed"; n: number; missing?: boolean };
 
 let worker: Worker | null = null;
 let ready: Promise<void> | null = null;
 let n = 0;
 const waiting = new Map<number, { done: (s: Float32Array) => void; failed: (e: ReaderError) => void }>();
+
+let onFetched: ((pct: number) => void) | null = null;
 
 const MISSING = "The Film Room voice isn't set up on this site yet. Record the step in your own voice for now.";
 const FAILED = "The Film Room voice couldn't read that in this browser. Try Chrome or Edge on a computer, or record the step yourself.";
@@ -102,6 +107,7 @@ function start(): Promise<void> {
     w.onmessage = (ev: MessageEvent<ReaderMessage>) => {
       const m = ev.data;
       if (m.kind === "ready") return resolve();
+      if (m.kind === "fetched") return void onFetched?.(m.pct);
       if (m.kind === "failed" && m.n < 0) return stop(new ReaderError(m.missing ? MISSING : FAILED));
       const job = waiting.get(m.n);
       if (!job) return;
@@ -116,14 +122,20 @@ function start(): Promise<void> {
 
 /**
  * Reads one step aloud and answers the clip to keep. The first call fetches
- * the model (about 92 MB, then the browser keeps it); `onStage` says which
- * part is running so the button can tell the coach.
+ * the model (about 325 MB, then the browser keeps it); `onStage` says which
+ * part is running, and how much of the model has arrived, so the button can
+ * tell the coach.
  */
-export async function readAloud(text: string, onStage?: (stage: "loading" | "reading") => void): Promise<{ clip: Blob; ms: number }> {
+export async function readAloud(text: string, onStage?: (stage: "loading" | "reading", pct?: number) => void): Promise<{ clip: Blob; ms: number }> {
   const parts = sentences(text);
   if (!parts.length) throw new ReaderError("This step has no words to read.");
   onStage?.("loading");
-  await start();
+  onFetched = (pct) => onStage?.("loading", pct);
+  try {
+    await start();
+  } finally {
+    onFetched = null;
+  }
   onStage?.("reading");
   const id = ++n;
   const samples = await new Promise<Float32Array>((done, failed) => {

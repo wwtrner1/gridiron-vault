@@ -57,6 +57,7 @@ export function FilmRoom({
   forLetter,
   rep,
   closeLabel = "Back to drawing",
+  onlyLook,
   onClose,
 }: {
   scene: Scene;
@@ -70,6 +71,8 @@ export function FilmRoom({
   /** A rep of this play on film (from a breakdown): the lesson and its video say which one. */
   rep?: FilmRep;
   closeLabel?: string;
+  /** Hold the lesson to one defense by name ("Cover 3"): no picker, whatever the play saved. */
+  onlyLook?: string;
   onClose: () => void;
 }) {
   const coach = !!onTeach;
@@ -87,7 +90,8 @@ export function FilmRoom({
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
   const fallback = useMemo(() => defaultLook(scene, { rushYards }), [scene, rushYards]);
-  const look = looks.find((l) => l.id === settings.against) ?? fallback;
+  const held = onlyLook ? looks.find((l) => l.name.endsWith(onlyLook)) : undefined;
+  const look = held ?? looks.find((l) => l.id === settings.against) ?? fallback;
   const [letter, setLetter] = useState(() => forLetter?.trim().toUpperCase() ?? "");
   const lesson = useMemo(() => buildLesson(scene, name, look, letter, { rushYards }), [scene, name, look, letter, rushYards]);
   const { result, steps } = lesson;
@@ -266,6 +270,11 @@ export function FilmRoom({
               <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => go(i + 1)} disabled={i === steps.length - 1}>
                 Next step
               </button>
+              {held ? (
+                <p className="fr-against">
+                  <span>Against</span> {held.name}
+                </p>
+              ) : (
               <label className="fr-against">
                 <span>Against</span>
                 <select value={look.id} onChange={(e) => save({ against: e.target.value })}>
@@ -276,6 +285,7 @@ export function FilmRoom({
                   ))}
                 </select>
               </label>
+              )}
               {spoken && (
                 <button type="button" className="btn btn-outline-dark btn-sm" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
                   {sound ? "Voice on" : "Voice off"}
