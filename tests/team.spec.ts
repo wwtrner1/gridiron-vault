@@ -42,6 +42,20 @@ test("a player opens the team link, sees only his job, runs a play and takes the
   const run = page.getByRole("dialog");
   await expect(run).toBeVisible();
   await expect(run.getByRole("img", { name: /running, X in color/ })).toBeVisible();
+
+  // Watch the lesson: the Film Room opens on X's own job, with nothing of the coach's to change, and goes back to the play.
+  await run.getByRole("button", { name: "Watch the lesson" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+  await expect(room).toHaveAttribute("data-theme", "dark");
+  await room.locator(".fr-steps button").last().click();
+  await expect(room.getByRole("group", { name: "Show the job for" }).locator("button[aria-pressed=true]")).toHaveText("X");
+  await expect(room.locator(".fr-cap p")).toContainText("X, you");
+  await expect(room.getByLabel("Team colors and logo")).toHaveCount(0);
+  await expect(room.getByRole("link", { name: /My team/ })).toHaveCount(0);
+  await room.getByRole("group", { name: "Look" }).getByRole("button", { name: "Light" }).click();
+  await expect(room).toHaveAttribute("data-theme", "light");
+  await room.getByRole("button", { name: "Back to the play" }).click();
+  await expect(room).toBeHidden();
   await run.getByRole("button", { name: "Close" }).click();
   await expect(run).toBeHidden();
 

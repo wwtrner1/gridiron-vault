@@ -126,3 +126,7 @@
   .fr-against { margin-left: 0; }
   .fr-looks { margin-left: 0; }
 }
+@media (max-width: 640px) {
+  .fr-zone-tag { font-size: 18px; }
+  .fr-num { font-size: 20px; }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { hasBrand, inkOn, luminance, useBrand } from "../lib/brand";
+import { brandStore, hasBrand, inkOn, luminance, useBrand } from "../lib/brand";
 import { STATUS_COLOR, yards } from "../lib/coverage";
 import { DEFENSE_INK } from "../lib/defense";
 import { useDialogFocus } from "../lib/dialogFocus";
@@ -46,6 +46,19 @@ function useLook(look: TeachLook): "dark" | "light" {
   return look === "device" ? (deviceDark ? "dark" : "light") : look;
 }
 
+/** A phone-width screen, where tokens are drawn larger so letters still read. */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => typeof matchMedia === "function" && matchMedia("(max-width: 640px)").matches);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const mq = matchMedia("(max-width: 640px)");
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+}
+
 /**
  * Film Room: the coach's own play as a short lesson. Six steps (the look, the
  * zones, the call, the snap, the read, your job), each with one caption, drawn
@@ -56,31 +69,40 @@ function useLook(look: TeachLook): "dark" | "light" {
 export function FilmRoom({
   scene,
   name,
-  rushYards,
+  rushYards = 7,
   onTeach,
+  forLetter,
+  closeLabel = "Back to drawing",
   onClose,
 }: {
   scene: Scene;
   name: string;
   /** The league's rush line, in yards, so a flag rusher starts where he legally can. */
-  rushYards: number;
-  /** Saves the lesson's settings onto the play. */
-  onTeach: (teach: TeachSettings) => void;
+  rushYards?: number;
+  /** Saves the lesson's settings onto the play. Left out on a player's team link, where picks last for the visit. */
+  onTeach?: (teach: TeachSettings) => void;
+  /** The player's own letter on a team link: "Your job" opens on it. */
+  forLetter?: string;
+  closeLabel?: string;
   onClose: () => void;
 }) {
-  const settings = scene.teach ?? {};
-  const pick: TeachLook = settings.look ?? "dark";
+  const coach = !!onTeach;
+  const [visit, setVisit] = useState<TeachSettings>({});
+  const settings = useMemo(() => ({ ...scene.teach, ...visit }), [scene.teach, visit]);
+  const brand = useBrand();
+  const pick: TeachLook = settings.look ?? (coach ? brand.filmLook : undefined) ?? "dark";
   const theme = useLook(pick);
   const dark = theme === "dark";
-  const brand = useBrand();
-  const branded = hasBrand(brand);
+  // A player's browser doesn't hold the coach's team brand, so a team link wears GridIronVault's colors.
+  const branded = coach && hasBrand(brand);
   const teamOn = branded && settings.team !== false;
+  const big = useNarrow();
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
   const fallback = useMemo(() => defaultLook(scene, { rushYards }), [scene, rushYards]);
   const look = looks.find((l) => l.id === settings.against) ?? fallback;
-  const [letter, setLetter] = useState("");
+  const [letter, setLetter] = useState(() => forLetter?.trim().toUpperCase() ?? "");
   const lesson = useMemo(() => buildLesson(scene, name, look, letter, { rushYards }), [scene, name, look, letter, rushYards]);
   const { result, steps } = lesson;
 
@@ -142,7 +164,18 @@ export function FilmRoom({
     if (atEnd) setAt({ i: 0, u: 0 });
     setPlaying(true);
   };
-  const save = (patch: TeachSettings) => onTeach({ ...settings, ...patch });
+  const save = (patch: TeachSettings) => {
+    if (!onTeach) return setVisit((v) => ({ ...v, ...patch }));
+    onTeach({ ...settings, ...patch });
+    // The look a coach picks becomes the usual one, kept with the team brand on the account.
+    if (patch.look && patch.look !== brand.filmLook) {
+      try {
+        brandStore.set({ filmLook: patch.look });
+      } catch {
+        /* storage full: the play still keeps the look */
+      }
+    }
+  };
 
   // The picture.
   const k = Math.min(Math.round(t * FPS), Math.round(result.duration * FPS));
@@ -158,6 +191,7 @@ export function FilmRoom({
   const inset = fieldInset(scene.view === "blank" ? "half" : scene.view);
   const lines = yardLines(scene.view, scene.losY);
   const defInk = dark ? DARK_DEFENSE : DEFENSE_INK;
+  const grow = big ? 1.5 : 1;
 
   let ball: { x: number; y: number } | null = null;
   if (thrown && result.target) {
@@ -195,7 +229,7 @@ export function FilmRoom({
           ))}
         </div>
         <button type="button" className="btn btn-outline-dark btn-sm" onClick={onClose}>
-          Back to drawing
+          {closeLabel}
         </button>
       </header>
 
@@ -244,9 +278,9 @@ export function FilmRoom({
                   const dim = id === "job" && n.label.trim().toUpperCase() !== who;
                   return (
                     <g key={n.id} opacity={dim ? 0.3 : 1}>
-                      {s && <circle cx={p.x} cy={p.y} r={n.size * 0.95} fill="none" stroke={STATUS_COLOR[s]} strokeWidth={6} />}
-                      {dark && <circle className="fr-ring" cx={p.x} cy={p.y} r={n.size * 0.6} />}
-                      <NodeLayer node={{ ...n, x: p.x, y: p.y }} />
+                      {s && <circle cx={p.x} cy={p.y} r={n.size * 0.95 * grow} fill="none" stroke={STATUS_COLOR[s]} strokeWidth={6} />}
+                      {dark && <circle className="fr-ring" cx={p.x} cy={p.y} r={n.size * 0.6 * grow} />}
+                      <NodeLayer node={{ ...n, x: p.x, y: p.y, scaleX: n.scaleX * grow, scaleY: n.scaleY * grow }} />
                     </g>
                   );
                 })}
@@ -265,8 +299,8 @@ export function FilmRoom({
                   const p = result.defense[k]?.[di] ?? d.start;
                   return (
                     <g key={`d${di}`} aria-hidden="true" opacity={id === "job" ? 0.35 : 1} data-defender={d.label}>
-                      <circle cx={p.x} cy={p.y} r={15} fill={dark ? "#2A1717" : "#fff"} stroke={defInk} strokeWidth={2.6} />
-                      <text x={p.x} y={p.y + 4.5} textAnchor="middle" fontSize={13} fontWeight={700} fill={defInk} fontFamily="'Barlow', sans-serif">
+                      <circle cx={p.x} cy={p.y} r={15 * grow} fill={dark ? "#2A1717" : "#fff"} stroke={defInk} strokeWidth={2.6} />
+                      <text x={p.x} y={p.y + 4.5 * grow} textAnchor="middle" fontSize={13 * grow} fontWeight={700} fill={defInk} fontFamily="'Barlow', sans-serif">
                         {d.label}
                       </text>
                     </g>
@@ -314,11 +348,11 @@ export function FilmRoom({
                 <label className="fr-check">
                   <input type="checkbox" checked={teamOn} onChange={(e) => save({ team: e.target.checked })} /> Team colors and logo
                 </label>
-              ) : (
+              ) : coach ? (
                 <a className="fr-link" href="/roster">
                   Add your team colors on My team
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
 

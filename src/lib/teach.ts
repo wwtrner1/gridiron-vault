@@ -1,4 +1,6 @@
 import { linesOf } from "./assignments";
+import { FILM_LOOKS } from "./brandData";
+import type { FilmLook } from "./brandData";
 import { explainPlay } from "./explain";
 import { LOOKS, formatOf, simulate, wins, yardScale, yards } from "./coverage";
 import type { Look, Result, SimDefender, SimOptions } from "./coverage";
@@ -12,13 +14,13 @@ import type { PathNode, PlayerNode, Scene } from "./types";
  * draws what this returns.
  */
 
-export const TEACH_LOOKS = ["dark", "light", "device"] as const;
-export type TeachLook = (typeof TEACH_LOOKS)[number];
+export const TEACH_LOOKS = FILM_LOOKS;
+export type TeachLook = FilmLook;
 export const TEACH_LOOK_NAME: Record<TeachLook, string> = { dark: "Dark", light: "Light", device: "Match my device" };
 
 /** A play's Film Room settings, saved in the play (`scene.teach`) so they follow it to every device. */
 export type TeachSettings = {
-  /** Dark when unset. */
+  /** The coach's usual look (`TeamBrand.filmLook`, on the account) when unset, else dark. */
   look?: TeachLook;
   /** The defense the lesson runs against (a Coverage check look id). The play's best look when unset. */
   against?: string;

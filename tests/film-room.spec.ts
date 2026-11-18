@@ -101,6 +101,8 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
       return (ws.plays!.find((p) => p.name === "17 · Stick")?.scene as { teach?: unknown } | undefined)?.teach;
     })
     .toMatchObject({ look: "light", against: expect.any(String) });
+  // The look a coach picks becomes the usual one, kept with the team brand (which syncs to the account): another play opens light.
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.brand.v1")!).filmLook)).toBe("light");
 
   // Opened again it is still light; Run play hands off to it too.
   await page.locator('[data-tour="dz-run"]').first().click();
@@ -108,6 +110,11 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
   await expect(room).toHaveAttribute("data-theme", "light");
   await room.getByRole("button", { name: "Back to drawing" }).click();
   await expect(room).toBeHidden();
+  await page.getByRole("button", { name: /^Next play: / }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  await expect(room).toHaveAttribute("data-theme", "light");
   expect(errors).toEqual([]);
 });
 
