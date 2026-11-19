@@ -54,7 +54,7 @@ export function Concepts() {
           <p className="price-hero-lede">
             Pick your game, then watch a concept as a Film Room lesson: the look, the zones, the call, the snap, the read and each player's job.{" "}
             {whole
-              ? "Every concept, against every defense."
+              ? "Every concept, against every defense. Your own plays teach the same way: open one in the Designer and pick Extras, then Film Room."
               : `${PUBLIC_CONCEPTS.length} concepts against ${PUBLIC_LOOK} are free to watch and free to share with your players.`}
           </p>
         </section>
