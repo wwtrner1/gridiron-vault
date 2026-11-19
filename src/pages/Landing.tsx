@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
@@ -55,9 +55,84 @@ const STEPS = [
   },
 ];
 
+/** What the tools reel shows, in order; the list beside the video says the same thing in words. */
+const REEL = ["Draw the play", "Run it", "Teach it in the Film Room", "Check the coverage", "Print the wristbands", "Build the call sheet"];
+
+/**
+ * The tools reel: a short silent clip of the app itself, with its captions drawn into the picture. It loads and
+ * plays only once it is on screen, stops when it leaves, and waits for a press when the visitor asked for less motion.
+ */
+function ToolsReel() {
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = video.current;
+    if (!el || typeof IntersectionObserver === "undefined" || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) el.play().catch(() => undefined);
+        else el.pause();
+      },
+      { threshold: 0.45 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <section className="home-reel" id="reel" aria-labelledby="reel-h">
+      <div className="home-band-head home-rv">
+        <p className="home-eyebrow">See it move</p>
+        <h2 id="reel-h">The whole Vault in under a minute</h2>
+        <p>This is the app itself, not a mock-up: one play drawn, run, taught, checked against a coverage, printed and called.</p>
+        <ol className="home-reel-list">
+          {REEL.map((r, i) => (
+            <li key={r}>
+              <span>{String(i + 1).padStart(2, "0")}</span>
+              {r}
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="home-reel-frame home-rv">
+        <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls muted loop playsInline preload="none" aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and no sound">
+          <source src="/clips/home-reel.webm" type="video/webm" />
+          <source src="/clips/home-reel.mp4" type="video/mp4" />
+          A short clip of the tools. Your browser can't play it here; the sections below show the same tools.
+        </video>
+      </div>
+    </section>
+  );
+}
+
+/** Sections slide up into place the first time they scroll into view. Off for a visitor who asked for less motion. */
+function useReveal(root: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = root.current;
+    if (!el || typeof IntersectionObserver === "undefined" || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries)
+          if (e.isIntersecting) {
+            e.target.classList.add("is-in");
+            io.unobserve(e.target);
+          }
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    );
+    // Only what is below the screen now waits to slide in; nothing a visitor is already looking at moves.
+    const waiting = [...el.querySelectorAll<HTMLElement>(".home-rv, .home-rv-kids")].filter((x) => x.getBoundingClientRect().top > innerHeight * 0.9);
+    waiting.forEach((x) => (x.classList.add("is-waiting"), io.observe(x)));
+    return () => {
+      io.disconnect();
+      waiting.forEach((x) => x.classList.remove("is-waiting", "is-in"));
+    };
+  }, [root]);
+}
+
 export function Landing() {
   const { hash } = useLocation();
   const tier = useTier();
+  const page = useRef<HTMLDivElement>(null);
+  useReveal(page);
 
   // The shared nav links to /#how from any page; scroll there once the section exists.
   useEffect(() => {
@@ -65,7 +140,7 @@ export function Landing() {
   }, [hash]);
 
   return (
-    <div className="marketing">
+    <div className="marketing" ref={page}>
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
@@ -107,6 +182,7 @@ export function Landing() {
             </div>
             <p className="home-hero-fine">Works on the laptop you install from and the tablet you carry to the sideline.</p>
           </div>
+          <div className="home-hero-stage">
           <figure className="home-hero-frame">
             <div className="home-frame-bar" aria-hidden="true">
               <i />
@@ -125,6 +201,28 @@ export function Landing() {
               <span className="pill pill-pass">Pass</span>
             </figcaption>
           </figure>
+            {/* Floating notes round the play: what the other tools say about it. Decoration only. */}
+            <div className="home-float home-float-read" aria-hidden="true">
+              <i />
+              <b>Read 1 · open</b>
+              <small>Flat, 4 yards of space</small>
+            </div>
+            <div className="home-float home-float-band" aria-hidden="true">
+              <b>Wristband · card A</b>
+              <ol>
+                {["Flood", "Smash", "Mesh", "Stick", "Verts", "Sweep"].map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ol>
+            </div>
+            <div className="home-float home-float-griddy" aria-hidden="true">
+              <img src="/brand/griddy-96.webp" width={34} height={34} alt="" loading="lazy" />
+              <p>
+                <b>Griddy</b>
+                Flood beats Cover 3. Want it on the call sheet?
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="home-built" aria-label="Built for">
@@ -138,13 +236,15 @@ export function Landing() {
           </ul>
         </section>
 
+        <ToolsReel />
+
         <section className="home-all" id="everything" aria-labelledby="all-h">
-          <div className="home-band-head">
+          <div className="home-band-head home-rv">
             <p className="home-eyebrow">Everything in the Vault</p>
             <h2 id="all-h">Every tool, one click away</h2>
             <p>The same tools as the side menu inside the app. Jump straight to the one you need.</p>
           </div>
-          <ul className="home-all-grid">
+          <ul className="home-all-grid home-rv-kids">
             <li>
               <Link to="/build" className="home-all-card">
                 <Icon name="pencil" size={22} />
@@ -239,12 +339,12 @@ export function Landing() {
         </Suspense>
 
         <section className="home-how" id="how" aria-labelledby="how-h">
-          <div className="home-band-head">
+          <div className="home-band-head home-rv">
             <p className="home-eyebrow">How it works</p>
             <h2 id="how-h">Four steps, about five minutes</h2>
             <p>If you can run a slide deck, you already know how to run this.</p>
           </div>
-          <ol className="home-steps">
+          <ol className="home-steps home-rv-kids">
             {STEPS.map((s) => (
               <li key={s.n}>
                 <span>{s.n}</span>
@@ -256,7 +356,7 @@ export function Landing() {
         </section>
 
         <section className="home-plans" aria-labelledby="plans-h">
-          <div className="home-band-head">
+          <div className="home-band-head home-rv">
             <p className="home-eyebrow">Plans</p>
             <h2 id="plans-h">Start free, upgrade when it earns it</h2>
             <p>
@@ -264,7 +364,7 @@ export function Landing() {
               56-play library, the Ready-to-Go playbook and clean whole-playbook prints.
             </p>
           </div>
-          <div className="home-plan-grid">
+          <div className="home-plan-grid home-rv-kids">
             {PUBLIC_TIERS.map((t) => (
               <div className={`home-plan${t.featured ? " is-featured" : ""}`} key={t.id}>
                 {t.featured && <span className="home-plan-flag">Most coaches pick this</span>}
