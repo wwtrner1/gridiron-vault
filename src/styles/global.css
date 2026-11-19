@@ -774,6 +774,16 @@ ol.step-strip { list-style: none; margin: 0; padding: 0; }
 
 /* ----------------------------------------------------------------- footer */
 
+/* Partnerships and Follow us, above the footer (the same two blocks on every Vault's site). */
+.mkt-connect { background: #060e18; color: var(--white); padding: 44px clamp(18px, 4vw, 54px) 4px; }
+.mkt-connect-inner { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 34px 54px; padding-bottom: 36px; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.mkt-connect h2 { margin: 0 0 10px; font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; }
+.mkt-connect p { margin: 0 0 18px; max-width: 52ch; color: #93aabd; font-size: 15px; line-height: 1.6; }
+.mkt-social { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.mkt-social a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 7px; color: var(--white); font-family: var(--mono); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; text-decoration: none; }
+.mkt-social a:hover { border-color: var(--cyan); color: var(--cyan); }
+.mkt-connect a:focus-visible { outline-color: var(--white); }
+
 footer.mkt { display: block; padding: 40px clamp(18px, 4vw, 54px) 30px; }
 .mkt-foot-inner { max-width: 1280px; margin: 0 auto; }
 .mkt-foot-brand { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; color: var(--white); }
