@@ -176,6 +176,13 @@ export const GUIDES: Guide[] = [
             close: EXTRAS,
           },
           {
+            title: "Film Room",
+            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Those picks save with the play. Hide the steps puts the side panel away so the field fills the screen, which helps on a phone or a tablet. Make a video saves the whole lesson as an MP4, wide for the meeting room or tall for phones, made in your browser. Record this step adds your own voice to the step in view (up to 45 seconds; sign in first): it plays when the lesson reaches that step, on your players' team link once you update the link, and inside the video. Read it for me has the Film Room voice (a stock voice, made in your browser; the first time it fetches about 92 MB) read the step instead, and Read the steps with no voice does the rest of the lesson in one press. Hear it, Record again and Remove sit beside it, and Voice on or off mutes it. The first time it opens, tips walk you round the controls one at a time; Skip the tips or Escape puts them away, and Tips in the top bar brings them back. Also in Run play as Teach it in the Film Room.",
+            target: tour("dz-film-room"),
+            open: [EXTRAS],
+            close: EXTRAS,
+          },
+          {
             title: "Turn this offense into a defense",
             text: "Reads the offense on the field (personnel, trips or 2x2, where the strength is) and drops a front and coverage that fit it, lined up on the real blockers by technique, with every defender's gap, technique or coverage job written under him. A defense already on the field is replaced; Undo brings it back. Also on the Sets tab's Defense list.",
             target: tour("dz-match-defense"),
@@ -643,6 +650,7 @@ export const GUIDES: Guide[] = [
           { title: "The green check", text: "A play you checked wears a green Checked. Plays saved without a check show Needs a check in the Vault until you save them in the Designer (or press Looks right: mark as checked)." },
           { title: "Leave while it reads", text: "Pages keep being read when you leave; a bar at the bottom shows how far it got and brings you back. Send to my Vault to check later files every play as Needs a check when it's done." },
           { title: "What the reader learned", text: "Every fix teaches the reader how your boards are written, for your next read. Forget one or all here.", target: ".up-memory" },
+          { title: "Film breakdown", text: "Choose a breakdown file takes a game's play-by-play as a CSV (Hudl's breakdown download or your own sheet with a Play column). Each offensive rep is matched to the Vault play with the same name; pick a play for any that didn't match, name the film and add the reps. Run play then shows how often you called the play and what it gained, and Teach this rep opens the Film Room lesson for that rep. The file is read in your browser and never uploaded.", target: ".up-break" },
         ],
       },
     ],

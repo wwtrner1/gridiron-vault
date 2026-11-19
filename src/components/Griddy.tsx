@@ -307,7 +307,7 @@ export function useGriddyDrawer(opts: {
 /* ------------------------------------------------------------------ pieces */
 
 /** Pages with their own way in (the Designer's bar) or none at all (signing in). */
-const NO_LAUNCHER = ["/signin", "/build", "/team", "/join"];
+const NO_LAUNCHER = ["/signin", "/build", "/team", "/join", "/concepts"];
 
 function GriddyLauncher() {
   const { open, setOpen, dancing } = useGriddy();

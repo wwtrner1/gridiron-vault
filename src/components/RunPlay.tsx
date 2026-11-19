@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { FieldBackground } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
+import { repLine, repText } from "../lib/breakdown";
+import type { FilmRep } from "../lib/breakdown";
+import { filmLinkFrom } from "../lib/filmNotes";
 import { ballAt, buildTimeline, clock, isFilmLink, linkAt, parseClock, positionsAt } from "../lib/runPlay";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
@@ -22,6 +25,7 @@ export function RunPlay({
   name,
   onFilm,
   onCoverage,
+  onTeach,
   onClose,
 }: {
   scene: Scene;
@@ -30,6 +34,9 @@ export function RunPlay({
   onFilm: (film: Scene["film"]) => void;
   /** Opens the Coverage check: the same play against a live defense. */
   onCoverage?: () => void;
+  /** Opens the Film Room: the same play as a step-by-step lesson. */
+  /** Opens the Film Room; with a rep, the lesson is about that rep on film. */
+  onTeach?: (rep?: FilmRep) => void;
   onClose: () => void;
 }) {
   const tl = useMemo(() => buildTimeline(scene), [scene]);
@@ -43,6 +50,7 @@ export function RunPlay({
   const [linkDraft, setLinkDraft] = useState(scene.film?.link ?? "");
   const [linkError, setLinkError] = useState("");
   const snapAt = scene.film?.snapAt ?? 0;
+  const reps = scene.film?.reps ?? [];
   const video = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const tRef = useRef(0);
@@ -107,9 +115,11 @@ export function RunPlay({
     setVideoName(file.name);
   };
   const saveLink = () => {
-    const v = linkDraft.trim();
-    if (v && !isFilmLink(v)) return setLinkError("Paste a Hudl or YouTube link that starts with https://.");
+    // Hudl's embed code is fine to paste: only the address inside it is kept.
+    const v = filmLinkFrom(linkDraft);
+    if (v && !isFilmLink(v)) return setLinkError("Paste a Hudl, YouTube or GameChanger link that starts with https://.");
     setLinkError("");
+    if (v !== linkDraft) setLinkDraft(v);
     onFilm({ ...scene.film, link: v || undefined });
   };
 
@@ -122,6 +132,11 @@ export function RunPlay({
         {onCoverage && (
           <button type="button" className="btn btn-outline-dark btn-sm rp-cov" onClick={onCoverage}>
             Run it against a defense
+          </button>
+        )}
+        {onTeach && (
+          <button type="button" className={`btn btn-outline-dark btn-sm${onCoverage ? "" : " rp-cov"}`} onClick={() => onTeach()}>
+            Teach it in the Film Room
           </button>
         )}
         <button type="button" className="btn btn-outline-dark btn-sm" onClick={onClose}>
@@ -295,6 +310,30 @@ export function RunPlay({
             <a className="rp-open" href={linkAt(scene.film.link, snapAt)} target="_blank" rel="noopener noreferrer">
               Open the film{snapAt ? ` at the snap (${clock(snapAt)})` : ""} ↗
             </a>
+          )}
+          {reps.length > 0 && (
+            <div className="rp-reps" role="group" aria-label="From your film">
+              <b>From your film</b>
+              <p>{repLine(reps)}</p>
+              <ul>
+                {reps
+                  .slice(-6)
+                  .reverse()
+                  .map((r, ri) => (
+                    <li key={ri}>
+                      <span>{repText(r)}</span>
+                      {onTeach && (
+                        <button type="button" className="rp-rep-teach" aria-label={`Teach ${r.game} rep ${r.n} in the Film Room`} onClick={() => onTeach(r)}>
+                          Teach this rep
+                        </button>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+              <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => onFilm({ ...scene.film, reps: undefined })}>
+                Clear these reps
+              </button>
+            </div>
           )}
         </div>
       </div>

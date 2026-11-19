@@ -15,9 +15,17 @@ export type TeamBrand = {
   endZones: boolean;
   /** Name, logo and colors on wristbands and PDF exports. */
   prints: boolean;
+  /** The Film Room look the coach last chose, so a lesson opens that way on every device. Dark when unset. */
+  filmLook?: FilmLook;
+  /** False once the coach has seen the Film Room tips, so they don't open by themselves again on any device. */
+  filmTips?: false;
   /** When the coach last changed it (ISO); the newer copy wins when browsers and the account sync. */
   updatedAt: string;
 };
+
+/** Film Room looks: our dark, the light Designer look, or whatever the device is set to. */
+export const FILM_LOOKS = ["dark", "light", "device"] as const;
+export type FilmLook = (typeof FILM_LOOKS)[number];
 
 export const LOGO_PX = 256;
 /** A logo past this (as a data URL) is refused rather than filling the browser's storage. */
@@ -56,7 +64,10 @@ export function cleanBrand(raw: unknown): TeamBrand {
   const r = (raw && typeof raw === "object" ? raw : {}) as Partial<TeamBrand>;
   const d = DEFAULT_BRAND;
   const logo = typeof r.logo === "string" && r.logo.length <= LOGO_MAX_CHARS && PNG_DATA.test(r.logo) ? r.logo : null;
+  const filmLook = (FILM_LOOKS as readonly unknown[]).includes(r.filmLook) ? r.filmLook : undefined;
   return {
+    ...(filmLook ? { filmLook } : {}),
+    ...(r.filmTips === false ? { filmTips: false as const } : {}),
     name: typeof r.name === "string" ? r.name.slice(0, BRAND_NAME_MAX) : d.name,
     logo,
     primary: typeof r.primary === "string" && HEX.test(r.primary) ? r.primary.toUpperCase() : d.primary,

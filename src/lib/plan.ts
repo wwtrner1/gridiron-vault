@@ -393,6 +393,16 @@ export function gateShare(tier: Tier): Gate {
   };
 }
 
+/** Film Room video files. The lesson itself plays on every plan and on every team link. */
+export function gateVideo(tier: Tier): Gate {
+  if (tier.sheets) return { ok: true };
+  return {
+    ok: false,
+    reason: "A video file of the lesson comes with Head Coach. The Film Room lesson itself still plays here and on your players' team link.",
+    cta: "See plans",
+  };
+}
+
 /**
  * Front Office: a director hands read-only master playbooks to the coaches they
  * invite. `seatsUsed` counts invited and joined coaches; pass it when inviting.

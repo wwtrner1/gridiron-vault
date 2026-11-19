@@ -1,4 +1,6 @@
 import type { FilmNote } from "./filmNotes";
+import type { TeachSettings } from "./teach";
+import type { FilmRep } from "./breakdown";
 export type Point = { x: number; y: number };
 
 export type FieldView = "full" | "half" | "redzone" | "flag" | "blank";
@@ -121,7 +123,9 @@ export type Scene = {
   nodes: SceneNode[];
   /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */
   /** Film for the play: a Hudl or YouTube link, where the snap is in it, and the coach's notes on it (`filmNotes.ts`). */
-  film?: { link?: string; snapAt?: number; notes?: FilmNote[] };
+  film?: { link?: string; snapAt?: number; notes?: FilmNote[]; reps?: FilmRep[] };
+  /** Film Room settings for this play: the look, the defense it is taught against, team colors (`teach.ts`). */
+  teach?: TeachSettings;
 };
 
 export type PlayMeta = {

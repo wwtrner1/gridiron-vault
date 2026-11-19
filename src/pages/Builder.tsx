@@ -1,3 +1,4 @@
+import type { FilmRep } from "../lib/breakdown";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
@@ -101,6 +102,7 @@ import "../styles/designer.css";
 
 // PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
 const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
+const FilmRoom = lazyPage(() => import("../components/FilmRoom"), "FilmRoom");
 
 const blankMeta: PlayMeta = {
   name: "",
@@ -1839,7 +1841,9 @@ export function Builder() {
 
   const [running, setRunning] = useState(false);
   const [covering, setCovering] = useState(false);
-  const coverScene = useMemo(() => (covering ? reconcileConnections(scene) : scene), [covering, scene]);
+  const [teaching, setTeaching] = useState(false);
+  const [teachRep, setTeachRep] = useState<FilmRep | undefined>(undefined);
+  const coverScene = useMemo(() => (covering || teaching ? reconcileConnections(scene) : scene), [covering, teaching, scene]);
 
   // Saved play format (canvas): save this play's look, or give this play the saved look.
   const playFormat = usePlayFormat();
@@ -2224,6 +2228,9 @@ export function Builder() {
                   <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
                     Coverage check: who gets open
                   </button>
+                  <button type="button" onClick={() => setTeaching(true)} data-tour="dz-film-room">
+                    Film Room: teach this play
+                  </button>
                   <button type="button" onClick={matchOffense} data-tour="dz-match-defense">
                     Turn this offense into a defense
                   </button>
@@ -2312,8 +2319,21 @@ export function Builder() {
           name={meta.name}
           onFilm={(film) => applyScene({ ...scene, film }, "Film")}
           onCoverage={() => (setRunning(false), setCovering(true))}
+          onTeach={(rep) => (setRunning(false), setTeachRep(rep), setTeaching(true))}
           onClose={() => setRunning(false)}
         />
+      )}
+      {teaching && (
+        <Suspense fallback={null}>
+          <FilmRoom
+          scene={coverScene}
+          name={meta.name}
+          rushYards={rules.rush || 7}
+          rep={teachRep}
+          onTeach={(teach) => applyScene({ ...scene, teach }, "Film Room")}
+          onClose={() => (setTeaching(false), setTeachRep(undefined))}
+          />
+        </Suspense>
       )}
       {covering && (
         <CoverageCheck

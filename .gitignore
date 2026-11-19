@@ -4,3 +4,7 @@ node_modules/
 out/
 test-results/
 playwright-report/
+
+# The Film Room voice model (325 MB): fetched by scripts/voice-model.mjs, never in git.
+public/voice-model/*.onnx
+voice-model/

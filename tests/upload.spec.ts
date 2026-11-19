@@ -47,7 +47,7 @@ test("the page refuses files it can't read, in coach words", async ({ page }) =>
   const errors = errorsOf(page);
   await page.goto("/upload");
   await expect(page.getByRole("heading", { name: "Bring plays in from anywhere" })).toBeVisible();
-  const input = page.locator("input[type=file]");
+  const input = page.locator(".up-drop input[type=file]");
   await input.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
   await expect(page.getByRole("alert")).toHaveText("notes.txt isn’t a file GridIronVault can read. Use JPG, PNG, HEIC, PDF or PPTX.");
   await input.setInputFiles({ name: "old-deck.ppt", mimeType: "application/vnd.ms-powerpoint", buffer: Buffer.from("x") });
@@ -63,7 +63,7 @@ test("the page refuses files it can't read, in coach words", async ({ page }) =>
 test("signed out, a photo opens for review but the reader asks for a sign-in", async ({ page }) => {
   const errors = errorsOf(page);
   await page.goto("/upload");
-  await page.locator("input[type=file]").setInputFiles(image("board.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("board.png"));
   await expect(page.getByRole("heading", { name: "Your photo" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveText("Sign in to have GridIronVault read your photo. It is included with every plan.");
   await expect(page.getByRole("img", { name: "Photo: board.png" })).toBeVisible();
@@ -89,7 +89,7 @@ test("a whiteboard photo is read, checked, and saved to the Vault", async ({ pag
   });
   await page.goto("/upload");
   await signedIn(page);
-  await page.locator("input[type=file]").setInputFiles(image("board.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("board.png"));
 
   await expect(page.getByRole("heading", { name: "Is this the play on your board?" })).toBeVisible();
   expect(scans).toHaveLength(1);
@@ -149,7 +149,7 @@ test("a scanned page: plays found, kept, read, checked, renamed and filed in a n
   });
   await page.goto("/upload");
   await signedIn(page);
-  await page.locator("input[type=file]").setInputFiles(image("binder-page.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("binder-page.png"));
 
   await expect(page.getByRole("heading", { name: "3 plays found on 1 page" })).toBeVisible();
   await expect(page.locator(".sc-page figcaption")).toContainText("Page 1 3 plays");
@@ -250,7 +250,7 @@ test("a read the account refuses keeps what was read and says so", async ({ page
   });
   await page.goto("/upload");
   await signedIn(page);
-  await page.locator("input[type=file]").setInputFiles(image("sheet.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("sheet.png"));
   await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
   await page.getByRole("button", { name: "Read 2 plays" }).click();
   await expect(page.locator(".up-wait[role=status]")).toHaveText(
@@ -279,7 +279,7 @@ test("a scan keeps reading after the coach leaves, and Send to my Vault files th
   });
   await page.goto("/upload");
   await signedIn(page);
-  await page.locator("input[type=file]").setInputFiles(image("binder.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("binder.png"));
   await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
   await page.getByRole("button", { name: "Read 2 plays" }).click();
   await expect.poll(() => reads).toBe(2);
@@ -299,7 +299,7 @@ test("a scan keeps reading after the coach leaves, and Send to my Vault files th
   // Send to my Vault to check later: both go in, marked Needs a check.
   await page.getByRole("button", { name: "Save 2 plays to Vault" }).waitFor();
   await page.getByRole("button", { name: "Upload more" }).click();
-  await page.locator("input[type=file]").setInputFiles(image("binder.png"));
+  await page.locator(".up-drop input[type=file]").setInputFiles(image("binder.png"));
   await expect(page.getByRole("heading", { name: "2 plays found on 1 page" })).toBeVisible();
   await page.getByRole("button", { name: "Send to my Vault to check later" }).click();
   await expect(page.getByText("2 plays saved to your Vault in binder. Open any one to fine-tune it.")).toBeVisible();

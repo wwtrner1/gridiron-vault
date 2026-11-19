@@ -31,6 +31,7 @@ import { setTraceUser } from "./lib/activity";
 
 // Every screen but the home page loads on first visit (see lib/lazyPage).
 const Pricing = lazyPage(() => import("./pages/Pricing"), "Pricing");
+const Concepts = lazyPage(() => import("./pages/Concepts"), "Concepts");
 /** My team's account sync renders nothing, and its roster code (lib/teamHub) belongs with the My team and Front Office screens, not the first download. */
 const MyTeamSync = lazyPage(() => import("./lib/teamSource"), "MyTeamSync");
 // Lazy too, so the built-in drills ship with the Practice screens, not the first download.
@@ -71,6 +72,7 @@ const NAMES: Record<string, string> = {
   "/grid": "Call Sheet",
   "/starters": "Starter plays",
   "/pricing": "Plans",
+  "/concepts": "Concept Library",
   "/account": "Your account",
   "/signin": "Sign in",
   "/help": "Help & feedback",
@@ -185,6 +187,7 @@ export function App() {
         <Route path="/grid/:id" element={<SeasonGrid />} />
         <Route path="/starters" element={<Starters />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/concepts" element={<Concepts />} />
         <Route path="/account" element={<Account />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/help" element={<Help />} />

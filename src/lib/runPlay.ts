@@ -90,7 +90,7 @@ export function ballAt(tl: Timeline, at: Map<string, Point>, t: number): Point |
   return { x: from.x + (target.x - from.x) * k, y: from.y + (target.y - from.y) * k - Math.sin(Math.PI * k) * 26 };
 }
 
-/** A Hudl or YouTube link opened at a given second. */
+/** A film link (Hudl, YouTube or GameChanger) opened at a given second; only YouTube takes the time. */
 export function linkAt(link: string, seconds: number): string {
   try {
     const u = new URL(link);
@@ -102,7 +102,7 @@ export function linkAt(link: string, seconds: number): string {
   }
 }
 
-export const isFilmLink = (s: string) => /^https:\/\/([a-z0-9-]+\.)*(hudl\.com|youtube\.com|youtu\.be)\//i.test(s.trim());
+export const isFilmLink = (s: string) => /^https:\/\/([a-z0-9-]+\.)*(hudl\.com|youtube\.com|youtu\.be|gc\.com)\//i.test(s.trim());
 
 /** "1:23", "83" or "83s" as seconds; null when it isn't a time. */
 export function parseClock(text: string): number | null {

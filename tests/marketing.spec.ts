@@ -36,6 +36,35 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   await expect(page.locator("section").filter({ has: page.locator("#plans-h") }).locator('a[href="/pricing"]').first()).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#cta-h") }).locator('a[href="/build"]')).toHaveCount(1);
 
+  // The hero's play runs itself (the players leave their spots), with three floating notes that are decoration only.
+  const play = hero.getByRole("img", { name: /Flood.*diagram/ });
+  await expect(play).toBeVisible();
+  const spot = () => play.locator("g[data-kind='player']").last().getAttribute("transform");
+  const first = await spot();
+  await expect.poll(spot, { timeout: 8000 }).not.toBe(first);
+  await expect(hero.locator(".home-float")).toHaveCount(3);
+  for (const f of await hero.locator(".home-float").all()) await expect(f).toHaveAttribute("aria-hidden", "true");
+
+  // The tools reel: a clip of the app that starts silent, with a narrator one press away and its six parts listed in words, fetched only when it is on screen.
+  const reel = page.locator("section").filter({ has: page.locator("#reel-h") });
+  await expect(reel.getByRole("heading", { name: "The whole Vault in under a minute" })).toBeVisible();
+  await expect(reel.locator(".home-reel-list li")).toHaveText(["01Draw the play", "02Run it", "03Teach it in the Film Room", "04Check the coverage", "05Print the wristbands", "06Build the call sheet"]);
+  const video = reel.locator("video");
+  await expect(video).toHaveAttribute("preload", "none");
+  await expect(video).toHaveJSProperty("muted", true);
+  await expect(video).toHaveAttribute("controls", "");
+  for (const file of ["/clips/home-reel.webm", "/clips/home-reel.mp4", "/clips/home-reel.jpg"]) expect((await page.request.get(file)).status(), file).toBe(200);
+  await video.scrollIntoViewIfNeeded();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0), { timeout: 10000 }).toBe(true);
+  // The narrator is off until the visitor asks for him.
+  const sound = reel.getByRole("button", { name: "Turn the sound on" });
+  await expect(sound).toHaveAttribute("aria-pressed", "false");
+  await sound.click();
+  await expect(video).toHaveJSProperty("muted", false);
+  await expect(reel.getByRole("button", { name: "Sound: on" })).toHaveAttribute("aria-pressed", "true");
+  await reel.getByRole("button", { name: "Sound: on" }).click();
+  await expect(video).toHaveJSProperty("muted", true);
+
   // How it works jumps down the page to its section.
   await nav.getByRole("link", { name: "How it works" }).click();
   await expect(page).toHaveURL(/\/#how$/);

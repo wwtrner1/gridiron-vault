@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazyPage } from "../lib/lazyPage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { useParams } from "react-router-dom";
 import { PlayThumb } from "../components/PlayThumb";
@@ -12,6 +13,8 @@ import { ballAt, buildTimeline, positionsAt } from "../lib/runPlay";
 import type { SharedPlay } from "../lib/share";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
+
+const FilmRoom = lazyPage(() => import("../components/FilmRoom"), "FilmRoom");
 
 /**
  * What a player opens from the link on a wristband sheet or a text from the
@@ -196,6 +199,7 @@ function Brand() {
 
 /** One play running from the snap, with your player and route in color and everyone else greyed. */
 function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Scene; letter: string; onClose: () => void }) {
+  const [lesson, setLesson] = useState(false);
   const tl = useMemo(() => buildTimeline(scene), [scene]);
   const [t, setT] = useState(0);
   const [on, setOn] = useState(true);
@@ -253,11 +257,19 @@ function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Sce
           >
             {on ? "Restart" : "Run it again"}
           </button>
+          <button type="button" className="tm-btn" onClick={() => (setOn(false), setLesson(true))}>
+            Watch the lesson
+          </button>
           <button type="button" className="tm-btn tm-btn-quiet" ref={close} onClick={onClose}>
             Close
           </button>
         </div>
       </div>
+      {lesson && (
+        <Suspense fallback={null}>
+          <FilmRoom scene={play.scene} name={play.name} forLetter={letter} closeLabel="Back to the play" onClose={() => setLesson(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

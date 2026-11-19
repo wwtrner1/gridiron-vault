@@ -11,6 +11,7 @@ import {
   events,
   myTeams,
   playerFiles,
+  lessonVoices,
   teamBrands,
   wristbandSetups,
   practiceVaults,
@@ -56,6 +57,7 @@ import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
+import { dropVoiceBlobs, ownerVoiceKeys, playVoice, voiceRoute } from "../film-room/voice.js";
 import { AiError, callTool, MODELS, noteAiHost } from "../ai/claude.js";
 import { ACTIONS, cleanAssignments, cleanRead } from "../ai/reads.js";
 import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldBack, TIERS, tierFor, TRIAL_DAYS, type AiKind, type Gate, type Tier, type TierId } from "../../src/lib/plan.js";
@@ -277,6 +279,9 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action !== "results" && req.method === "GET") return await openShare(id);
     if (resource === "shares" && id && SHARE_TOKEN.test(id) && action === "results" && req.method === "POST")
       return await sendScore(id, await req.json().catch(() => ({})));
+
+    // A lesson's voice clip plays on a player's team link, where nobody is signed in. Its id is random and never listed.
+    if (resource === "voice" && id && !action && req.method === "GET") return await playVoice(id);
 
     // A family signs up for team texts with no account.
     if (resource === "join" && id && JOIN_TOKEN.test(id) && !action) return await joinRoute(req, id);
@@ -502,6 +507,13 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
       if (!me) return fail("Sign in to open the Front Office.", 401);
       await ensureProfile(me);
       return await filesRoute(me, req, resource, id, action);
+    }
+
+    /* --------------------------------------- Film Room voice recordings --- */
+    if (resource === "voice") {
+      if (!me) return fail("Sign in to record your voice on a lesson.", 401);
+      await ensureProfile(me);
+      return await voiceRoute(me, req, id);
     }
 
     /* ----------------------------------- player documents and pictures --- */
@@ -1340,6 +1352,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
   // A director's team files: read where they are now, delete them once the rows are gone.
   const [ownOrg] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.ownerId, me.id));
   const fileKeys = [...(ownOrg ? await orgFileKeys(ownOrg.id) : []), ...(await ownerPlayerFileKeys(me.id))];
+  const voiceKeys = await ownerVoiceKeys(me.id);
   const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(plays).where(eq(plays.ownerId, me.id));
   await db.transaction(async (tx) => {
     // The owner's signup history keeps a fingerprint of the account, never the plays or the phone number itself.
@@ -1367,6 +1380,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
+    await tx.delete(lessonVoices).where(eq(lessonVoices.ownerId, me.id));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));
     await tx.delete(wristbandSetups).where(eq(wristbandSetups.ownerId, me.id));
     await tx.delete(practiceVaults).where(eq(practiceVaults.ownerId, me.id));
@@ -1378,6 +1392,7 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(profiles).where(eq(profiles.id, me.id));
   });
   await dropBlobs(fileKeys).catch((e) => console.error("team-files cleanup", e));
+  await dropVoiceBlobs(voiceKeys).catch((e) => console.error("lesson-voices cleanup", e));
 }
 
 /* ----------------------------------------------- switched-off accounts --- */
