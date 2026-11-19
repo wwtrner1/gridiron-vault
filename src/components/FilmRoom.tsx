@@ -30,17 +30,18 @@ function useLook(look: TeachLook): "dark" | "light" {
   return look === "device" ? (deviceDark ? "dark" : "light") : look;
 }
 
-/** A phone-width screen, where tokens are drawn larger so letters still read. */
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(() => typeof matchMedia === "function" && matchMedia("(max-width: 640px)").matches);
+/** Whether the screen matches a media query, kept in step as it turns or resizes. */
+function useMedia(query: string): boolean {
+  const [hit, setHit] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
   useEffect(() => {
     if (typeof matchMedia !== "function") return;
-    const mq = matchMedia("(max-width: 640px)");
-    const on = () => setNarrow(mq.matches);
+    const mq = matchMedia(query);
+    const on = () => setHit(mq.matches);
+    on();
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
-  }, []);
-  return narrow;
+  }, [query]);
+  return hit;
 }
 
 /**
@@ -86,7 +87,12 @@ export function FilmRoom({
   // A player's browser doesn't hold the coach's team brand, so a team link wears GridIronVault's colors.
   const branded = coach && hasBrand(brand);
   const teamOn = branded && settings.team !== false;
-  const big = useNarrow();
+  // A phone, upright or on its side: tokens are drawn larger and the field is cut to its sidelines, so letters still read.
+  const narrow = useMedia("(max-width: 640px)");
+  const sideways = useMedia("(max-height: 520px) and (orientation: landscape)");
+  const big = narrow || sideways;
+  // The steps panel can be put away to give the field the whole screen. A view for this visit, not a saved setting.
+  const [stepsUp, setStepsUp] = useState(true);
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
@@ -254,6 +260,11 @@ export function FilmRoom({
           ))}
         </div>
         {teachable && (
+          <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="steps" aria-expanded={stepsUp} aria-controls="fr-steps" onClick={() => setStepsUp((v) => !v)}>
+            {stepsUp ? "Hide the steps" : "Show the steps"}
+          </button>
+        )}
+        {teachable && (
           <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="tips" aria-pressed={tipsUp} onClick={() => (tipsUp ? endTips() : (setPlaying(false), setTipsUp(true)))}>
             Tips
           </button>
@@ -269,7 +280,7 @@ export function FilmRoom({
         <div className="fr-body">
           <div className="fr-main">
             <div className="fr-field">
-              <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} label={`${title} against ${look.name}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`} />
+              <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} label={`${title} against ${look.name}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`} />
               <span className="fr-clock">{t.toFixed(1)} S</span>
             </div>
 
@@ -337,7 +348,7 @@ export function FilmRoom({
             {coach && <LessonVoice step={step} steps={steps} clip={step.voice} onClip={keepClip} onClips={keepClips} />}
           </div>
 
-          <aside className="fr-side-panel" aria-label="Lesson steps">
+          <aside className="fr-side-panel" id="fr-steps" aria-label="Lesson steps" hidden={!stepsUp}>
             <p className="fr-k">Install · {steps.length} steps</p>
             <ol className="fr-steps">
               {steps.map((s, si) => (

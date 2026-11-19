@@ -43,6 +43,7 @@ export function filmTips(coach: boolean): FilmTip[] {
           { target: "[data-fr-tip='video']", title: "Make a video", text: "Saves the whole lesson as a video, wide for the meeting room or tall for phones." },
         ]
       : []),
+    { target: "[data-fr-tip='steps']", title: "More room for the field", text: "Hide the steps puts this panel away so the field fills the screen. Show the steps brings it back." },
     { target: ".fr-looks", title: "Dark or light", text: "Pick the look that reads best where you teach: a dark room, a bright field or whatever your device is set to." },
     { target: "[data-fr-tip='tips']", title: "Tips, any time", text: "These tips show once. Press Tips to see them again." },
   ];

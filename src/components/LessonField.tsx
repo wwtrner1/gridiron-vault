@@ -69,6 +69,7 @@ export function LessonField({
   dark,
   logo,
   grow = 1,
+  crop = false,
   label,
   standalone,
 }: {
@@ -84,6 +85,8 @@ export function LessonField({
   logo?: string;
   /** Token size, larger on a phone. */
   grow?: number;
+  /** Cut the picture to just outside the sidelines, so a narrow screen spends its width on the field. */
+  crop?: boolean;
   label?: string;
   standalone?: boolean;
 }) {
@@ -119,6 +122,7 @@ export function LessonField({
   const zoneTags = id === "zones";
   const inset = fieldInset(scene.view === "blank" ? "half" : scene.view);
   const lines = yardLines(scene.view, scene.losY);
+  const cut = crop && !standalone ? Math.max(0, inset - 40) : 0;
   const defInk = dark ? DARK_DEFENSE : DEFENSE_INK;
 
   let ball: { x: number; y: number } | null = null;
@@ -134,7 +138,7 @@ export function LessonField({
   }
 
   return (
-    <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} role="img" aria-label={label} xmlns={standalone ? "http://www.w3.org/2000/svg" : undefined} width={standalone ? CANVAS_W : undefined} height={standalone ? CANVAS_H : undefined}>
+    <svg viewBox={`${cut} 0 ${CANVAS_W - cut * 2} ${CANVAS_H}`} role="img" aria-label={label} xmlns={standalone ? "http://www.w3.org/2000/svg" : undefined} width={standalone ? CANVAS_W : undefined} height={standalone ? CANVAS_H : undefined}>
       {standalone && <style>{STANDALONE[dark ? "dark" : "light"]}</style>}
       <MarkerDefs colors={strokeColors(nodes)} />
       <rect className="fr-turf" x={0} y={0} width={CANVAS_W} height={CANVAS_H} />

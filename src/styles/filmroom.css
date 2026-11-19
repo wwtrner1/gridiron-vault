@@ -31,6 +31,8 @@
   flex-direction: column;
   background: var(--fr-bg);
   color: var(--fr-text);
+  /* Clear of a phone's notch and home bar. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .fr[data-theme="light"] {
   --fr-bg: var(--paper);
@@ -72,7 +74,7 @@
 .fr-body { display: flex; flex: 1; gap: 18px; min-height: 0; padding: 18px; overflow: auto; }
 .fr-main { display: flex; flex: 2.6; flex-direction: column; gap: 12px; min-width: 0; }
 .fr-field { position: relative; overflow: hidden; border: 1px solid var(--fr-line); border-radius: var(--radius-lg); background: var(--fr-turf); }
-.fr-field svg { display: block; width: 100%; height: auto; max-height: calc(100vh - 270px); }
+.fr-field svg { display: block; width: 100%; height: auto; max-height: calc(100vh - 270px); max-height: calc(100dvh - 270px); }
 .fr-turf { fill: var(--fr-turf); }
 .fr-side { stroke: var(--fr-yard); stroke-width: 2; }
 .fr-yard { stroke: var(--fr-yard); stroke-width: 1.4; }
@@ -115,6 +117,7 @@ p.fr-against span { color: var(--rail-text); }
 @keyframes fr-rec { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .fr-voice-live i { animation: none; } }
 
+.fr-side-panel[hidden] { display: none; }
 .fr-side-panel { display: flex; flex: 1; flex-direction: column; gap: 12px; min-width: 250px; padding: 16px; overflow: auto; border: 1px solid var(--fr-line); border-radius: var(--radius-lg); background: var(--fr-panel); }
 .fr-k { margin: 0; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fr-key); }
 .fr-steps { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
@@ -176,7 +179,52 @@ p.fr-against span { color: var(--rail-text); }
   .fr-against { margin-left: 0; }
   .fr-looks { margin-left: 0; }
 }
+@media (max-width: 900px) {
+  .fr-main { flex: none; }
+  .fr-vs { display: none; }
+}
 @media (max-width: 640px) {
   .fr-zone-tag { font-size: 24px; }
   .fr-num { font-size: 20px; }
+  /* Two rows: the play's name and the way out, then the look, the steps switch and Tips. */
+  .fr-top { gap: 6px; min-height: 0; padding: 6px 8px; }
+  .fr-top h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fr-top h2 span { font-size: 18px; }
+  .fr-top > .btn:last-child { order: 1; }
+  .fr-top::before { content: ""; flex-basis: 100%; order: 2; height: 0; margin-top: -6px; }
+  .fr-rep, .fr-team, .fr-looks, .fr-top > .btn:not(:last-child) { order: 3; }
+  .fr-looks button { padding: 0 7px; font-size: 12px; }
+  .fr-top .btn-sm { padding-inline: 8px; }
+  .fr-body { gap: 10px; padding: 8px; }
+  .fr-cap { min-height: 52px; padding: 10px 14px; }
+}
+/* An upright phone: the field stays at the top while the caption, controls and steps scroll under it. */
+@media (max-width: 640px) and (orientation: portrait) {
+  .fr-main { display: contents; }
+  .fr-field { position: sticky; top: 0; z-index: 2; flex: none; }
+  .fr-body > *, .fr-main > * { flex: none; }
+}
+/* Fingers need a bigger target than a mouse does. */
+@media (pointer: coarse) {
+  .fr-looks button { min-height: 36px; }
+  .fr-top .btn-sm { min-height: 36px; }
+  .fr-steps button { min-height: 40px; }
+}
+/* A phone on its side: the field takes the height of the screen on the left and stays put,
+   while the caption, the controls and the steps scroll beside it. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .fr-zone-tag { font-size: 24px; }
+  .fr-num { font-size: 20px; }
+  .fr-top { flex-wrap: nowrap; gap: 8px; min-height: 0; padding: 4px 12px; overflow-x: auto; white-space: nowrap; }
+  .fr-top h2 span { font-size: 17px; }
+  .fr-vs { display: none; }
+  .fr-body { display: grid; grid-template-columns: auto minmax(200px, 1fr); grid-template-rows: repeat(5, max-content); align-content: start; gap: 8px 12px; padding: 8px 12px; }
+  .fr-main { display: contents; }
+  .fr-field { position: sticky; top: 0; grid-row: 1 / -1; grid-column: 1; align-self: start; }
+  .fr-field svg { width: auto; max-width: 64vw; height: calc(100vh - 66px); height: calc(100dvh - 66px); max-height: none; }
+  .fr-main > :not(.fr-field), .fr-side-panel { grid-column: 2; min-width: 0; }
+  .fr-cap { min-height: 0; padding: 8px 12px; }
+  .fr-cap p { font-size: 15px; }
+  .fr-bar { gap: 6px 8px; padding: 6px 8px; }
+  .fr-side-panel { padding: 10px; overflow: visible; }
 }

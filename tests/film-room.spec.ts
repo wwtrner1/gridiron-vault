@@ -33,6 +33,15 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
   await expect(clock).toHaveText("0.0 S");
   await expect(room.getByRole("button", { name: "Back a step" })).toBeDisabled();
 
+  // Hide the steps gives the field the whole width; Show the steps brings the panel back.
+  const wide = (await room.locator(".fr-field").boundingBox())!.width;
+  await room.getByRole("button", { name: "Hide the steps" }).click();
+  await expect(room.getByLabel("Lesson steps")).toBeHidden();
+  await expect(room.getByRole("button", { name: "Show the steps" })).toHaveAttribute("aria-expanded", "false");
+  expect((await room.locator(".fr-field").boundingBox())!.width).toBeGreaterThan(wide);
+  await room.getByRole("button", { name: "Show the steps" }).click();
+  await expect(room.getByLabel("Lesson steps")).toBeVisible();
+
   // Zones: every defender's job, and the zone names on the field.
   await room.getByRole("button", { name: "Next step" }).click();
   await expect(caption).toContainText("Count the defense:");
@@ -212,7 +221,7 @@ test("Film Room tips show once, ring each control, and come back from the Tips b
 
   // They open by themselves the first time, on the step list, with a ring on it.
   await expect(tips).toBeVisible();
-  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 1 of 9");
+  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 1 of 10");
   await expect(tips.locator("h3")).toHaveText("Six steps, one lesson");
   await expect(room.locator(".fr-tip-ring")).toBeVisible();
   await expect(tips.getByRole("button", { name: "Back" })).toBeDisabled();
@@ -232,12 +241,12 @@ test("Film Room tips show once, ring each control, and come back from the Tips b
   await tips.getByRole("button", { name: "Back" }).click();
   await expect(tips.locator("h3")).toHaveText("Six steps, one lesson");
   const seen: string[] = [];
-  for (let k = 0; k < 8; k++) {
+  for (let k = 0; k < 9; k++) {
     await tips.getByRole("button", { name: "Next tip" }).click();
     seen.push((await tips.locator("h3").textContent())!);
   }
-  expect(seen).toEqual(["The field", "One caption a step", "Run the lesson", "Pick the defense", "Add the voice", "Make a video", "Dark or light", "Tips, any time"]);
-  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 9 of 9");
+  expect(seen).toEqual(["The field", "One caption a step", "Run the lesson", "Pick the defense", "Add the voice", "Make a video", "More room for the field", "Dark or light", "Tips, any time"]);
+  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 10 of 10");
   await expect(tips.getByRole("button", { name: "Done" })).toBeVisible();
 
   // Escape puts the tips away and leaves the lesson open; they are remembered with the team brand for the account.
