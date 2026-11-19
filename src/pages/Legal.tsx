@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 16, 2026";
+const UPDATED = "November 19, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -174,7 +174,8 @@ export function Privacy() {
         No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text
         messaging opt-in data and consent will not be shared with any third parties. Your number is used only for the
         texts you signed up for: sign-in codes, and team updates from the coaches of a team you joined. Reply STOP to any
-        team text to stop them, or ask the team's coach to take you off.
+        team text to stop them, or ask the team's coach to take you off. Team texts: message frequency varies, usually 1
+        to 4 a week during the season. Message and data rates may apply. Reply HELP for help.
       </p>
 
       <h2>Players, parents and kids</h2>
