@@ -64,6 +64,24 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   await expect(reel.getByRole("button", { name: "Sound: on" })).toHaveAttribute("aria-pressed", "true");
   await reel.getByRole("button", { name: "Sound: on" }).click();
   await expect(video).toHaveJSProperty("muted", true);
+  // The floating window: once the clip has played, it follows the visitor down the page in a corner, still playing, until they close it.
+  const float = page.getByRole("region", { name: "Floating video of the tools" });
+  await expect(float).toHaveCount(0);
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await expect(float).toBeVisible();
+  await expect(float).toBeInViewport();
+  await expect(video).toBeInViewport();
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(false);
+  await expect(float.getByRole("button", { name: "Turn the sound on" })).toBeVisible();
+  // Back to the video puts it in its place on the page again.
+  await float.getByRole("button", { name: "Back to the video" }).click();
+  await expect(float).toHaveCount(0);
+  await expect(reel.locator(".home-reel-frame")).toBeInViewport();
+  // Closed, it stops and stays away until the visitor comes back to the clip.
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await float.getByRole("button", { name: "Close the floating video" }).click();
+  await expect(float).toHaveCount(0);
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
 
   // How it works jumps down the page to its section.
   await nav.getByRole("link", { name: "How it works" }).click();

@@ -64,8 +64,12 @@ const REEL = ["Draw the play", "Run it", "Teach it in the Film Room", "Check the
  */
 function ToolsReel() {
   const video = useRef<HTMLVideoElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   // The clip starts silent (a browser won't start one with sound by itself); the narration is one press away.
   const [sound, setSound] = useState(false);
+  // Once it has played, the clip follows the visitor down the page in a small window until they close it.
+  const [floating, setFloating] = useState(false);
+  const closed = useRef(false);
   const toggleSound = () => {
     const el = video.current;
     if (!el) return;
@@ -74,17 +78,29 @@ function ToolsReel() {
   };
   useEffect(() => {
     const el = video.current;
-    if (!el || typeof IntersectionObserver === "undefined" || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const box = frame.current;
+    if (!el || !box || typeof IntersectionObserver === "undefined" || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) el.play().catch(() => undefined);
+        if (entries.some((e) => e.isIntersecting)) {
+          closed.current = false;
+          setFloating(false);
+          el.play().catch(() => undefined);
+        } else if (!closed.current && !el.paused && el.currentTime > 0) setFloating(true);
         else el.pause();
       },
       { threshold: 0.45 },
     );
-    io.observe(el);
+    // The frame keeps its place on the page while the clip floats, so it is the frame that is watched.
+    io.observe(box);
     return () => io.disconnect();
   }, []);
+  const closeFloat = () => {
+    closed.current = true;
+    setFloating(false);
+    video.current?.pause();
+  };
+  const backToReel = () => document.getElementById("reel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   return (
     <section className="home-reel" id="reel" aria-labelledby="reel-h">
       <div className="home-band-head home-rv">
@@ -100,15 +116,27 @@ function ToolsReel() {
           ))}
         </ol>
       </div>
-      <div className="home-reel-frame home-rv">
-        <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls muted loop playsInline preload="none" onVolumeChange={(e) => setSound(!e.currentTarget.muted && e.currentTarget.volume > 0)} aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and a narrator you can switch on">
-          <source src="/clips/home-reel.webm" type="video/webm" />
-          <source src="/clips/home-reel.mp4" type="video/mp4" />
-          A short clip of the tools. Your browser can't play it here; the sections below show the same tools.
-        </video>
-        <button type="button" className="home-reel-sound" aria-pressed={sound} onClick={toggleSound}>
-          {sound ? "Sound: on" : "Turn the sound on"}
-        </button>
+      <div ref={frame} className={`home-reel-frame home-rv${floating ? " is-floating" : ""}`}>
+        <div className="home-reel-win" role={floating ? "region" : undefined} aria-label={floating ? "Floating video of the tools" : undefined}>
+          {floating && (
+            <div className="home-reel-bar">
+              <button type="button" onClick={backToReel}>
+                Back to the video
+              </button>
+              <button type="button" className="home-reel-x" aria-label="Close the floating video" onClick={closeFloat}>
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
+          <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls={!floating} muted loop playsInline preload="none" onVolumeChange={(e) => setSound(!e.currentTarget.muted && e.currentTarget.volume > 0)} aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and a narrator you can switch on">
+            <source src="/clips/home-reel.webm" type="video/webm" />
+            <source src="/clips/home-reel.mp4" type="video/mp4" />
+            A short clip of the tools. Your browser can't play it here; the sections below show the same tools.
+          </video>
+          <button type="button" className="home-reel-sound" aria-pressed={sound} onClick={toggleSound}>
+            {sound ? "Sound: on" : "Turn the sound on"}
+          </button>
+        </div>
       </div>
     </section>
   );
