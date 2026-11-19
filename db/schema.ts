@@ -155,16 +155,22 @@ export const plays = pgTable(
 );
 
 /** A folder of plays. */
-export const playbooks = pgTable("playbooks", {
-  id: uuid().primaryKey().defaultRandom(),
-  ownerId: text("owner_id").notNull(),
-  name: text().notNull(),
-  description: text().notNull().default(""),
-  color: text().notNull().default("#DB5A33"),
-  isPublic: boolean("is_public").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const playbooks = pgTable(
+  "playbooks",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    name: text().notNull(),
+    description: text().notNull().default(""),
+    color: text().notNull().default("#DB5A33"),
+    isPublic: boolean("is_public").notNull().default(false),
+    /** The browser's own id for the playbook: a create sent twice (a retry, a lost answer, two tabs) finds the first row instead of making a copy. */
+    clientId: text("client_id"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("playbooks_owner_client_idx").on(t.ownerId, t.clientId)],
+);
 
 export const playbookPlays = pgTable(
   "playbook_plays",

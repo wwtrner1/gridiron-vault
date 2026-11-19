@@ -141,7 +141,7 @@ export const api = {
   copyPlay: (id: string) => request<{ play: ApiPlay }>(`plays/${id}/copy`, { method: "POST" }),
 
   listPlaybooks: () =>
-    request<{ playbooks: Playbook[]; members: { playbookId: string; playId: string; sortOrder: number }[] }>("playbooks"),
+    request<{ playbooks: Playbook[]; members: { playbookId: string; playId: string; sortOrder: number }[]; owner?: string }>("playbooks"),
 
   /** `playIds` replaces the playbook's whole list, in order. */
   updatePlaybook: (id: string, body: Partial<Playbook> & { playIds?: string[] }) =>
@@ -322,6 +322,8 @@ export type Playbook = {
   color: string;
   isPublic: boolean;
   updatedAt?: string;
+  /** The browser's id for it, sent with the first save so a repeated create finds the same row. */
+  clientId?: string | null;
 };
 
 export type RemoteSheet = {

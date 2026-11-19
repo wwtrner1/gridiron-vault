@@ -693,7 +693,8 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .innerJoin(plays, eq(playbookPlays.playId, plays.id))
           .where(and(eq(playbooks.ownerId, me.id), or(eq(plays.ownerId, me.id), eq(plays.isPublic, true))))
           .orderBy(playbookPlays.sortOrder);
-        return json({ playbooks: books, members });
+        // `owner` lets the browser tell "this account has no such playbook" (removed on another device) from a signed-out answer.
+        return json({ playbooks: books, members, owner: me.id });
       }
 
       if (!me) return fail("Sign in to organise playbooks.", 401);
@@ -701,6 +702,12 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
 
       if (req.method === "POST" && !id) {
         const body = await req.json();
+        // The same browser playbook sent again (a retry after a lost answer, a second tab) gets the row it already made.
+        const clientId = typeof body.clientId === "string" && body.clientId.trim() ? body.clientId.trim().slice(0, 100) : null;
+        const findSame = async () =>
+          clientId ? (await db.select().from(playbooks).where(and(eq(playbooks.ownerId, me.id), eq(playbooks.clientId, clientId))))[0] : undefined;
+        const same = await findSame();
+        if (same) return json({ playbook: same });
         const tier = await planOf(me);
         const [have] = await db.select({ n: sql<number>`count(*)::int` }).from(playbooks).where(eq(playbooks.ownerId, me.id));
         const gate = gatePlaybook(tier, have?.n ?? 0);
@@ -713,8 +720,16 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
             description: String(body.description ?? ""),
             color: String(body.color ?? "#DB5A33"),
             isPublic: Boolean(body.isPublic),
+            clientId,
           })
+          .onConflictDoNothing()
           .returning();
+        if (!row) {
+          // Two copies of the same create raced: the other one made the row.
+          const raced = await findSame();
+          if (raced) return json({ playbook: raced });
+          return fail("That playbook couldn't be saved to your account. Try again in a moment.", 409);
+        }
         return json({ playbook: row }, 201);
       }
 
