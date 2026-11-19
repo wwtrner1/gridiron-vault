@@ -3,8 +3,13 @@ import type { StoredPlay } from "./types";
 import type { Playbook } from "./api";
 import { pendingDeletes } from "./pendingDeletes";
 
-/** `cloudId` is the playbook's id on the account once it has been saved there (see playbookSync.ts). */
-export type LocalPlaybook = Playbook & { playIds: string[]; cloudId?: string };
+/**
+ * `cloudId` is the playbook's id on the account once it has been saved there
+ * (see playbookSync.ts), and `cloudOwner` the account it was saved to.
+ * `syncKey` (else the id) goes with the first save, so the account never makes
+ * two rows for one playbook; a playbook brought back after a delete gets a new one.
+ */
+export type LocalPlaybook = Playbook & { playIds: string[]; cloudId?: string; cloudOwner?: string; syncKey?: string };
 
 export type SheetColumn = {
   id: string;
@@ -127,32 +132,53 @@ export const store = {
   patchPlaybook(id: string, patch: Partial<LocalPlaybook>) {
     commit({ ...state, playbooks: state.playbooks.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
   },
-  /** Playbooks pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
-  mergeRemotePlaybooks(remote: LocalPlaybook[]) {
+  /**
+   * Playbooks pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it.
+   * With `owner` (the account the list came from), a playbook this browser saved to that account and the
+   * account no longer has was removed on another device, so it goes here too instead of being saved again.
+   */
+  mergeRemotePlaybooks(remote: LocalPlaybook[], owner?: string) {
     const books = [...state.playbooks];
     const deleted = pendingDeletes("playbook");
     for (const r of remote) {
       if (deleted.has(r.id)) continue;
-      const at = books.findIndex((b) => b.cloudId === r.id || b.id === r.id);
+      const at = books.findIndex((b) => b.cloudId === r.id || (!b.cloudId && (b.id === r.id || (!!r.clientId && (b.syncKey ?? b.id) === r.clientId))));
+      const stamp = owner ? { cloudOwner: owner } : {};
       if (at < 0) {
-        books.push({ ...r, cloudId: r.id });
+        books.push({ ...r, cloudId: r.id, ...stamp });
         continue;
       }
       const local = books[at];
       if (new Date(r.updatedAt ?? 0) > new Date(local.updatedAt ?? 0)) {
         // Plays only in this browser (never saved to the account) stay filed where they were.
         const keep = local.playIds.filter((p) => !UUID.test(p) && !r.playIds.includes(p));
-        books[at] = { ...local, name: r.name, description: r.description, color: r.color, isPublic: r.isPublic, updatedAt: r.updatedAt, playIds: [...r.playIds, ...keep], cloudId: r.id };
-      } else if (!local.cloudId) {
-        books[at] = { ...local, cloudId: r.id };
+        books[at] = { ...local, name: r.name, description: r.description, color: r.color, isPublic: r.isPublic, updatedAt: r.updatedAt, playIds: [...r.playIds, ...keep], cloudId: r.id, ...stamp };
+      } else {
+        books[at] = { ...local, cloudId: r.id, ...stamp };
       }
     }
-    commit({ ...state, playbooks: books });
+    const onAccount = new Set(remote.map((r) => r.id));
+    const kept = owner ? books.filter((b) => !b.cloudId || onAccount.has(b.cloudId) || (b.cloudOwner && b.cloudOwner !== owner)) : books;
+    commit({ ...state, playbooks: kept });
+  },
+  /** Take playbooks out of this browser only (the account already doesn't have them): no account delete is sent. */
+  dropPlaybooks(ids: string[]) {
+    const gone = new Set(ids);
+    commit({ ...state, playbooks: state.playbooks.filter((b) => !gone.has(b.id)) });
   },
   upsertPlaybook(book: LocalPlaybook) {
+    const had = state.playbooks.find((b) => b.id === book.id);
     const rest = state.playbooks.filter((b) => b.id !== book.id);
+    // A copy of the playbook read before sync gave it its account id (a form, a long import) keeps that link, or the next
+    // sync would save it to the account a second time and the first copy would come back as a duplicate.
+    const link = had?.cloudId && !book.cloudId ? { cloudId: had.cloudId, cloudOwner: had.cloudOwner, syncKey: had.syncKey } : {};
     // Stamped here so a coach's edit always reads as newer than the cloud copy when sync compares them.
-    commit({ ...state, playbooks: [{ ...book, updatedAt: new Date().toISOString() }, ...rest] });
+    commit({ ...state, playbooks: [{ ...book, ...link, updatedAt: new Date().toISOString() }, ...rest] });
+  },
+  /** Undo of a delete: the account's copy is gone (or going), so it goes up again as a new playbook. */
+  restorePlaybook(book: LocalPlaybook) {
+    const syncKey = `${book.id}.${Date.now().toString(36)}`;
+    store.upsertPlaybook({ ...book, cloudId: undefined, cloudOwner: undefined, syncKey });
   },
   removePlaybook(id: string) {
     const gone = state.playbooks.find((b) => b.id === id);

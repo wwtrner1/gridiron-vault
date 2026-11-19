@@ -1636,6 +1636,13 @@ table.sheet.is-compact .row-tools { grid-template-columns: repeat(8, 24px); }
 .pbt-find:focus-within, .pbt-new:focus-within { border-color: var(--cyan); }
 .pbt-find input, .pbt-new input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--white); font: inherit; font-size: 13px; }
 .pbt-find input::placeholder, .pbt-new input::placeholder { color: var(--muted-2); }
+.pbt-dupes {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 2px 0; padding: 6px 8px;
+  border: 1px solid var(--ink-3); border-radius: var(--radius-sm); background: var(--ink-2); color: var(--white); font-size: 12.5px;
+}
+.pbt-dupes button {
+  padding: 3px 10px; border: 0; border-radius: var(--radius-sm); background: var(--cyan); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer;
+}
 .pbt-tree, .pbt-tree ul { margin: 0; padding: 0; list-style: none; }
 .pbt-tree ul { position: relative; margin-left: 13px; padding-left: 6px; border-left: 1px solid var(--ink-3); }
 .pbt-tree [role="treeitem"]:focus-visible { outline: none; }

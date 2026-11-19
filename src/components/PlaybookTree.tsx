@@ -4,6 +4,7 @@ import { Icon } from "./Icon";
 import { store, useStore, type LocalPlaybook } from "../lib/store";
 import { treeState, useTreeOpen } from "../lib/treeState";
 import { useToast } from "../lib/toast";
+import { findDuplicateBooks } from "../lib/playbookDupes";
 import { gatePlaybook } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { uid, type StoredPlay } from "../lib/types";
@@ -60,6 +61,20 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
   const treeRef = useRef<HTMLUListElement>(null);
 
   const q = query.trim().toLowerCase();
+
+  // Copies the old sync left behind: offered as one Tidy up, never removed on their own.
+  const dupes = useMemo(() => findDuplicateBooks(books), [books]);
+  const tidy = () => {
+    const gone = dupes.remove;
+    gone.forEach((b) => store.removePlaybook(b.id));
+    const left = dupes.differ
+      ? ` ${dupes.differ} more with the same name ${dupes.differ === 1 ? "holds" : "hold"} plays of ${dupes.differ === 1 ? "its" : "their"} own, so ${dupes.differ === 1 ? "it stays" : "they stay"} for you to check.`
+      : "";
+    toast(`${gone.length} duplicate ${gone.length === 1 ? "playbook" : "playbooks"} removed. No plays were deleted.${left}`, false, {
+      label: "Undo",
+      run: () => gone.forEach((b) => store.restorePlaybook(b)),
+    });
+  };
 
   const folders = useMemo<FolderRow[]>(() => {
     const byId = new Map(plays.map((p) => [p.id, p]));
@@ -132,11 +147,14 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
   };
   const newPlay = (book: LocalPlaybook | null) => go(book ? `/build?book=${book.id}` : "/build");
 
+  // Enter submits and the box then loses focus (a phone's Go closes the keyboard first), so the same name can arrive twice.
+  const madeFolder = useRef(false);
   const createFolder = () => {
     const name = newName.trim();
     setCreating(false);
     setNewName("");
-    if (!name) return;
+    if (!name || madeFolder.current) return;
+    madeFolder.current = true;
     const gate = gatePlaybook(tier, books.length);
     if (!gate.ok) {
       toast(gate.reason, true);
@@ -234,7 +252,10 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
         <button
           type="button"
           className="pbt-tool"
-          onClick={() => setCreating(true)}
+          onClick={() => {
+            madeFolder.current = false;
+            setCreating(true);
+          }}
           title="New playbook"
           aria-label="New playbook"
         >
@@ -275,6 +296,17 @@ export function PlaybookTree({ activePlayId = null, activeBookId = null, onOpen,
             placeholder="Find a play"
             aria-label="Find a play in your playbooks"
           />
+        </div>
+      )}
+
+      {dupes.remove.length > 0 && (
+        <div className="pbt-dupes" role="status">
+          <span>
+            {dupes.remove.length} duplicate {dupes.remove.length === 1 ? "playbook" : "playbooks"}
+          </span>
+          <button type="button" onClick={tidy}>
+            Tidy up
+          </button>
         </div>
       )}
 
