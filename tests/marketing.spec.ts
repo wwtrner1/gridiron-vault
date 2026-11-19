@@ -50,6 +50,15 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   const learn = footer.getByRole("navigation", { name: "Learn" });
   await expect(learn.locator('a[href^="/guides/"]')).toHaveCount(GUIDES.length);
   for (const g of GUIDES) await expect(learn.locator(`a[href="${g}"]`)).toHaveCount(1);
+
+  // Partnerships and Follow us above the footer: Reach out goes to the partners form, the socials open in a new tab.
+  const connect = page.getByRole("region", { name: "Partnerships and social" });
+  await expect(connect.getByRole("heading", { level: 2 })).toHaveText(["Partnerships", "Follow us"]);
+  await expect(connect.getByRole("link", { name: "Reach out" })).toHaveAttribute("href", "/partners#contact");
+  const socials = connect.getByRole("listitem").getByRole("link");
+  await expect(socials).toHaveCount(4);
+  for (const a of await socials.all()) await expect(a).toHaveAttribute("target", "_blank");
+  expect((await page.request.get("/partners/")).status()).toBe(200);
   expect(errors).toEqual([]);
 
   // Every guide (and the hub) is a real static page with a title, the shared stylesheet and no script but the JSON-LD.
