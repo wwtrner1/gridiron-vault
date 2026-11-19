@@ -56,6 +56,8 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   for (const file of ["/clips/home-reel.webm", "/clips/home-reel.mp4", "/clips/home-reel.jpg"]) expect((await page.request.get(file)).status(), file).toBe(200);
   await video.scrollIntoViewIfNeeded();
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0), { timeout: 10000 }).toBe(true);
+  // The frame slides into place first: a press while it is still moving makes the test's browser scroll the clip away, which floats it early.
+  await reel.locator(".home-reel-frame").evaluate((el) => Promise.all(el.getAnimations().map((x) => x.finished)));
   // The narrator is off until the visitor asks for him.
   const sound = reel.getByRole("button", { name: "Turn the sound on" });
   await expect(sound).toHaveAttribute("aria-pressed", "false");
