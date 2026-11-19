@@ -5,6 +5,7 @@ import { DEFENSE_INK } from "../lib/defense";
 import { fieldInset, yardLines } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { pointAt } from "../lib/motion";
+import { buildTimeline } from "../lib/runPlay";
 import { linesOf } from "../lib/assignments";
 import { linesFor } from "../lib/teach";
 import type { Lesson, TeachStep } from "../lib/teach";
@@ -97,6 +98,12 @@ export function LessonField({
     if (dark)
       for (const pl of scene.nodes)
         if (pl.kind === "player" && pl.side !== "defense" && bright(pl.fill)) for (const l of linesOf(scene, pl)) if (!owner.has(l.id)) owner.set(l.id, pl.fill);
+    // A route that only starts on its player (a starter play's) is his too, the way Run play reads it.
+    if (dark)
+      for (const tr of buildTimeline(scene).tracks) {
+        const pl = scene.nodes.find((x) => x.id === tr.playerId);
+        if (pl?.kind === "player" && pl.side !== "defense" && bright(pl.fill) && !owner.has(tr.pathId)) owner.set(tr.pathId, pl.fill);
+      }
     return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
       if (!dark) return n;
       const fill = owner.get(n.id);
