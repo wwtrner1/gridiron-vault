@@ -428,6 +428,10 @@
 .home-reel-list li { display: flex; align-items: baseline; gap: 12px; }
 .home-reel-list span { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--cyan); }
 .home-reel-frame { overflow: hidden; border: 1px solid var(--ink-4); border-radius: var(--radius-xl); background: #010c18; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+.home-reel-frame { position: relative; }
+.home-reel-sound { position: absolute; top: 12px; right: 12px; padding: 8px 14px; border: 1px solid var(--cyan); border-radius: 999px; background: rgba(1, 12, 24, 0.88); color: var(--white); font: 700 14px/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+.home-reel-sound[aria-pressed="true"] { background: var(--cyan); color: var(--ink); }
+.home-reel-sound:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
 .home-reel-frame video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
 
 @media (max-width: 1180px) {

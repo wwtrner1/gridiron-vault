@@ -7,7 +7,7 @@
 // the machine is. Needs Playwright (with a Chromium) and ffmpeg on the PATH. Re-record after a big layout change.
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -266,8 +266,14 @@ console.log(`${n} frames, ${(n / FPS).toFixed(1)} s`);
 
 const frames = join(raw, "f%05d.jpg");
 const ff = (...args) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...args], { stdio: "inherit" });
-ff("-framerate", String(FPS), "-i", frames, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-row-mt", "1", "-pix_fmt", "yuv420p", "-an", join(OUT, "home-reel.webm"));
-ff("-framerate", String(FPS), "-i", frames, "-c:v", "libx264", "-preset", "slow", "-crf", "25", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", join(OUT, "home-reel.mp4"));
+// The narration and music bed (scripts/home-reel-sound.m4a) are timed to this storyboard: after changing a scene's
+// length, make the sound again or delete that file to save a silent clip.
+const SOUND = new URL("./home-reel-sound.m4a", import.meta.url).pathname;
+const sound = existsSync(SOUND);
+const soundIn = sound ? ["-i", SOUND] : [];
+const soundOut = (...codec) => (sound ? ["-map", "0:v", "-map", "1:a", "-c:a", ...codec, "-shortest"] : ["-an"]);
+ff("-framerate", String(FPS), "-i", frames, ...soundIn, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-row-mt", "1", "-pix_fmt", "yuv420p", ...soundOut("libopus", "-b:a", "96k"), join(OUT, "home-reel.webm"));
+ff("-framerate", String(FPS), "-i", frames, ...soundIn, "-c:v", "libx264", "-preset", "slow", "-crf", "25", "-pix_fmt", "yuv420p", "-movflags", "+faststart", ...soundOut("copy"), join(OUT, "home-reel.mp4"));
 // The poster is the Film Room, mid-lesson.
 ff("-framerate", String(FPS), "-i", frames, "-vf", `select=eq(n\\,${Math.round(n * 0.42)})`, "-frames:v", "1", "-q:v", "4", join(OUT, "home-reel.jpg"));
 if (!process.env.KEEP_FRAMES) rmSync(raw, { recursive: true, force: true });

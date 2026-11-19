@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
@@ -64,6 +64,14 @@ const REEL = ["Draw the play", "Run it", "Teach it in the Film Room", "Check the
  */
 function ToolsReel() {
   const video = useRef<HTMLVideoElement>(null);
+  // The clip starts silent (a browser won't start one with sound by itself); the narration is one press away.
+  const [sound, setSound] = useState(false);
+  const toggleSound = () => {
+    const el = video.current;
+    if (!el) return;
+    el.muted = sound;
+    if (!sound) el.play().catch(() => undefined);
+  };
   useEffect(() => {
     const el = video.current;
     if (!el || typeof IntersectionObserver === "undefined" || typeof matchMedia !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -93,11 +101,14 @@ function ToolsReel() {
         </ol>
       </div>
       <div className="home-reel-frame home-rv">
-        <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls muted loop playsInline preload="none" aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and no sound">
+        <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls muted loop playsInline preload="none" onVolumeChange={(e) => setSound(!e.currentTarget.muted && e.currentTarget.volume > 0)} aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and a narrator you can switch on">
           <source src="/clips/home-reel.webm" type="video/webm" />
           <source src="/clips/home-reel.mp4" type="video/mp4" />
           A short clip of the tools. Your browser can't play it here; the sections below show the same tools.
         </video>
+        <button type="button" className="home-reel-sound" aria-pressed={sound} onClick={toggleSound}>
+          {sound ? "Sound: on" : "Turn the sound on"}
+        </button>
       </div>
     </section>
   );
