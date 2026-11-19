@@ -197,3 +197,70 @@ test("Make a video saves the lesson as an MP4 in both shapes, and Sideline sees 
 
   expect(errors).toEqual([]);
 });
+
+test("Film Room tips show once, ring each control, and come back from the Tips button", async ({ page }) => {
+  const errors = errorsOf(page);
+  await seedReady(page);
+  // A coach who has never opened the Film Room.
+  await page.evaluate(() => localStorage.removeItem("grid1ronvault.filmtips.v1"));
+  await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  const room = page.getByRole("dialog", { name: /Film Room/ });
+  const tips = room.getByRole("group", { name: "Film Room tips" });
+
+  // They open by themselves the first time, on the step list, with a ring on it.
+  await expect(tips).toBeVisible();
+  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 1 of 9");
+  await expect(tips.locator("h3")).toHaveText("Six steps, one lesson");
+  await expect(room.locator(".fr-tip-ring")).toBeVisible();
+  await expect(tips.getByRole("button", { name: "Back" })).toBeDisabled();
+  await expect(tips.getByRole("button", { name: "Next tip" })).toBeFocused();
+  const ring = (await room.locator(".fr-tip-ring").boundingBox())!;
+  const list = (await room.locator(".fr-steps").boundingBox())!;
+  expect(Math.abs(ring.x + 5 - list.x)).toBeLessThan(3);
+  expect((await new AxeBuilder({ page }).include(".fr").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations).toEqual([]);
+
+  // The lesson still works under a tip: nothing covers it.
+  await room.getByRole("button", { name: "Next step" }).click();
+  await expect(room.locator(".fr-steps button").nth(1)).toHaveAttribute("aria-current", "step");
+
+  // Next and Back walk the controls; a play with no voice skips the Voice switch's tip.
+  await tips.getByRole("button", { name: "Next tip" }).click();
+  await expect(tips.locator("h3")).toHaveText("The field");
+  await tips.getByRole("button", { name: "Back" }).click();
+  await expect(tips.locator("h3")).toHaveText("Six steps, one lesson");
+  const seen: string[] = [];
+  for (let k = 0; k < 8; k++) {
+    await tips.getByRole("button", { name: "Next tip" }).click();
+    seen.push((await tips.locator("h3").textContent())!);
+  }
+  expect(seen).toEqual(["The field", "One caption a step", "Run the lesson", "Pick the defense", "Add the voice", "Make a video", "Dark or light", "Tips, any time"]);
+  await expect(tips.locator(".fr-tip-k")).toHaveText("Tip 9 of 9");
+  await expect(tips.getByRole("button", { name: "Done" })).toBeVisible();
+
+  // Escape puts the tips away and leaves the lesson open; they are remembered with the team brand for the account.
+  await page.keyboard.press("Escape");
+  await expect(tips).toHaveCount(0);
+  await expect(room).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("grid1ronvault.filmtips.v1"))).toBe("seen");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.brand.v1")!).filmTips)).toBe(false);
+
+  // The Tips button brings them back, and Skip the tips puts them away.
+  const button = room.getByRole("button", { name: "Tips", exact: true });
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await button.click();
+  await expect(tips.locator("h3")).toHaveText("Six steps, one lesson");
+  await tips.getByRole("button", { name: "Skip the tips" }).click();
+  await expect(tips).toHaveCount(0);
+
+  // The next time the Film Room opens, they stay away.
+  await page.keyboard.press("Escape");
+  await expect(room).toHaveCount(0);
+  await page.getByRole("button", { name: /^Extras/ }).click();
+  await page.getByRole("button", { name: "Film Room: teach this play" }).click();
+  await expect(room).toBeVisible();
+  await expect(tips).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

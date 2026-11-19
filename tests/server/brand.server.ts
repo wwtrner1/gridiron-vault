@@ -64,6 +64,13 @@ test("the Film Room look is kept with the team brand, checked, and private to th
   assert.equal("filmLook" in odd.data.brand, false);
   assert.equal(odd.data.brand.name, "Hawks");
 
+  // The Film Room tips, once seen, stay seen on the account; anything but false is dropped.
+  const tipped = await call("PUT", "brand", { brand: { ...brand, filmTips: false, updatedAt: new Date(Date.now() + 1000).toISOString() } });
+  assert.equal(tipped.data.brand.filmTips, false);
+  assert.equal((await call("GET", "brand")).data.brand.filmTips, false);
+  const again = await call("PUT", "brand", { brand: { ...brand, filmTips: "yes", updatedAt: new Date(Date.now() + 2000).toISOString() } });
+  assert.equal("filmTips" in again.data.brand, false);
+
   // Another coach starts with no brand at all.
   const two = await coach();
   assert.notEqual(one, two);

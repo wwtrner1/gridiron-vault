@@ -5,6 +5,7 @@ import { DEFENSE_INK } from "../lib/defense";
 import { fieldInset, yardLines } from "../lib/field";
 import { drawOrder, MarkerDefs, NodeLayer, strokeColors } from "../lib/render";
 import { pointAt } from "../lib/motion";
+import { linesOf } from "../lib/assignments";
 import { linesFor } from "../lib/teach";
 import type { Lesson, TeachStep } from "../lib/teach";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
@@ -16,6 +17,8 @@ const BALL_FLIGHT = 0.5;
 /** Ink for the coach's black lines and labels on the dark field. */
 const DARK_INK = "#E9F0F6";
 const DARK_DEFENSE = "#FF8A7A";
+/** How much heavier a route is drawn while the lesson is teaching it. */
+const BOLD = 1.6;
 
 const isDarkInk = (hex: string) => {
   try {
@@ -24,6 +27,18 @@ const isDarkInk = (hex: string) => {
     return false;
   }
 };
+
+/** A player color strong enough to carry a route on the dark field (not the black Q or a white token). */
+const bright = (hex: string) => {
+  try {
+    const l = luminance(hex);
+    return /^#[0-9a-f]{6}$/i.test(hex) && l > 0.06 && l < 0.8;
+  } catch {
+    return false;
+  }
+};
+/** The color mixed a third of the way to white, so a deep blue or red still reads on navy. */
+const lift = (hex: string) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * 0.66 + 255 * 0.34).toString(16).padStart(2, "0")).join("");
 
 /** The coach's drawing with its black ink turned light, so it reads on the dark field. Colors the coach chose stay. */
 function onDark(n: SceneNode): SceneNode {
@@ -35,8 +50,8 @@ function onDark(n: SceneNode): SceneNode {
 
 /** The field's colors written out, for a picture drawn away from the page's stylesheet (the video export). */
 const STANDALONE: Record<"dark" | "light", string> = {
-  dark: `.fr-turf{fill:#0f1c30}.fr-side{stroke:#294564;stroke-width:2}.fr-yard{stroke:#294564;stroke-width:1.4}.fr-num{fill:#7f9ab3;font-size:14px;font-weight:600}.fr-los{stroke:#3fd3ee;stroke-width:3}.fr-mark{opacity:.22}.fr-zone{fill:rgba(63,211,238,.1);stroke:#62cfe6;stroke-width:1.6;stroke-dasharray:7 6}.fr-zone-tag{fill:#d9f4fa;font-size:12px;font-weight:600;letter-spacing:.08em}.fr-ring{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.5}text{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}`,
-  light: `.fr-turf{fill:#fff}.fr-side{stroke:#d5dee7;stroke-width:2}.fr-yard{stroke:#d5dee7;stroke-width:1.4}.fr-num{fill:#5d7287;font-size:14px;font-weight:600}.fr-los{stroke:#0b1524;stroke-width:3}.fr-mark{opacity:.1}.fr-zone{fill:rgba(232,243,251,.9);stroke:#1c567f;stroke-width:1.6;stroke-dasharray:7 6}.fr-zone-tag{fill:#1c567f;font-size:12px;font-weight:600;letter-spacing:.08em}text{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}`,
+  dark: `.fr-turf{fill:#0f1c30}.fr-side{stroke:#294564;stroke-width:2}.fr-yard{stroke:#294564;stroke-width:1.4}.fr-num{fill:#7f9ab3;font-size:14px;font-weight:600}.fr-los{stroke:#3fd3ee;stroke-width:3}.fr-mark{opacity:.22}.fr-zone{fill:rgba(63,211,238,.2);stroke:#3fd3ee;stroke-width:3;stroke-dasharray:10 7}.fr-zone.is-deep{fill:rgba(255,210,63,.2);stroke:#ffd23f}.fr-zone-tag{fill:#eafaff;font-size:19px;font-weight:800;letter-spacing:.05em;paint-order:stroke;stroke:#0f1c30;stroke-width:4px;stroke-linejoin:round}.fr-zone-tag.is-deep{fill:#ffe38a}.fr-ring{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.5}text{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}`,
+  light: `.fr-turf{fill:#fff}.fr-side{stroke:#d5dee7;stroke-width:2}.fr-yard{stroke:#d5dee7;stroke-width:1.4}.fr-num{fill:#5d7287;font-size:14px;font-weight:600}.fr-los{stroke:#0b1524;stroke-width:3}.fr-mark{opacity:.1}.fr-zone{fill:rgba(210,236,250,.9);stroke:#12629a;stroke-width:3;stroke-dasharray:10 7}.fr-zone.is-deep{fill:rgba(255,236,170,.9);stroke:#9a6a00}.fr-zone-tag{fill:#0d4a75;font-size:19px;font-weight:800;letter-spacing:.05em;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}.fr-zone-tag.is-deep{fill:#6b4a00}text{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}`,
 };
 
 /**
@@ -76,8 +91,21 @@ export function LessonField({
   const now = Math.min(t, result.duration);
   const id = step.id;
   const mine = useMemo(() => new Set(id === "job" ? linesFor(scene, who).map((l) => l.id) : []), [scene, who, id]);
-  const nodes = useMemo(() => drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => (dark ? onDark(n) : n)), [scene, dark]);
-  const inkOpacity = (n: SceneNode) => (id === "call" ? 1 : id === "job" ? (mine.has(n.id) ? 1 : 0.14) : id === "look" || id === "zones" ? 0.22 : 0.5);
+  const nodes = useMemo(() => {
+    // On the dark field a black route wears its player's color (a bright one), so each route reads as his at a glance.
+    const owner = new Map<string, string>();
+    if (dark)
+      for (const pl of scene.nodes)
+        if (pl.kind === "player" && pl.side !== "defense" && bright(pl.fill)) for (const l of linesOf(scene, pl)) if (!owner.has(l.id)) owner.set(l.id, pl.fill);
+    return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
+      if (!dark) return n;
+      const fill = owner.get(n.id);
+      return n.kind === "path" && fill && !n.firstRead && isDarkInk(n.stroke) ? { ...n, stroke: lift(fill) } : onDark(n);
+    });
+  }, [scene, dark]);
+  const inkOpacity = (n: SceneNode) => (id === "call" ? 1 : id === "job" ? (mine.has(n.id) ? 1 : 0.14) : id === "look" || id === "zones" ? 0.3 : 0.8);
+  // Routes are drawn heavy once the lesson is about them, so they read from the back of the room.
+  const heavy = (n: SceneNode): SceneNode => (n.kind === "path" && (id === "call" || id === "snap" || id === "read" || (id === "job" && mine.has(n.id))) ? { ...n, width: n.width * BOLD } : n);
   const thrown = id === "read" && t >= result.throwAt;
   const statusOf = new Map(id === "read" ? result.rows.map((r) => [r.id, r.status]) : []);
   const showZones = id !== "job";
@@ -122,9 +150,9 @@ export function LessonField({
         result.defenders.map((d, di) =>
           d.landmark && d.reach ? (
             <g key={`z${di}`} opacity={zoneTags ? 1 : 0.45}>
-              <ellipse className="fr-zone" cx={d.landmark.x} cy={d.landmark.y} rx={d.reach.rx / 1.15} ry={d.reach.ry / 2.4} />
+              <ellipse className={lesson.jobs[di]?.deep ? "fr-zone is-deep" : "fr-zone"} cx={d.landmark.x} cy={d.landmark.y} rx={d.reach.rx / 1.15} ry={d.reach.ry / 2.4} />
               {zoneTags && (
-                <text className="fr-zone-tag" x={d.landmark.x} y={d.landmark.y + 4} textAnchor="middle">
+                <text className={lesson.jobs[di]?.deep ? "fr-zone-tag is-deep" : "fr-zone-tag"} x={d.landmark.x} y={d.landmark.y + 6} textAnchor="middle">
                   {lesson.jobs[di].job.toUpperCase()}
                 </text>
               )}
@@ -133,7 +161,7 @@ export function LessonField({
         )}
 
       {nodes.map((n) => {
-        if (n.kind !== "player") return <NodeLayer key={n.id} node={n} opacity={inkOpacity(n)} className={n.kind === "path" && n.firstRead && id === "call" ? "fr-first" : undefined} />;
+        if (n.kind !== "player") return <NodeLayer key={n.id} node={heavy(n)} opacity={inkOpacity(n)} className={n.kind === "path" && n.firstRead && id === "call" ? "fr-first" : undefined} />;
         const p = pointAt(motion.offense.get(n.id) ?? [], now, FPS) ?? n;
         const s = thrown ? statusOf.get(n.id) : undefined;
         const dim = id === "job" && n.label.trim().toUpperCase() !== who;

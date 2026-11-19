@@ -4,6 +4,7 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
+import { FilmTips, filmTips, filmTipsSeen, markFilmTipsSeen } from "./FilmTips";
 import { repText } from "../lib/breakdown";
 import type { FilmRep } from "../lib/breakdown";
 import { LessonVoice } from "./LessonVoice";
@@ -139,7 +140,27 @@ export function FilmRoom({
     return () => el.pause();
   }, [playing, sound, i, clipNow?.id, clipNow?.ms]);
   const panel = useRef<HTMLDivElement>(null);
-  useDialogFocus(panel, onClose);
+
+  // The tips show once (per browser, and per account for a coach); the Tips button brings them back.
+  const [tipsUp, setTipsUp] = useState(() => teachable && !filmTipsSeen() && !(coach && brand.filmTips === false));
+  const tips = useMemo(() => filmTips(coach), [coach]);
+  const endTips = () => {
+    setTipsUp(false);
+    markFilmTipsSeen();
+    if (coach && brand.filmTips !== false) {
+      try {
+        brandStore.set({ filmTips: false });
+      } catch {
+        /* storage full: this browser still remembers */
+      }
+    }
+  };
+  // The account's copy can arrive after the lesson opens: tips already seen on another device step aside.
+  useEffect(() => {
+    if (coach && brand.filmTips === false) setTipsUp((up) => (up && !filmTipsSeen() ? (markFilmTipsSeen(), false) : up));
+  }, [coach, brand.filmTips]);
+  // Escape puts the tips away first, then the lesson.
+  useDialogFocus(panel, () => (tipsUp ? endTips() : onClose()));
 
   useEffect(() => {
     if (!playing) return;
@@ -232,6 +253,11 @@ export function FilmRoom({
             </button>
           ))}
         </div>
+        {teachable && (
+          <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="tips" aria-pressed={tipsUp} onClick={() => (tipsUp ? endTips() : (setPlaying(false), setTipsUp(true)))}>
+            Tips
+          </button>
+        )}
         <button type="button" className="btn btn-outline-dark btn-sm" onClick={onClose}>
           {closeLabel}
         </button>
@@ -255,6 +281,7 @@ export function FilmRoom({
             </div>
 
             <div className="fr-bar">
+              <div className="fr-play">
               <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => go(i - 1)} disabled={i === 0}>
                 Back a step
               </button>
@@ -270,6 +297,7 @@ export function FilmRoom({
               <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => go(i + 1)} disabled={i === steps.length - 1}>
                 Next step
               </button>
+              </div>
               {held ? (
                 <p className="fr-against">
                   <span>Against</span> {held.name}
@@ -287,12 +315,12 @@ export function FilmRoom({
               </label>
               )}
               {spoken && (
-                <button type="button" className="btn btn-outline-dark btn-sm" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
+                <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="sound" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
                   {sound ? "Voice on" : "Voice off"}
                 </button>
               )}
               {coach && (
-                <button type="button" className="btn btn-outline-dark btn-sm" onClick={() => (setPlaying(false), setMaking(true))}>
+                <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="video" onClick={() => (setPlaying(false), setMaking(true))}>
                   Make a video
                 </button>
               )}
@@ -422,6 +450,7 @@ export function FilmRoom({
           </aside>
         </div>
       )}
+      {tipsUp && !making && <FilmTips panel={panel} tips={tips} onDone={endTips} />}
       {making && (
         <Suspense fallback={null}>
           <LessonVideo

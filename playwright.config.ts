@@ -17,7 +17,8 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4173",
     // Most tests drive the full kit, so the browser starts on Head Coach; tests of Sideline and beta limits set their own plan.
-    storageState: { cookies: [], origins: [{ origin: "http://localhost:4173", localStorage: [{ name: "nextplay.tier.v1", value: "solo" }] }] },
+    // The Film Room tips count as seen, so they only open in the test that is about them.
+    storageState: { cookies: [], origins: [{ origin: "http://localhost:4173", localStorage: [{ name: "nextplay.tier.v1", value: "solo" }, { name: "grid1ronvault.filmtips.v1", value: "seen" }] }] },
     // The cloud sandbox has Chromium at this path; CI installs Playwright's own.
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },

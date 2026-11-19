@@ -17,6 +17,8 @@ export type TeamBrand = {
   prints: boolean;
   /** The Film Room look the coach last chose, so a lesson opens that way on every device. Dark when unset. */
   filmLook?: FilmLook;
+  /** False once the coach has seen the Film Room tips, so they don't open by themselves again on any device. */
+  filmTips?: false;
   /** When the coach last changed it (ISO); the newer copy wins when browsers and the account sync. */
   updatedAt: string;
 };
@@ -65,6 +67,7 @@ export function cleanBrand(raw: unknown): TeamBrand {
   const filmLook = (FILM_LOOKS as readonly unknown[]).includes(r.filmLook) ? r.filmLook : undefined;
   return {
     ...(filmLook ? { filmLook } : {}),
+    ...(r.filmTips === false ? { filmTips: false as const } : {}),
     name: typeof r.name === "string" ? r.name.slice(0, BRAND_NAME_MAX) : d.name,
     logo,
     primary: typeof r.primary === "string" && HEX.test(r.primary) ? r.primary.toUpperCase() : d.primary,

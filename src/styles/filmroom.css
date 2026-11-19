@@ -16,9 +16,13 @@
   --fr-yard: #294564;
   --fr-num: #7f9ab3;
   --fr-los: #3fd3ee;
-  --fr-zone: #62cfe6;
-  --fr-zone-fill: rgba(63, 211, 238, 0.1);
-  --fr-tag: #d9f4fa;
+  --fr-zone: #3fd3ee;
+  --fr-zone-fill: rgba(63, 211, 238, 0.2);
+  --fr-tag: #eafaff;
+  --fr-deep: #ffd23f;
+  --fr-deep-fill: rgba(255, 210, 63, 0.2);
+  --fr-deep-tag: #ffe38a;
+  --fr-halo: #0f1c30;
   --fr-mark: 0.22;
   position: fixed;
   inset: 0;
@@ -41,9 +45,13 @@
   --fr-yard: #d5dee7;
   --fr-num: #5d7287;
   --fr-los: var(--ink);
-  --fr-zone: #1c567f;
-  --fr-zone-fill: rgba(232, 243, 251, 0.9);
-  --fr-tag: #1c567f;
+  --fr-zone: #12629a;
+  --fr-zone-fill: rgba(210, 236, 250, 0.9);
+  --fr-tag: #0d4a75;
+  --fr-deep: #9a6a00;
+  --fr-deep-fill: rgba(255, 236, 170, 0.9);
+  --fr-deep-tag: #6b4a00;
+  --fr-halo: #fff;
   --fr-mark: 0.1;
 }
 
@@ -71,8 +79,11 @@
 .fr-num { fill: var(--fr-num); font-family: var(--mono); font-size: 14px; font-weight: 600; }
 .fr-los { stroke: var(--fr-los); stroke-width: 3; }
 .fr-mark { opacity: var(--fr-mark); }
-.fr-zone { fill: var(--fr-zone-fill); stroke: var(--fr-zone); stroke-width: 1.6; stroke-dasharray: 7 6; }
-.fr-zone-tag { fill: var(--fr-tag); font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; }
+/* Zones and their names are drawn big and bold: underneath zones in cyan, deep zones in gold. */
+.fr-zone { fill: var(--fr-zone-fill); stroke: var(--fr-zone); stroke-width: 3; stroke-dasharray: 10 7; }
+.fr-zone.is-deep { fill: var(--fr-deep-fill); stroke: var(--fr-deep); }
+.fr-zone-tag { fill: var(--fr-tag); font-family: var(--display); font-size: 19px; font-weight: 800; letter-spacing: 0.05em; paint-order: stroke; stroke: var(--fr-halo); stroke-width: 4px; stroke-linejoin: round; }
+.fr-zone-tag.is-deep { fill: var(--fr-deep-tag); }
 .fr-ring { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.5; }
 .fr[data-theme="dark"] .fr-first { filter: drop-shadow(0 0 5px rgba(63, 211, 238, 0.6)); }
 .fr-clock { position: absolute; top: 10px; right: 10px; padding: 4px 9px; border-radius: 4px; background: #011628; color: #5fd6ea; font-family: var(--mono); font-size: 11px; }
@@ -146,6 +157,17 @@ p.fr-against span { color: var(--rail-text); }
 .fr-video-ok { color: var(--green-fg); }
 .fr-video-bad { color: var(--red-fg); }
 
+/* Tips: a ring on one control and a bubble beside it. No scrim, so the lesson stays usable. */
+.fr-play { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.fr-tip-ring { position: absolute; z-index: 4; border: 3px solid #ffd23f; border-radius: 10px; box-shadow: 0 0 0 4px rgba(255, 210, 63, 0.25); pointer-events: none; transition: left 0.2s, top 0.2s, width 0.2s, height 0.2s; }
+.fr-tip { position: absolute; z-index: 5; width: min(320px, calc(100% - 16px)); padding: 12px 14px; border-left: 5px solid #ffd23f; border-radius: var(--radius-md); background: #011628; color: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+.fr-tip-k { margin: 0 0 4px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8fd8ea; }
+.fr-tip h3 { margin: 0 0 4px; font-family: var(--display); font-size: 20px; font-weight: 800; letter-spacing: 0.02em; color: #fff; }
+.fr-tip p { margin: 0; font-size: 14.5px; line-height: 1.4; color: #dbe7f1; }
+.fr-tip-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.fr-tip-skip { margin-right: auto; padding: 4px 0; background: transparent; color: #b9cbdb; font-size: 13px; text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .fr-tip-ring { transition: none; } }
+
 @media (max-width: 900px) {
   .fr-body { flex-direction: column; padding: 12px; }
   .fr-side-panel { min-width: 0; overflow: visible; }
@@ -155,6 +177,6 @@ p.fr-against span { color: var(--rail-text); }
   .fr-looks { margin-left: 0; }
 }
 @media (max-width: 640px) {
-  .fr-zone-tag { font-size: 18px; }
+  .fr-zone-tag { font-size: 24px; }
   .fr-num { font-size: 20px; }
 }
