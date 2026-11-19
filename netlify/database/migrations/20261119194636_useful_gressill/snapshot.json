@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e0f1c741-8e7a-4108-8528-15a873eeb582",
+  "id": "bcdbfb85-d5a7-4a34-ba37-af83040a952d",
   "prevIds": [
-    "771fdc11-6381-41d7-a75e-ebedc1f94792"
+    "fe60b6af-4c1b-4ac0-ab45-4d5df46a705e"
   ],
   "ddl": [
     {
@@ -2438,6 +2438,19 @@
       "table": "playbooks"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "client_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "playbooks"
+    },
+    {
       "type": "timestamp",
       "typeSchema": null,
       "notNull": false,
@@ -4713,6 +4726,34 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "playbook_shares"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "client_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "playbooks_owner_client_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "playbooks"
     },
     {
       "nameExplicit": true,
