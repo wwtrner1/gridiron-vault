@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
@@ -78,15 +78,21 @@ export function Playbooks() {
     return plays.filter((p) => !filed.has(p.id));
   }, [plays, books]);
 
+  const savedDraft = useRef<typeof draft>(null);
   const save = async () => {
-    if (!draft) return;
+    if (!draft || savedDraft.current === draft) return;
     const name = draft.name.trim();
     if (!name) {
       toast("Give the playbook a name first.");
       return;
     }
+    // A double tap on Save runs this twice with the same draft; the second one would file a second playbook.
+    savedDraft.current = draft;
     const existing = draft.id ? books.find((b) => b.id === draft.id) : null;
     const book: LocalPlaybook = {
+      // An edit keeps the playbook's account link (cloudId): without it the next sync saved the edit as a second playbook
+      // and the old one came back on the next pull.
+      ...existing,
       id: draft.id ?? uid("book"),
       name,
       description: draft.description.trim(),
@@ -108,7 +114,7 @@ export function Playbooks() {
     toast(`${book.name} deleted. The plays inside it are still in your Vault.`, false, {
       label: "Undo",
       // The account's copy is gone (or going), so it comes back as a new playbook with the same plays; the sync sends it.
-      run: () => store.upsertPlaybook({ ...book, cloudId: undefined, updatedAt: new Date().toISOString() }),
+      run: () => store.restorePlaybook(book),
     });
   };
 
