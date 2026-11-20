@@ -506,8 +506,9 @@ export function Builder() {
     return () => window.removeEventListener(PLAY_ID_EVENT, follow);
   }, [go]);
 
-  // Swap the canvas when the route points at a different play.
-  useEffect(() => {
+  // Swap the canvas when the route points at a different play. A layout effect, so a
+  // key pressed right after Prev/Next works on the new play, never the one just left.
+  useLayoutEffect(() => {
     if (loadedId.current === id) return;
     loadedId.current = id;
     setScene(existing?.scene ?? emptyScene());
@@ -1410,7 +1411,10 @@ export function Builder() {
 
   /* -------------------------------------------------------------- shortcuts */
 
-  useEffect(() => {
+  // A layout effect, so the keys never run an old handler between a render and
+  // its effects: N then an arrow straight after used to move the element N had
+  // just left (or say it was locked).
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
