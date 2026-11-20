@@ -49,6 +49,29 @@ function onDark(n: SceneNode): SceneNode {
   return n;
 }
 
+/**
+ * The coach's drawing as the lesson shows it: offense and ink only, in draw order. On the dark field
+ * black ink turns light and a black route wears its player's color. The 3D view uses the same picture.
+ */
+export function lessonInk(scene: Scene, dark: boolean): SceneNode[] {
+  // On the dark field a black route wears its player's color (a bright one), so each route reads as his at a glance.
+  const owner = new Map<string, string>();
+  if (dark)
+    for (const pl of scene.nodes)
+      if (pl.kind === "player" && pl.side !== "defense" && bright(pl.fill)) for (const l of linesOf(scene, pl)) if (!owner.has(l.id)) owner.set(l.id, pl.fill);
+  // A route that only starts on its player (a starter play's) is his too, the way Run play reads it.
+  if (dark)
+    for (const tr of buildTimeline(scene).tracks) {
+      const pl = scene.nodes.find((x) => x.id === tr.playerId);
+      if (pl?.kind === "player" && pl.side !== "defense" && bright(pl.fill) && !owner.has(tr.pathId)) owner.set(tr.pathId, pl.fill);
+    }
+  return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
+    if (!dark) return n;
+    const fill = owner.get(n.id);
+    return n.kind === "path" && fill && !n.firstRead && isDarkInk(n.stroke) ? { ...n, stroke: lift(fill) } : onDark(n);
+  });
+}
+
 /** The field's colors written out, for a picture drawn away from the page's stylesheet (the video export). */
 const STANDALONE: Record<"dark" | "light", string> = {
   dark: `.fr-turf{fill:#0f1c30}.fr-side{stroke:#294564;stroke-width:2}.fr-yard{stroke:#294564;stroke-width:1.4}.fr-num{fill:#7f9ab3;font-size:14px;font-weight:600}.fr-los{stroke:#3fd3ee;stroke-width:3}.fr-mark{opacity:.22}.fr-zone{fill:rgba(63,211,238,.2);stroke:#3fd3ee;stroke-width:3;stroke-dasharray:10 7}.fr-zone.is-deep{fill:rgba(255,210,63,.2);stroke:#ffd23f}.fr-zone-tag{fill:#eafaff;font-size:19px;font-weight:800;letter-spacing:.05em;paint-order:stroke;stroke:#0f1c30;stroke-width:4px;stroke-linejoin:round}.fr-zone-tag.is-deep{fill:#ffe38a}.fr-ring{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.5}text{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}`,
@@ -95,24 +118,7 @@ export function LessonField({
   const now = Math.min(t, result.duration);
   const id = step.id;
   const mine = useMemo(() => new Set(id === "job" ? linesFor(scene, who).map((l) => l.id) : []), [scene, who, id]);
-  const nodes = useMemo(() => {
-    // On the dark field a black route wears its player's color (a bright one), so each route reads as his at a glance.
-    const owner = new Map<string, string>();
-    if (dark)
-      for (const pl of scene.nodes)
-        if (pl.kind === "player" && pl.side !== "defense" && bright(pl.fill)) for (const l of linesOf(scene, pl)) if (!owner.has(l.id)) owner.set(l.id, pl.fill);
-    // A route that only starts on its player (a starter play's) is his too, the way Run play reads it.
-    if (dark)
-      for (const tr of buildTimeline(scene).tracks) {
-        const pl = scene.nodes.find((x) => x.id === tr.playerId);
-        if (pl?.kind === "player" && pl.side !== "defense" && bright(pl.fill) && !owner.has(tr.pathId)) owner.set(tr.pathId, pl.fill);
-      }
-    return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
-      if (!dark) return n;
-      const fill = owner.get(n.id);
-      return n.kind === "path" && fill && !n.firstRead && isDarkInk(n.stroke) ? { ...n, stroke: lift(fill) } : onDark(n);
-    });
-  }, [scene, dark]);
+  const nodes = useMemo(() => lessonInk(scene, dark), [scene, dark]);
   const inkOpacity = (n: SceneNode) => (id === "call" ? 1 : id === "job" ? (mine.has(n.id) ? 1 : 0.14) : id === "look" || id === "zones" ? 0.3 : 0.8);
   // Routes are drawn heavy once the lesson is about them, so they read from the back of the room.
   const heavy = (n: SceneNode): SceneNode => (n.kind === "path" && (id === "call" || id === "snap" || id === "read" || (id === "job" && mine.has(n.id))) ? { ...n, width: n.width * BOLD } : n);

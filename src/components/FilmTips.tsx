@@ -32,7 +32,7 @@ export function markFilmTipsSeen() {
 export function filmTips(coach: boolean): FilmTip[] {
   return [
     { target: ".fr-steps", title: "Six steps, one lesson", text: "Each step teaches one thing: the look, the zones, the call, the snap, the read and your job. Press a step to jump to it." },
-    { target: ".fr-field", title: "The field", text: "The play is drawn from above. Zones, routes and the read light up as the lesson reaches them." },
+    { target: ".fr-field", title: "The field", text: "The play is drawn from above, or on a real field in 3D. Zones, routes and the read light up as the lesson reaches them." },
     { target: ".fr-cap", title: "One caption a step", text: "The key words are highlighted, and the line on top shows how far along the lesson is." },
     { target: ".fr-play", title: "Run the lesson", text: "Play the lesson runs every step in order. Back a step and Next step move one at a time." },
     { target: "select.fr-against, label.fr-against", title: "Pick the defense", text: "Teach the play against any coverage. The lesson rebuilds for the look you pick." },
@@ -44,6 +44,7 @@ export function filmTips(coach: boolean): FilmTip[] {
         ]
       : []),
     { target: "[data-fr-tip='steps']", title: "More room for the field", text: "Hide the steps puts this panel away so the field fills the screen. Show the steps brings it back." },
+    { target: "[data-fr-tip='view']", title: "Flat or 3D", text: "Flat draws the play from above, the way it is drawn. 3D puts the players on a real field; pick a camera under the field. Your pick follows you to every device." },
     { target: ".fr-looks", title: "Dark or light", text: "Pick the look that reads best where you teach: a dark room, a bright field or whatever your device is set to." },
     { target: "[data-fr-tip='tips']", title: "Tips, any time", text: "These tips show once. Press Tips to see them again." },
   ];
