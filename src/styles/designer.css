@@ -130,6 +130,8 @@
 }
 @media print { .dz-edge { display: none !important; } }
 /* iPad and small laptops: the play panel slides over the field, so its own Done button closes it. */
+/* The Film Room button needs the room the "Play designer" label took on laptop screens. */
+@media (max-width: 1480px) { .dz-kicker { display: none; } }
 @media (max-width: 1180px) {
   .dz-body.is-rail-closed,
   .dz-body.is-rail-closed.is-side-closed { grid-template-columns: minmax(0, 1fr); }

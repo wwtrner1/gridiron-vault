@@ -124,6 +124,11 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
   await page.getByRole("button", { name: /^Extras/ }).click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   await expect(room).toHaveAttribute("data-theme", "light");
+  // The top bar's own Film Room button opens it too, so a coach never has to find it in Extras.
+  await room.getByRole("button", { name: "Back to drawing" }).click();
+  await expect(room).toBeHidden();
+  await page.locator('[data-tour="dz-film"]').click();
+  await expect(room.locator("h2")).toContainText("Film Room");
   expect(errors).toEqual([]);
 });
 

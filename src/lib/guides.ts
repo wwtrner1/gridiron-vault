@@ -125,6 +125,11 @@ export const GUIDES: Guide[] = [
             target: tour("dz-run"),
           },
           {
+            title: "Film Room",
+            text: "Turns this play into a step-by-step lesson for your players, flat or in 3D, and can save it as a video. The same button is in Extras on a narrow screen.",
+            target: tour("dz-film"),
+          },
+          {
             title: "Export",
             text: "Download the play as a PNG, JPEG, PDF or PowerPoint slide, or print it as a wristband card. Sizes and DPI follow your plan.",
             target: tour("dz-export"),
