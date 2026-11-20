@@ -2093,6 +2093,11 @@ export function Builder() {
               Run play
             </button>
           </Tooltip>
+          <Tooltip title="Film Room" hint="Teach this play as a step-by-step lesson, flat or in 3D, and make it a video." side="bottom">
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setTeaching(true)} data-tour="dz-film">
+              Film Room
+            </button>
+          </Tooltip>
           <Tooltip title="Export" hint="Download the play as a picture or PDF, or print it as a wristband card." side="bottom">
             <button type="button" className="dz-top-btn dz-wide" onClick={() => setExporting(true)} data-tour="dz-export">
               Export

@@ -74,6 +74,12 @@ const TOOLS: NavItem[] = [
     hint: "Flag football drill games and coaching reads from MOJO, with credit. Videos play right here.",
   },
   {
+    to: "/concepts",
+    icon: "play",
+    label: "Film Room",
+    hint: "Watch pass concepts as lessons. To teach one of your own plays, open it in the Designer and press Film Room.",
+  },
+  {
     to: "/wristbands",
     icon: "wristband",
     label: "Wristbands",
@@ -103,7 +109,7 @@ const TOOLS: NavItem[] = [
 const GROUP_OF: { id: string; label: string; paths: string[] }[] = [
   { id: "plays", label: "Plays", paths: ["/vault", "/playbooks", "/upload", "/starters"] },
   { id: "gameplan", label: "Game plan", paths: ["/grid", "/wristbands", "/coverage"] },
-  { id: "practice", label: "Practice", paths: ["/practice", "/drills", "/library", "/assignments"] },
+  { id: "practice", label: "Practice", paths: ["/practice", "/drills", "/library", "/concepts", "/assignments"] },
   { id: "team", label: "Team", paths: ["/roster", "/front-office"] },
   { id: "tools", label: "Tools", paths: ["/language", "/tools"] },
 ];
