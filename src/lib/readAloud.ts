@@ -9,6 +9,8 @@
  * It is a stock voice. It is not a copy of any real person's voice and must
  * never be described as sounding like one.
  */
+import VOICE_WORDS from "./voiceWords.json";
+
 export const READER = {
   /** The speech model, its sounds table and the stock voice. Versioned names, so they can be cached for good. */
   /** The model comes in parts (`<model>.<n>.part`), because one file this size is too big for the CDN; see `voiceModel` in vite.config.ts. */
@@ -29,16 +31,12 @@ export const READER = {
   gap: 0.28,
 } as const;
 
-/** Words a coach writes that should be said differently. Only whole words. */
-const SAY: [RegExp, string][] = [
-  [/\bLOS\b/g, "line of scrimmage"],
-  [/\bvs\.?(?=\s)/gi, "versus"],
-  [/\bQB\b/g, "quarterback"],
-  [/\byds?\b/gi, "yards"],
-  [/\s*·\s*/g, ", "],
-  [/\s*[→]\s*/g, " to "],
-  [/[“”"]/g, ""],
-];
+/**
+ * Words a coach writes that should be said differently. The list lives in
+ * `voiceWords.json` so the social voiceovers read it too: a word fixed there
+ * is fixed everywhere the voice speaks.
+ */
+const SAY: [RegExp, string][] = VOICE_WORDS.rules.map((r: { find: string; flags?: string; say: string }) => [new RegExp(r.find, "g" + (r.flags ?? "")), r.say]);
 
 /** A step's caption as it should be said. */
 export function spokenText(text: string): string {
