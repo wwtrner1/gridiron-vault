@@ -4,6 +4,9 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
+import { canDraw3d, FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
+import type { FilmCamera } from "../lib/film3d";
+import type { FilmView } from "../lib/brandData";
 import { FilmTips, filmTips, filmTipsSeen, markFilmTipsSeen } from "./FilmTips";
 import { repText } from "../lib/breakdown";
 import type { FilmRep } from "../lib/breakdown";
@@ -16,6 +19,7 @@ import type { Scene } from "../lib/types";
 import "../styles/filmroom.css";
 
 const LessonVideo = lazyPage(() => import("./LessonVideo"), "LessonVideo");
+const LessonField3D = lazyPage(() => import("./LessonField3D"), "LessonField3D");
 
 /** Dark, light, or whatever the device is set to. */
 function useLook(look: TeachLook): "dark" | "light" {
@@ -93,6 +97,28 @@ export function FilmRoom({
   const big = narrow || sideways;
   // The steps panel can be put away to give the field the whole screen. A view for this visit, not a saved setting.
   const [stepsUp, setStepsUp] = useState(true);
+  // Flat or 3D: a coach's pick is kept with the team brand on the account, so it follows him to every device;
+  // a player's pick on a team link lasts the visit. Flat stays the default.
+  const [viewPick, setViewPick] = useState<FilmView | undefined>();
+  const [noGl, setNoGl] = useState(false);
+  const wants3d = (viewPick ?? (coach ? brand.filmView : undefined) ?? "flat") === "3d";
+  const in3d = wants3d && !noGl;
+  const [camera, setCamera] = useState<FilmCamera>("auto");
+  const pickView = (v: FilmView) => {
+    if (v === "3d" && !canDraw3d()) {
+      setNoGl(true);
+      return;
+    }
+    setNoGl(false);
+    setViewPick(v);
+    if (coach && (brand.filmView ?? "flat") !== v) {
+      try {
+        brandStore.set({ filmView: v === "3d" ? "3d" : undefined });
+      } catch {
+        /* storage full: the pick lasts this visit */
+      }
+    }
+  };
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
@@ -260,6 +286,15 @@ export function FilmRoom({
           ))}
         </div>
         {teachable && (
+          <div className="fr-looks fr-views" role="group" aria-label="View" data-fr-tip="view">
+            {(["flat", "3d"] as const).map((v) => (
+              <button key={v} type="button" aria-pressed={v === "3d" ? in3d : !in3d} onClick={() => pickView(v)}>
+                {v === "3d" ? "3D" : "Flat"}
+              </button>
+            ))}
+          </div>
+        )}
+        {teachable && (
           <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="steps" aria-expanded={stepsUp} aria-controls="fr-steps" onClick={() => setStepsUp((v) => !v)}>
             {stepsUp ? "Hide the steps" : "Show the steps"}
           </button>
@@ -279,10 +314,37 @@ export function FilmRoom({
       ) : (
         <div className="fr-body">
           <div className="fr-main">
-            <div className="fr-field">
-              <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} label={`${title} against ${look.name}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`} />
+            <div className={in3d ? "fr-field is-3d" : "fr-field"}>
+              {(() => {
+                const label = `${title} against ${look.name}${in3d ? ", in 3D" : ""}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`;
+                const flat = <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} label={label} />;
+                if (!in3d) return flat;
+                return (
+                  <Suspense fallback={<div className="fr-3d"><span className="fr-3d-wait">Loading 3D…</span></div>}>
+                    <LessonField3D
+                      scene={scene}
+                      lesson={lesson}
+                      step={step}
+                      t={t}
+                      who={who}
+                      dark={dark}
+                      logo={teamOn ? (brand.logo ?? undefined) : undefined}
+                      team={teamOn ? { primary: brand.primary, secondary: brand.secondary } : undefined}
+                      camera={camera}
+                      light={big}
+                      label={label}
+                      onFail={() => setNoGl(true)}
+                    />
+                  </Suspense>
+                );
+              })()}
               <span className="fr-clock">{t.toFixed(1)} S</span>
             </div>
+            {noGl && (
+              <p className="fr-note" role="status">
+                This browser can't draw 3D, so the lesson is shown flat.
+              </p>
+            )}
 
             <div className="fr-cap">
               <i className="fr-prog" style={{ width: `${total ? (done / total) * 100 : 0}%` }} aria-hidden="true" />
@@ -325,6 +387,18 @@ export function FilmRoom({
                 </select>
               </label>
               )}
+              {in3d && (
+                <label className="fr-against" data-fr-tip="camera">
+                  <span>Camera</span>
+                  <select value={camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
+                    {FILM_CAMERAS.map((c) => (
+                      <option key={c} value={c}>
+                        {FILM_CAMERA_NAME[c]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {spoken && (
                 <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="sound" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
                   {sound ? "Voice on" : "Voice off"}
@@ -335,6 +409,7 @@ export function FilmRoom({
                   Make a video
                 </button>
               )}
+              {coach && in3d && <span className="fr-hint">Videos are drawn flat.</span>}
               {branded ? (
                 <label className="fr-check">
                   <input type="checkbox" checked={teamOn} onChange={(e) => save({ team: e.target.checked })} /> Team colors and logo

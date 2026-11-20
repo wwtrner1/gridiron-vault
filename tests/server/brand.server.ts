@@ -71,6 +71,15 @@ test("the Film Room look is kept with the team brand, checked, and private to th
   const again = await call("PUT", "brand", { brand: { ...brand, filmTips: "yes", updatedAt: new Date(Date.now() + 2000).toISOString() } });
   assert.equal("filmTips" in again.data.brand, false);
 
+  // The 3D view follows the coach to every device; flat is the default, so only "3d" is kept.
+  const view = await call("PUT", "brand", { brand: { ...brand, filmView: "3d", updatedAt: new Date(Date.now() + 3000).toISOString() } });
+  assert.equal(view.data.brand.filmView, "3d");
+  assert.equal((await call("GET", "brand")).data.brand.filmView, "3d");
+  const flat = await call("PUT", "brand", { brand: { ...brand, filmView: "flat", updatedAt: new Date(Date.now() + 4000).toISOString() } });
+  assert.equal("filmView" in flat.data.brand, false);
+  const odd3 = await call("PUT", "brand", { brand: { ...brand, filmView: "vr", updatedAt: new Date(Date.now() + 5000).toISOString() } });
+  assert.equal("filmView" in odd3.data.brand, false);
+
   // Another coach starts with no brand at all.
   const two = await coach();
   assert.notEqual(one, two);

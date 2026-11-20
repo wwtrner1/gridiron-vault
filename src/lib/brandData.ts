@@ -19,6 +19,8 @@ export type TeamBrand = {
   filmLook?: FilmLook;
   /** False once the coach has seen the Film Room tips, so they don't open by themselves again on any device. */
   filmTips?: false;
+  /** The Film Room view the coach last chose; only "3d" is stored, flat when unset. */
+  filmView?: FilmView;
   /** When the coach last changed it (ISO); the newer copy wins when browsers and the account sync. */
   updatedAt: string;
 };
@@ -26,6 +28,10 @@ export type TeamBrand = {
 /** Film Room looks: our dark, the light Designer look, or whatever the device is set to. */
 export const FILM_LOOKS = ["dark", "light", "device"] as const;
 export type FilmLook = (typeof FILM_LOOKS)[number];
+
+/** Film Room views: the flat, top-down field or the 3D one. */
+export const FILM_VIEWS = ["flat", "3d"] as const;
+export type FilmView = (typeof FILM_VIEWS)[number];
 
 export const LOGO_PX = 256;
 /** A logo past this (as a data URL) is refused rather than filling the browser's storage. */
@@ -68,6 +74,7 @@ export function cleanBrand(raw: unknown): TeamBrand {
   return {
     ...(filmLook ? { filmLook } : {}),
     ...(r.filmTips === false ? { filmTips: false as const } : {}),
+    ...(r.filmView === "3d" ? { filmView: "3d" as const } : {}),
     name: typeof r.name === "string" ? r.name.slice(0, BRAND_NAME_MAX) : d.name,
     logo,
     primary: typeof r.primary === "string" && HEX.test(r.primary) ? r.primary.toUpperCase() : d.primary,
