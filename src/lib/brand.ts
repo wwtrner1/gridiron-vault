@@ -14,6 +14,30 @@ export * from "./brandData";
  * data: images).
  */
 const KEY = "grid1ronvault.brand.v1";
+/**
+ * The account whose brand this browser holds. A logo belongs to the coach who
+ * chose it: another account signing in here starts from its own brand (never
+ * this one, and this one is never sent to it), and signing out puts the plain
+ * GridIronVault look back.
+ */
+const OWNER_KEY = "grid1ronvault.brand.owner.v1";
+
+function ownerOf(): string | null {
+  try {
+    return localStorage.getItem(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setOwner(id: string | null) {
+  try {
+    if (id) localStorage.setItem(OWNER_KEY, id);
+    else localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* the brand still follows the account; only the hand-over check is lost */
+  }
+}
 
 function read(): TeamBrand {
   try {
@@ -78,11 +102,28 @@ async function pushBrand() {
  * a moment later.
  */
 export function BrandSync() {
-  const { account } = useAuth();
+  const { account, status } = useAuth();
   const id = account?.id;
 
   useEffect(() => {
-    if (!id) return;
+    if (status !== "ready") return;
+    const owner = ownerOf();
+    if (!id) {
+      // Signed out: an account's logo and colors don't stay on the screen for whoever uses this browser next.
+      if (owner) {
+        write({ ...DEFAULT_BRAND }, "account");
+        sentAt = "";
+        setOwner(null);
+      }
+      return;
+    }
+    if (owner && owner !== id) {
+      // Another coach's brand is in this browser: start from the plain look, so it is never shown here or sent up.
+      write({ ...DEFAULT_BRAND }, "account");
+      sentAt = "";
+    }
+    // A brand made signed out in this browser is this coach's own work, so it goes to this account.
+    setOwner(id);
     let alive = true;
     let timer: number | undefined;
     const off = brandStore.subscribe((from) => {
@@ -117,7 +158,7 @@ export function BrandSync() {
       window.removeEventListener("online", online);
       off();
     };
-  }, [id]);
+  }, [id, status]);
 
   return null;
 }
