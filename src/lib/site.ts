@@ -15,7 +15,7 @@ export const PARTNER_LINK = "/partners#contact";
 export const SOCIAL_HANDLE = "@grid1ronvault";
 export const SOCIALS: ReadonlyArray<readonly [label: string, url: string]> = [
   ["Instagram", "https://www.instagram.com/grid1ronvault"],
-  ["Facebook", "https://www.facebook.com/grid1ronvault"],
-  ["YouTube", "https://www.youtube.com/@grid1ronvault"],
-  ["X", "https://x.com/grid1ronvault"],
+  ["Facebook", "https://www.facebook.com/profile.php?id=61596063004257"],
+  ["YouTube", "https://www.youtube.com/channel/UCshtPNnM6FcZlZvILLPtFwA"],
+  ["TikTok", "https://www.tiktok.com/@grid1ron_vault"],
 ];
