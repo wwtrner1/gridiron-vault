@@ -185,7 +185,15 @@ export function LessonVoice({
     const a = (audio.current ??= new Audio());
     a.src = voiceUrl(clip.id);
     a.currentTime = 0;
-    a.play().catch(() => setNote("That recording didn't play. Record it again."));
+    a.play().catch((e: unknown) => {
+      // Safari on an older iPhone can't play a WebM clip recorded in Chrome on a computer.
+      const unplayable = a.error?.code === 4 || (e instanceof Error && e.name === "NotSupportedError");
+      setNote(
+        unplayable
+          ? "This device can't play that clip. Record it again here, or press Read it for me."
+          : "That recording didn't play. Press Hear it again, and if it still won't, record it again.",
+      );
+    });
   };
 
   const remove = () => {
