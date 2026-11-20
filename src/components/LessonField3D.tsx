@@ -398,6 +398,7 @@ class Stage {
   map: Map3 | null = null;
   props: Props | null = null;
   inkKey = "";
+  marksKey = "";
   bounds: Bounds = { x0: -10, x1: 10, z0: -6, z1: 18 };
 
   constructor(
@@ -634,6 +635,8 @@ class Stage {
       this.zones.add(zone);
     });
     this.inkKey = "";
+    this.marksKey = "";
+    this.clearGroup(this.marks);
   }
 
   private add(o: { id: string; letter: string; side: "offense" | "defense"; zone: boolean; track: Point[]; kit: Kit; frame: number; fill: string; start: Point }) {
@@ -774,9 +777,13 @@ class Stage {
       } else if (mv.ring) mv.ring.visible = false;
     }
 
-    // Read order: gold badges where each route ends.
-    this.clearGroup(this.marks);
-    if (id === "read")
+    // Read order: gold badges where each route ends (made once a step, not every frame).
+    const marksKey = id === "read" ? `read|${result.look.id}|${this.inkKey}` : "";
+    if (marksKey !== this.marksKey) {
+      this.marksKey = marksKey;
+      this.clearGroup(this.marks);
+    }
+    if (id === "read" && !this.marks.children.length)
       for (const r of result.rows) {
         const b = chip(String(r.read), GOLD, NAVY, NAVY);
         b.scale.set(0.95, 0.95, 1);
