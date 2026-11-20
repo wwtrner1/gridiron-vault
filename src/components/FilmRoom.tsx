@@ -317,7 +317,7 @@ export function FilmRoom({
             <div className={in3d ? "fr-field is-3d" : "fr-field"}>
               {(() => {
                 const label = `${title} against ${look.name}${in3d ? ", in 3D" : ""}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`;
-                const flat = <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} label={label} />;
+                const flat = <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} spread={narrow && !sideways} label={label} />;
                 if (!in3d) return flat;
                 return (
                   <Suspense fallback={<div className="fr-3d"><span className="fr-3d-wait">Loading 3D…</span></div>}>

@@ -31,23 +31,59 @@ export async function ownerVoiceKeys(ownerId: string) {
 }
 export const dropVoiceBlobs = drop;
 
-/** The public half: anyone with the id hears the clip. */
-export async function playVoice(id: string): Promise<Response> {
+/**
+ * `Range: bytes=a-b` as the start and end byte (inclusive) of a clip `size`
+ * long, or null when there is no usable range (the whole clip is sent).
+ * "unsatisfiable" when the range starts past the end.
+ */
+export function byteRange(header: string | null, size: number): { start: number; end: number } | "unsatisfiable" | null {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header ?? "").trim());
+  if (!m || (!m[1] && !m[2])) return null;
+  let start: number;
+  let end: number;
+  if (!m[1]) {
+    // "bytes=-500": the last 500 bytes.
+    const n = Number(m[2]);
+    if (!n) return "unsatisfiable";
+    start = Math.max(0, size - n);
+    end = size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  }
+  if (start >= size || start > end) return "unsatisfiable";
+  return { start, end };
+}
+
+/**
+ * The public half: anyone with the id hears the clip. It answers byte ranges,
+ * because Safari on an iPhone asks for the first two bytes before it plays any
+ * audio and won't play a clip from a server that ignores the range.
+ */
+export async function playVoice(id: string, req?: Request): Promise<Response> {
   if (!isVoiceId(id)) return fail(NOT_HERE, 404);
   const [row] = await db.select().from(lessonVoices).where(eq(lessonVoices.id, id));
   if (!row || !row.blobKey) return fail(NOT_HERE, 404);
   const data = await store().get(row.blobKey, { type: "arrayBuffer" });
   if (!data) return fail(NOT_HERE, 404);
-  return new Response(data, {
-    headers: {
-      // Only ever one of the audio types the upload allowed, so the browser can't be talked into running it.
-      "Content-Type": voiceType(row.type) || "application/octet-stream",
-      "Content-Length": String(data.byteLength),
-      "Cache-Control": "private, max-age=3600",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Disposition": "inline",
-    },
-  });
+  const size = data.byteLength;
+  const headers: Record<string, string> = {
+    // Only ever one of the audio types the upload allowed, so the browser can't be talked into running it.
+    "Content-Type": voiceType(row.type) || "application/octet-stream",
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, max-age=3600",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Disposition": "inline",
+  };
+  const range = byteRange(req?.headers.get("range") ?? null, size);
+  if (range === "unsatisfiable") return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${size}` } });
+  if (range) {
+    return new Response(data.slice(range.start, range.end + 1), {
+      status: 206,
+      headers: { ...headers, "Content-Range": `bytes ${range.start}-${range.end}/${size}`, "Content-Length": String(range.end - range.start + 1) },
+    });
+  }
+  return new Response(data, { headers: { ...headers, "Content-Length": String(size) } });
 }
 
 export async function voiceRoute(me: { id: string }, req: Request, id?: string): Promise<Response> {

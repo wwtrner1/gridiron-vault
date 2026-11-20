@@ -281,7 +281,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
       return await sendScore(id, await req.json().catch(() => ({})));
 
     // A lesson's voice clip plays on a player's team link, where nobody is signed in. Its id is random and never listed.
-    if (resource === "voice" && id && !action && req.method === "GET") return await playVoice(id);
+    if (resource === "voice" && id && !action && req.method === "GET") return await playVoice(id, req);
 
     // A family signs up for team texts with no account.
     if (resource === "join" && id && JOIN_TOKEN.test(id) && !action) return await joinRoute(req, id);
