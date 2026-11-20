@@ -1,0 +1,21 @@
+{
+  "about": "How the GridIronVault voice says what coaches write. One list for the Film Room's read-aloud (src/lib/readAloud.ts) and every social voiceover, so a word is fixed once, everywhere. Each rule is a regular expression (always global, plus any flags) and what to say instead; $1 and $2 are the parts in brackets. Rules run in order.",
+  "rules": [
+    { "find": "\\bLOS\\b", "say": "line of scrimmage" },
+    { "find": "\\bvs\\.?(?=\\s)", "flags": "i", "say": "versus" },
+    { "find": "\\bQB\\b", "say": "quarterback" },
+    { "find": "\\byds?\\b", "flags": "i", "say": "yards" },
+    { "find": "\\b(\\d+)v(\\d+)\\b", "say": "$1 on $2", "why": "5v5 was read as five vee five" },
+    { "find": "\\b(\\d)-(\\d)\\b", "say": "$1 $2", "why": "a 4-3 front was read as four dash three" },
+    { "find": "\\b(\\d)x(\\d)\\b", "say": "$1 by $2", "why": "2x2 was read as two ex two" },
+    { "find": "\\b1/3\\b", "say": "third", "why": "Deep 1/3 was read as one slash three" },
+    { "find": "\\b1/4\\b", "say": "quarter" },
+    { "find": "\\b1/2\\b", "say": "half" },
+    { "find": "\\b([A-E]) gap\\b", "say": "$1-gap", "why": "the A gap was read as uh gap" },
+    { "find": "\\bWill(?= (?:line)?backer)", "say": "Wil", "why": "the Will linebacker was read like the word will" },
+    { "find": "\\b([a-z]+)/([a-z]+)\\b", "say": "$1 $2", "why": "curl/flat was read as curl slash flat" },
+    { "find": "\\s*·\\s*", "say": ", " },
+    { "find": "\\s*→\\s*", "say": " to " },
+    { "find": "[“”\"]", "say": "" }
+  ]
+}
