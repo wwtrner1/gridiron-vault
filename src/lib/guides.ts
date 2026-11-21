@@ -130,6 +130,16 @@ export const GUIDES: Guide[] = [
             target: tour("dz-film"),
           },
           {
+            title: "Preview",
+            text: "Runs the play once from the snap, flat or in 3D with the camera you pick, before it goes anywhere. Export, Make a video and the Film Room are right under the field. On a narrow screen the button is on the field and in Extras.",
+            target: tour("dz-preview"),
+          },
+          {
+            title: "Flat · 3D on the field",
+            text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick (Behind the offense, Sideline, Overhead). Switch back to Flat to draw.",
+            target: tour("dz-view"),
+          },
+          {
             title: "Export",
             text: "Download the play as a PNG, JPEG, PDF or PowerPoint slide, or print it as a wristband card. Sizes and DPI follow your plan.",
             target: tour("dz-export"),

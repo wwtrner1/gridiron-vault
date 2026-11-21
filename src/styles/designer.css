@@ -1229,3 +1229,51 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rp-reps ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--rail-text); }
 .rp-reps li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .rp-rep-teach { padding: 2px 0; background: none; color: #5fd6ea; font-size: 12.5px; font-weight: 600; text-decoration: underline; }
+
+/* On the field: Flat or 3D, the 3D camera and Preview. A sibling of the stage, so it never swallows drawing. */
+.dz-view { position: absolute; z-index: 19; right: 10px; bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; max-width: calc(100% - 20px); pointer-events: none; }
+.dz-view > * { pointer-events: auto; }
+.dz-view-pick { display: flex; overflow: hidden; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); }
+.dz-view-pick button { min-width: 48px; min-height: 32px; padding: 0 12px; background: transparent; color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-view-pick button[aria-pressed="true"] { background: var(--cyan); color: var(--on-cyan); }
+.dz-view-cam { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 4px 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-size: 12.5px; }
+.dz-view-cam select { min-height: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-pill, 999px); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-view-preview { display: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--white); font-size: 13px; font-weight: 600; }
+/* The top bar's Preview button is in Extras on a narrow screen, so the field carries one. */
+@media (max-width: 760px) {
+  .dz-view-preview { display: inline-flex; }
+}
+@media (pointer: coarse) {
+  .dz-view-pick button, .dz-view-cam, .dz-view-preview { min-height: 44px; }
+  .dz-view-cam select { min-height: 36px; }
+}
+.dz-3d { position: absolute; z-index: 18; inset: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--ink); }
+.dz-3d-field, .dz-3d .fr-3d { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; background: var(--ink); }
+.dz-3d-wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--rail-text); font-size: 14px; font-weight: 600; }
+.dz-3d .fr-3d-wait { color: var(--rail-text); }
+.dz-3d-note { position: absolute; top: 10px; left: 10px; margin: 0; padding: 6px 10px; border-radius: var(--radius-md); background: rgba(1, 22, 40, 0.86); color: var(--white); font-size: 12.5px; font-weight: 600; pointer-events: none; }
+.insp-share { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.insp-share .btn:disabled { opacity: 0.45; }
+
+/* The top bar on a laptop: everything on it stays on the screen. The wordmark gives way first, then
+   Undo and redo (also on the floating tools and in Extras), then the zoom slider (the percent, Fit and
+   Ctrl + scroll stay); below 1200px Details and Run play are in Extras (Preview and the Film Room stay). */
+.dz-more-menu .is-wider-dup { display: none; }
+@media (max-width: 1560px) {
+  .dz-top { gap: 10px; }
+  .dz-brand b { display: none; }
+}
+@media (max-width: 1440px) {
+  .dz-top-undo { display: none; }
+}
+@media (max-width: 1320px) {
+  .dz-zoom input { display: none; }
+}
+@media (max-width: 1200px) {
+  .dz-wider { display: none; }
+  .dz-more-menu .is-wider-dup { display: flex; }
+}
+@media (max-width: 1100px) {
+  .dz-top .worktabs { display: none; }
+  .dz-more-menu .is-tabs-dup { display: flex; }
+}

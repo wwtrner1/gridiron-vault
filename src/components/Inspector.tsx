@@ -31,12 +31,14 @@ type Props = {
   opponent: OpponentChoices;
   /** Move the play to another field, routes kept to the yard. */
   onField: (view: FieldView) => void;
+  /** Ways to show the play to players, opened by the Designer. */
+  share: { teachable: boolean; onPreview: () => void; onVideo: () => void; onFilmRoom: () => void };
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
 const CUSTOM = "__custom";
 
-export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules, underlay, opponent, onField }: Props) {
+export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules, underlay, opponent, onField, share }: Props) {
   const [tagDraft, setTagDraft] = useState("");
   // Personnel is picked from the list; "Custom…" (or a saved value the list doesn't have) opens a text box.
   const [customPersonnel, setCustomPersonnel] = useState(false);
@@ -273,6 +275,25 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
             onSelection(ids);
           }}
         />
+      </Panel>
+
+      <Panel title="Teach and share" icon="play">
+        <div className="insp-share" data-tour="dz-share">
+          <button type="button" className="btn btn-primary btn-sm" onClick={share.onVideo} disabled={!share.teachable}>
+            Make a video
+          </button>
+          <button type="button" className="btn btn-outline-dark btn-sm" onClick={share.onPreview}>
+            Preview
+          </button>
+          <button type="button" className="btn btn-outline-dark btn-sm" onClick={share.onFilmRoom}>
+            Film Room
+          </button>
+        </div>
+        <p className="hint">
+          {share.teachable
+            ? "Make a video saves this play's Film Room lesson as an MP4 for your players. Preview runs it flat or in 3D first."
+            : "Put an offense on the field and these teach it: a video for your players, a preview flat or in 3D, and the Film Room lesson."}
+        </p>
       </Panel>
       </>
       )}

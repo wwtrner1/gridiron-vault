@@ -25,6 +25,9 @@ import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolb
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
+import { canDraw3d, FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
+import type { FilmCamera } from "../lib/film3d";
+import { canTeach } from "../lib/teach";
 import { CoverageCheck } from "../components/CoverageCheck";
 import { PageHelp, useTour } from "../components/Tour";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
@@ -103,6 +106,9 @@ import "../styles/designer.css";
 // PDF, PNG and PowerPoint code (jsPDF, svg2pdf, pptxgenjs and the print renderer) downloads when the coach opens Export.
 const ExportDialog = lazyPage(() => import("../components/ExportDialog"), "ExportDialog");
 const FilmRoom = lazyPage(() => import("../components/FilmRoom"), "FilmRoom");
+const PlayPreview = lazyPage(() => import("../components/PlayPreview"), "PlayPreview");
+const PlayVideo = lazyPage(() => import("../components/PlayVideo"), "PlayVideo");
+const Field3D = lazyPage(() => import("../components/Field3D"), "Field3D");
 
 const blankMeta: PlayMeta = {
   name: "",
@@ -1847,7 +1853,26 @@ export function Builder() {
   const [covering, setCovering] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [teachRep, setTeachRep] = useState<FilmRep | undefined>(undefined);
-  const coverScene = useMemo(() => (covering || teaching ? reconcileConnections(scene) : scene), [covering, teaching, scene]);
+  // Preview, the field's own 3D look and Make a video: other ways to see the play, none of them a place to draw.
+  const [previewing, setPreviewing] = useState(false);
+  const [videoing, setVideoing] = useState(false);
+  const [view3d, setView3d] = useState(false);
+  const [camera, setCamera] = useState<FilmCamera>("behind");
+  const teachable = useMemo(() => canTeach(scene), [scene]);
+  const watching = covering || teaching || previewing || videoing || view3d;
+  const coverScene = useMemo(() => (watching ? reconcileConnections(scene) : scene), [watching, scene]);
+  const pickView3d = (on: boolean) => {
+    if (!on) return view3d ? (setView3d(false), setStatus("Back on the drawing.")) : undefined;
+    if (!teachable) return setStatus("3D needs an offense on the field. Add your players, then switch to 3D.");
+    if (!canDraw3d()) return setStatus("This browser can't draw 3D, so the field stays flat.");
+    setSelection([]);
+    setView3d(true);
+    setStatus("3D is a look at the play. Switch to Flat to draw.");
+  };
+  // An emptied field (New play, Undo back to nothing) has nothing to show in 3D.
+  useEffect(() => {
+    if (!teachable) setView3d(false);
+  }, [teachable]);
 
   // Saved play format (canvas): save this play's look, or give this play the saved look.
   const playFormat = usePlayFormat();
@@ -2084,7 +2109,7 @@ export function Builder() {
           <Tooltip title="Play details" hint="Name, formation, tags and notes for the play, plus the settings of whatever you have selected." side="bottom">
             <button
               type="button"
-              className={`dz-top-btn dz-wide${sideOpen ? " is-on" : ""}`}
+              className={`dz-top-btn dz-wide dz-wider${sideOpen ? " is-on" : ""}`}
               onClick={() => setSideOpen((v) => !v)}
               aria-expanded={sideOpen}
               aria-controls="play-details"
@@ -2092,14 +2117,19 @@ export function Builder() {
               Details
             </button>
           </Tooltip>
-          <Tooltip title="Run play" hint="Animates every route from the snap, and can sit beside game film to check timing." side="bottom">
-            <button type="button" className="dz-top-btn dz-wide" onClick={() => setRunning(true)} data-tour="dz-run">
-              Run play
-            </button>
-          </Tooltip>
           <Tooltip title="Film Room" hint="Teach this play as a step-by-step lesson, flat or in 3D, and make it a video." side="bottom">
             <button type="button" className="dz-top-btn dz-wide" onClick={() => setTeaching(true)} data-tour="dz-film">
               Film Room
+            </button>
+          </Tooltip>
+          <Tooltip title="Preview" hint="Watch the play run, flat or in 3D with the camera you pick, before you export it or make a video." side="bottom">
+            <button type="button" className="dz-top-btn dz-wide" onClick={() => setPreviewing(true)} data-tour="dz-preview">
+              Preview
+            </button>
+          </Tooltip>
+          <Tooltip title="Run play" hint="Animates every route from the snap, and can sit beside game film to check timing." side="bottom">
+            <button type="button" className="dz-top-btn dz-wide dz-wider" onClick={() => setRunning(true)} data-tour="dz-run">
+              Run play
             </button>
           </Tooltip>
           <Tooltip title="Export" hint="Download the play as a picture or PDF, or print it as a wristband card." side="bottom">
@@ -2228,10 +2258,13 @@ export function Builder() {
                   </button>
 
                   <p className="dz-more-head">Play</p>
-                  <button type="button" className="is-wide-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
+                  <button type="button" className="is-wide-dup is-wider-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
                     Play details
                   </button>
-                  <button type="button" className="is-wide-dup" onClick={() => setRunning(true)}>
+                  <button type="button" className="is-wide-dup" onClick={() => setPreviewing(true)}>
+                    Preview: flat or 3D
+                  </button>
+                  <button type="button" className="is-wide-dup is-wider-dup" onClick={() => setRunning(true)}>
                     Run play
                   </button>
                   <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
@@ -2342,6 +2375,26 @@ export function Builder() {
           onTeach={(teach) => applyScene({ ...scene, teach }, "Film Room")}
           onClose={() => (setTeaching(false), setTeachRep(undefined))}
           />
+        </Suspense>
+      )}
+      {previewing && (
+        <Suspense fallback={null}>
+          <PlayPreview
+            scene={coverScene}
+            name={meta.name}
+            rushYards={rules.rush || 7}
+            camera={camera}
+            onCamera={setCamera}
+            onExport={() => (setPreviewing(false), setExporting(true))}
+            onVideo={() => (setPreviewing(false), setVideoing(true))}
+            onFilmRoom={() => (setPreviewing(false), setTeaching(true))}
+            onClose={() => setPreviewing(false)}
+          />
+        </Suspense>
+      )}
+      {videoing && (
+        <Suspense fallback={null}>
+          <PlayVideo scene={coverScene} name={meta.name} rushYards={rules.rush || 7} onClose={() => setVideoing(false)} />
         </Suspense>
       )}
       {covering && (
@@ -2809,6 +2862,7 @@ export function Builder() {
             <div
               ref={stageRef}
               className="builder-stage"
+              inert={view3d}
               onPointerDownCapture={onStageDownCapture}
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
@@ -2853,7 +2907,41 @@ export function Builder() {
                 stamp={armed ? { label: armed.tile.label, place: stampTile } : null}
               />
             </div>
-            <FloatingToolbar
+            {view3d && (
+              <div className="dz-3d" role="group" aria-label="The play in 3D">
+                <Suspense fallback={<span className="dz-3d-wait">Loading 3D…</span>}>
+                  <Field3D scene={coverScene} name={meta.name} rushYards={rules.rush || 7} camera={camera} onFail={() => (setView3d(false), setStatus("This browser can't draw 3D, so the field stays flat."))} />
+                </Suspense>
+                <p className="dz-3d-note">A 3D look at the play. Switch to Flat to draw.</p>
+              </div>
+            )}
+            {/* On the field: how the play is seen. Flat is the drawing; 3D is a look at it. */}
+            <div className="dz-view" data-tour="dz-view">
+              <button type="button" className="dz-view-preview" onClick={() => setPreviewing(true)}>
+                <Icon name="play" size={12} /> Preview
+              </button>
+              {view3d && (
+                <label className="dz-view-cam">
+                  <span>Camera</span>
+                  <select value={camera === "auto" ? "behind" : camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
+                    {FILM_CAMERAS.filter((c) => c !== "auto").map((c) => (
+                      <option key={c} value={c}>
+                        {FILM_CAMERA_NAME[c]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="dz-view-pick" role="group" aria-label="Field view">
+                <button type="button" aria-pressed={!view3d} onClick={() => pickView3d(false)}>
+                  Flat
+                </button>
+                <button type="button" aria-pressed={view3d} onClick={() => pickView3d(true)}>
+                  3D
+                </button>
+              </div>
+            </div>
+            {!view3d && <FloatingToolbar
               tool={tool}
               onTool={(t) => (t === "select" ? pickSelect() : pickTool(t))}
               color={selectedLines.length ? selectedLines[0].stroke : color}
@@ -2868,7 +2956,7 @@ export function Builder() {
               canUndo={past.current.length > 0}
               canRedo={future.current.length > 0}
               target={floatTarget}
-            />
+            />}
           </div>
 
           <div className="dz-status">
@@ -2952,6 +3040,7 @@ export function Builder() {
               onPick: pickOverlay,
             }}
             onField={changeField}
+            share={{ teachable, onPreview: () => setPreviewing(true), onVideo: () => setVideoing(true), onFilmRoom: () => setTeaching(true) }}
           />
         </aside>
       </div>
