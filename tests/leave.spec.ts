@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, menuButton, openPanel, quiet, seedReady, workspace } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -14,6 +14,7 @@ async function openPlay(page: Page) {
 async function clearName(page: Page) {
   const tab = page.getByRole("tab", { name: "Play", exact: true });
   if (await tab.isVisible()) await tab.click();
+  await openPanel(page, "Play intel");
   await page.locator("#insp-pane").getByLabel("Play name").fill("");
   await expect(page.locator('[data-tour="dz-save"]')).toHaveText("Save play");
 }
@@ -74,11 +75,11 @@ test("Save on a play with no name asks for the name instead of a dead end", asyn
   expect((await workspace(page)).plays!.find((p) => p.id === id)!.name).toBe("Bunch Left Snag");
 });
 
-test("Extras → New play on unsaved changes asks the same way: stay, start without saving, or save and start", async ({ page }) => {
+test("Edit → New play on unsaved changes asks the same way: stay, start without saving, or save and start", async ({ page }) => {
   const errors = errorsOf(page);
   const id = await openPlay(page);
-  const extras = () => page.locator('button[aria-controls="dz-more-menu"]');
-  const newPlay = () => page.locator("#dz-more-menu").getByRole("button", { name: "New play…", exact: true });
+  const extras = () => menuButton(page, "edit");
+  const newPlay = () => page.locator("#dz-menu-edit").getByRole("button", { name: "New play…", exact: true });
   const box = page.getByRole("dialog", { name: "Save this play before you start a new one?" });
 
   // Stay keeps the coach on the play, changes and all.

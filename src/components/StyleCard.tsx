@@ -21,6 +21,8 @@ type Props = {
   onLook: (patch: LineLook) => void;
   /** One player picked: send the coach to the Routes tab. */
   onRoutes: () => void;
+  /** A picked player's new fill, so the Designer can remember it for that letter. */
+  onPlayerFill?: (hex: string) => void;
 };
 
 const DASHES: { id: LineStyle; label: string }[] = [
@@ -58,7 +60,7 @@ const TEXT_WEIGHTS = [
  * the next line; with lines, players or text selected it restyles them. Each
  * kind in the selection gets its own rows, so a mixed pick can be styled in one go.
  */
-export function StyleCard({ scene, selection, onScene, color, width, look, onColor, onWidth, onLook, onRoutes }: Props) {
+export function StyleCard({ scene, selection, onScene, color, width, look, onColor, onWidth, onLook, onRoutes, onPlayerFill }: Props) {
   const selected = scene.nodes.filter((n) => selection.includes(n.id));
   const paths = selected.filter((n): n is PathNode => n.kind === "path");
   const players = selected.filter((n): n is PlayerNode => n.kind === "player");
@@ -165,7 +167,7 @@ export function StyleCard({ scene, selection, onScene, color, width, look, onCol
             <Swatches
               label="Player fill"
               value={players[0].fill}
-              onPick={(c) =>
+              onPick={(c) => {
                 restyle(
                   "player",
                   (n) => ({
@@ -175,8 +177,9 @@ export function StyleCard({ scene, selection, onScene, color, width, look, onCol
                     stroke: n.stroke.toLowerCase() === n.fill.toLowerCase() ? c : n.stroke,
                   }),
                   "Fill",
-                )
-              }
+                );
+                onPlayerFill?.(c);
+              }}
             />
           </Row>
           <Row label="Letter">

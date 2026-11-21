@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * The rail's modes (the Modes toolbar): Multi-select adds and removes a
@@ -50,6 +50,7 @@ test("Multi-select, Duplicate, Click-through, Rotate and Scale each change what 
   const modes = page.getByRole("toolbar", { name: "Modes" });
   const mode = (name: string) => modes.getByRole("button", { name, exact: true });
   const status = page.locator(".dz-status [role=status]");
+  await railSection(page, "style");
   const target = page.locator(".dz-style-target");
   const save = page.locator('[data-tour="dz-save"]');
   const players = async () => (await workspace(page)).plays!.find((p) => p.id === id)!.scene.nodes.filter((n) => (n as unknown as Player).kind === "player") as unknown as Player[];
@@ -61,15 +62,24 @@ test("Multi-select, Duplicate, Click-through, Rotate and Scale each change what 
   const box = (await svg.boundingBox())!;
   const empty = { x: box.x + box.width - 30, y: box.y + box.height - 30 };
 
+  // A click on an offense player with Select also opens his route menu; Escape puts it away so it can't cover the next player.
+  const shut = async () => {
+    if (await page.locator(".dz-quick").count()) await page.keyboard.press("Escape");
+    await expect(page.locator(".dz-quick")).toHaveCount(0);
+  };
+
   // Select: a click picks one; a second click elsewhere swaps. Shift-click adds without leaving Select.
   await expect(mode("Select")).toHaveAttribute("aria-pressed", "true");
   await page.mouse.click(x.x, x.y);
   await expect(target).toHaveText("1 player");
+  await shut();
   await page.mouse.click(y.x, y.y);
   await expect(target).toHaveText("1 player");
+  await shut();
   await page.keyboard.down("Shift");
   await page.mouse.click(z.x, z.y);
   await page.keyboard.up("Shift");
+  await shut();
   await expect(target).toHaveText("2 players");
   await page.mouse.click(empty.x, empty.y);
   await expect(target).toHaveText("Next line");
@@ -100,10 +110,12 @@ test("Multi-select, Duplicate, Click-through, Rotate and Scale each change what 
   // Click-through: Select takes Q with his group; Click-through takes Q alone.
   await page.mouse.click(q.x, q.y);
   await expect(target).toHaveText("2 players");
+  await shut();
   await page.mouse.click(empty.x, empty.y);
   await mode("Click-thru").click();
   await page.mouse.click(q.x, q.y);
   await expect(target).toHaveText("1 player");
+  await shut();
   await mode("Click-thru").click();
   await page.mouse.click(empty.x, empty.y);
 
@@ -124,6 +136,7 @@ test("Multi-select, Duplicate, Click-through, Rotate and Scale each change what 
   // Rotate: a drag around Z spins him; with Shift the turn snaps to 15° steps.
   await mode("Rotate").click();
   await page.mouse.click(z.x, z.y);
+  await shut();
   await page.keyboard.down("Shift");
   // The press starts on Z (just right of his centre, angle 0) and ends 100° round; Shift rounds that to 105.
   const turn = (100 * Math.PI) / 180;
@@ -137,6 +150,7 @@ test("Multi-select, Duplicate, Click-through, Rotate and Scale each change what 
 
   // Scale: the anchor grid shows, the top-left dot is picked, and a drag away from it grows Y.
   await page.mouse.click(y.x, y.y);
+  await shut();
   await mode("Scale").click();
   const grid = page.locator(".anchor-grid");
   await expect(grid.getByRole("button", { name: "Anchor at middle centre" })).toHaveAttribute("aria-pressed", "true");

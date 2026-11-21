@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, menuButton, quiet, railSection, seedReady } from "./helpers";
 
 /**
  * Your tools (the Designer's Tools guide): Essentials and Everything sets,
  * a group or one tool switched off leaving the rail (never deleted), the
- * count in the rail foot and the Extras menu, a hand-made mix, kept after a
+ * count in the rail foot and the Help menu, a hand-made mix, kept after a
  * reload, and Show me how it works opening the designer tour.
  */
 test.beforeEach(async ({ context }) => quiet(context));
@@ -14,7 +14,7 @@ test("the Tools guide hides and shows groups and tools, counts them, keeps the m
   await seedReady(page);
   await page.locator('.play-card button[aria-label^="Open"]').first().click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   const shapes = page.locator('section[aria-labelledby="dz-shapes-title"]');
   const bezier = page.getByRole("button", { name: "Bezier node pen" });
   const solid = page.getByRole("button", { name: "Solid line with arrow" });
@@ -24,11 +24,11 @@ test("the Tools guide hides and shows groups and tools, counts them, keeps the m
   await expect(foot).toContainText("Too many tools?");
   await expect(foot.getByRole("button", { name: "Hide the ones you don't use" })).toBeAttached();
 
-  // Extras → Your tools: Everything is on; Essentials switches the format and shapes groups and ten tools off.
-  const extras = page.locator('button[aria-controls="dz-more-menu"]');
+  // Help → Your tools: Everything is on; Essentials switches the format and shapes groups and ten tools off.
+  const extras = menuButton(page, "help");
   const openGuide = async () => {
     await extras.click();
-    await page.locator("#dz-more-menu").getByRole("button", { name: /^Your tools: show or hide/ }).click();
+    await page.locator("#dz-menu-help").getByRole("button", { name: /^Your tools: show or hide/ }).click();
     return page.getByRole("dialog", { name: "Your tools" });
   };
   let guide = await openGuide();
@@ -52,11 +52,11 @@ test("the Tools guide hides and shows groups and tools, counts them, keeps the m
   await expect(solid).toBeVisible();
   await expect(foot).toContainText("12 hidden.");
   await expect(foot.getByRole("button", { name: "Show or hide tools" })).toBeAttached();
-  await page.getByRole("tab", { name: "Sets" }).click();
+  await railSection(page, "sets");
   await expect(page.locator('section[aria-labelledby="dz-sets-title"]')).toBeVisible();
   await expect(page.locator('section[aria-labelledby="dz-format-title"]')).toHaveCount(0);
   await extras.click();
-  await expect(page.locator("#dz-more-menu")).toContainText("Your tools: show or hide (12 hidden)");
+  await expect(page.locator("#dz-menu-help")).toContainText("Your tools: show or hide (12 hidden)");
   await page.keyboard.press("Escape");
 
   // A hand-made mix: Shapes back on makes it "Your own mix"; a group off greys its tools.
@@ -71,7 +71,7 @@ test("the Tools guide hides and shows groups and tools, counts them, keeps the m
   await row("Lines").check();
   await expect(row("Solid")).toBeEnabled();
   await guide.getByRole("button", { name: "Done" }).click();
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   await expect(shapes).toBeVisible();
   await expect(bezier).toHaveCount(0);
   await expect(foot).toContainText("11 hidden.");
@@ -96,6 +96,7 @@ test("the Tools guide hides and shows groups and tools, counts them, keeps the m
   await expect(tour).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(tour).toBeHidden();
+  await railSection(page, "draw");
   await expect(bezier).toBeVisible();
   await expect(foot).toContainText("Too many tools?");
   expect(errors).toEqual([]);

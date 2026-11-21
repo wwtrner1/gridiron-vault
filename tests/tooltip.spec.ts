@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet } from "./helpers";
+import { errorsOf, quiet, railSection } from "./helpers";
 
 /**
  * The Designer's coach-marks (`Tooltip`): a mouse over a rail tool shows its
@@ -16,7 +16,7 @@ test("a tool's hint shows on hover and keyboard focus, names the shortcut, and E
   const errors = errorsOf(page);
   await page.goto("/build");
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   const dashed = page.getByRole("button", { name: "Dashed line with arrow" });
   const tip = page.getByRole("tooltip");
   await expect(tip).toHaveCount(0);

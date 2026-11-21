@@ -152,7 +152,7 @@ const SEVEN: Look[] = (["Cover 1", "Cover 2", "Cover 3", "Man"] as const).map((k
 }));
 
 export const LOOKS: Record<Format, Look[]> = { "5v5": FIVE, "7v7": SEVEN, "11": ELEVEN };
-export const FORMAT_NAME: Record<Format, string> = { "5v5": "5-on-5 flag", "7v7": "7-on-7", "11": "11-man" };
+export const FORMAT_NAME: Record<Format, string> = { "5v5": "5-on-5", "7v7": "7-on-7", "11": "11-man" };
 /** When the ball is due out, by format (seconds after the snap). */
 export const THROW_AT: Record<Format, number> = { "5v5": 2, "7v7": 2.4, "11": 2.4 };
 

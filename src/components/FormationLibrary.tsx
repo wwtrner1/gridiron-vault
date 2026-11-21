@@ -152,8 +152,8 @@ export function FormationLibrary({
         {choice.game === "11"
           ? "11-man adds the offensive line. Personnel sets the RB and TE count."
           : choice.game === "7v7"
-            ? "7v7 drops the line and the back: Q, C and five receivers."
-            : "5v5 flag: Q, C and three. Personnel applies to 11-man."}
+            ? "7-on-7 drops the line and the back: Q, C and five receivers."
+            : "5-on-5: Q, C and three. Personnel applies to 11-man."}
       </p>
       <button type="button" className="dz-btn is-on" onClick={() => onDrop({ name: shownName, note, placed })}>
         Drop {shownName}

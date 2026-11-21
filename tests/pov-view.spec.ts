@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, menuButton, quiet, seedReady, workspace } from "./helpers";
 
 /**
- * Drawing from the defense's end: Extras → "View from the defense" turns the
+ * Drawing from the defense's end: Field → "View from the defense" turns the
  * whole play half a circle about the ball (and back), it is kept by Save, the
  * red zone field can't be turned, and New play setup asks which end to draw
  * from.
@@ -31,9 +31,9 @@ test("View from the defense turns the play round, back again, and Save keeps it"
   const before = await spots(page);
   expect(before.length).toBeGreaterThan(4);
 
-  const extras = page.locator('button[aria-controls="dz-more-menu"]');
+  const extras = menuButton(page, "field");
   await extras.click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "View from the defense" }).click();
+  await page.locator("#dz-menu-field").getByRole("button", { name: "View from the defense" }).click();
   const after = await spots(page);
   // Half a circle about the ball: across the field and back to front.
   expect(after.map(([x]) => x)).toEqual(before.map(([x]) => 1040 - x));
@@ -52,14 +52,14 @@ test("View from the defense turns the play round, back again, and Save keeps it"
 
   // The button reads the other way and a second press puts everything back.
   await extras.click();
-  const back = page.locator("#dz-more-menu").getByRole("button", { name: "View from the offense" });
+  const back = page.locator("#dz-menu-field").getByRole("button", { name: "View from the offense" });
   await expect(back).toHaveAttribute("aria-pressed", "true");
   await back.click();
   expect(await spots(page)).toEqual(before);
 
   // Turned again and saved, the play comes back turned.
   await extras.click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "View from the defense" }).click();
+  await page.locator("#dz-menu-field").getByRole("button", { name: "View from the defense" }).click();
   const save = page.locator('[data-tour="dz-save"]');
   await save.click();
   await expect(save).toHaveText(/Saved/);
@@ -71,9 +71,9 @@ test("the red zone field can't be turned round", async ({ page, context }) => {
   await context.addInitScript(() => localStorage.setItem("grid1ronvault.newplay.v1", JSON.stringify({ ask: false, view: "redzone" })));
   await page.goto("/build");
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu select.dz-top-select").first().selectOption("redzone");
-  await expect(page.locator("#dz-more-menu").getByRole("button", { name: /View from the defense/ })).toBeDisabled();
+  await menuButton(page, "field").click();
+  await page.locator("#dz-menu-field select.dz-top-select").first().selectOption("redzone");
+  await expect(page.locator("#dz-menu-field").getByRole("button", { name: /View from the defense/ })).toBeDisabled();
 });
 
 test("New play setup asks which end to draw from", async ({ page }) => {

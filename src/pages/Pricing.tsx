@@ -287,7 +287,7 @@ export function Pricing() {
           </div>
           <div className="faq">
             {FAQ.map((f) => (
-              <details key={f.q}>
+              <details key={f.q} name="pricing-faq">
                 <summary>{f.q}</summary>
                 <p>{f.a}</p>
               </details>

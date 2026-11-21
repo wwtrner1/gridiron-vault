@@ -3,6 +3,7 @@ import type { Assignment } from "./assistant";
 import { ZONE_FILL, ZONE_STROKE } from "./defense";
 import { isLineman } from "./formations";
 import { makeShape, reconcileConnections } from "./scene";
+import { leftSide, QUICK_ROUTES, quickPath, routeInk } from "./quickRoutes";
 import { baseNode, CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
 
@@ -23,6 +24,8 @@ export type Tile = {
   icon: string;
   /** Who the tile is for. */
   side: "offense" | "defense";
+  /** The yards a route tile runs to, shown under its name. */
+  depth?: string;
 };
 
 const R = (id: string, label: string, icon: string, num?: number): Tile => ({ id, label, num, kind: "route", action: id, icon, side: "offense" });
@@ -52,6 +55,9 @@ export const FIVE_SET: Tile[] = [
   R("go", "Go", "M28 40 L28 4"),
   R("wheel", "Wheel", "M28 40 Q44 44 48 26 L50 4"),
 ];
+
+/** The Routes section (Wes, 2026-11-21): one set, drawn to the yard depths in quickRoutes.ts. */
+export const ROUTE_TILES: Tile[] = QUICK_ROUTES.map((r) => ({ id: r.id, label: r.label, kind: "route", action: r.id, icon: r.icon, side: "offense", depth: r.depth }));
 
 export const MORE_TILES: Tile[] = [
   { id: "handoff", label: "Handoff", kind: "handoff", icon: "M28 40 L28 24 M20 24 L36 24", side: "offense" },
@@ -118,6 +124,11 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
       case "route":
       case "block":
       case "motion": {
+        const quick = tile.kind === "route" ? QUICK_ROUTES.find((r) => r.id === tile.action) : undefined;
+        if (quick) {
+          added.push({ ...quickPath(scene, quick, p, { mirror: leftSide(p), ink: routeInk(p, ink), width, z: zi++ }), name: `${p.label || "Player"} ${tile.label}` });
+          break;
+        }
         const a: Assignment = { player: p.label, kind: tile.kind, action: tile.action ?? tile.kind, heard: "" };
         added.push({ ...assignmentPath(a, from, scene.losY, zi++), ...own, name: `${p.label || "Player"} ${tile.label}` });
         break;
@@ -169,6 +180,12 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
     case "block":
     case "motion":
     case "rush": {
+      const quick = tile.kind === "route" ? QUICK_ROUTES.find((r) => r.id === tile.action) : undefined;
+      if (quick) {
+        const spot = { ...at, id: "", label: "", size: 36 } as PlayerNode;
+        const node = { ...quickPath(scene, quick, spot, { mirror: leftSide(at), ink, width, z }), name: tile.label, assignOf: undefined };
+        return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} placed. Right-click it and pick Snap to nearest player to give it to someone.` };
+      }
       const kind = tile.kind === "rush" ? "route" : tile.kind;
       const a: Assignment = { player: "", kind, action: tile.action ?? tile.kind, heard: "" };
       const node = { ...assignmentPath(a, at, scene.losY, z), ...own, name: tile.label };

@@ -1,8 +1,9 @@
 import type { FilmRep } from "../lib/breakdown";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense, Fragment } from "react";
 import { flushSync } from "react-dom";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
+import { YourSets } from "../components/YourSets";
 import { Icon } from "../components/Icon";
 import { markChecked, TO_CHECK } from "../lib/scanJob";
 import { AddToPlaybook } from "../components/AddToPlaybook";
@@ -31,8 +32,11 @@ import type { FilmCamera } from "../lib/film3d";
 import { canTeach } from "../lib/teach";
 import { CoverageCheck } from "../components/CoverageCheck";
 import { PageHelp, useTour } from "../components/Tour";
+import { DesignerMenu, type MenuId } from "../components/DesignerMenu";
+import { useMedia } from "../lib/filmView";
+import { blockLine, blocksOnTap, giveQuickRoute, leftSide, QUICK_ENDS, QUICK_ROUTES, quickPath, routeInk, routesOf, type QuickRoute } from "../lib/quickRoutes";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
-import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, type Tile } from "../lib/routeLibrary";
+import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, ROUTE_TILES, type Tile } from "../lib/routeLibrary";
 import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
 import { DefenseLibrary } from "../components/DefenseLibrary";
 import { GriddyComposer } from "../components/GriddyPanel";
@@ -94,7 +98,7 @@ import { useCaptureGuard } from "../lib/guard";
 import { useLivePlay } from "../lib/liveSync";
 import { applyPatch } from "../lib/live";
 import { track } from "../lib/track";
-import { usePositionTokens } from "../lib/positions";
+import { positionStore, usePositionTokens } from "../lib/positions";
 import { isLineman, tokenFor, type Placed } from "../lib/formations";
 import { defenseNodes, describeDefense, layoutDefense, mirrorDefense, type Coverage, type Front } from "../lib/defense";
 import { pickDefense, readOffense, withoutDefense } from "../lib/matchDefense";
@@ -159,6 +163,20 @@ const RAIL_INKS = [
 ];
 
 /** The details panel starts open on screens wide enough to show it beside the field. */
+/** Go to: the screens a coach heads to from the Designer. Unsaved changes are saved on the way. */
+const GO_TO: { to: string; label: string; icon?: string }[] = [
+  { to: "/vault", label: "Vault", icon: "folder" },
+  { to: "/starters", label: "Plays: starter plays" },
+  { to: "/grid", label: "Game plan: Call Sheet" },
+  { to: "/practice", label: "Practice" },
+  { to: "/roster", label: "Team: My team" },
+  { to: "/playbooks", label: "Your playbooks", icon: "board" },
+  { to: "/upload", label: "Upload a whiteboard photo", icon: "upload" },
+  { to: "/tools", label: "More tools" },
+  { to: "/account", label: "Your account" },
+  { to: "/tutorials", label: "Help: tutorials" },
+];
+
 const wideScreen = () => typeof window !== "undefined" && window.matchMedia("(min-width: 1181px)").matches;
 /** Phones and small tablets, where the tools live in a sheet that slides up from the bottom. */
 const sheetScreen = () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
@@ -420,7 +438,7 @@ export function Builder() {
   const [filing, setFiling] = useState<boolean | null>(null);
   const [sideOpen, setSideOpen] = useState(() => wideScreen() && readPanels().side);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
-  const [lists, setLists] = useState<"formations" | "defense" | "layers" | null>(null);
+  const [lists, setLists] = useState<"formations" | "yours" | "defense" | "layers" | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   /** The docked tools panel tucked against the left edge (tablets and up; phones use the sheet). */
   const [railShown, setRailShown] = useState(() => readPanels().rail);
@@ -441,8 +459,18 @@ export function Builder() {
     setSideOpen(show && wideScreen());
   };
   const [keepOpen, setKeepOpen] = useState(readKeepOpen);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreBtn = useRef<HTMLButtonElement>(null);
+  // The top-bar menu that's open (one at a time), and the phone's single Menu in their place.
+  const [menu, setMenu] = useState<MenuId | null>(null);
+  const toggleMenu = (id: MenuId) => setMenu((m) => (m === id ? null : id));
+  const closeMenu = () => setMenu(null);
+  const compactBar = useMedia("(max-width: 760px)");
+  /** The tools panel's slot for the drawing tools (tablets and up, while the panel shows). */
+  const [dockSlot, setDockSlot] = useState<HTMLDivElement | null>(null);
+  /** The one-click route menu over a tapped player, then its quick bar once a route is drawn. */
+  const [quick, setQuick] = useState<{ playerId: string; at: { x: number; y: number }; drawn?: { pathId: string; route: QuickRoute; mirror: boolean } } | null>(null);
+  /** A lineman tapped: the next defender tapped is the one he blocks. */
+  const [blockArm, setBlockArm] = useState<string | null>(null);
+  const sheetNow = useMedia("(max-width: 900px)");
   const [draftPoints, setDraftPoints] = useState(0);
   const canvasControl = useRef<CanvasControl | null>(null);
   const tipsOn = useTipsEnabled();
@@ -698,6 +726,18 @@ export function Builder() {
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
     setStatus(set.note);
+    picked();
+  };
+
+  /** A set from Your sets: the players drop in as one group, on this play's line. */
+  const dropYourSet = (name: string, players: PlayerNode[]) => {
+    const group = uid("grp");
+    const z = nextZ(scene);
+    const nodes = players.map((p, i) => ({ ...p, id: uid("n"), groupId: group, z: z + i }));
+    applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${name} set`);
+    setSelection(nodes.map((n) => n.id));
+    if (!meta.formation) setMeta((m) => ({ ...m, formation: name }));
+    setStatus(`${name} dropped in. Click a player to give him a route.`);
     picked();
   };
 
@@ -1028,6 +1068,15 @@ export function Builder() {
       },
       "Color",
     );
+    rememberFill(hex);
+  };
+  /** Player look history: one lettered offense player recolored becomes that letter's color for the next one (on the account). */
+  const rememberFill = (hex: string) => {
+    const players = selectedNodes.filter((n): n is PlayerNode => n.kind === "player");
+    const letter = players[0]?.label?.trim();
+    if (players.length && players.every((p) => p.side === "offense" && p.label?.trim() === letter) && letter && /^[A-Za-z]{1,3}$/.test(letter) && positionStore.fillOf(letter)?.toUpperCase() !== hex.toUpperCase()) {
+      positionStore.set(letter, { fill: hex });
+    }
   };
   const pickWeight = (w: number) => (selectedLines.length ? patchSelectedLines({ width: w }, "Weight") : setWidth(w));
   const patchSelectedLines = (changes: Partial<PathNode>, label: string) =>
@@ -1258,6 +1307,8 @@ export function Builder() {
   const fieldActions: MenuAction[] = [
     ...(armed ? [{ id: "put-away", label: `Put away ${armed.tile.label}`, run: () => putAway() }] : []),
     ...(hasClipboard() ? [{ id: "paste", label: "Paste here", run: (at?: Point) => pasteClipboard(at) }] : []),
+    ...(past.current.length ? [{ id: "undo", label: `Undo ${pastLabels.current[pastLabels.current.length - 1] ?? ""}`.trim(), run: () => undo() }] : []),
+    ...(future.current.length ? [{ id: "redo", label: `Redo ${futureLabels.current[futureLabels.current.length - 1] ?? ""}`.trim(), run: () => redo() }] : []),
     { id: "all", label: "Select all", run: selectAll },
     {
       id: "box",
@@ -1275,7 +1326,15 @@ export function Builder() {
           { id: "straight-all", label: "Straighten all lines", run: () => reshapeEvery("straight") },
         ]
       : []),
+    { id: "depths", label: depths ? "Hide route depths" : "Show route depths", run: () => toggleDepths() },
+    ...(!liveId
+      ? [
+          { id: "add-book", label: "Add to playbook…", run: () => void addToBook(false) },
+          { id: "new-book", label: "Add to a new playbook…", run: () => void addToBook(true) },
+        ]
+      : []),
     ...(existing ? [{ id: "flip-copy", label: "Flip and save as a new play", run: () => void flipToCopy() }] : []),
+    { id: "layout", label: "Field layout…", run: () => setMenu(compactBar ? "all" : "field") },
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
     ...(sheetScreen() ? [] : [{ id: "panels", label: panelsShown ? "Hide the side panels" : "Show the side panels", run: togglePanels }]),
   ];
@@ -1348,21 +1407,11 @@ export function Builder() {
   const shown = (id: ToolId | ModeId) => !prefs.hiddenTools.includes(id);
   const hiddenCount = prefs.hiddenGroups.length + prefs.hiddenTools.length;
   const railTabNow = useRailTab();
-  // A tab whose groups are all hidden in the Tools guide leaves the strip.
-  const tabs = RAIL_TABS.filter((t) =>
-    Object.entries(RAIL_GROUPS).some(([g, tab]) => tab === t.id && !prefs.hiddenGroups.includes(g as keyof typeof RAIL_GROUPS)),
+  // A section whose groups are all hidden in the Tools guide leaves the panel. Style always stays.
+  const tabs = RAIL_TABS.filter(
+    (t) => t.id === "style" || Object.entries(RAIL_GROUPS).some(([g, tab]) => tab === t.id && !prefs.hiddenGroups.includes(g as keyof typeof RAIL_GROUPS)),
   );
-  const railTab: RailTab = tabs.some((t) => t.id === railTabNow) ? railTabNow : (tabs[0]?.id ?? "players");
-  /** Arrow keys move between tabs, as WAI-ARIA tabs do. */
-  const onTabKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const i = tabs.findIndex((t) => t.id === railTab);
-    const next = tabs[(i + step + tabs.length) % tabs.length];
-    railStore.show(next.id);
-    document.getElementById(`dz-tab-${next.id}`)?.focus();
-  };
+  const railTab: RailTab | null = tabs.some((t) => t.id === railTabNow) ? railTabNow : null;
   const toolButton = (t: (typeof LINE_TOOLS)[number]) => {
     const locked = !gateTool(tier, t.id).ok;
     return (
@@ -1543,6 +1592,10 @@ export function Builder() {
       }
       if (e.key === "Escape") {
         if (armed) putAway();
+        if (blockArm) {
+          setBlockArm(null);
+          setStatus("Block put away.");
+        }
         setTool("select");
         setMode(null);
         return;
@@ -1581,7 +1634,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, railShown, sideOpen, view3d]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, blockArm, railShown, sideOpen, view3d]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -1912,6 +1965,124 @@ export function Builder() {
     // The click's own selection update lands here; anything later leaves the pick behind.
     if (lastPicked.current?.settling) lastPicked.current.selection = selection;
   }, [selection]);
+  /** The LOS slider beside the field: the line and the whole play move together, one undo step per slide. */
+  const losFresh = useRef(true);
+  const losKeyAt = useRef(0);
+  const moveLos = (y: number) => {
+    const dy = y - scene.losY;
+    if (!dy) return;
+    const label = losFresh.current ? "Line of scrimmage" : undefined;
+    losFresh.current = false;
+    applyScene({ ...scene, losY: y, nodes: scene.nodes.map((n) => ({ ...n, y: n.y + dy })), pivot: scene.pivot ? { ...scene.pivot, y: scene.pivot.y + dy } : scene.pivot }, label);
+  };
+
+  /* ---------------------------------------------- one-click routes and blocks */
+  const playerById = (id: string) => scene.nodes.find((n): n is PlayerNode => n.id === id && n.kind === "player");
+  /** A tap on a player: a lineman's block, a receiver's route menu, or the defender a lineman blocks. */
+  const onPlayerTap = (id: string, at: { clientX: number; clientY: number }) => {
+    const p = playerById(id);
+    if (!p) return;
+    if (blockArm) {
+      const blocker = playerById(blockArm);
+      if (p.side === "defense" && blocker) {
+        const result = blockLine(scene, blocker, p, { ink: routeInk(blocker, color), width, z: nextZ(scene) });
+        applyScene(result.scene, "Block");
+        setSelection([result.path.id]);
+        setStatus(`${blocker.label || "The lineman"} blocks ${p.label || "that defender"}.`);
+        setBlockArm(null);
+        return;
+      }
+      setBlockArm(null);
+      if (p.id === blocker?.id) {
+        setStatus("Block put away.");
+        return;
+      }
+    }
+    if (p.side !== "offense" || tool !== "select" || armed) return;
+    if (blocksOnTap(scene, p)) {
+      setQuick(null);
+      setBlockArm(p.id);
+      const hasDefense = scene.nodes.some((n) => n.kind === "player" && n.side === "defense" && !n.hidden);
+      setStatus(
+        hasDefense
+          ? `Click the defender ${p.label || "he"} blocks. Esc cancels.`
+          : `No defenders on the field yet. Add a defense, or press Block straight ahead.`,
+      );
+      setQuick({ playerId: p.id, at: { x: at.clientX, y: at.clientY } });
+      return;
+    }
+    setBlockArm(null);
+    setQuick({ playerId: p.id, at: { x: at.clientX, y: at.clientY } });
+  };
+  const closeQuick = () => setQuick(null);
+  const drawQuick = (route: QuickRoute) => {
+    const p = quick && playerById(quick.playerId);
+    if (!p) return;
+    const mirror = leftSide(p);
+    const result = giveQuickRoute(scene, route, p, { mirror, ink: routeInk(p, color), width, z: nextZ(scene) });
+    applyScene(result.scene, route.label);
+    setSelection([p.id]);
+    setStatus(`${p.label || "Player"} runs a ${route.label.toLowerCase()} (${route.depth}). Drag its points to adjust.`);
+    setQuick({ ...quick!, drawn: { pathId: result.path.id, route, mirror } });
+  };
+  const quickPathNode = () => {
+    const id = quick?.drawn?.pathId;
+    return id ? scene.nodes.find((n): n is PathNode => n.id === id && n.kind === "path") : undefined;
+  };
+  const flipQuick = () => {
+    const p = quick && playerById(quick.playerId);
+    const path = quickPathNode();
+    if (!p || !path || !quick?.drawn) return;
+    const mirror = !quick.drawn.mirror;
+    const next = quickPath(scene, quick.drawn.route, p, { mirror, ink: path.stroke, width: path.width, z: path.z, endCap: path.endCap, id: path.id });
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (n.id === path.id ? next : n)) }, "Flip break");
+    setQuick({ ...quick, drawn: { ...quick.drawn, mirror } });
+    setStatus("Break flipped.");
+  };
+  const cycleQuickEnd = () => {
+    const path = quickPathNode();
+    if (!path) return;
+    const i = QUICK_ENDS.findIndex((e) => e.cap === path.endCap);
+    const next = QUICK_ENDS[(i + 1) % QUICK_ENDS.length];
+    applyScene({ ...scene, nodes: scene.nodes.map((n) => (n.id === path.id ? { ...path, endCap: next.cap } : n)) }, "Line end");
+    setStatus(`Line end: ${next.label}.`);
+  };
+  const removeQuickRoutes = () => {
+    const p = quick && playerById(quick.playerId);
+    if (!p) return;
+    const ids = new Set(routesOf(scene, p.id).map((n) => n.id));
+    applyScene({ ...scene, nodes: scene.nodes.filter((n) => !ids.has(n.id)) }, "Remove route");
+    setStatus(`${p.label || "Player"}'s route removed.`);
+    closeQuick();
+  };
+  const baseBlock = () => {
+    const p = quick && playerById(quick.playerId);
+    const tile = MORE_TILES.find((t) => t.id === "block");
+    setBlockArm(null);
+    closeQuick();
+    if (p && tile) giveTile({ ...tile }, [p.id]);
+  };
+  // A press anywhere outside the menu puts it away (a tap on another player opens his).
+  useEffect(() => {
+    if (!quick) return;
+    const away = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest?.(".dz-quick")) setQuick(null);
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, [quick]);
+  // The menu closes when its player leaves the field or another tool is picked.
+  useEffect(() => {
+    if (quick && !playerById(quick.playerId)) setQuick(null);
+    if (blockArm && !playerById(blockArm)) setBlockArm(null);
+  });
+  useEffect(() => {
+    if (tool !== "select") {
+      setQuick(null);
+      setBlockArm(null);
+    }
+  }, [tool]);
+
   const pickNode = (id: string) => {
     const pick = { id, selection, settling: true };
     lastPicked.current = pick;
@@ -2030,7 +2201,7 @@ export function Builder() {
     e.preventDefault();
     const tileId = e.dataTransfer.getData("text/grid1ronvault-route");
     if (tileId) {
-      const tile = [...OUR_TREE, ...FIVE_SET, ...MORE_TILES].find((t) => t.id === tileId);
+      const tile = [...ROUTE_TILES, ...OUR_TREE, ...FIVE_SET, ...MORE_TILES].find((t) => t.id === tileId);
       const svg = (e.currentTarget as HTMLElement).querySelector("svg");
       if (!tile || !svg) return;
       const r = svg.getBoundingClientRect();
@@ -2064,6 +2235,328 @@ export function Builder() {
     });
   };
 
+  /** What the open tool set shows in the left panel. */
+  const railPanel = (
+    <>
+            {railTab === "draw" && (
+              <>
+                <RailGroup id="lines" title="Lines">
+                  <div className="dz-grid">{RAIL_LINES.filter(shown).map((id) => toolButton(LINE_TOOLS.find((x) => x.id === id)!))}</div>
+                </RailGroup>
+                <RailGroup id="shapes" title="Shapes · Zones">
+                  <div className="dz-grid">{RAIL_SHAPES.filter(shown).map((id) => toolButton(SHAPE_TOOLS.find((x) => x.id === id)!))}</div>
+                </RailGroup>
+              </>
+            )}
+
+            {railTab === "routes" && (
+              <RailGroup id="routes" title="Route library">
+                <RouteLibrary onPick={pickTile} armed={armed?.tile.id ?? null} />
+              </RailGroup>
+            )}
+
+            {railTab === "players" && (
+              <RailGroup id="players" title="Offense · Defense">
+                <div className="dz-grid">
+                  {(["offense", "defense"] as const).map((side) => (
+                    <Tooltip
+                      key={side}
+                      title={side === "offense" ? "Offense players" : "Defense players"}
+                      hint={`Shows the ${side} players below. Tap or click one to drop it on the field, or drag it to a spot.`}
+                    >
+                      <button
+                        type="button"
+                        className={`dz-btn${tray === side ? " is-on" : ""}`}
+                        onClick={() => setTray((t) => (t === side ? null : side))}
+                        aria-expanded={tray === side}
+                        aria-controls="dz-token-tray"
+                      >
+                        {side === "offense" ? "Offense" : "Defense"}
+                      </button>
+                    </Tooltip>
+                  ))}
+                </div>
+                {tray && (
+                  <div className="dz-tray" id="dz-token-tray">
+                    {(tray === "offense" ? offense : DEFENSE_TOKENS).map((t) => (
+                      <Tooltip
+                        key={t.code}
+                        title={t.title}
+                        hint={`${t.hint} Tap or click to drop it on the field, or drag it where you want it.`}
+                      >
+                        <button
+                          type="button"
+                          className="token-btn"
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-token", t.code)}
+                          onClick={() => placeToken(t)}
+                          aria-label={t.title}
+                        >
+                          <TokenGlyph preset={t} />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
+              </RailGroup>
+            )}
+
+            {railTab === "sets" && (
+              <>
+                <RailGroup id="sets" title="Libraries · Layers">
+                  <div className="dz-grid dz-grid-2">
+                    {(["formations", "yours", "defense", "layers"] as const).map((list) => (
+                      <Tooltip
+                        key={list}
+                        title={list === "formations" ? "Formation library" : list === "yours" ? "Your sets" : list === "defense" ? "Defense library" : "Layers"}
+                        hint={
+                          list === "formations"
+                            ? "Pick 5-on-5, 7-on-7 or 11-man and a formation, and the whole offense drops in at once."
+                            : list === "yours"
+                              ? "Every formation you've saved a play in, players only. Drop one plain or labeled and colored, as drawn or flipped."
+                              : list === "defense"
+                              ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
+                              : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
+                        }
+                      >
+                        <button
+                          type="button"
+                          className={`dz-btn${lists === list ? " is-on" : ""}`}
+                          onClick={() => setLists((l) => (l === list ? null : list))}
+                          aria-expanded={lists === list}
+                          aria-controls="dz-list-tray"
+                        >
+                          {list === "formations" ? "Formations" : list === "yours" ? "Your sets" : list === "defense" ? "Defense" : "Layers"}
+                          {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                  {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
+                  {lists === "yours" && <YourSets losY={scene.losY} onDrop={dropYourSet} />}
+                  {lists === "defense" && <DefenseLibrary onDrop={applyDefense} onMatch={matchOffense} />}
+                  {lists === "layers" && (
+                    <div className="dz-list" id="dz-list-tray">
+                      {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
+                      {[...scene.nodes]
+                        .sort((a, b) => b.z - a.z)
+                        .map((n) => (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className={`layer-item${selection.includes(n.id) ? " is-on" : ""}`}
+                            onClick={() => setSelection([n.id])}
+                            aria-pressed={selection.includes(n.id)}
+                          >
+                            <Icon
+                              name={n.kind === "player" ? "user" : n.kind === "path" ? "arrow" : n.kind === "text" ? "text" : "rect"}
+                              size={13}
+                            />
+                            <span>{describe(n)}</span>
+                            {n.locked && <Icon name="lock" size={12} />}
+                            {n.hidden && <Icon name="eye" size={12} />}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </RailGroup>
+                <RailGroup id="format" title="Saved play format">
+                  <FormatPanel dark>
+                    <div className="pf-acts">
+                      <button type="button" className="dz-btn" onClick={saveFormat}>
+                        Save this play's format
+                      </button>
+                      <button type="button" className="dz-btn is-on" onClick={useFormat} disabled={!playFormat.format || !playFormat.parts.length}>
+                        Apply to this play
+                      </button>
+                    </div>
+                  </FormatPanel>
+                </RailGroup>
+              </>
+            )}
+
+            {railTab === "plays" && (
+              <RailGroup id="plays" title="Your playbooks">
+                <PlaybookTree idPrefix="dz-tree" activePlayId={existing?.id ?? null} activeBookId={params.get("book")} onOpen={openFromTree} quietTitle />
+              </RailGroup>
+            )}
+            {railTab === "style" && (
+            <StyleCard
+              scene={scene}
+              selection={selection}
+              onScene={applyScene}
+              color={color}
+              width={width}
+              look={look}
+              onColor={setColor}
+              onWidth={setWidth}
+              onLook={changeLook}
+              onPlayerFill={rememberFill}
+              onRoutes={() => {
+                railStore.show("routes");
+                showRail();
+              }}
+            />
+            )}
+    </>
+  );
+
+  /* ---------------------------------------------------------- top-bar menus */
+
+  const editItems = (
+    <>
+      <button type="button" onClick={selectAll} data-tour="dz-more-edit">
+        Select all <kbd>⌘A</kbd>
+      </button>
+      <button type="button" onClick={cleanUpLines} disabled={!hasLines} data-tour="dz-more-edit">
+        <Icon name="sparkle" size={15} /> Clean up lines
+      </button>
+      <button type="button" aria-pressed={depths} onClick={toggleDepths} data-tour="dz-more-edit">
+        Route depths: {depths ? "on" : "off"}
+      </button>
+      {!liveId && (
+        <>
+          <button type="button" onClick={() => void addToBook(false)} data-tour="dz-add-book">
+            <Icon name="folder" size={15} /> Add to playbook…
+          </button>
+          <button type="button" onClick={() => void addToBook(true)} data-tour="dz-add-book">
+            <Icon name="plus" size={15} /> Add to a new playbook…
+          </button>
+        </>
+      )}
+      <button type="button" onClick={() => void flipToCopy()} data-tour="dz-play">
+        Flip and save as a new play
+      </button>
+      <button type="button" onClick={matchOffense} data-tour="dz-match-defense">
+        Turn this offense into a defense
+      </button>
+      <button type="button" onClick={newPlay} data-tour="dz-play">
+        New play…
+      </button>
+      <button
+        type="button"
+        aria-pressed={setupOn}
+        data-tour="dz-play"
+        onClick={() => {
+          setSetupWanted(!setupOn);
+          setSetupOn(!setupOn);
+        }}
+      >
+        New play setup: {setupOn ? "on" : "off"}
+      </button>
+      {liveId ? (
+        <button type="button" onClick={() => void save()} data-tour="dz-play">
+          Save a copy to my Vault
+        </button>
+      ) : (
+        <button type="button" onClick={() => void startLive()} data-tour="dz-play">
+          <Icon name="users" size={15} /> Draw this live with my staff
+        </button>
+      )}
+      <button type="button" onClick={() => setSideOpen(true)} data-tour="dz-details">
+        Play details
+      </button>
+    </>
+  );
+
+  const fieldItems = (
+    <>
+      <label className="dz-more-field" onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
+        <span>Field layout</span>
+        <select className="dz-top-select" value={scene.view} onChange={(e) => changeField(e.target.value as Scene["view"])}>
+          {FIELD_VIEWS.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        aria-pressed={scene.pov === "defense"}
+        disabled={!canTurnAround(scene.view)}
+        title={canTurnAround(scene.view) ? undefined : "The red zone and flag fields have a fixed end zone, so they can't be turned around."}
+        onClick={() => applyScene(turnAround(scene), scene.pov === "defense" ? "View from the offense" : "View from the defense")}
+        data-tour="dz-more-field"
+      >
+        View from the {scene.pov === "defense" ? "offense" : "defense"}
+      </button>
+      <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
+        <span>Vs defense</span>
+        {overlaySelect("dz-top-select")}
+      </label>
+      <button type="button" onClick={() => setFieldOpen(true)} data-tour="dz-more-field">
+        Field controls: grid, hashes, rule lines
+      </button>
+    </>
+  );
+
+  const bookQuery = homeBook ? `book=${homeBook.id}` : "";
+  const teachItems = (
+    <>
+      <button type="button" onClick={() => setTeaching(true)} data-tour="dz-film-room">
+        Film Room: teach this play
+      </button>
+      <button type="button" onClick={() => setRunning(true)} data-tour="dz-run">
+        Run play
+      </button>
+      <button type="button" className="is-wide-dup" onClick={() => setPreviewing(true)}>
+        Preview: flat or 3D
+      </button>
+      <button type="button" onClick={() => setVideoing(true)} data-tour="dz-video">
+        Make a video
+      </button>
+      <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
+        Coverage check: who gets open
+      </button>
+      <button type="button" onClick={() => void openFromTree(homeBook ? `/playbooks?${bookQuery}&players=1` : "/playbooks")} data-tour="dz-send-players">
+        Send to players: team link and Griddy Quiz
+      </button>
+      <button type="button" onClick={() => void openFromTree(`/assignments?${bookQuery || "book=vault"}`)} data-tour="dz-assignments">
+        Print assignment sheets
+      </button>
+      <button type="button" className="is-wide-dup" onClick={() => setExporting(true)}>
+        Export · print · wristband
+      </button>
+    </>
+  );
+
+  const gotoItems = (
+    <>
+      {workTabs(loadWork(), playbooks, sheets, new Set(plays.map((p) => p.id)))
+        .filter((t) => t.id !== "designer")
+        .map((t) => (
+          <button key={t.id} type="button" className="is-tabs-dup" onClick={() => void openFromTree(t.href)}>
+            {t.label}
+          </button>
+        ))}
+      {GO_TO.map((g) => (
+        <button key={g.to} type="button" onClick={() => void openFromTree(g.to)} data-tour="dz-more-goto">
+          {g.icon && <Icon name={g.icon} size={15} />} {g.label}
+        </button>
+      ))}
+    </>
+  );
+
+  const helpItems = (show: (() => void) | null) => (
+    <>
+      {show && (
+        <button type="button" onClick={show} data-tour="dz-more-help">
+          Every button on this screen
+        </button>
+      )}
+      <button type="button" onClick={() => setGuideOpen(true)} data-tour="dz-more-help">
+        Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
+      </button>
+      <button type="button" onClick={() => setTourOpen(true)} data-tour="dz-more-help">
+        How the designer works
+      </button>
+      <button type="button" aria-pressed={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
+        Coach tips: {tipsOn ? "on" : "off"}
+      </button>
+    </>
+  );
+
   return (
     <div className="builder dz">
       <header className="dz-top" aria-label="Play actions">
@@ -2077,6 +2570,19 @@ export function Builder() {
         >
           <Icon name="multiselect" size={15} /> Tools
         </button>
+        {/* Undo and redo lead the bar, where coaches look for them first (also on the floating tools and the right-click menu). */}
+        <div className="dz-top-undo" role="group" aria-label="Undo and redo">
+          <Tooltip title="Undo" hint="Takes back the last change. Ctrl+Z (⌘Z on a Mac)." side="bottom">
+            <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo" data-tour="dz-undo">
+              <Icon name="undo" size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip title="Redo" hint="Puts back what Undo took. Ctrl+Y or Ctrl+Shift+Z (⇧⌘Z on a Mac)." side="bottom">
+            <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length} aria-label="Redo">
+              <Icon name="redo" size={16} />
+            </button>
+          </Tooltip>
+        </div>
         <Link to="/" className="dz-brand" aria-label="GridIronVault home">
           <Mark size={30} />
           <b>GridIronVault</b>
@@ -2101,6 +2607,55 @@ export function Builder() {
           </div>
         )}
 
+        {/* The menus: one open at a time. On a phone they fold into one Menu with the same sections. */}
+        <nav className="dz-menus" aria-label="Designer menus">
+          {compactBar ? (
+            <PageHelp
+              tone="dark"
+              extra={{ label: "Watch the 6 quick moves", run: () => setTourOpen(true) }}
+              trigger={(show, isNew) => (
+                <DesignerMenu
+                  id="all"
+                  label="Menu"
+                  name="Designer menu"
+                  hint="Edit, Field, Teach, Go to and Help."
+                  open={menu === "all"}
+                  onToggle={() => toggleMenu("all")}
+                  onClose={closeMenu}
+                  dot={depths || !!underPlay || isNew}
+                  tour="page-help"
+                >
+                  <p className="dz-more-head">Edit</p>
+                  {editItems}
+                  <p className="dz-more-head">Field</p>
+                  {fieldItems}
+                  <p className="dz-more-head">Teach</p>
+                  {teachItems}
+                  <p className="dz-more-head">Go to</p>
+                  {gotoItems}
+                  <p className="dz-more-head">Help</p>
+                  {helpItems(show)}
+                </DesignerMenu>
+              )}
+            />
+          ) : (
+            <>
+              <DesignerMenu id="edit" label="Edit" name="Edit" hint="Select all, clean up, route depths, playbooks, flip, new play." open={menu === "edit"} onToggle={() => toggleMenu("edit")} onClose={closeMenu} dot={depths} tour="dz-menu-edit">
+                {editItems}
+              </DesignerMenu>
+              <DesignerMenu id="field" label="Field" name="Field" hint="The field layout, the view from the defense, a defense under the play and field controls." open={menu === "field"} onToggle={() => toggleMenu("field")} onClose={closeMenu} dot={!!underPlay} tour="dz-menu-field">
+                {fieldItems}
+              </DesignerMenu>
+              <DesignerMenu id="teach" label="Teach" name="Teach" hint="Film Room, Run play, Preview, Make a video, Coverage check, the players' link and assignment sheets." open={menu === "teach"} onToggle={() => toggleMenu("teach")} onClose={closeMenu} tour="dz-menu-teach">
+                {teachItems}
+              </DesignerMenu>
+              <DesignerMenu id="goto" label="Go to" name="Go to" hint="The Vault, plays, game plan, practice, team, playbooks and more. Unsaved changes are saved first." open={menu === "goto"} onToggle={() => toggleMenu("goto")} onClose={closeMenu} tour="dz-menu-goto">
+                {gotoItems}
+              </DesignerMenu>
+            </>
+          )}
+        </nav>
+
         <WorkTabs current="designer" tone="dark" onGo={(href) => void openFromTree(href)} />
 
         <div className="dz-top-actions">
@@ -2123,30 +2678,9 @@ export function Builder() {
               Fit
             </button>
           </Tooltip>
-          <Tooltip title="Play details" hint="Name, formation, tags and notes for the play, plus the settings of whatever you have selected." side="bottom">
-            <button
-              type="button"
-              className={`dz-top-btn dz-wide dz-wider${sideOpen ? " is-on" : ""}`}
-              onClick={() => setSideOpen((v) => !v)}
-              aria-expanded={sideOpen}
-              aria-controls="play-details"
-            >
-              Details
-            </button>
-          </Tooltip>
-          <Tooltip title="Film Room" hint="Teach this play as a step-by-step lesson, flat or in 3D, and make it a video." side="bottom">
-            <button type="button" className="dz-top-btn dz-wide" onClick={() => setTeaching(true)} data-tour="dz-film">
-              Film Room
-            </button>
-          </Tooltip>
           <Tooltip title="Preview" hint="Watch the play run, flat or in 3D with the camera you pick, before you export it or make a video." side="bottom">
             <button type="button" className="dz-top-btn dz-wide" onClick={() => setPreviewing(true)} data-tour="dz-preview">
               Preview
-            </button>
-          </Tooltip>
-          <Tooltip title="Run play" hint="Animates every route from the snap, and can sit beside game film to check timing." side="bottom">
-            <button type="button" className="dz-top-btn dz-wide dz-wider" onClick={() => setRunning(true)} data-tour="dz-run">
-              Run play
             </button>
           </Tooltip>
           <Tooltip title="Export" hint="Download the play as a picture or PDF, or print it as a wristband card." side="bottom">
@@ -2154,19 +2688,6 @@ export function Builder() {
               Export
             </button>
           </Tooltip>
-          {/* Undo and redo stay on the bar (down to a 1320px screen) as well as in the floating tools and Extras, where coaches look for them first. */}
-          <div className="dz-top-undo dz-wide" role="group" aria-label="Undo and redo">
-            <Tooltip title="Undo" hint="Takes back the last change. Ctrl+Z (⌘Z on a Mac)." side="bottom">
-              <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo" data-tour="dz-undo">
-                <Icon name="undo" size={16} />
-              </button>
-            </Tooltip>
-            <Tooltip title="Redo" hint="Puts back what Undo took. Ctrl+Y or Ctrl+Shift+Z (⇧⌘Z on a Mac)." side="bottom">
-              <button type="button" className="dz-top-btn" onClick={redo} disabled={!future.current.length} aria-label="Redo">
-                <Icon name="redo" size={16} />
-              </button>
-            </Tooltip>
-          </div>
           {liveId ? (
             <span className="dz-saved" role="status" data-tour="dz-save" title={live.problem || "Everything you draw is shared with your staff a moment later."}>
               <Icon name="users" size={14} />{" "}
@@ -2191,181 +2712,29 @@ export function Builder() {
               <Icon name="check" size={14} /> Saved
             </span>
           )}
-          {/* Extras: undo, field, Vs defense, upload and the rest, in one drop-down so the bar has room for the tabs. */}
-          <div className="dz-more">
-            <Tooltip title="Extras" hint="Undo and redo, route depths, clean up, the field, field controls, Vs defense, upload, more tools and help." side="bottom">
-              <button
-                type="button"
-                ref={moreBtn}
-                className={`dz-top-btn${moreOpen ? " is-on" : ""}${depths || underPlay ? " has-dot" : ""}`}
-                onClick={() => setMoreOpen((v) => !v)}
-                aria-expanded={moreOpen}
-                aria-controls="dz-more-menu"
-              >
-                Extras <Icon name="chevron" size={13} />
-              </button>
-            </Tooltip>
-            {moreOpen && (
-              <>
-                <div className="stage-menu-scrim" onPointerDown={() => setMoreOpen(false)} aria-hidden="true" />
-                <FocusPopover
-                  onClose={() => setMoreOpen(false)}
-                  className="dz-more-menu"
-                  id="dz-more-menu"
-                  role="group"
-                  aria-label="Extras"
-                  onClick={(e) => {
-                    if (!(e.target as HTMLElement).closest("button, a")) return;
-                    // The item is about to unmount: hand focus to the Extras button first, so a
-                    // dialog opened from here (Field controls, Coverage check) gives it back on close.
-                    moreBtn.current?.focus();
-                    setMoreOpen(false);
-                  }}
+          {!compactBar && (
+            <PageHelp
+              tone="dark"
+              extra={{ label: "Watch the 6 quick moves", run: () => setTourOpen(true) }}
+              trigger={(show, isNew) => (
+                <DesignerMenu
+                  id="help"
+                  label="?"
+                  ariaLabel="Help"
+                  name="Help"
+                  hint="Every button explained, your tools, how the designer works and coach tips."
+                  open={menu === "help"}
+                  onToggle={() => toggleMenu("help")}
+                  onClose={closeMenu}
+                  dot={isNew}
+                  tour="page-help"
+                  className="dz-help"
                 >
-                  <p className="dz-more-head">Edit</p>
-                  <div className="dz-more-pair" role="group" aria-label="Undo and redo" data-tour="dz-more-edit">
-                    <button type="button" onClick={undo} disabled={!past.current.length}>
-                      <Icon name="undo" size={15} /> Undo <kbd>⌘Z</kbd>
-                    </button>
-                    <button type="button" onClick={redo} disabled={!future.current.length}>
-                      <Icon name="redo" size={15} /> Redo <kbd>⇧⌘Z</kbd>
-                    </button>
-                  </div>
-                  <button type="button" onClick={cleanUpLines} disabled={!hasLines} data-tour="dz-more-edit">
-                    <Icon name="sparkle" size={15} /> Clean up lines
-                  </button>
-                  <button type="button" aria-pressed={depths} onClick={toggleDepths} data-tour="dz-more-edit">
-                    Route depths: {depths ? "on" : "off"}
-                  </button>
-                  <button type="button" onClick={selectAll} data-tour="dz-more-edit">
-                    Select all
-                  </button>
-
-                  <p className="dz-more-head">Field</p>
-                  <label className="dz-more-field" onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
-                    <span>Field</span>
-                    <select
-                      className="dz-top-select"
-                      value={scene.view}
-                      onChange={(e) => changeField(e.target.value as Scene["view"])}
-                    >
-                      {FIELD_VIEWS.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    aria-pressed={scene.pov === "defense"}
-                    disabled={!canTurnAround(scene.view)}
-                    title={canTurnAround(scene.view) ? undefined : "The red zone and flag fields have a fixed end zone, so they can't be turned around."}
-                    onClick={() => applyScene(turnAround(scene), scene.pov === "defense" ? "View from the offense" : "View from the defense")}
-                    data-tour="dz-more-field"
-                  >
-                    View from the {scene.pov === "defense" ? "offense" : "defense"}
-                  </button>
-                  <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
-                    <span>Vs defense</span>
-                    {overlaySelect("dz-top-select")}
-                  </label>
-                  <button type="button" onClick={() => setFieldOpen(true)} data-tour="dz-more-field">
-                    Field controls: grid, hashes, rule lines
-                  </button>
-
-                  <p className="dz-more-head">Play</p>
-                  <button type="button" className="is-wide-dup is-wider-dup" onClick={() => setSideOpen(true)} data-tour="dz-details">
-                    Play details
-                  </button>
-                  <button type="button" className="is-wide-dup" onClick={() => setPreviewing(true)}>
-                    Preview: flat or 3D
-                  </button>
-                  <button type="button" className="is-wide-dup is-wider-dup" onClick={() => setRunning(true)}>
-                    Run play
-                  </button>
-                  <button type="button" onClick={() => setCovering(true)} data-tour="dz-coverage">
-                    Coverage check: who gets open
-                  </button>
-                  <button type="button" onClick={() => setTeaching(true)} data-tour="dz-film-room">
-                    Film Room: teach this play
-                  </button>
-                  <button type="button" onClick={matchOffense} data-tour="dz-match-defense">
-                    Turn this offense into a defense
-                  </button>
-                  <button type="button" className="is-wide-dup" onClick={() => setExporting(true)}>
-                    Export · print · wristband
-                  </button>
-                  <button type="button" onClick={newPlay} data-tour="dz-play">
-                    New play…
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={setupOn}
-                    data-tour="dz-play"
-                    onClick={() => {
-                      setSetupWanted(!setupOn);
-                      setSetupOn(!setupOn);
-                    }}
-                  >
-                    New play setup: {setupOn ? "on" : "off"}
-                  </button>
-                  {liveId ? (
-                    <button type="button" onClick={() => void save()} data-tour="dz-play">
-                      Save a copy to my Vault
-                    </button>
-                  ) : (
-                    <button type="button" onClick={() => void startLive()} data-tour="dz-play">
-                      <Icon name="users" size={15} /> Draw this live with my staff
-                    </button>
-                  )}
-                  <button type="button" onClick={() => void flipToCopy()} data-tour="dz-play">
-                    Flip and save as a new play
-                  </button>
-                  {!liveId && (
-                    <>
-                      <button type="button" onClick={() => void addToBook(false)} data-tour="dz-add-book">
-                        <Icon name="folder" size={15} /> Add to playbook…
-                      </button>
-                      <button type="button" onClick={() => void addToBook(true)} data-tour="dz-add-book">
-                        <Icon name="plus" size={15} /> Add to a new playbook…
-                      </button>
-                    </>
-                  )}
-
-                  <p className="dz-more-head">Go to</p>
-                  {workTabs(loadWork(), playbooks, sheets, new Set(plays.map((p) => p.id)))
-                    .filter((t) => t.id !== "designer")
-                    .map((t) => (
-                      <button key={t.id} type="button" className="is-tabs-dup" onClick={() => void openFromTree(t.href)}>
-                        {t.label}
-                      </button>
-                    ))}
-                  <button type="button" onClick={() => void openFromTree("/upload")} data-tour="dz-more-goto">
-                    <Icon name="upload" size={15} /> Upload a whiteboard photo
-                  </button>
-                  <button type="button" onClick={() => void openFromTree("/tools")} data-tour="dz-more-goto">
-                    More tools
-                  </button>
-                  <button type="button" onClick={() => void openFromTree("/vault")} data-tour="dz-more-goto">
-                    Back to the Vault
-                  </button>
-
-                  <p className="dz-more-head">Help</p>
-                  <button type="button" onClick={() => setGuideOpen(true)} data-tour="dz-more-help">
-                    Your tools: show or hide{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
-                  </button>
-                  <button type="button" onClick={() => setTourOpen(true)} data-tour="dz-more-help">
-                    How the designer works
-                  </button>
-                  <button type="button" aria-pressed={tipsOn} onClick={() => coachTips.setEnabled(!tipsOn)} data-tour="dz-more-help">
-                    Coach tips: {tipsOn ? "on" : "off"}
-                  </button>
-                </FocusPopover>
-              </>
-            )}
-          </div>
-          <PageHelp tone="dark" extra={{ label: "Watch the 6 quick moves", run: () => setTourOpen(true) }} />
+                  {helpItems(show)}
+                </DesignerMenu>
+              )}
+            />
+          )}
         </div>
       </header>
 
@@ -2454,6 +2823,7 @@ export function Builder() {
         <aside className={`builder-rail${railOpen ? " is-open" : ""}`} id="dz-tools" aria-label="Drawing tools">
           {/* The sheet header carries the heading on phones; on wider screens this keeps the heading order h1 → h2 → h3. */}
           <h2 className="dz-wide-h">Drawing tools</h2>
+          <div className="dz-dock-slot" ref={setDockSlot} />
           <div className="dz-sheet-head">
             <span className="dz-sheet-grip" aria-hidden="true" />
             <h2>Tools</h2>
@@ -2516,167 +2886,27 @@ export function Builder() {
             </div>
           )}
 
-          <div className="dz-tabs" role="tablist" aria-label="Tool sets">
+          {/* The tool sets, each folded until opened; opening one folds the others. */}
+          <div className="dz-acc">
             {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                id={`dz-tab-${t.id}`}
-                aria-selected={railTab === t.id}
-                aria-controls="dz-tabpanel"
-                tabIndex={railTab === t.id ? 0 : -1}
-                className={`${railTab === t.id ? "is-on" : ""}${t.id === "plays" ? " is-icon" : ""}`}
-                onClick={() => railStore.show(t.id)}
-                onKeyDown={onTabKey}
-                aria-label={t.id === "plays" ? "Plays: your playbooks" : undefined}
-                title={t.id === "plays" ? "Your playbooks" : undefined}
-              >
-                {t.id === "plays" ? <Icon name="folder" size={15} /> : t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="dz-tabpanel" role="tabpanel" id="dz-tabpanel" aria-labelledby={`dz-tab-${railTab}`}>
-            {railTab === "draw" && (
-              <>
-                <RailGroup id="lines" title="Lines">
-                  <div className="dz-grid">{RAIL_LINES.filter(shown).map((id) => toolButton(LINE_TOOLS.find((x) => x.id === id)!))}</div>
-                </RailGroup>
-                <RailGroup id="shapes" title="Shapes · Zones">
-                  <div className="dz-grid">{RAIL_SHAPES.filter(shown).map((id) => toolButton(SHAPE_TOOLS.find((x) => x.id === id)!))}</div>
-                </RailGroup>
-              </>
-            )}
-
-            {railTab === "routes" && (
-              <RailGroup id="routes" title="Route library">
-                <RouteLibrary onPick={pickTile} armed={armed?.tile.id ?? null} />
-              </RailGroup>
-            )}
-
-            {railTab === "players" && (
-              <RailGroup id="players" title="Offense · Defense">
-                <div className="dz-grid">
-                  {(["offense", "defense"] as const).map((side) => (
-                    <Tooltip
-                      key={side}
-                      title={side === "offense" ? "Offense players" : "Defense players"}
-                      hint={`Shows the ${side} players below. Tap or click one to drop it on the field, or drag it to a spot.`}
-                    >
-                      <button
-                        type="button"
-                        className={`dz-btn${tray === side ? " is-on" : ""}`}
-                        onClick={() => setTray((t) => (t === side ? null : side))}
-                        aria-expanded={tray === side}
-                        aria-controls="dz-token-tray"
-                      >
-                        {side === "offense" ? "Offense" : "Defense"}
-                      </button>
-                    </Tooltip>
-                  ))}
+              <Fragment key={t.id}>
+                <button
+                  type="button"
+                  id={`dz-tab-${t.id}`}
+                  className={`dz-acc-head${railTab === t.id ? " is-on" : ""}`}
+                  aria-expanded={railTab === t.id}
+                  aria-controls={`dz-tabpanel-${t.id}`}
+                  onClick={() => railStore.toggle(t.id)}
+                >
+                  {t.id === "plays" && <Icon name="folder" size={15} />}
+                  <span>{t.label}</span>
+                  <Icon name="chevron" size={14} className="dz-acc-caret" />
+                </button>
+                <div className="dz-tabpanel" id={`dz-tabpanel-${t.id}`} role="region" aria-labelledby={`dz-tab-${t.id}`} hidden={railTab !== t.id}>
+                  {railTab === t.id && railPanel}
                 </div>
-                {tray && (
-                  <div className="dz-tray" id="dz-token-tray">
-                    {(tray === "offense" ? offense : DEFENSE_TOKENS).map((t) => (
-                      <Tooltip
-                        key={t.code}
-                        title={t.title}
-                        hint={`${t.hint} Tap or click to drop it on the field, or drag it where you want it.`}
-                      >
-                        <button
-                          type="button"
-                          className="token-btn"
-                          draggable
-                          onDragStart={(e) => e.dataTransfer.setData("text/grid1ronvault-token", t.code)}
-                          onClick={() => placeToken(t)}
-                          aria-label={t.title}
-                        >
-                          <TokenGlyph preset={t} />
-                        </button>
-                      </Tooltip>
-                    ))}
-                  </div>
-                )}
-              </RailGroup>
-            )}
-
-            {railTab === "sets" && (
-              <>
-                <RailGroup id="sets" title="Libraries · Layers">
-                  <div className="dz-grid dz-grid-3">
-                    {(["formations", "defense", "layers"] as const).map((list) => (
-                      <Tooltip
-                        key={list}
-                        title={list === "formations" ? "Formation library" : list === "defense" ? "Defense library" : "Layers"}
-                        hint={
-                          list === "formations"
-                            ? "Pick 5v5, 7v7 or 11-man and a formation, and the whole offense drops in at once."
-                            : list === "defense"
-                              ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
-                              : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
-                        }
-                      >
-                        <button
-                          type="button"
-                          className={`dz-btn${lists === list ? " is-on" : ""}`}
-                          onClick={() => setLists((l) => (l === list ? null : list))}
-                          aria-expanded={lists === list}
-                          aria-controls="dz-list-tray"
-                        >
-                          {list === "formations" ? "Formations" : list === "defense" ? "Defense" : "Layers"}
-                          {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
-                        </button>
-                      </Tooltip>
-                    ))}
-                  </div>
-                  {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
-                  {lists === "defense" && <DefenseLibrary onDrop={applyDefense} onMatch={matchOffense} />}
-                  {lists === "layers" && (
-                    <div className="dz-list" id="dz-list-tray">
-                      {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
-                      {[...scene.nodes]
-                        .sort((a, b) => b.z - a.z)
-                        .map((n) => (
-                          <button
-                            key={n.id}
-                            type="button"
-                            className={`layer-item${selection.includes(n.id) ? " is-on" : ""}`}
-                            onClick={() => setSelection([n.id])}
-                            aria-pressed={selection.includes(n.id)}
-                          >
-                            <Icon
-                              name={n.kind === "player" ? "user" : n.kind === "path" ? "arrow" : n.kind === "text" ? "text" : "rect"}
-                              size={13}
-                            />
-                            <span>{describe(n)}</span>
-                            {n.locked && <Icon name="lock" size={12} />}
-                            {n.hidden && <Icon name="eye" size={12} />}
-                          </button>
-                        ))}
-                    </div>
-                  )}
-                </RailGroup>
-                <RailGroup id="format" title="Saved play format">
-                  <FormatPanel dark>
-                    <div className="pf-acts">
-                      <button type="button" className="dz-btn" onClick={saveFormat}>
-                        Save this play's format
-                      </button>
-                      <button type="button" className="dz-btn is-on" onClick={useFormat} disabled={!playFormat.format || !playFormat.parts.length}>
-                        Apply to this play
-                      </button>
-                    </div>
-                  </FormatPanel>
-                </RailGroup>
-              </>
-            )}
-
-            {railTab === "plays" && (
-              <RailGroup id="plays" title="Your playbooks">
-                <PlaybookTree idPrefix="dz-tree" activePlayId={existing?.id ?? null} activeBookId={params.get("book")} onOpen={openFromTree} quietTitle />
-              </RailGroup>
-            )}
+              </Fragment>
+            ))}
           </div>
 
           <div className="dz-rail-foot">
@@ -2689,22 +2919,6 @@ export function Builder() {
             </button>
           </div>
 
-          {/* Pinned to the foot of the rail: every color, weight, dash, curve and end in one place. */}
-          <StyleCard
-            scene={scene}
-            selection={selection}
-            onScene={applyScene}
-            color={color}
-            width={width}
-            look={look}
-            onColor={setColor}
-            onWidth={setWidth}
-            onLook={changeLook}
-            onRoutes={() => {
-              railStore.show("routes");
-              showRail();
-            }}
-          />
         </aside>
 
         <main className="builder-main" id="main" ref={mainRef}>
@@ -2911,6 +3125,7 @@ export function Builder() {
                 aids={aids}
                 snapRadius={snapRadius}
                 onPickNode={pickNode}
+                onPlayerTap={onPlayerTap}
                 onPickTool={(t) => (t === "select" ? (setTool("select"), setMode(null)) : pickTool(t))}
                 nodeActions={nodeActions}
                 fieldActions={fieldActions}
@@ -2933,6 +3148,26 @@ export function Builder() {
               </div>
             )}
             {/* On the field: how the play is seen. Flat is the drawing; 3D is a look at it. */}
+            {!view3d && (
+              <label className="dz-los" data-tour="dz-los" title="Slide the line of scrimmage; the play moves with it">
+                <span>LOS</span>
+                <input
+                  type="range"
+                  aria-label="Line of scrimmage: the play moves with it"
+                  min={90}
+                  max={600}
+                  value={scene.losY}
+                  onPointerDown={() => (losFresh.current = true)}
+                  onKeyDown={() => {
+                    // A run of arrow presses is one slide, so one Undo puts it back.
+                    const now = Date.now();
+                    if (now - losKeyAt.current > 1200) losFresh.current = true;
+                    losKeyAt.current = now;
+                  }}
+                  onChange={(e) => moveLos(Number(e.target.value))}
+                />
+              </label>
+            )}
             <div className="dz-view" data-tour="dz-view">
               <button type="button" className="dz-view-preview" onClick={() => setPreviewing(true)}>
                 <Icon name="play" size={12} /> Preview
@@ -2973,7 +3208,85 @@ export function Builder() {
               canUndo={past.current.length > 0}
               canRedo={future.current.length > 0}
               target={floatTarget}
+              dock={!sheetNow && railShown ? dockSlot : null}
             />}
+            {quick && (() => {
+              const p = playerById(quick.playerId);
+              if (!p) return null;
+              const name = p.label || p.name || "Player";
+              const left = Math.max(8, Math.min(quick.at.x + 14, window.innerWidth - 396));
+              const top = Math.max(64, Math.min(quick.at.y - 20, window.innerHeight - (quick.drawn ? 70 : blockArm ? 120 : 380)));
+              const mirrored = leftSide(p);
+              const path = quickPathNode();
+              const endLabel = QUICK_ENDS.find((e) => e.cap === path?.endCap)?.label ?? "Arrow";
+              if (blockArm === p.id) {
+                return (
+                  <FocusPopover onClose={() => (setBlockArm(null), closeQuick(), setStatus("Block put away."))} className="dz-quick is-block" role="dialog" aria-label={`Block for ${name}`} style={{ left, top }}>
+                    <p className="dz-quick-note">Now click the defender {name} blocks.</p>
+                    <div className="dz-quick-row">
+                      <button type="button" onClick={baseBlock}>Block straight ahead</button>
+                      <button type="button" onClick={() => (setBlockArm(null), closeQuick(), setStatus("Block put away."))}>Cancel</button>
+                    </div>
+                  </FocusPopover>
+                );
+              }
+              if (quick.drawn) {
+                return (
+                  <FocusPopover onClose={closeQuick} className="dz-quick is-bar" role="dialog" aria-label={`Adjust ${name}'s ${quick.drawn.route.label.toLowerCase()}`} style={{ left, top }}>
+                    <span className="dz-quick-title">{name} · {quick.drawn.route.label}</span>
+                    <button type="button" onClick={flipQuick}>Flip break</button>
+                    <button type="button" onClick={cycleQuickEnd} aria-label={`Line end: ${endLabel}. Press for the next end.`}>End: {endLabel}</button>
+                    <button type="button" onClick={() => (undo(), closeQuick())}>Undo</button>
+                    <button type="button" className="is-done" onClick={closeQuick}>Done</button>
+                  </FocusPopover>
+                );
+              }
+              const has = routesOf(scene, p.id).length > 0;
+              return (
+                <FocusPopover onClose={closeQuick} className="dz-quick" role="dialog" aria-label={`Routes for ${name}`} style={{ left, top }}>
+                  <div className="dz-quick-head">
+                    <span className="dz-quick-title">Routes for {name}</span>
+                    <button type="button" className="dz-quick-x" onClick={closeQuick} aria-label="Close the route menu">
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+                  <div className="dz-quick-grid">
+                    {QUICK_ROUTES.map((r) => (
+                      <button key={r.id} type="button" className="dz-quick-tile" onClick={() => drawQuick(r)} aria-label={`${r.label}, ${r.depth}`}>
+                        <svg viewBox="0 0 56 44" aria-hidden="true">
+                          <g transform={mirrored ? "translate(56 0) scale(-1 1)" : undefined}>
+                            <path d={r.icon} fill="none" stroke={routeInk(p, "#E8F1F8")} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="28" cy="40" r="3.5" fill={routeInk(p, "#E8F1F8")} />
+                          </g>
+                        </svg>
+                        <b>{r.label}</b>
+                        <small>{r.depth}</small>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="dz-quick-row">
+                    {MORE_TILES.filter((t) => t.side === "offense" && t.kind !== "block").map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          closeQuick();
+                          if (t.kind === "handoff" || t.kind === "pitch") armExchange(t, p.id);
+                          else giveTile(t, [p.id]);
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                    {has && (
+                      <button type="button" onClick={removeQuickRoutes}>
+                        Remove route
+                      </button>
+                    )}
+                  </div>
+                </FocusPopover>
+              );
+            })()}
           </div>
 
           <div className="dz-status">

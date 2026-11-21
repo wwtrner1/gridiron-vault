@@ -87,8 +87,8 @@ export const CONCEPTS: Concept[] = [
 export type ConceptSet = { id: "5" | "7" | "11"; label: string; personnel: string; formation: string; view: FieldView };
 export const CONCEPT_SETS: ConceptSet[] = [
   { id: "11", label: "11-man", personnel: "10 personnel", formation: "Shotgun Spread", view: "half" },
-  { id: "7", label: "7v7", personnel: "7v7 offense", formation: "Doubles", view: "half" },
-  { id: "5", label: "5v5", personnel: "5-on-5 offense", formation: "Trips Right", view: "flag" },
+  { id: "7", label: "7-on-7", personnel: "7v7 offense", formation: "Doubles", view: "half" },
+  { id: "5", label: "5-on-5", personnel: "5-on-5 offense", formation: "Trips Right", view: "flag" },
 ];
 
 /**

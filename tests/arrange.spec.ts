@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady } from "./helpers";
 
 /**
  * Extras → Select all and the Selection drawer's Arrange panel: Flip sides
@@ -34,8 +34,7 @@ test("Select all and the Arrange panel flip, align, space, lock and delete the w
   expect(await spots()).toEqual(start);
 
   // Extras → Select all picks all 11 elements; Arrange is folded until the coach opens it.
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Select all" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Select all" }).click();
   await expect(page.locator("#insp-tab-selection")).toHaveText("Selection11");
   await expect(page.locator("#insp-pane .panel-head").first()).toHaveText("11 elements");
   const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Arrange" }) });

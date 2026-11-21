@@ -420,6 +420,7 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .fl .seg-onoff { flex: none; }
 .fl .seg-onoff button { height: 26px; padding: 0 12px; }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dz-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 
 /* ---- Rail tabs: Draw · Routes · Players · Sets · Plays (folder icon) ---- */
@@ -447,23 +448,50 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-modes, .dz-tabs, .dz-rail-foot { flex: none; }
 .dz-anchor { display: flex; flex-direction: column; gap: 8px; }
 
-/* ---- Style card: pinned to the foot of the rail ---- */
+/* ---- Tools panel: one section open at a time, all closed to start (Wes, 2026-11-21) ---- */
+.dz-acc { display: flex; flex: none; flex-direction: column; gap: 4px; }
+.dz-acc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--rail-text);
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.dz-acc-head:hover { color: var(--white); }
+.dz-acc-head.is-on { background: var(--ink-3); color: var(--white); box-shadow: inset 3px 0 0 var(--cyan); }
+.dz-acc-caret { margin-left: auto; transition: transform 0.15s ease; }
+.dz-acc-head.is-on .dz-acc-caret { transform: rotate(180deg); }
+.dz-acc .dz-tabpanel { padding: 10px 2px 14px; }
+.dz-acc .dz-tabpanel[hidden] { display: none; }
+.dz-group h4 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--fs-panel-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--panel-head);
+}
+/* The docked drawing tools sit at the top of the panel. */
+.dz-dock-slot:empty { display: none; }
+.dz-dock-slot { flex: none; }
+
+/* ---- Style card: one of the panel's sections ---- */
 .dz-style {
-  position: sticky;
-  bottom: calc(-1 * var(--space-4));
-  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: none;
-  max-height: 62%;
-  margin: auto calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  overflow-y: auto;
-  border-top: 1px solid var(--ink-4);
-  background: var(--ink);
-  box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.28);
-  scrollbar-width: thin;
 }
 .dz-style-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .dz-style-head h3 { color: var(--white); }
@@ -882,7 +910,6 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-wide-h { display: none; }
   /* In the sheet the header is what stays pinned, so the modes just lead the list and the Style card ends it. */
   .dz-modes { position: static; margin: 0 -16px; padding: 12px 16px; }
-  .dz-style { position: static; max-height: none; margin: 0 -16px calc(-16px - env(safe-area-inset-bottom)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .dz-zoom-btns { display: none; }
   /* The white stage hugs the field instead of filling the column (the floating-tools wrap
      below sets flex: 1 0 auto on both, so these need to outrank it). The top padding leaves
@@ -1278,9 +1305,6 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-zoom, .dz-fit { display: none; }
   .dz-zoom-btns { display: inline-flex; }
 }
-@media (max-width: 1320px) {
-  .dz-top-undo { display: none; }
-}
 @media (max-width: 1240px) {
   .dz-wider { display: none; }
   .dz-more-menu .is-wider-dup { display: flex; }
@@ -1297,3 +1321,73 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-view-cam span { display: none; }
   .dz-view-cam select { min-width: 0; max-width: 100%; }
 }
+
+/* ---- Top-bar menus: Edit · Field · Teach · Go to · ? ---- */
+.dz-menus { display: inline-flex; flex: none; align-items: center; gap: 2px; }
+.dz-menu-btn { gap: 4px; }
+.dz-menu-btn svg { opacity: 0.7; }
+.dz-help .dz-menu-btn { min-width: 34px; justify-content: center; font-weight: 800; }
+/* Inside the panel the section heading already says Style; the card keeps its own heading for screen readers. */
+.dz-acc .dz-style-head h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dz-acc .dz-style-head { justify-content: flex-end; }
+/* Docked in the tools panel (the default on tablets and up): part of the panel, not over the field. */
+.dz-float.is-docked { position: static; width: auto; box-shadow: none; }
+.dz-float.is-docked .dz-float-head { cursor: default; padding-left: 8px; }
+.dz-float.is-docked .dz-float-colors { flex-wrap: wrap; }
+
+/* ---- One-click routes: the menu over a tapped player, then its quick bar ---- */
+.dz-quick {
+  position: fixed;
+  z-index: 320;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 388px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 72px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  box-shadow: var(--shadow-l);
+  color: var(--white);
+}
+.dz-quick:focus { outline: none; }
+.dz-quick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dz-quick-title { font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--panel-head); }
+.dz-quick-x { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: transparent; color: var(--tool-icon); }
+.dz-quick-x:hover { background: var(--ink-3); color: var(--white); }
+.dz-quick-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 480px) { .dz-quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dz-quick-tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px 5px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink-2); color: var(--white); }
+.dz-quick-tile:hover, .dz-quick-tile:focus-visible { border-color: var(--cyan); background: var(--ink-3); }
+.dz-quick-tile svg { width: 44px; height: 34px; }
+.dz-quick-tile b { font-size: 12.5px; font-weight: 700; }
+.dz-quick-tile small { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+.dz-quick-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.dz-quick-row button, .dz-quick.is-bar button { min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-quick-row button:hover, .dz-quick.is-bar button:hover { background: var(--ink-4); }
+.dz-quick.is-bar { flex-direction: row; flex-wrap: wrap; align-items: center; width: auto; }
+.dz-quick.is-bar .is-done { background: var(--cyan); color: var(--on-cyan); }
+.dz-quick-note { margin: 0; font-size: 13.5px; }
+@media (pointer: coarse) {
+  .dz-quick-tile { padding: 8px 2px; }
+  .dz-quick-row button, .dz-quick.is-bar button { min-height: 44px; }
+}
+.dz-quick.is-block { width: 300px; }
+.rl-tile span small { display: block; font-family: var(--mono); font-size: 9px; font-weight: 400; color: var(--muted-2); }
+/* The LOS slider sits at the field's bottom-left corner: the line and the play slide together. */
+.dz-los { position: absolute; z-index: 19; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
+.dz-los input { width: 120px; accent-color: var(--cyan); }
+@media (max-width: 900px), (max-height: 500px) and (pointer: coarse) {
+  .dz-los { position: relative; left: auto; bottom: auto; align-self: flex-start; margin-top: 8px; }
+}
+/* Your sets: the coach's own formations, from the Vault. */
+.ys { display: flex; flex-direction: column; gap: 6px; }
+.ys-set { display: flex; align-items: center; gap: 8px; padding: 4px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink); color: var(--white); text-align: left; }
+.ys-set:hover, .ys-set:focus-visible { border-color: var(--cyan); }
+.ys-set svg { flex: none; width: 84px; height: 42px; border-radius: 3px; background: var(--white); }
+.ys-set span { display: flex; flex-direction: column; min-width: 0; }
+.ys-set b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.ys-set small { font-size: 11px; color: var(--muted-2); }

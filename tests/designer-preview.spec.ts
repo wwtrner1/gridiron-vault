@@ -162,7 +162,10 @@ test("The field's Flat · 3D chips show the play in 3D with a camera and give th
   await expect(page.locator(".dz-saved")).toContainText("Saved");
 
   // The Play panel's Teach and share: Make a video without opening the Film Room first.
-  await page.getByRole("button", { name: "Teach and share" }).scrollIntoViewIfNeeded();
+  // Its sections start closed, one open at a time.
+  const shareHead = page.getByRole("button", { name: "Teach and share" });
+  await expect(shareHead).toHaveAttribute("aria-expanded", "false");
+  await shareHead.click();
   const share = page.locator(".insp-share");
   await share.getByRole("button", { name: "Make a video" }).click();
   const video = page.getByRole("dialog", { name: /video/i });

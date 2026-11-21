@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * The Designer's drawing tools beyond the route arrow, picked from the Draw
@@ -42,7 +42,7 @@ test("Rectangle, Ellipse, Polygon, Coverage zone, Freehand, Text and Pivot each 
     await page.mouse.up();
   };
   const pick = async (name: string) => {
-    await page.getByRole("tab", { name: "Draw" }).click();
+    await railSection(page, "draw");
     await page.getByRole("button", { name }).first().click();
   };
   const before = (await nodes()).length;

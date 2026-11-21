@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, openPanel, quiet, seedReady } from "./helpers";
 
 /**
  * Player presets (the Designer's right panel with a player picked): the
@@ -45,7 +45,7 @@ test("Player presets: the starters, a new preset saved, applied and dropped, del
     return { x: p.x, y: p.y };
   }, player);
   await page.mouse.click(at.x, at.y);
-  const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Player presets" }) });
+  const panel = await openPanel(page, "Player presets");
   await expect(panel.locator(".panel-head")).toHaveAttribute("aria-expanded", "true");
   const chips = panel.getByRole("list", { name: "Your player presets" });
   await expect(chips.getByRole("button")).toHaveCount(10);
@@ -133,6 +133,7 @@ test("Player presets: the starters, a new preset saved, applied and dropped, del
   await page.reload();
   await svg.waitFor();
   await page.mouse.click(at.x, at.y);
+  await openPanel(page, "Player presets");
   await expect(chips.getByRole("button")).toHaveCount(11);
   expect(await chipNames(chips)).toEqual(["X · go", "Z · post", "Slot S · out", "Back H · flat", "Center · block", "TE Y · seam", "Tackle T · base", "Guard G · pull", "Nose N · rush", "QB Q · drop", "Nickel N"]);
   expect(errors).toEqual([]);

@@ -2,43 +2,43 @@ import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { RAIL_GROUPS, useToolPrefs, type RailId } from "../lib/toolPrefs";
 
-/** The rail's tabs, in order. Modes and the Style card sit outside them, always in view. Plays is the playbook tree, shown as a folder icon. */
+/** The rail's sections, in order (Wes, 2026-11-21: one Tools panel, every section starts closed and opening one closes the others). Plays is the playbook tree. */
 export const RAIL_TABS = [
   { id: "draw", label: "Draw" },
   { id: "routes", label: "Routes" },
   { id: "players", label: "Players" },
   { id: "sets", label: "Sets" },
-  { id: "plays", label: "Plays" },
+  { id: "plays", label: "Playbooks" },
+  { id: "style", label: "Style" },
 ] as const;
 export type RailTab = (typeof RAIL_TABS)[number]["id"];
 
-const KEY = "grid1ronvault.railTab.v1";
-let tab: RailTab = (() => {
-  try {
-    const saved = localStorage.getItem(KEY);
-    return RAIL_TABS.some((t) => t.id === saved) ? (saved as RailTab) : "players";
-  } catch {
-    return "players";
-  }
-})();
+/** The open section, for this visit only: every section starts closed. */
+let tab: RailTab | null = null;
 const listeners = new Set<() => void>();
+const set = (next: RailTab | null) => {
+  if (next === tab) return;
+  tab = next;
+  listeners.forEach((l) => l());
+};
 
-/** Which rail tab is showing, remembered in this browser. */
+/** Which rail section is open (one at a time). */
 export const railStore = {
   get: () => tab,
   subscribe(l: () => void) {
     listeners.add(l);
     return () => listeners.delete(l);
   },
+  /** Opens one section and closes the rest. */
   show(next: RailTab) {
-    if (next === tab) return;
-    tab = next;
-    try {
-      localStorage.setItem(KEY, tab);
-    } catch {
-      /* storage blocked — the choice still holds this session */
-    }
-    listeners.forEach((l) => l());
+    set(next);
+  },
+  /** A press on a section's heading: open it, or close it when it is already open. */
+  toggle(next: RailTab) {
+    set(tab === next ? null : next);
+  },
+  close() {
+    set(null);
   },
   /** Brings a group into view (a coach tip or the Players button sending the coach to it). */
   open(id: RailId) {
@@ -54,7 +54,7 @@ export function RailGroup({ id, title, children }: { id: RailId; title: string; 
   if (hidden) return null;
   return (
     <section className="dz-group" aria-labelledby={`dz-${id}-title`}>
-      <h3 id={`dz-${id}-title`}>{title}</h3>
+      <h4 id={`dz-${id}-title`}>{title}</h4>
       {children}
     </section>
   );

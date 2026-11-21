@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, menuButton, quiet, railSection, seedReady } from "./helpers";
 
 /**
  * Coach tips in the Designer: three clicks on the empty field bring up
  * "Nothing to pick there" (twice, then never again), two presses on a locked
  * player bring up "That one is locked" whose Show Layers opens the Layers
  * list, the first pick of a line tool says what it does (once), Turn off
- * tips puts them away and Extras switches them back on with a clean slate,
+ * tips puts them away and the Help menu switches them back on with a clean slate,
  * all kept in grid1ronvault.tips.v1 after a reload.
  */
 test.beforeEach(async ({ context }) => quiet(context));
@@ -33,8 +33,8 @@ test("coach tips show for empty clicks, a locked player and a first tool, then s
   await svg.waitFor();
   await page.waitForTimeout(300);
   const tip = page.locator(".coach-tip");
-  const extras = page.locator('button[aria-controls="dz-more-menu"]');
-  const menu = page.getByRole("group", { name: "Extras" });
+  const extras = menuButton(page, "help");
+  const menu = page.getByRole("group", { name: "Help", exact: true });
 
   // Three clicks on empty field in a few seconds: the tip says why nothing happened (the bottom-right corner, clear of the floating tools).
   const emptyClicks = async () => {
@@ -75,7 +75,7 @@ test("coach tips show for empty clicks, a locked player and a first tool, then s
   await expect(tip.locator(".coach-tip-text")).toContainText("pick it in Layers, then open Details → Arrange → Lock.");
   await tip.getByRole("button", { name: "Show Layers" }).click();
   await expect(tip).toBeHidden();
-  await expect(page.getByRole("tab", { name: "Sets" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#dz-tab-sets")).toHaveAttribute("aria-expanded", "true");
   const layers = page.locator("#dz-list-tray");
   await expect(layers).toBeVisible();
   await expect(layers.locator(".layer-item")).toHaveCount(await page.evaluate((pid) => {
@@ -85,7 +85,7 @@ test("coach tips show for empty clicks, a locked player and a first tool, then s
   expect((await tips(page)).shown).toEqual({ emptyTaps: 2, locked: 1 });
 
   // The first pick of a line tool says what it does, once.
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   const dashed = page.getByRole("button", { name: "Dashed line with arrow" });
   await dashed.click();
   await expect(tip.locator(".coach-tip-title")).toHaveText("Dashed");
@@ -108,7 +108,7 @@ test("coach tips show for empty clicks, a locked player and a first tool, then s
   await expect(tip).toBeHidden();
   expect((await tips(page)).off).toBe(true);
 
-  // Still off after a reload; Extras switches them back on with every tip's count cleared.
+  // Still off after a reload; the Help menu switches them back on with every tip's count cleared.
   await page.reload();
   await svg.waitFor();
   await extras.click();
@@ -117,6 +117,7 @@ test("coach tips show for empty clicks, a locked player and a first tool, then s
   if (!(await menu.count())) await extras.click();
   await expect(menu.getByRole("button", { name: "Coach tips: on" })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
+  await railSection(page, "draw");
   await page.getByRole("button", { name: "Dashed line with arrow" }).click();
   await expect(tip.locator(".coach-tip-title")).toHaveText("Dashed");
   expect(errors).toEqual([]);

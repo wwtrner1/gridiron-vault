@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, workspace } from "./helpers";
 
 /**
  * Film next to the play, in Run play: a clip from the coach's own computer
@@ -18,7 +18,7 @@ async function openRun(page: import("@playwright/test").Page) {
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   return page.getByRole("dialog", { name: /Run play/ });
 }
 

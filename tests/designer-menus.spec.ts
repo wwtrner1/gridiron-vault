@@ -1,27 +1,36 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, menuButton, quiet, seedReady } from "./helpers";
 
 /**
- * The Designer's Extras drop-down: Undo and Redo, Clean up lines, Route
- * depths (kept per browser), Select all, the field select (routes kept to
- * the yard), the Vs defense overlay, and Flip and save as a new play, which
- * mirrors a copy, files it beside the original and opens it.
+ * The Designer's top bar (Wes, 2026-11-21): Undo and Redo at the far left,
+ * then the Edit · Field · Teach · Go to menus, one open at a time. Edit has
+ * Clean up lines, Route depths (kept per browser), Select all and Flip and
+ * save as a new play (a mirrored copy filed beside the original and opened);
+ * Field has the field select (routes kept to the yard) and the Vs defense
+ * overlay.
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-test("Extras undoes, cleans, shows depths, changes the field, lays a defense under the play and flips a copy", async ({ page }) => {
+test("the top bar undoes, and its menus clean, show depths, change the field, lay a defense under the play and flip a copy", async ({ page }) => {
   const errors = errorsOf(page);
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
   const status = page.locator(".dz-status [role=status]");
-  const extras = page.locator('button[aria-controls="dz-more-menu"]');
-  const menu = page.getByRole("group", { name: "Extras" });
+  const extras = menuButton(page, "edit");
+  const menu = page.getByRole("group", { name: "Edit", exact: true });
+  const fieldMenu = page.getByRole("group", { name: "Field", exact: true });
   const open = async () => {
     if (!(await menu.count())) await extras.click();
     await expect(menu).toBeVisible();
   };
+  const openField = async () => {
+    if (!(await fieldMenu.count())) await menuButton(page, "field").click();
+    await expect(fieldMenu).toBeVisible();
+  };
+  const undo = page.getByRole("group", { name: "Undo and redo" }).getByRole("button", { name: "Undo" });
+  const redo = page.getByRole("group", { name: "Undo and redo" }).getByRole("button", { name: "Redo" });
   const vault = () =>
     page.evaluate(
       () =>
@@ -40,9 +49,9 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
     );
 
   // Nothing to undo yet; Route depths puts the yards on every route and marks the button.
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
   await open();
-  await expect(menu.getByRole("button", { name: /^Undo/ })).toBeDisabled();
-  await expect(menu.getByRole("button", { name: /^Redo/ })).toBeDisabled();
   await expect(depths).toHaveCount(0);
   await menu.getByRole("button", { name: "Route depths: off" }).click();
   await expect(menu).toHaveCount(0);
@@ -50,20 +59,17 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
   await expect(extras).toHaveClass(/has-dot/);
   expect(await page.evaluate(() => localStorage.getItem("grid1ronvault.depths.v1"))).toBe("1");
 
-  // Select all, a nudge, then Undo and Redo from the menu.
+  // Select all, a nudge, then Undo and Redo from the top bar.
   await open();
   await menu.getByRole("button", { name: "Select all" }).click();
   await expect(page.locator("#insp-tab-selection")).toContainText("11");
   await page.keyboard.press("ArrowRight");
   await expect(status).toHaveText("Moved 11 elements.");
   expect((await spots())[0]).toEqual([524, 430]);
-  await open();
-  await menu.getByRole("button", { name: /^Undo/ }).click();
+  await undo.click();
   await expect(status).toHaveText("Undid move.");
-  await expect(menu).toHaveCount(0);
   expect((await spots())[0]).toEqual([520, 430]);
-  await open();
-  await menu.getByRole("button", { name: /^Redo/ }).click();
+  await redo.click();
   await expect.poll(async () => (await spots())[0]).toEqual([524, 430]);
 
   // Clean up lines on a starter has nothing to do, and says so.
@@ -72,18 +78,19 @@ test("Extras undoes, cleans, shows depths, changes the field, lays a defense und
   await expect(status).toHaveText("Every line on this play is already clean.");
 
   // The field select keeps routes true to the yard: depths rescale, the menu stays open for more, Escape closes it.
-  await open();
-  await menu.getByRole("combobox").first().selectOption("redzone");
+  await openField();
+  await fieldMenu.getByRole("combobox").first().selectOption("redzone");
   await expect(status).toHaveText("Red zone, routes kept to the yard.");
-  await expect(menu).toBeVisible();
+  await expect(fieldMenu).toBeVisible();
   expect((await spots())[1][0]).toBe(524);
   expect((await spots())[1][1]).toBeCloseTo(516.67, 1);
   await page.keyboard.press("Escape");
-  await expect(menu).toHaveCount(0);
+  await expect(fieldMenu).toHaveCount(0);
 
   // Vs defense lays another play faded under this one, as a guide only.
-  await open();
-  await menu.getByRole("combobox").nth(1).selectOption({ label: "03 · Mesh" });
+  await openField();
+  await fieldMenu.getByRole("combobox").nth(1).selectOption({ label: "03 · Mesh" });
+  await expect(menuButton(page, "field")).toHaveClass(/has-dot/);
   await expect(status).toHaveText("Showing 03 · Mesh under this play. It's only a guide: it won't print or save into the play.");
   await expect(svg.locator('g[opacity="0.36"]')).toHaveCount(1);
   await page.keyboard.press("Escape");

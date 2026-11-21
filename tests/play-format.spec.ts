@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady } from "./helpers";
 
 /**
  * Saved play format: the Designer's Sets tab saves one play's look (colors,
@@ -41,7 +41,7 @@ test("a play's format is saved in the Designer, painted onto Vault plays with Un
   // Designer → Sets → Saved play format: nothing saved yet, then this play's format.
   await page.goto(`/build/${a.id}`);
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("tab", { name: "Sets" }).click();
+  await railSection(page, "sets");
   const group = page.locator('section[aria-labelledby="dz-format-title"]');
   await expect(group.locator(".pf-from")).toHaveText("No format saved yet. Open the play that looks right and save its format.");
   await expect(group.getByRole("button", { name: "Apply to this play" })).toBeDisabled();
@@ -98,7 +98,7 @@ test("a play's format is saved in the Designer, painted onto Vault plays with Un
   // Designer → Apply to this play gives the open play the look, as one undoable step; the parts are kept after a reload.
   await page.goto(`/build/${c.id}`);
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("tab", { name: "Sets" }).click();
+  await railSection(page, "sets");
   await expect(parts.getByRole("button", { pressed: true })).toHaveCount(5);
   await expect(page.locator(`.stage-frame svg circle[fill="${PURPLE}"]`)).toHaveCount(0);
   await group.getByRole("button", { name: "Apply to this play" }).click();
