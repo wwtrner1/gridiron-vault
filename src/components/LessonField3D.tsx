@@ -72,6 +72,8 @@ type Props = {
   camera: FilmCamera;
   /** Smaller screens: fewer pixels, no shadows. */
   light?: boolean;
+  /** Draw the throw and the catch on any step, not only The read (the Designer's Preview runs the whole play as one). */
+  ball?: boolean;
   label?: string;
   /** No WebGL in this browser: the Film Room goes back to the flat field. */
   onFail?: (why: "webgl") => void;
@@ -710,7 +712,7 @@ class Stage {
         if (mesh.material && !c.userData.tag) (mesh.material as THREE.MeshBasicMaterial).opacity = id === "zones" ? 0.24 : 0.12;
       });
     }
-    const thrown = id === "read" && p.t >= result.throwAt;
+    const thrown = (id === "read" || !!p.ball) && p.t >= result.throwAt;
     const status = new Map(id === "read" ? result.rows.map((r) => [r.id, r.status]) : []);
     let focus: THREE.Vector2 | null = null;
     let qbHand: THREE.Vector3 | null = null;
@@ -756,7 +758,7 @@ class Stage {
         targetAt = new THREE.Vector3(pos.x, 1.4, pos.y);
         const dur = mv.body.clip("Catch");
         const ph = (p.t - result.throwAt - BALL_FLIGHT) / dur + 0.45;
-        if (id === "read" && ph > 0 && ph < 1) entries.splice(0, entries.length, ["Catch", ph, 1]);
+        if ((id === "read" || p.ball) && ph > 0 && ph < 1) entries.splice(0, entries.length, ["Catch", ph, 1]);
       }
       mv.body.sample(entries);
       const dimmed = id === "job" && (mv.side === "defense" || mv.letter !== p.who);

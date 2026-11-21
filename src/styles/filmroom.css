@@ -244,8 +244,8 @@ p.fr-against span { color: var(--rail-text); }
 }
 
 /* Preview (the Designer): the play run once, then where it goes next. */
-.pv-body { justify-content: center; }
-.pv-body .fr-main { flex: none; width: min(100%, 1180px); }
+/* Centred with margins, not justify-content: on a phone the body is a column that scrolls, and a centred column that overflows can't be scrolled back to its top. */
+.pv-body .fr-main { flex: none; width: min(100%, 1180px); margin-inline: auto; }
 .pv-time { flex: 1; min-width: 160px; margin-left: 0; }
 .pv-time input { flex: 1; min-width: 0; accent-color: var(--cyan); }
 .pv-next { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); background: #122036; color: #fff; }

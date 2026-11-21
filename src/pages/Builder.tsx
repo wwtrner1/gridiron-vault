@@ -1,5 +1,6 @@
 import type { FilmRep } from "../lib/breakdown";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
+import { flushSync } from "react-dom";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
 import { Icon } from "../components/Icon";
@@ -1414,6 +1415,8 @@ export function Builder() {
     });
   const drawingTool = DRAW_TOOLS.includes(tool);
   const lastNudge = useRef({ key: "", at: 0 });
+  // The field's own 3D look: a look at the play, never a place to draw (so the drawing's keys rest while it is up).
+  const [view3d, setView3d] = useState(false);
 
   /* -------------------------------------------------------------- shortcuts */
 
@@ -1424,9 +1427,20 @@ export function Builder() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      // A dialog (New play setup, export…) keeps its keys to itself.
-      if (el?.closest?.(".modal-back")) return;
+      // A dialog (New play setup, export, Preview, the Film Room…) keeps its keys to itself.
+      if (el?.closest?.('.modal-back, [aria-modal="true"]')) return;
       const meta_ = e.metaKey || e.ctrlKey;
+      // In 3D the drawing is out of reach, so only the keys that don't touch it work: the side panels and Prev/Next.
+      if (view3d) {
+        if (meta_ && e.code === "Backslash" && !sheetScreen()) {
+          e.preventDefault();
+          togglePanels();
+        } else if (!meta_ && (e.key === "[" || e.key === "]" || e.key === "PageUp" || e.key === "PageDown")) {
+          e.preventDefault();
+          void goPlayRef.current(e.key === "[" || e.key === "PageUp" ? -1 : 1);
+        }
+        return;
+      }
 
       if (meta_ && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -1567,7 +1581,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, railShown, sideOpen]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, railShown, sideOpen, view3d]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -1856,9 +1870,10 @@ export function Builder() {
   // Preview, the field's own 3D look and Make a video: other ways to see the play, none of them a place to draw.
   const [previewing, setPreviewing] = useState(false);
   const [videoing, setVideoing] = useState(false);
-  const [view3d, setView3d] = useState(false);
   const [camera, setCamera] = useState<FilmCamera>("behind");
   const teachable = useMemo(() => canTeach(scene), [scene]);
+  // Preview's hand-offs put it away first, so focus is back on the Designer's button before the next box opens and reads its opener.
+  const closePreview = () => flushSync(() => setPreviewing(false));
   const watching = covering || teaching || previewing || videoing || view3d;
   const coverScene = useMemo(() => (watching ? reconcileConnections(scene) : scene), [watching, scene]);
   const pickView3d = (on: boolean) => {
@@ -1866,6 +1881,8 @@ export function Builder() {
     if (!teachable) return setStatus("3D needs an offense on the field. Add your players, then switch to 3D.");
     if (!canDraw3d()) return setStatus("This browser can't draw 3D, so the field stays flat.");
     setSelection([]);
+    // Back to Fit, so the 3D picture is the size of the screen and not of a zoomed-in drawing.
+    setAutoFit(true);
     setView3d(true);
     setStatus("3D is a look at the play. Switch to Flat to draw.");
   };
@@ -2137,7 +2154,7 @@ export function Builder() {
               Export
             </button>
           </Tooltip>
-          {/* Undo and redo stay on the bar as well as in the floating tools and Extras, where coaches look for them first. */}
+          {/* Undo and redo stay on the bar (down to a 1320px screen) as well as in the floating tools and Extras, where coaches look for them first. */}
           <div className="dz-top-undo dz-wide" role="group" aria-label="Undo and redo">
             <Tooltip title="Undo" hint="Takes back the last change. Ctrl+Z (⌘Z on a Mac)." side="bottom">
               <button type="button" className="dz-top-btn" onClick={undo} disabled={!past.current.length} aria-label="Undo" data-tour="dz-undo">
@@ -2385,9 +2402,9 @@ export function Builder() {
             rushYards={rules.rush || 7}
             camera={camera}
             onCamera={setCamera}
-            onExport={() => (setPreviewing(false), setExporting(true))}
-            onVideo={() => (setPreviewing(false), setVideoing(true))}
-            onFilmRoom={() => (setPreviewing(false), setTeaching(true))}
+            onExport={() => (closePreview(), setExporting(true))}
+            onVideo={() => (closePreview(), setVideoing(true))}
+            onFilmRoom={() => (closePreview(), setTeaching(true))}
             onClose={() => setPreviewing(false)}
           />
         </Suspense>
@@ -2923,7 +2940,7 @@ export function Builder() {
               {view3d && (
                 <label className="dz-view-cam">
                   <span>Camera</span>
-                  <select value={camera === "auto" ? "behind" : camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
+                  <select aria-label="Camera" value={camera === "auto" ? "behind" : camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
                     {FILM_CAMERAS.filter((c) => c !== "auto").map((c) => (
                       <option key={c} value={c}>
                         {FILM_CAMERA_NAME[c]}

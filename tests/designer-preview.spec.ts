@@ -25,10 +25,19 @@ test("Preview runs the play flat or in 3D with a camera, then hands on to Export
   const errors = errorsOf(page);
   await openStick(page);
   const before = await nodeCount(page);
+  // A player is picked first: the Designer's keys must not reach him through the preview.
+  const players = page.locator(".stage-frame svg g[data-kind=player]");
+  const drawn = await players.count();
+  const spot = (await players.first().boundingBox())!;
+  await page.mouse.click(spot.x + spot.width / 2, spot.y + spot.height / 2);
+  await expect(page.locator("#insp-tab-selection")).toContainText(/\d/);
 
   await page.locator('[data-tour="dz-preview"]').click();
   const pv = page.getByRole("dialog", { name: /Preview/ });
   await expect(pv.locator("h2")).toContainText("17 · Stick");
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("ArrowRight");
+  await expect(players).toHaveCount(drawn);
   const view = pv.getByRole("group", { name: "View" });
   await expect(view.getByRole("button", { name: "Flat" })).toHaveAttribute("aria-pressed", "true");
   await expect(pv.locator(".fr-field svg")).toBeVisible();
@@ -42,8 +51,13 @@ test("Preview runs the play flat or in 3D with a camera, then hands on to Export
   const held = await clock();
   await page.waitForTimeout(300);
   expect(await clock()).toBe(held);
-  await pv.getByRole("slider", { name: "Time" }).fill("0");
+  // The end of the run has the ball in the air or caught, not a quarterback throwing nothing.
+  const time = pv.getByRole("slider", { name: "Time" });
+  await time.fill((await time.getAttribute("max"))!);
+  await expect(pv.locator('.fr-field svg ellipse[fill="#B07A45"]')).toHaveCount(1);
+  await time.fill("0");
   expect(await clock()).toBe(0);
+  await expect(pv.locator('.fr-field svg ellipse[fill="#B07A45"]')).toHaveCount(0);
 
   // 3D: the same run on a real field, with the camera pick; the pick is the coach's, kept with the team brand.
   await view.getByRole("button", { name: "3D" }).click();
@@ -53,6 +67,7 @@ test("Preview runs the play flat or in 3D with a camera, then hands on to Export
   expect(await brandView(page)).toBe("3d");
   const camera = pv.getByRole("combobox", { name: "Camera" });
   await expect(camera).toHaveValue("behind");
+  await expect(camera.locator("option")).toHaveText(["Behind the offense", "Sideline", "Overhead"]);
   await expect(canvas).toHaveAttribute("data-camera", "behind");
   await camera.selectOption("sideline");
   await expect(canvas).toHaveAttribute("data-camera", "sideline");
@@ -83,6 +98,13 @@ test("Preview runs the play flat or in 3D with a camera, then hands on to Export
   await expect(room.locator("h2")).toContainText("Film Room");
   await page.keyboard.press("Escape");
   await expect(room).toBeHidden();
+  // A hand-off leaves focus on the Designer's Preview button once the next box closes (Export a second time, already loaded).
+  await page.locator('[data-tour="dz-preview"]').click();
+  await pv.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(exportBox).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(exportBox).toBeHidden();
+  await expect(page.locator('[data-tour="dz-preview"]')).toBeFocused();
 
   // Escape closes the preview and focus goes back to its button; nothing in the play changed.
   await page.locator('[data-tour="dz-preview"]').click();
@@ -101,6 +123,8 @@ test("The field's Flat · 3D chips show the play in 3D with a camera and give th
   const view = page.getByRole("group", { name: "Field view" });
   await expect(view.getByRole("button", { name: "Flat" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".dz-view-cam")).toHaveCount(0);
+  const players = page.locator(".stage-frame svg g[data-kind=player]");
+  const drawn = await players.count();
 
   await view.getByRole("button", { name: "3D" }).click();
   const look = page.getByRole("group", { name: "The play in 3D" });
@@ -112,6 +136,13 @@ test("The field's Flat · 3D chips show the play in 3D with a camera and give th
   // The drawing under it is out of reach, and so are the floating tools.
   await expect(page.locator(".builder-stage")).toHaveAttribute("inert", "");
   await expect(page.locator(".dz-float")).toHaveCount(0);
+  // The drawing's keys rest too: N picks nothing, Select all and Delete remove nothing.
+  await page.keyboard.press("n");
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Backspace");
+  await expect(page.locator(".dz-status [role=status]")).toHaveText("3D is a look at the play. Switch to Flat to draw.");
+  await expect(players).toHaveCount(drawn);
   const camera = page.locator(".dz-view-cam select");
   await expect(camera.locator("option")).toHaveText(["Behind the offense", "Sideline", "Overhead"]);
   await camera.selectOption("overhead");
@@ -127,6 +158,8 @@ test("The field's Flat · 3D chips show the play in 3D with a camera and give th
   await expect(page.locator(".builder-stage")).not.toHaveAttribute("inert", "");
   await expect(page.locator(".dz-float")).toBeVisible();
   await expect(page.locator(".dz-status [role=status]")).toHaveText("Back on the drawing.");
+  await expect(players).toHaveCount(drawn);
+  await expect(page.locator(".dz-saved")).toContainText("Saved");
 
   // The Play panel's Teach and share: Make a video without opening the Film Room first.
   await page.getByRole("button", { name: "Teach and share" }).scrollIntoViewIfNeeded();
@@ -170,6 +203,13 @@ test("On a phone the field carries Preview and Flat · 3D, and the preview fits 
   await chips.getByRole("button", { name: "Preview" }).tap();
   const pv = page.getByRole("dialog", { name: /Preview/ });
   await expect(pv.locator(".fr-field svg")).toBeVisible();
+  // A shorter phone (an iPhone with Safari's bars): the controls still come out from under the field.
+  const tall = page.viewportSize()!.height;
+  await page.setViewportSize({ width: wide, height: 560 });
+  await pv.getByRole("button", { name: "Run the play" }).tap();
+  await pv.getByRole("button", { name: "Pause" }).tap();
+  await expect(pv.locator(".fr-field svg")).toBeInViewport();
+  await page.setViewportSize({ width: wide, height: tall });
   await pv.getByRole("group", { name: "View" }).getByRole("button", { name: "3D" }).tap();
   await expect(pv.locator(".fr-3d canvas")).toHaveAttribute("data-athlete", "model", { timeout: 20000 });
   await expect(pv.getByRole("combobox", { name: "Camera" })).toBeVisible();

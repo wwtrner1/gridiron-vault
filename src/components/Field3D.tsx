@@ -11,7 +11,8 @@ import "../styles/filmroom.css";
  * every change to the play; Flat brings the drawing back.
  */
 export function Field3D({ scene, name, rushYards = 7, camera, onFail }: { scene: Scene; name: string; rushYards?: number; camera: FilmCamera; onFail: () => void }) {
-  const { lesson, look, who, dark, logo, colors } = usePlayLesson(scene, name, rushYards);
+  // Built without the play's name (it only words the captions), so typing a name doesn't rebuild the 3D field.
+  const { lesson, look, who, dark, logo, colors } = usePlayLesson(scene, "", rushYards);
   // The call: everyone lined up at the snap with the routes drawn bold.
   const step = useMemo(() => lesson.steps.find((s) => s.id === "call") ?? lesson.steps[0], [lesson]);
   return (

@@ -11,6 +11,9 @@ import "../styles/filmroom.css";
 
 const LessonField3D = lazyPage(() => import("./LessonField3D"), "LessonField3D");
 
+/** One step has nothing for "Follow the lesson" to follow, so Preview offers the fixed cameras, like the field's own chip. */
+const CAMERAS = FILM_CAMERAS.filter((c) => c !== "auto");
+
 /** A beat lined up before the snap, so the eye finds the formation first. */
 const SET = 0.8;
 
@@ -58,6 +61,7 @@ export function PlayPreview({
   uRef.current = u;
   const t = Math.max(0, Math.min(end, u - SET));
   const atEnd = u >= length;
+  const cam = camera === "auto" ? "behind" : camera;
 
   useEffect(() => {
     if (!playing) return;
@@ -117,10 +121,10 @@ export function PlayPreview({
             <div className={in3d ? "fr-field is-3d" : "fr-field"}>
               {in3d ? (
                 <Suspense fallback={<div className="fr-3d"><span className="fr-3d-wait">Loading 3D…</span></div>}>
-                  <LessonField3D scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} team={colors} camera={camera} light={big} label={label} onFail={fail} />
+                  <LessonField3D scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} team={colors} camera={cam} light={big} ball label={label} onFail={fail} />
                 </Suspense>
               ) : (
-                <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} grow={big ? 1.5 : 1} crop={big} spread={narrow && !sideways} label={label} />
+                <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} grow={big ? 1.5 : 1} crop={big} spread={narrow && !sideways} ball label={label} />
               )}
               <span className="fr-clock">{t.toFixed(1)} S</span>
             </div>
@@ -157,10 +161,10 @@ export function PlayPreview({
               {in3d && (
                 <label className="fr-against">
                   <span>Camera</span>
-                  <select value={camera} onChange={(e) => onCamera(e.target.value as FilmCamera)}>
-                    {FILM_CAMERAS.map((c) => (
+                  <select value={cam} onChange={(e) => onCamera(e.target.value as FilmCamera)}>
+                    {CAMERAS.map((c) => (
                       <option key={c} value={c}>
-                        {c === "auto" ? "Follow the play" : FILM_CAMERA_NAME[c]}
+                        {FILM_CAMERA_NAME[c]}
                       </option>
                     ))}
                   </select>

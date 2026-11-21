@@ -1,6 +1,8 @@
 import { usePlayLesson } from "../lib/filmView";
 import type { Scene } from "../lib/types";
 import { LessonVideo } from "./LessonVideo";
+// The video box is styled by the Film Room's sheet, which nothing else has loaded when it opens from the Play panel.
+import "../styles/filmroom.css";
 
 /**
  * "Make a video" outside the Film Room (the Designer's Play panel and Preview):

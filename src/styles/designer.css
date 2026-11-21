@@ -1236,6 +1236,9 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-view-pick { display: flex; overflow: hidden; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); }
 .dz-view-pick button { min-width: 48px; min-height: 32px; padding: 0 12px; background: transparent; color: var(--white); font-size: 13px; font-weight: 600; }
 .dz-view-pick button[aria-pressed="true"] { background: var(--cyan); color: var(--on-cyan); }
+/* The pill clips a ring drawn outside the chip, so the focus ring sits inside it, in the chip's own ink. */
+.dz-view-pick button:focus-visible { outline: 2px solid var(--white); outline-offset: -4px; }
+.dz-view-pick button[aria-pressed="true"]:focus-visible { outline-color: var(--on-cyan); }
 .dz-view-cam { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 4px 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-size: 12.5px; }
 .dz-view-cam select { min-height: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-pill, 999px); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
 .dz-view-preview { display: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--white); font-size: 13px; font-weight: 600; }
@@ -1245,7 +1248,8 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 }
 @media (pointer: coarse) {
   .dz-view-pick button, .dz-view-cam, .dz-view-preview { min-height: 44px; }
-  .dz-view-cam select { min-height: 36px; }
+  /* 16px, so an iPhone doesn't zoom the page into the box. */
+  .dz-view-cam select { min-height: 36px; font-size: 16px; }
 }
 .dz-3d { position: absolute; z-index: 18; inset: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--ink); }
 .dz-3d-field, .dz-3d .fr-3d { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; background: var(--ink); }
@@ -1255,25 +1259,41 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .insp-share { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .insp-share .btn:disabled { opacity: 0.45; }
 
-/* The top bar on a laptop: everything on it stays on the screen. The wordmark gives way first, then
-   Undo and redo (also on the floating tools and in Extras), then the zoom slider (the percent, Fit and
-   Ctrl + scroll stay); below 1200px Details and Run play are in Extras (Preview and the Film Room stay). */
+/* The top bar on a laptop: everything on it stays on the screen. The wordmark gives way first, then the
+   gaps tighten, then the zoom slider becomes the − Fit + buttons (as it already is under 1180px), then
+   Undo and redo go (also on the floating tools and in Extras); below 1240px Details and Run play are in
+   Extras (Preview and the Film Room stay), and below 1100px the work tabs are. The gaps are bounded so
+   the phone bar keeps its own. */
 .dz-more-menu .is-wider-dup { display: none; }
-@media (max-width: 1560px) {
-  .dz-top { gap: 10px; }
+@media (max-width: 1620px) {
   .dz-brand b { display: none; }
 }
-@media (max-width: 1440px) {
-  .dz-top-undo { display: none; }
+@media (min-width: 1181px) and (max-width: 1620px) {
+  .dz-top { gap: 10px; }
+}
+@media (min-width: 1181px) and (max-width: 1440px) {
+  .dz-top-actions { gap: 6px; }
+}
+@media (min-width: 1181px) and (max-width: 1365px) {
+  .dz-zoom, .dz-fit { display: none; }
+  .dz-zoom-btns { display: inline-flex; }
 }
 @media (max-width: 1320px) {
-  .dz-zoom input { display: none; }
+  .dz-top-undo { display: none; }
 }
-@media (max-width: 1200px) {
+@media (max-width: 1240px) {
   .dz-wider { display: none; }
   .dz-more-menu .is-wider-dup { display: flex; }
 }
 @media (max-width: 1100px) {
   .dz-top .worktabs { display: none; }
   .dz-more-menu .is-tabs-dup { display: flex; }
+}
+/* A phone's field is all drawing room, so the chips sit in their own row under it, never over a tap. */
+@media (max-width: 900px), (max-height: 500px) and (pointer: coarse) {
+  .dz-view { position: relative; right: auto; bottom: auto; flex: none; max-width: none; margin-top: 8px; }
+  .dz-view { flex-wrap: nowrap; }
+  .dz-view-cam { min-width: 0; padding-left: 4px; }
+  .dz-view-cam span { display: none; }
+  .dz-view-cam select { min-width: 0; max-width: 100%; }
 }

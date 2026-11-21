@@ -95,6 +95,7 @@ export function LessonField({
   grow = 1,
   crop = false,
   spread = false,
+  ball: showBall = false,
   label,
   standalone,
 }: {
@@ -114,6 +115,8 @@ export function LessonField({
   crop?: boolean;
   /** On an upright phone (with `crop`): open the box up and draw the play deeper (`spreadLesson`), so players stand apart. */
   spread?: boolean;
+  /** Draw the throw on any step, not only The read (the Designer's Preview runs the whole play as one). */
+  ball?: boolean;
   label?: string;
   standalone?: boolean;
 }) {
@@ -139,7 +142,7 @@ export function LessonField({
   const inkOpacity = (n: SceneNode) => (id === "call" ? 1 : id === "job" ? (mine.has(n.id) ? 1 : 0.14) : id === "look" || id === "zones" ? 0.3 : 0.8);
   // Routes are drawn heavy once the lesson is about them, so they read from the back of the room.
   const heavy = (n: SceneNode): SceneNode => (n.kind === "path" && (id === "call" || id === "snap" || id === "read" || (id === "job" && mine.has(n.id))) ? { ...n, width: n.width * BOLD } : n);
-  const thrown = id === "read" && t >= result.throwAt;
+  const thrown = (id === "read" || showBall) && t >= result.throwAt;
   const statusOf = new Map(id === "read" ? result.rows.map((r) => [r.id, r.status]) : []);
   const showZones = id !== "job";
   const zoneTags = id === "zones";

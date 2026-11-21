@@ -146,7 +146,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Undo and redo",
-            text: "Takes back the last change, a whole drag at a time, and puts it back again (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z; ⌘ on a Mac). The floating tools and Extras have them too.",
+            text: "Takes back the last change, a whole drag at a time, and puts it back again (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z; ⌘ on a Mac). The floating tools and Extras have them too, which is where they are on a narrow screen.",
             target: tour("dz-undo"),
           },
           {
@@ -326,6 +326,11 @@ export const GUIDES: Guide[] = [
             title: "Opponent front and Rules check",
             text: "Opponent front shows a stock 11-man front and coverage, a 5-on-5 flag look or one of your saved defenses under the play. Rules check reads the drawing against your league's rules (players a side, blocking, QB runs, no-run zones, rushers, motion); Show me on the field picks what to fix.",
             target: "#play-details", ...SIDE,
+          },
+          {
+            title: "Teach and share",
+            text: "Make a video saves this play's Film Room lesson as an MP4 without opening the Film Room first (Head Coach plans and up). Preview runs the play flat or in 3D, and Film Room opens the full lesson.",
+            target: tour("dz-share"), ...SIDE,
           },
           {
             title: "Selection, presets, notes, arrange",
