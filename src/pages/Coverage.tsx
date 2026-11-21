@@ -180,7 +180,7 @@ export function Coverage() {
       {groups.length > 0 && (
         <p className="cvr-note">
           Each cell is the throw: the first open receiver in the read order (first read, then deep to short) and his yards of space when the ball comes out. Open a play
-          and choose Extras, then Coverage check, to watch it run. A teaching model for comparing plays: real kids, real leverage and real rush lanes will vary.
+          and choose Teach, then Coverage check, to watch it run. A teaching model for comparing plays: real kids, real leverage and real rush lanes will vary.
         </p>
       )}
       {filing && (

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, workspace } from "./helpers";
 
 /**
  * Film breakdown on Upload: a play-by-play CSV is read in the browser, each
@@ -77,7 +77,7 @@ test("a breakdown CSV is matched to Vault plays, kept in them and shown in Run p
   await page.goto("/vault");
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   const run = page.getByRole("dialog", { name: /Run play/ });
   const film = run.getByRole("group", { name: "From your film" });
   await expect(film).toContainText("Called 3 times on film · 8 yards a call · best 18");
@@ -89,7 +89,7 @@ test("a breakdown CSV is matched to Vault plays, kept in them and shown in Run p
   await expect(room.locator(".fr-rep")).toHaveText("On film: Week 3 vs Central · rep 6 · 1st & 10 · TD · +18 yd");
   await room.getByRole("button", { name: "Back to drawing" }).click();
   await expect(room).toBeHidden();
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   await film.getByRole("button", { name: "Clear these reps" }).click();
   await expect(film).toHaveCount(0);
   expect(errors).toEqual([]);

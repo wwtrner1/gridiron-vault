@@ -122,7 +122,7 @@ test("the depth chart autosaves one PUT per burst and sends a waiting change whe
   await expect(panel.getByText("All changes saved")).toBeVisible();
 
   // The preset and a starter inside one burst: one save.
-  await panel.getByRole("button", { name: "Flag 5-on-5" }).click();
+  await panel.getByRole("button", { name: "5-on-5" }).click();
   await expect(panel.getByText("Unsaved")).toBeVisible();
   await panel.getByLabel("Add a player at QB").selectOption({ label: "#12 Marcus Hill (QB)" });
   await expect(panel.getByText("All changes saved")).toBeVisible();

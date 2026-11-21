@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, menuButton, quiet, seedReady, workspace } from "./helpers";
 
 /**
  * Film Room: a play opens as a six-step lesson (the look, zones, the call,
@@ -18,8 +18,8 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
 
-  // From Extras.
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  // From the Teach menu.
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   const room = page.getByRole("dialog", { name: /Film Room/ });
   await expect(room.locator("h2")).toHaveText("Film Room 17 · Stick");
@@ -114,20 +114,16 @@ test("Film Room teaches a play step by step and keeps its settings in the play",
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.brand.v1")!).filmLook)).toBe("light");
 
   // Opened again it is still light; Run play hands off to it too.
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   await page.getByRole("dialog", { name: /Run play/ }).getByRole("button", { name: "Teach it in the Film Room" }).click();
   await expect(room).toHaveAttribute("data-theme", "light");
   await room.getByRole("button", { name: "Back to drawing" }).click();
   await expect(room).toBeHidden();
   await page.getByRole("button", { name: /^Next play: / }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   await expect(room).toHaveAttribute("data-theme", "light");
-  // The top bar's own Film Room button opens it too, so a coach never has to find it in Extras.
-  await room.getByRole("button", { name: "Back to drawing" }).click();
-  await expect(room).toBeHidden();
-  await page.locator('[data-tour="dz-film"]').click();
   await expect(room.locator("h2")).toContainText("Film Room");
   expect(errors).toEqual([]);
 });
@@ -143,7 +139,7 @@ test("Film Room wears the team's colors and logo, with a switch per play", async
   await page.reload();
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   const room = page.getByRole("dialog", { name: /Film Room/ });
   await expect(room.locator(".fr-team")).toHaveText("Hawks");
@@ -161,7 +157,7 @@ test("Make a video saves the lesson as an MP4 in both shapes, and Sideline sees 
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   const room = page.getByRole("dialog", { name: /Film Room/ });
 
@@ -202,7 +198,7 @@ test("Make a video saves the lesson as an MP4 in both shapes, and Sideline sees 
   await page.evaluate(() => localStorage.setItem("nextplay.tier.v1", "free"));
   await page.reload();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   await room.getByRole("button", { name: "Make a video" }).click();
   await expect(box).toContainText("A video file of the lesson comes with Head Coach.");
@@ -219,7 +215,7 @@ test("Film Room tips show once, ring each control, and come back from the Tips b
   await page.evaluate(() => localStorage.removeItem("grid1ronvault.filmtips.v1"));
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   const room = page.getByRole("dialog", { name: /Film Room/ });
   const tips = room.getByRole("group", { name: "Film Room tips" });
@@ -272,7 +268,7 @@ test("Film Room tips show once, ring each control, and come back from the Tips b
   // The next time the Film Room opens, they stay away.
   await page.keyboard.press("Escape");
   await expect(room).toHaveCount(0);
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   await expect(room).toBeVisible();
   await expect(tips).toHaveCount(0);

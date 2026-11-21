@@ -81,6 +81,8 @@ type Props = {
   snapRadius?: number;
   /** The node actually clicked, even when its whole group gets selected. */
   onPickNode?: (id: string) => void;
+  /** A press on a player that let go without moving him (Select, no mode): the one-click route menu. */
+  onPlayerTap?: (id: string, at: { clientX: number; clientY: number }) => void;
   /** Picks a tool from the right-click menu. */
   onPickTool?: (tool: ToolId) => void;
   /** What a long press or right-click on a player or line offers (Duplicate, Delete…). */
@@ -129,7 +131,7 @@ const LONG_PRESS_MS = 500;
 const TAP_SLOP = 10;
 
 type Drag =
-  | { kind: "move"; start: Point; ids: string[]; origin: Map<string, Point> }
+  | { kind: "move"; start: Point; ids: string[]; origin: Map<string, Point>; tap?: string }
   | { kind: "marquee"; start: Point; additive: boolean; touch: boolean; hadSelection: boolean }
   | { kind: "pan"; start: { x: number; y: number }; last: { x: number; y: number }; moved: boolean; hadSelection: boolean }
   | {
@@ -175,6 +177,7 @@ export function PlayCanvas({
   snapRadius = 26,
   onPickTool,
   onPickNode,
+  onPlayerTap,
   nodeActions,
   fieldActions,
   onZoom,
@@ -573,6 +576,8 @@ export function PlayCanvas({
       if (groupSelected) say(`Moving ${node.label || node.name || "this player"} by itself. To move the whole formation, click the field first, then drag any player.`);
     }
     beginMove(nextIds, p);
+    const d = dragRef.current;
+    if (!additive && !mode && node.kind === "player" && d?.kind === "move") d.tap = node.id;
   };
 
   /* -------------------------------------------------------- surface  input */
@@ -940,6 +945,7 @@ export function PlayCanvas({
         // A tap that only selected something is not a step to undo.
         const changed = !pressStart.current || sceneRef.current !== pressStart.current.scene;
         if (changed) onScene(sceneRef.current, d.kind === "move" ? "Move" : d.kind === "rotate" ? "Rotate" : "Scale", pressStart.current?.scene);
+        else if (d.kind === "move" && d.tap) onPlayerTap?.(d.tap, { clientX: e.clientX, clientY: e.clientY });
         return;
       }
 
@@ -973,6 +979,7 @@ export function PlayCanvas({
     onPan,
     onZoom,
     onSignal,
+    onPlayerTap,
     point,
     say,
     selection,

@@ -242,3 +242,17 @@ p.fr-against span { color: var(--rail-text); }
 @media (max-height: 520px) and (orientation: landscape) {
   .fr-3d { width: 64vw; height: calc(100vh - 66px); height: calc(100dvh - 66px); max-height: none; aspect-ratio: auto; }
 }
+
+/* Preview (the Designer): the play run once, then where it goes next. */
+/* Centred with margins, not justify-content: on a phone the body is a column that scrolls, and a centred column that overflows can't be scrolled back to its top. */
+.pv-body .fr-main { flex: none; width: min(100%, 1180px); margin-inline: auto; }
+.pv-time { flex: 1; min-width: 160px; margin-left: 0; }
+.pv-time input { flex: 1; min-width: 0; accent-color: var(--cyan); }
+.pv-next { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); background: #122036; color: #fff; }
+.pv-next .fr-k { color: var(--cyan); }
+.pv-next-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-next .fr-hint { margin: 0; max-width: 70ch; line-height: 1.45; color: var(--rail-text); }
+.fr-none .btn { margin-top: 12px; }
+@media (pointer: coarse) {
+  .pv-next .btn-sm { min-height: 44px; }
+}

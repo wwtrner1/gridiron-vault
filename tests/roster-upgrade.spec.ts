@@ -133,7 +133,7 @@ test("My team: a player's picture on the profile and from the depth chart card",
 
   // Depth chart: tap a player's circle on the card to add their picture.
   await page.getByRole("tab", { name: "Depth chart" }).click();
-  await page.getByRole("button", { name: "Flag 5-on-5" }).click();
+  await page.getByRole("button", { name: "5-on-5" }).click();
   await page.getByLabel("Add a player at QB").selectOption({ label: "#3 Harvey Diehl" });
   await page.getByLabel("Add a player at Center").selectOption({ label: "#1 Casen Crawford" });
   await expect(page.getByRole("button", { name: "Change Casen Crawford's picture" })).toBeVisible();

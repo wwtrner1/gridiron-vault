@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth";
 import { useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
-import { NAV_GROUPS, groupOf, loadOpenGroups, saveOpenGroups, type NavItem } from "../lib/nav";
+import { NAV_GROUPS, groupOf, type NavItem } from "../lib/nav";
 import { PlaybookTree } from "./PlaybookTree";
 import { PaymentBanner, SuspendedBanner } from "./PaymentBanner";
 import { FocusBoundary } from "./FocusBoundary";
@@ -44,19 +44,14 @@ export function Shell({ title, actions, tabs, children }: Props) {
   }, []);
   const plays = useStore((s) => s.plays);
   const owner = useOwner();
-  // The side menu's groups: the one holding this page is always open; the rest stay as the coach left them.
+  // The side menu's groups (Wes, 2026-11-21): one open at a time. Each screen starts with only
+  // the group holding it open; opening another closes it.
   const { pathname } = useLocation();
   const here = groupOf(pathname);
-  const [picked, setPicked] = useState(loadOpenGroups);
-  const [hereShut, setHereShut] = useState(false);
-  const openGroups = here && !hereShut && !picked.includes(here) ? [...picked, here] : picked;
-  const toggleGroup = (id: string) => {
-    const closing = openGroups.includes(id);
-    const next = closing ? picked.filter((x) => x !== id) : [...picked, id];
-    if (id === here) setHereShut(closing);
-    setPicked(next);
-    saveOpenGroups(next);
-  };
+  const [picked, setPicked] = useState<{ at: string; id: string | null } | null>(null);
+  const openId = picked && picked.at === pathname ? picked.id : (here ?? null);
+  const openGroups = openId ? [openId] : [];
+  const toggleGroup = (id: string) => setPicked({ at: pathname, id: openId === id ? null : id });
 
   return (
     <div className="shell">

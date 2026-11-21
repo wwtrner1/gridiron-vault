@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * The tag on a line: a Coverage zone drawn on the field shows "Zone tag" in
@@ -36,10 +36,13 @@ test("a Coverage zone takes a zone tag and a route takes a route tag", async ({ 
   const first = (await paths()).length;
 
   // A zone: four clicks and Enter; it stays picked, so the panel offers its tag.
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   await page.getByRole("button", { name: "Coverage zone" }).first().click();
   for (const [fx, fy] of [[0.7, 0.55], [0.9, 0.55], [0.9, 0.7], [0.7, 0.7]]) await page.mouse.click(at(fx, fy).x, at(fx, fy).y);
   await page.keyboard.press("Enter");
+  // The picked element's own section (the Selection panel's first) starts closed like the rest.
+  const head = page.locator("#insp-pane .panel-head").first();
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
   const tag = page.getByLabel("Zone tag");
   await expect(tag).toBeVisible();
   await expect(tag).toHaveAttribute("placeholder", "Hook, Deep 1/3, Flat");
@@ -59,7 +62,7 @@ test("a Coverage zone takes a zone tag and a route takes a route tag", async ({ 
   expect((await paths()).slice(first)[0].tag).toBeUndefined();
 
   // A route drawn next is a Route tag, with its own example words.
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   await page.getByRole("button", { name: "Solid line with arrow" }).first().click();
   for (const [fx, fy] of [[0.3, 0.8], [0.4, 0.7]]) await page.mouse.click(at(fx, fy).x, at(fx, fy).y);
   await page.keyboard.press("Enter");

@@ -45,7 +45,7 @@ test("My team: add a player, paste a spreadsheet, download the CSV, build a dept
 
   // Depth chart: start from the flag preset, put Marcus at QB, and send the starters to the Assignments roster.
   await page.getByRole("tab", { name: "Depth chart" }).click();
-  await page.getByRole("button", { name: "Flag 5-on-5" }).click();
+  await page.getByRole("button", { name: "5-on-5" }).click();
   await expect(page.locator(".hub-slot:not(.hub-slot-add)")).toHaveCount(5);
   await page.getByLabel("Add a player at QB").selectOption({ label: "#12 Marcus Hill (QB)" });
   await expect(page.locator(".hub-slot").first()).toContainText("Marcus Hill");

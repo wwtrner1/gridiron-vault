@@ -28,21 +28,21 @@ test("a coach on a plan can pick a game, watch a concept's lesson and link strai
   // Every card has its own drawing: players and routes.
   for (let i = 0; i < 5; i++) await expect.poll(() => cards.nth(i).locator(".cl-thumb svg path").count()).toBeGreaterThan(3);
   const games = page.getByRole("group", { name: "Game" });
-  await expect(games.getByRole("button")).toHaveText(["5v5", "7v7", "11-man"]);
-  await expect(games.getByRole("button", { name: "5v5" })).toHaveAttribute("aria-pressed", "true");
+  await expect(games.getByRole("button")).toHaveText(["5-on-5", "7-on-7", "11-man"]);
+  await expect(games.getByRole("button", { name: "5-on-5" })).toHaveAttribute("aria-pressed", "true");
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations).toEqual([]);
 
   // The game is kept in the address and redraws the cards.
   const five = await cards.first().locator(".cl-thumb svg").innerHTML();
-  await games.getByRole("button", { name: "7v7" }).click();
+  await games.getByRole("button", { name: "7-on-7" }).click();
   await expect(page).toHaveURL(/\/concepts\?game=7$/);
-  await expect(games.getByRole("button", { name: "7v7" })).toHaveAttribute("aria-pressed", "true");
+  await expect(games.getByRole("button", { name: "7-on-7" })).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await cards.first().locator(".cl-thumb svg").innerHTML()) !== five).toBe(true);
 
   // A lesson opens in the Film Room, with nothing for a visitor to record or save.
   await cards.first().getByRole("button", { name: "Watch the Smash lesson" }).click();
   const room = page.getByRole("dialog", { name: /Film Room/ });
-  await expect(room).toContainText("Smash · 7v7");
+  await expect(room).toContainText("Smash · 7-on-7");
   await expect(page).toHaveURL(/game=7&watch=smash$/);
   await expect(room.locator(".fr-voice")).toHaveCount(0);
   await expect(room.getByRole("button", { name: "Make a video" })).toHaveCount(0);
@@ -88,7 +88,7 @@ test("a visitor with no plan gets three concepts against one defense", async ({ 
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations).toEqual([]);
 
   // One defense in every game, and nothing to pick.
-  for (const game of ["5v5", "7v7", "11-man"]) {
+  for (const game of ["5-on-5", "7-on-7", "11-man"]) {
     await page.getByRole("group", { name: "Game" }).getByRole("button", { name: game }).click();
     await cards.nth(1).getByRole("button", { name: "Watch the Flood lesson" }).click();
     const room = page.getByRole("dialog", { name: /Film Room/ });

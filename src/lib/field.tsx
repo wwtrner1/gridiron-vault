@@ -301,7 +301,7 @@ export const FIELD_VIEWS: { id: FieldView; label: string; hint: string }[] = [
   { id: "half", label: "Half field", hint: "50-yard view — the everyday drawing surface and the default for a new play." },
   { id: "full", label: "Full field", hint: "100-yard view for long developing plays and kick returns." },
   { id: "redzone", label: "Red zone", hint: "Tight 25-yard view with the end zone shaded — goal-line and fade work." },
-  { id: "flag", label: "Flag 30×70", hint: "NFL FLAG 5-on-5 field proportions with both end zones marked." },
+  { id: "flag", label: "Flag 30×70", hint: "5-on-5 field proportions, 30 by 70 yards, with both end zones marked." },
   { id: "blank", label: "Whiteboard", hint: "No markings at all — install drawings, blocking rules and teaching diagrams." },
 ];
 

@@ -629,7 +629,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
             <p className="gd-bulk-count">Cleared players keep their colors and routes, but changes by letter won't find them until they're relettered.</p>
           )}
           {targets.length > 3 && (
-            <details className="gd-bulk-more">
+            <details className="gd-bulk-more" name="gd-bulk-more">
               <summary>And {targets.length - 3} more</summary>
               <p>{targets.slice(3).map((t) => (t.after.name !== t.before.name ? `${t.before.name} → ${t.after.name}` : t.before.name)).join(" · ")}</p>
             </details>

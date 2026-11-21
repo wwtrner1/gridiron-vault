@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady } from "./helpers";
 
 /**
  * The full color picker behind the Style card's "+": a team color, any hex
@@ -18,6 +18,7 @@ test("the color picker takes a team color, any hex, remembers it and saves it as
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
+  await railSection(page, "style");
   const card = page.locator(".dz-style");
   const status = page.locator(".dz-status [role=status]");
   const row = (name: string) => card.getByRole("group", { name, exact: true });
@@ -67,6 +68,7 @@ test("the color picker takes a team color, any hex, remembers it and saves it as
   await page.reload();
   await svg.waitFor();
   await expect(svg.locator('[data-kind=path] path[stroke="#7b2cbf"]')).toHaveCount(0);
+  await railSection(page, "style");
   await card.getByRole("button", { name: "More next line colors" }).click();
   await expect(team.getByRole("button", { name: "Next line #7B2CBF" })).toBeVisible();
   await expect(recent().getByRole("button")).toHaveCount(2);

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * The Designer's Style card: with nothing picked it sets the next line (the
@@ -27,11 +27,14 @@ test("the Style card restyles the next line, a route, a player and a label, Wris
   await page.goto(`/build/${id}`);
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
+  // The Style card is the panel's last section; it starts closed like the rest.
+  await railSection(page, "style");
   const card = page.locator(".dz-style");
   const target = card.locator(".dz-style-target");
   const row = (name: string) => card.getByRole("group", { name, exact: true });
   const status = page.locator(".dz-status [role=status]");
-  const bar = page.getByRole("toolbar", { name: "Floating tools" });
+  // Docked at the top of the tools panel, the quick tools carry the same picks as the floating bar.
+  const bar = page.getByRole("toolbar", { name: "Quick tools" });
   /** N steps through the field; this keeps pressing until the status names what we want. */
   const pick = async (what: RegExp) => {
     for (let i = 0; i < 24 && !what.test((await status.textContent()) ?? ""); i++) await page.keyboard.press("n");
@@ -63,7 +66,8 @@ test("the Style card restyles the next line, a route, a player and a label, Wris
   await row("Size").getByRole("button", { name: "XL" }).click();
   await expect(violet.locator('[r="26"]').or(violet.locator('[width="52"]'))).toHaveCount(1);
   await card.getByRole("button", { name: "Give X a route →" }).click();
-  await expect(page.getByRole("tab", { name: "Routes" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#dz-tab-routes")).toHaveAttribute("aria-expanded", "true");
+  await railSection(page, "style");
 
   // A route: color, the boldest weight, a dash and a T-block end.
   await pick(/Selected Route,/);
@@ -91,8 +95,7 @@ test("the Style card restyles the next line, a route, a player and a label, Wris
   await expect(go).toHaveAttribute("font-weight", "800");
 
   // Select all, Wristband bold: every line at the heaviest weight and the players large; Undo puts them back.
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Select all" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Select all" }).click();
   await expect(target).toHaveText("3 lines · 5 players · 4 labels");
   const thin = svg.locator("[data-kind=path] path:not([stroke-width='5.6'])");
   const thinBefore = await thin.count();

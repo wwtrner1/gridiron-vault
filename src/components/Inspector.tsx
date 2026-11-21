@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Panel } from "./Panel";
+import { Panel, PanelGroup } from "./Panel";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { ColorPicker } from "./ColorPicker";
@@ -31,12 +31,17 @@ type Props = {
   opponent: OpponentChoices;
   /** Move the play to another field, routes kept to the yard. */
   onField: (view: FieldView) => void;
+  /** Ways to show the play to players, opened by the Designer. */
+  share: { teachable: boolean; onPreview: () => void; onVideo: () => void; onFilmRoom: () => void };
 };
 
 const PLAY_TYPES: PlayMeta["playType"][] = ["pass", "run", "defense", "special"];
+/** Quick responsibility tags for each side (Wes, 2026-11-21: tags for both sides; a coach can type their own). */
+const OFFENSE_JOBS = ["Hot", "Read 1", "Read 2", "Check down", "Block", "Pass pro", "Lead", "Decoy"];
+const DEFENSE_JOBS = ["A gap", "B gap", "C gap", "D gap", "Contain", "Spill", "Deep 1/3", "Flat", "Hook", "Rush"];
 const CUSTOM = "__custom";
 
-export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules, underlay, opponent, onField }: Props) {
+export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection, rules, onRules, underlay, opponent, onField, share }: Props) {
   const [tagDraft, setTagDraft] = useState("");
   // Personnel is picked from the list; "Custom…" (or a saved value the list doesn't have) opens a text box.
   const [customPersonnel, setCustomPersonnel] = useState(false);
@@ -94,8 +99,8 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       </div>
       <div id="insp-pane" role="tabpanel" aria-labelledby={`insp-tab-${tab}`}>
       {tab === "play" && (
-      <>
-      <Panel title="Play intel" icon="board" defaultOpen>
+      <PanelGroup>
+      <Panel title="Play intel" icon="board">
         <label className="field">
           <span>Play name</span>
           <input
@@ -179,7 +184,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
               </Tooltip>
             ))}
           </div>
-          <p className="hint">Routes keep their depth in yards when the field changes. Hash marks, yard-line contrast and snap to grid live in Extras → Field controls at the top.</p>
+          <p className="hint">Routes keep their depth in yards when the field changes. Hash marks, yard-line contrast and snap to grid live in the Field menu → Field controls at the top.</p>
           <label className="field" style={{ marginTop: 10, marginBottom: 0 }}>
             <span>Line of scrimmage</span>
             <input
@@ -258,7 +263,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       </Panel>
 
       <Panel title="Opponent front" icon="user" count={opponent.showing ?? undefined}>
-        <OpponentFront {...opponent} flag={!set.sevenOnLine} />
+        <OpponentFront {...opponent} flag={!set.sevenOnLine} defensePlay={meta.playType === "defense"} />
       </Panel>
 
       <Panel title="Rules check" icon="check" count={check.fails ? `${check.fails} to fix` : check.warns ? `${check.warns} to check` : "Legal"}>
@@ -274,11 +279,30 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           }}
         />
       </Panel>
-      </>
+
+      <Panel title="Teach and share" icon="play">
+        <div className="insp-share" data-tour="dz-share">
+          <button type="button" className="btn btn-primary btn-sm" onClick={share.onVideo} disabled={!share.teachable}>
+            Make a video
+          </button>
+          <button type="button" className="btn btn-outline-dark btn-sm" onClick={share.onPreview}>
+            Preview
+          </button>
+          <button type="button" className="btn btn-outline-dark btn-sm" onClick={share.onFilmRoom}>
+            Film Room
+          </button>
+        </div>
+        <p className="hint">
+          {share.teachable
+            ? "Make a video saves this play's Film Room lesson as an MP4 for your players. Preview runs it flat or in 3D first."
+            : "Put an offense on the field and these teach it: a video for your players, a preview flat or in 3D, and the Film Room lesson."}
+        </p>
+      </Panel>
+      </PanelGroup>
       )}
 
       {tab === "selection" && (
-      <>
+      <PanelGroup>
       {selected.length === 0 ? (
         <div className="insp-sect">
           <p>Properties</p>
@@ -287,7 +311,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           </p>
         </div>
       ) : (
-        <Panel title={selected.length === 1 ? describe(selected[0]) : `${selected.length} elements`} icon="cursor">
+        <Panel id="element" title={selected.length === 1 ? describe(selected[0]) : `${selected.length} elements`} icon="cursor">
           {one?.kind === "player" && (
             <>
               <label className="field">
@@ -346,7 +370,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
       {selected.length > 0 && selected.every((n) => n.kind === "player") && (
         <Panel title="Responsibility" icon="user" count={jobs.length === 1 ? jobs[0] || undefined : jobs.length > 1 ? "mixed" : undefined}>
           <div className="pn">
-            <p className="hint">Tag who owns what, in your own terms: a gap, a technique or a job. It prints under the token.</p>
+            <p className="hint">Tag who owns what on offense or defense, in your own terms: type any tag, or tap one below. It prints under the token.</p>
             <input
               className="input"
               list="player-job-ideas"
@@ -361,7 +385,10 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
               ))}
             </datalist>
             <div className="chips" role="group" aria-label="Quick responsibilities">
-              {["A gap", "B gap", "C gap", "D gap", "Contain", "Spill"].map((j) => (
+              {[
+                ...(selected.some((n) => n.kind === "player" && n.side !== "defense") ? OFFENSE_JOBS : []),
+                ...(selected.some((n) => n.kind === "player" && n.side === "defense") ? DEFENSE_JOBS : []),
+              ].map((j) => (
                 <button key={j} type="button" className={jobs.length === 1 && jobs[0] === j ? "chip is-on" : "chip"} aria-pressed={jobs.length === 1 && jobs[0] === j} onClick={() => patch({ job: j } as Partial<SceneNode>, "Responsibility")}>
                   {j}
                 </button>
@@ -494,7 +521,7 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
           </div>
         </Panel>
       )}
-      </>
+      </PanelGroup>
       )}
       </div>
     </div>

@@ -80,6 +80,11 @@ test("the Film Room look is kept with the team brand, checked, and private to th
   const odd3 = await call("PUT", "brand", { brand: { ...brand, filmView: "vr", updatedAt: new Date(Date.now() + 5000).toISOString() } });
   assert.equal("filmView" in odd3.data.brand, false);
 
+  // Player look history: each letter's color rides on the brand; bad letters and colors are dropped.
+  const letters = await call("PUT", "brand", { brand: { ...brand, letterColors: { X: "#123abc", "Q!": "#000000", Y: "red" }, updatedAt: new Date(Date.now() + 6000).toISOString() } });
+  assert.deepEqual(letters.data.brand.letterColors, { X: "#123ABC" });
+  assert.deepEqual((await call("GET", "brand")).data.brand.letterColors, { X: "#123ABC" });
+
   // Another coach starts with no brand at all.
   const two = await coach();
   assert.notEqual(one, two);

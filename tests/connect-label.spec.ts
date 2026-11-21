@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * Auto-connect joins two players with a line that follows them: the first
@@ -52,7 +52,7 @@ test("Auto-connect glues a line between two players, and a double-click renames 
   const paths0 = (await nodes()).filter((n) => n.kind === "path").length;
 
   // The line tool: first click starts, the same player again lets go, then X to Y joins them.
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   await page.getByRole("button", { name: "Auto-connect line" }).click();
   const x = await spotOfPlayer("X");
   await page.mouse.click(x.x, x.y);

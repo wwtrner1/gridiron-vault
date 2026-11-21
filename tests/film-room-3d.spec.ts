@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, menuButton, quiet, seedReady } from "./helpers";
 
 /**
  * Film Room in 3D: Flat stays the default; 3D puts the lesson on a real field
@@ -15,7 +15,7 @@ test.beforeEach(async ({ context }) => quiet(context));
 async function openRoom(page: Page, open = true) {
   if (open) await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   return page.getByRole("dialog", { name: /Film Room/ });
 }

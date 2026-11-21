@@ -16,6 +16,11 @@ test("the floating tools color, weight and read the selection, Copy style pastes
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
+  // The quick tools start docked at the top of the tools panel; Float over the field pulls them off.
+  const docked = page.getByRole("toolbar", { name: "Quick tools" });
+  await expect(docked).toBeVisible();
+  await expect(page.locator("#dz-tools .dz-float.is-docked")).toHaveCount(1);
+  await docked.getByRole("button", { name: "Float over the field" }).click();
   const bar = page.getByRole("toolbar", { name: "Floating tools" });
   const title = bar.locator(".dz-float-title");
   const status = page.locator(".dz-status [role=status]");
@@ -71,17 +76,16 @@ test("the floating tools color, weight and read the selection, Copy style pastes
 
   // The grip: arrow keys move the bar, Home docks it; collapse keeps only the head.
   const grip = bar.getByRole("button", { name: "Move the floating tools. Arrow keys move it, Home docks it." });
-  await expect(bar.getByRole("button", { name: "Dock in the corner" })).toHaveCount(0);
+  await expect(bar.getByRole("button", { name: "Dock in the tools panel" })).toBeVisible();
   await grip.focus();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowDown");
   await expect(bar).toHaveAttribute("style", /translate\(44px, 28px\)/);
-  await expect(bar.getByRole("button", { name: "Dock in the corner" })).toBeVisible();
-  expect(await key()).toEqual({ x: 44, y: 28, open: true, docked: false });
+  expect(await key()).toEqual({ x: 44, y: 28, open: true, docked: false, panel: false });
   await page.keyboard.press("Home");
   await expect(bar).toHaveAttribute("style", /translate\(12px, 12px\)/);
-  expect(await key()).toEqual({ x: 12, y: 12, open: true, docked: true });
+  expect(await key()).toEqual({ x: 12, y: 12, open: true, docked: true, panel: false });
   await bar.getByRole("button", { name: "Collapse the floating tools" }).click();
   await expect(title).toHaveText("Tools");
   await expect(bar.getByRole("group", { name: "Tool" })).toHaveCount(0);
@@ -91,9 +95,14 @@ test("the floating tools color, weight and read the selection, Copy style pastes
   await page.reload();
   await svg.waitFor();
   await expect(title).toHaveText("Tools");
-  expect(await key()).toEqual({ x: 12, y: 12, open: false, docked: true });
+  expect(await key()).toEqual({ x: 12, y: 12, open: false, docked: true, panel: false });
   await bar.getByRole("button", { name: "Open the floating tools" }).click();
   await expect(title).toHaveText("Next line");
   await expect(pressed("Tool")).toHaveText("Select");
+  // Dock in the tools panel puts it back at the top of the panel.
+  await bar.getByRole("button", { name: "Dock in the tools panel" }).click();
+  await expect(docked).toBeVisible();
+  await expect(page.locator("#dz-tools .dz-float.is-docked")).toHaveCount(1);
+  expect((await key()).panel).toBe(true);
   expect(errors).toEqual([]);
 });

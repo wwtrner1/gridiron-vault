@@ -514,16 +514,16 @@ type Preset = { id: string; label: string; unit: DepthUnit; slots: [string, stri
 
 /** Starting spots by format. [label, playbook letter] */
 export const DEPTH_PRESETS: Preset[] = [
-  { id: "flag5-o", label: "Flag 5-on-5", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"]] },
-  { id: "flag7-o", label: "7-on-7 / Flag 7", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"], ["H", "H"], ["S", "S"]] },
+  { id: "flag5-o", label: "5-on-5", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"]] },
+  { id: "flag7-o", label: "7-on-7", unit: "offense", slots: [["QB", "Q"], ["Center", "C"], ["X", "X"], ["Y", "Y"], ["Z", "Z"], ["H", "H"], ["S", "S"]] },
   {
     id: "eleven-o",
     label: "11-man pro set",
     unit: "offense",
     slots: [["QB", "Q"], ["RB", "H"], ["FB", "F"], ["X", "X"], ["Z", "Z"], ["TE", "Y"], ["LT", ""], ["LG", ""], ["C", "C"], ["RG", ""], ["RT", ""]],
   },
-  { id: "flag5-d", label: "Flag 5-on-5", unit: "defense", slots: [["Rusher", "R"], ["Corner L", ""], ["Corner R", ""], ["Linebacker", ""], ["Safety", ""]] },
-  { id: "flag7-d", label: "7-on-7 / Flag 7", unit: "defense", slots: [["Corner L", ""], ["Corner R", ""], ["Mike", "M"], ["Will", "W"], ["Sam", "S"], ["Free safety", "F"], ["Strong safety", ""]] },
+  { id: "flag5-d", label: "5-on-5", unit: "defense", slots: [["Rusher", "R"], ["Corner L", ""], ["Corner R", ""], ["Linebacker", ""], ["Safety", ""]] },
+  { id: "flag7-d", label: "7-on-7", unit: "defense", slots: [["Corner L", ""], ["Corner R", ""], ["Mike", "M"], ["Will", "W"], ["Sam", "S"], ["Free safety", "F"], ["Strong safety", ""]] },
   {
     id: "four3",
     label: "11-man 4-3",

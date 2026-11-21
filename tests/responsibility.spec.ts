@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet } from "./helpers";
+import { errorsOf, openPanel, quiet, railSection } from "./helpers";
 
 /**
  * Player responsibilities in the coach's own terms: the Selection drawer's
@@ -21,12 +21,12 @@ test("a picked player is tagged with a gap, a typed technique and Clear takes it
   await page.goto("/build");
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
-  await page.getByRole("tab", { name: "Players" }).click();
-  await page.locator("#dz-tabpanel").getByRole("button", { name: "Defense", exact: true }).click();
+  await railSection(page, "players");
+  await page.locator("#dz-tabpanel-players").getByRole("button", { name: "Defense", exact: true }).click();
   await page.getByRole("button", { name: "Rusher" }).click();
   await expect(page.locator(".dz-status [role=status]")).toHaveText("Rusher added");
 
-  const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Responsibility" }) });
+  const panel = await openPanel(page, "Responsibility");
   const tags = svg.locator("text[data-job]");
   await expect(tags).toHaveCount(0);
 

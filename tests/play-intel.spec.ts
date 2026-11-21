@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, openPanel, quiet, seedReady, workspace } from "./helpers";
 
 /**
  * The Designer's Play intel drawer: name, formation, type, personnel, field,
@@ -16,7 +16,7 @@ test("Play intel edits the play's name, formation, type, field, notes and labels
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Play intel" }) });
+  const panel = await openPanel(page, "Play intel");
   const field = (name: string) => panel.locator(`label.field:has(> span:text-is("${name}"))`);
   const chips = (name: string) => panel.locator(`.field:has(> span:text-is("${name}")) .chip`);
   const type = panel.getByRole("group", { name: "Type" });

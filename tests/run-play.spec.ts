@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady } from "./helpers";
 
 /**
  * Run play: the animation runs every route from the snap with a clock, Pause
@@ -14,7 +14,7 @@ test("Run play animates the routes, pauses, changes speed, scrubs and hands off 
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   const dialog = page.getByRole("dialog", { name: /Run play/ });
   const clock = dialog.locator(".rp-clock");
   const slider = dialog.getByLabel("Time after the snap");
@@ -61,11 +61,11 @@ test("Run play animates the routes, pauses, changes speed, scrubs and hands off 
   await expect(page.getByRole("dialog", { name: /Coverage check/ })).toBeVisible();
   await expect(dialog).toHaveCount(0);
   await page.getByRole("button", { name: "Back to drawing" }).click();
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await page.locator('[data-tour="dz-run"]').first().click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-run"]').click();
   await dialog.getByRole("button", { name: "Back to drawing" }).click();
   await expect(dialog).toHaveCount(0);
   expect(errors).toEqual([]);

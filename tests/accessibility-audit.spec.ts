@@ -54,14 +54,14 @@ test('populated Vault has consecutive heading levels', async ({ page }) => {
   for (let i = 1; i < levels.length; i++) expect(levels[i]).toBeLessThanOrEqual(levels[i - 1] + 1);
 });
 
-test('Extras keeps focus inside and Escape returns to its trigger', async ({ page }) => {
+test('the Edit menu keeps focus inside and Escape returns to its trigger', async ({ page }) => {
   await seedReady(page);
   await page.getByRole('button', { name: 'Open 17 · Stick in the designer' }).click();
   await page.locator('.stage-frame svg').first().waitFor();
   await expect(page.locator('meta[name="viewport"]')).not.toHaveAttribute('content', /maximum-scale|user-scalable/);
-  const trigger = page.locator('button[aria-controls="dz-more-menu"]');
+  const trigger = page.locator('button[aria-controls="dz-menu-edit"]');
   await trigger.click();
-  const extras = page.getByRole('group', { name: 'Extras', exact: true });
+  const extras = page.getByRole('group', { name: 'Edit', exact: true });
   for (let i = 0; i < 30; i++) {
     await page.keyboard.press('Tab');
     expect(await extras.evaluate(el => el.contains(document.activeElement))).toBe(true);

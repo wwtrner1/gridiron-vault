@@ -107,7 +107,7 @@ export function Tutorials() {
                 Open {g.title}
               </Link>
             </div>
-            <details>
+            <details name="tut-buttons">
               <summary>Every button ({g.sections.reduce((n, s) => n + s.steps.length, 0)})</summary>
               <GuideList guide={g} />
             </details>

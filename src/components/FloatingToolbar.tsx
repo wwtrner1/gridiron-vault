@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { ColorPicker } from "./ColorPicker";
 import { colorName, normalizeHex } from "../lib/colors";
@@ -22,7 +23,8 @@ const TOOLS: { id: ToolId; icon: string; label: string; key: string }[] = [
   { id: "text", icon: "text", label: "Text", key: "X" },
 ];
 
-type Spot = { x: number; y: number; open: boolean; docked: boolean };
+/** `panel`: in the tools panel (the default where there is one); off it, the bar floats over the field. */
+type Spot = { x: number; y: number; open: boolean; docked: boolean; panel: boolean };
 const KEY = "grid1ronvault.floatbar.v1";
 const DOCK = { x: 12, y: 12 };
 const STEP = 16;
@@ -31,7 +33,7 @@ function load(): Spot {
   // Up to 900px the white stage hugs the field (designer.css), so an open bar would sit on the
   // play: start it closed there (phones and iPads held upright) and open on wider screens.
   const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
-  const fallback = { ...DOCK, open: !narrow, docked: true };
+  const fallback = { ...DOCK, open: !narrow, docked: true, panel: true };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
     if (raw && typeof raw.x === "number" && typeof raw.y === "number") return { ...fallback, ...raw };
@@ -68,6 +70,8 @@ type Props = {
   canRedo: boolean;
   /** "Next line" or what the picks will restyle. */
   target: string;
+  /** The tools panel's slot. While it's given and the coach hasn't pulled the bar off, the bar sits there. */
+  dock?: HTMLElement | null;
 };
 
 /**
@@ -76,7 +80,7 @@ type Props = {
  * so only its own box takes pointer events and drawing underneath is untouched.
  * Its spot is remembered per browser.
  */
-export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width, onWidth, ink, onColor, onUndo, onRedo, canUndo, canRedo, target }: Props) {
+export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width, onWidth, ink, onColor, onUndo, onRedo, canUndo, canRedo, target, dock }: Props) {
   const [spot, setSpot] = useState(load);
   const [moreColors, setMoreColors] = useState(false);
   const inkHex = normalizeHex(ink ?? "") ?? "";
@@ -100,9 +104,10 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
   };
 
   // A window resize, zoom or collapse can leave it hanging off the edge: slide it back in.
+  const inPanel = !!dock && spot.panel;
   useLayoutEffect(() => {
     const area = boxRef.current?.parentElement;
-    if (!area) return;
+    if (!area || inPanel) return;
     const fit = () =>
       setSpot((s) => {
         const at = s.docked ? DOCK : clamp(s.x, s.y);
@@ -113,7 +118,7 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
     ro.observe(area);
     if (boxRef.current) ro.observe(boxRef.current);
     return () => ro.disconnect();
-  }, [clamp, spot.open]);
+  }, [clamp, spot.open, inPanel]);
 
   useEffect(() => () => void (drag.current = null), []);
 
@@ -155,25 +160,27 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
 
   const pickedRead = READS.find((r) => (r.id === "first" ? firstRead : !firstRead && color?.toLowerCase() === r.color.toLowerCase()));
 
-  return (
+  const bar = (
     <div
       ref={boxRef}
-      className={`dz-float${spot.open ? "" : " is-closed"}`}
-      style={{ transform: `translate(${spot.x}px, ${spot.y}px)` }}
+      className={`dz-float${spot.open ? "" : " is-closed"}${inPanel ? " is-docked" : ""}`}
+      style={inPanel ? undefined : { transform: `translate(${spot.x}px, ${spot.y}px)` }}
       role="toolbar"
-      aria-label="Floating tools"
+      aria-label={inPanel ? "Quick tools" : "Floating tools"}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="dz-float-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-        <button
-          type="button"
-          className="dz-float-grip"
-          aria-label="Move the floating tools. Arrow keys move it, Home docks it."
-          title="Drag to move"
-          onKeyDown={onGripKey}
-        >
-          <span aria-hidden="true">⠿</span>
-        </button>
+      <div className="dz-float-head" onPointerDown={inPanel ? undefined : onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        {!inPanel && (
+          <button
+            type="button"
+            className="dz-float-grip"
+            aria-label="Move the floating tools. Arrow keys move it, Home docks it."
+            title="Drag to move"
+            onKeyDown={onGripKey}
+          >
+            <span aria-hidden="true">⠿</span>
+          </button>
+        )}
         <span className="dz-float-title">{spot.open ? target : "Tools"}</span>
         <button type="button" className="dz-float-icon" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
           <Icon name="undo" size={13} />
@@ -181,10 +188,20 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
         <button type="button" className="dz-float-icon" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
           <Icon name="redo" size={13} />
         </button>
-        {!spot.docked && (
-          <button type="button" className="dz-float-icon" onClick={() => place({ ...spot, ...DOCK, docked: true })} title="Dock in the corner" aria-label="Dock in the corner">
+        {inPanel ? (
+          <button type="button" className="dz-float-icon" onClick={() => place({ ...spot, ...DOCK, docked: true, panel: false })} title="Float over the field" aria-label="Float over the field">
             <Icon name="dock" size={13} />
           </button>
+        ) : dock ? (
+          <button type="button" className="dz-float-icon" onClick={() => place({ ...spot, ...DOCK, docked: true, panel: true })} title="Dock in the tools panel" aria-label="Dock in the tools panel">
+            <Icon name="dock" size={13} />
+          </button>
+        ) : (
+          !spot.docked && (
+            <button type="button" className="dz-float-icon" onClick={() => place({ ...spot, ...DOCK, docked: true })} title="Dock in the corner" aria-label="Dock in the corner">
+              <Icon name="dock" size={13} />
+            </button>
+          )
         )}
         <button
           type="button"
@@ -281,4 +298,5 @@ export function FloatingToolbar({ tool, onTool, color, firstRead, onRead, width,
       )}
     </div>
   );
+  return inPanel && dock ? createPortal(bar, dock) : bar;
 }

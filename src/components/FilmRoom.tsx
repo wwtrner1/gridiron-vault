@@ -4,9 +4,9 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
-import { canDraw3d, FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
+import { FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
+import { useFilmView, useLook, useMedia } from "../lib/filmView";
 import type { FilmCamera } from "../lib/film3d";
-import type { FilmView } from "../lib/brandData";
 import { FilmTips, filmTips, filmTipsSeen, markFilmTipsSeen } from "./FilmTips";
 import { repText } from "../lib/breakdown";
 import type { FilmRep } from "../lib/breakdown";
@@ -20,33 +20,6 @@ import "../styles/filmroom.css";
 
 const LessonVideo = lazyPage(() => import("./LessonVideo"), "LessonVideo");
 const LessonField3D = lazyPage(() => import("./LessonField3D"), "LessonField3D");
-
-/** Dark, light, or whatever the device is set to. */
-function useLook(look: TeachLook): "dark" | "light" {
-  const [deviceDark, setDeviceDark] = useState(() => (typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)").matches : true));
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const mq = matchMedia("(prefers-color-scheme: dark)");
-    const on = () => setDeviceDark(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return look === "device" ? (deviceDark ? "dark" : "light") : look;
-}
-
-/** Whether the screen matches a media query, kept in step as it turns or resizes. */
-function useMedia(query: string): boolean {
-  const [hit, setHit] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const mq = matchMedia(query);
-    const on = () => setHit(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [query]);
-  return hit;
-}
 
 /**
  * Film Room: the coach's own play as a short lesson. Six steps (the look, the
@@ -99,26 +72,8 @@ export function FilmRoom({
   const [stepsUp, setStepsUp] = useState(true);
   // Flat or 3D: a coach's pick is kept with the team brand on the account, so it follows him to every device;
   // a player's pick on a team link lasts the visit. Flat stays the default.
-  const [viewPick, setViewPick] = useState<FilmView | undefined>();
-  const [noGl, setNoGl] = useState(false);
-  const wants3d = (viewPick ?? (coach ? brand.filmView : undefined) ?? "flat") === "3d";
-  const in3d = wants3d && !noGl;
+  const { in3d, noGl, pickView, fail } = useFilmView(coach);
   const [camera, setCamera] = useState<FilmCamera>("auto");
-  const pickView = (v: FilmView) => {
-    if (v === "3d" && !canDraw3d()) {
-      setNoGl(true);
-      return;
-    }
-    setNoGl(false);
-    setViewPick(v);
-    if (coach && (brand.filmView ?? "flat") !== v) {
-      try {
-        brandStore.set({ filmView: v === "3d" ? "3d" : undefined });
-      } catch {
-        /* storage full: the pick lasts this visit */
-      }
-    }
-  };
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
@@ -333,7 +288,7 @@ export function FilmRoom({
                       camera={camera}
                       light={big}
                       label={label}
-                      onFail={() => setNoGl(true)}
+                      onFail={fail}
                     />
                   </Suspense>
                 );

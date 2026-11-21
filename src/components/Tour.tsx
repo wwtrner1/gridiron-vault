@@ -1,4 +1,5 @@
 import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { Modal } from "./Modal";
@@ -89,10 +90,13 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 export function PageHelp({
   tone = "light",
   extra,
+  trigger,
 }: {
   tone?: "light" | "dark";
   /** One more way to learn this screen, e.g. the Designer's animated slides. */
   extra?: { label: string; run: () => void };
+  /** Draws its own opener in place of the ? button (the Designer's Help menu), handed what opens the list. */
+  trigger?: (show: () => void, isNew: boolean) => ReactNode;
 }) {
   const { pathname, search } = useLocation();
   const guides = useGuides();
@@ -102,8 +106,11 @@ export function PageHelp({
   const { start } = useTour();
   useEffect(() => setSeen(guide ? guidesSeen().includes(guide.id) : true), [guide]);
   // Hold the button's place while the guides load, so the top bar doesn't shift.
-  if (!guides) return <span className={`page-help-btn is-${tone}`} aria-hidden="true" style={{ visibility: "hidden" }} />;
-  if (!guide) return null;
+  if (!guides || !guide) {
+    if (trigger) return <>{trigger(() => {}, false)}</>;
+    if (!guides) return <span className={`page-help-btn is-${tone}`} aria-hidden="true" style={{ visibility: "hidden" }} />;
+    return null;
+  }
 
   const show = () => {
     markGuideSeen(guide.id);
@@ -118,7 +125,7 @@ export function PageHelp({
 
   return (
     <>
-      <button
+      {trigger ? trigger(show, !seen) : <button
         type="button"
         className={`page-help-btn is-${tone}${seen ? "" : " is-new"}`}
         onClick={show}
@@ -127,7 +134,7 @@ export function PageHelp({
         data-tour="page-help"
       >
         ?
-      </button>
+      </button>}
       {/* Portalled: the top bars are their own stacking context, which would sink the dialog under Griddy's launcher. */}
       {open &&
         createPortal(

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { COVERAGES, FLAG_LOOKS, FRONTS, type Coverage, type Front } from "../lib/defense";
+import { FORMATION_NAMES, GAME_TYPES, type GameType } from "../lib/formations";
 import { lookValue, parseLook } from "../lib/overlay";
 
 export type OpponentChoices = {
@@ -15,6 +16,8 @@ export type OpponentChoices = {
 type Props = OpponentChoices & {
   /** Flag rule sets get 5-on-5 looks; everything else gets 11-man fronts. */
   flag: boolean;
+  /** The play is marked as a defense, so the first question starts on Defense. */
+  defensePlay?: boolean;
 };
 
 /**
@@ -23,8 +26,13 @@ type Props = OpponentChoices & {
  * (the Vs defense overlay). It never prints or saves into the play, and the
  * Rules check reads its rushers too.
  */
-export function OpponentFront({ value, showing, defenses, rest, onPick, flag }: Props) {
+export function OpponentFront({ value, showing, defenses, rest, onPick, flag, defensePlay }: Props) {
   const look = parseLook(value);
+  // Asked first (Wes, 2026-11-21): whose play is this? An offense is shown a defense; a defense is shown an offense.
+  const [side, setSide] = useState<"offense" | "defense">(look?.kind === "offense" || (!look && defensePlay) ? "defense" : "offense");
+  const [game, setGame] = useState<GameType>(look?.kind === "offense" ? look.game : flag ? "5v5" : "11");
+  const [formation, setFormation] = useState(look?.kind === "offense" ? look.formation : "Doubles");
+  const pickOffense = (g: GameType, f: string) => (setGame(g), setFormation(f), onPick(lookValue({ kind: "offense", game: g, formation: f })));
   const [front, setFront] = useState<Front>(look?.kind === "front" ? look.front : "4-3");
   const [coverage, setCoverage] = useState<Coverage>(look?.kind === "front" ? look.coverage : "Cover 3");
   const saved = value && !look ? value : "";
@@ -32,7 +40,42 @@ export function OpponentFront({ value, showing, defenses, rest, onPick, flag }: 
 
   return (
     <div className="of">
-      {flag ? (
+      <div className="seg seg-sm of-side" role="group" aria-label="This play is">
+        {(["offense", "defense"] as const).map((s) => (
+          <button key={s} type="button" className={side === s ? "is-on" : ""} aria-pressed={side === s} onClick={() => setSide(s)}>
+            {s === "offense" ? "My offense" : "My defense"}
+          </button>
+        ))}
+      </div>
+      {side === "defense" ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+            <span>Their game</span>
+            <select className="select" value={game} onChange={(e) => pickOffense(e.target.value as GameType, formation)}>
+              {GAME_TYPES.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+            <span>Their formation</span>
+            <select className="select" value={formation} onChange={(e) => pickOffense(game, e.target.value)}>
+              {FORMATION_NAMES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </label>
+          {look?.kind !== "offense" && (
+            <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-end" }} onClick={() => pickOffense(game, formation)}>
+              Show it
+            </button>
+          )}
+        </div>
+      ) : flag ? (
         <div className="chip-row" role="group" aria-label="Flag defense looks">
           {FLAG_LOOKS.map((l) => {
             const on = look?.kind === "flag" && look.look === l;
@@ -74,7 +117,7 @@ export function OpponentFront({ value, showing, defenses, rest, onPick, flag }: 
       )}
 
       <label className="field" style={{ marginTop: 10 }}>
-        <span>Or one of your defenses</span>
+        <span>{side === "defense" ? "Or one of your saved plays" : "Or one of your defenses"}</span>
         <select className="select" value={saved} onChange={(e) => onPick(e.target.value)}>
           <option value="">{defenses.length || rest.length ? "Pick a saved play" : "No saved plays yet"}</option>
           {defenses.length > 0 && (
@@ -106,7 +149,11 @@ export function OpponentFront({ value, showing, defenses, rest, onPick, flag }: 
           </button>
         </p>
       ) : (
-        <p className="hint">{flag ? "Pick a look" : "Pick a front and coverage"} to see the play against it. The Rules check reads its rushers too.</p>
+        <p className="hint">
+          {side === "defense"
+            ? "Pick the offense you're defending to see your play against it."
+            : `${flag ? "Pick a look" : "Pick a front and coverage"} to see the play against it. The Rules check reads its rushers too.`}
+        </p>
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
-import { errorsOf, quiet } from "./helpers";
+import { designerMenu, errorsOf, openPanel, quiet, railSection } from "./helpers";
 
 /**
- * Turn this offense into a defense (Extras, and the Sets tab's Defense list):
+ * Turn this offense into a defense (the Edit menu, and the Sets tab's Defense list):
  * the offense on the field picks the front and coverage, the front lines up
  * on its strength by technique, every defender carries a responsibility tag,
  * a second run replaces the first (Undo brings it back), and the tags save
@@ -40,13 +40,12 @@ async function tagged(svg: Locator) {
 async function dropFormation(page: Page, game: string, personnel: string, formation: string) {
   const svg = page.locator(".stage-frame svg").first();
   if (await svg.locator("g[data-kind]").count()) {
-    await page.getByRole("button", { name: "Extras" }).click();
-    await page.locator("#dz-more-menu").getByRole("button", { name: "Select all" }).click();
+    await (await designerMenu(page, "edit")).getByRole("button", { name: "Select all" }).click();
     await page.keyboard.press("Delete");
     await expect(svg.locator("g[data-kind]")).toHaveCount(0);
   }
-  await page.getByRole("tab", { name: "Sets" }).click();
-  const formations = page.locator("#dz-tabpanel").getByRole("button", { name: "Formations" });
+  await railSection(page, "sets");
+  const formations = page.locator(".dz-acc").getByRole("button", { name: "Formations" });
   if ((await formations.getAttribute("aria-expanded")) !== "true") await formations.click();
   const tray = page.locator("#dz-list-tray");
   await tray.getByRole("button", { name: game, exact: true }).click();
@@ -56,8 +55,7 @@ async function dropFormation(page: Page, game: string, personnel: string, format
 }
 
 async function turnIntoDefense(page: Page) {
-  await page.getByRole("button", { name: "Extras" }).click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Turn this offense into a defense" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Turn this offense into a defense" }).click();
 }
 
 test("Turn this offense into a defense reads the set, lines up on its strength and tags every defender", async ({ page }) => {
@@ -113,8 +111,8 @@ test("Turn this offense into a defense reads the set, lines up on its strength a
   expect(Math.min(...jobs.filter((j) => j.job === "Flat").map((f) => f.x))).toBeLessThan(520);
 
   // 5v5 flag Trips: one rusher and three deep, from the Defense list on the Sets tab.
-  await dropFormation(page, "5v5 flag", "11", "Trips Right");
-  await reach(page, page.locator("#dz-tabpanel").getByRole("button", { name: "Defense", exact: true }));
+  await dropFormation(page, "5-on-5", "11", "Trips Right");
+  await reach(page, page.locator(".dz-acc").getByRole("button", { name: "Defense", exact: true }));
   await reach(page, page.locator("#dz-list-tray").getByRole("button", { name: "Turn this offense into a defense" }));
   await expect(status).toContainText("1 rush · Cover 3");
   jobs = await tagged(svg);
@@ -122,6 +120,7 @@ test("Turn this offense into a defense reads the set, lines up on its strength a
 
   // The tags save with the play.
   await page.locator("#insp-tab-play").click();
+  await openPanel(page, "Play intel");
   await page.locator("#insp-pane").getByLabel("Play name").fill("Trips vs Cover 3");
   await page.locator('[data-tour="dz-save"]').click();
   await expect
@@ -140,8 +139,8 @@ test("The Defense library drops a front tagged by technique and gap, with a swit
   await page.goto("/build");
   const svg = page.locator(".stage-frame svg").first();
   await svg.waitFor();
-  const panel = page.locator("#dz-tabpanel");
-  await page.getByRole("tab", { name: "Sets" }).click();
+  const panel = page.locator(".dz-acc");
+  await railSection(page, "sets");
   await panel.getByRole("button", { name: "Defense", exact: true }).click();
   await expect(page.locator("#dz-list-tray")).toContainText("Responsibility tags put each defender's technique, gap or coverage job under him (5 technique, 1 technique, 3 technique, B gap)");
   await reach(page, page.getByRole("button", { name: "Drop 4-3 Cover 3" }));

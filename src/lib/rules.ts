@@ -35,7 +35,7 @@ export type RuleSet = {
 export const RULE_PRESETS: RuleSet[] = [
   {
     id: "nfl-flag",
-    name: "NFL FLAG 5-on-5",
+    name: "5-on-5",
     rush: 7,
     noRun: 5,
     note: "The usual 5-on-5 setup: rushers start 7 yards off the ball, no blocking, the quarterback can't run it himself, and the 5 yards before the goal line and midfield are pass-only. Check your league's rulebook.",
@@ -49,7 +49,7 @@ export const RULE_PRESETS: RuleSet[] = [
   },
   {
     id: "flag-7",
-    name: "7-on-7 passing",
+    name: "7-on-7",
     rush: 0,
     noRun: 0,
     note: "Passing leagues: seven a side, no rush, no runs and no blocking.",

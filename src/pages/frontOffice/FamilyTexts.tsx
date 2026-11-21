@@ -30,7 +30,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
   };
 
   return (
-    <Panel title="Family texts sign-up" icon="phone" count={list.signups.length} defaultOpen={list.signups.length === 0}>
+    <Panel title="Family texts sign-up" icon="phone" count={list.signups.length} defaultOpen={false}>
       <p className="hint">
         Send this link to {team.name} families (team email, registration form, first-practice handout). Each parent, guardian or older player signs up their own
         mobile number. Only they can add a number, because phone carriers block team texts to anyone who didn't sign up themselves.
