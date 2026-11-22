@@ -288,6 +288,8 @@ Two of axe's readings are allowed in the test on purpose, with the reason beside
 
 ## Focused audit (2026-11-01)
 
+Wristbands page, 2026-11-22: every section of the left panel, the plays list with a cut-off box and the Add plays box are swept section by section in `tests/wristbands-upgrade.spec.ts` (desktop and phone). A closed section's controls are hidden, so axe never saw them before the sections were opened one at a time; that sweep found two selects whose `aria-labelledby` pointed at nothing (now named "Card size" and "Paper") and the Coach's call sheet's sideways-scrolling table, which now takes focus and carries a label (`scrollable-region-focusable`). One reading is allowed on purpose, with the reason beside the filter: the number strip on a card in the preview (`.wb-cell-band`) draws the printed ink, a color per card (red, blue, green and the rest of `CARD_INKS`) on the gray strip, and the green measures 3.0:1. The preview has to match the print, so the colors are Wes's card design, not interface text. Darkening `CARD_INKS` would fix the reading, and would change what prints.
+
 The homepage, Sign in, Help, Vault, Playbooks and Designer were audited after
 reviewing the shared Shell, marketing navigation, Modal, focus helper and global
 focus styles. Image alternatives, form names, page language, heading levels,

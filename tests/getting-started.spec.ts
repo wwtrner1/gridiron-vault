@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { designerMenu, errorsOf, quiet, signIn, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, signIn, workspace, wbSection } from "./helpers";
 
 /**
  * Getting started on the Vault: five first moves that tick themselves off as
@@ -64,6 +64,7 @@ test("the five first moves tick off as the coach makes them, then the card can b
   // Wristbands: the Download from the print preview counts as the printed wristband.
   await steps.nth(2).getByRole("link", { name: "Wristbands" }).click();
   await expect(page).toHaveURL("/wristbands");
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   await source.selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   await page.locator(".wb-head-actions .btn-primary").click();
