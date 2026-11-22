@@ -256,3 +256,18 @@ p.fr-against span { color: var(--rail-text); }
 @media (pointer: coarse) {
   .pv-next .btn-sm { min-height: 44px; }
 }
+
+/* 3D cameras the coach turns by hand, and the QB cam's clock. */
+.fr-3d canvas[data-drag] { touch-action: none; cursor: grab; }
+.fr-3d canvas[data-drag]:active { cursor: grabbing; }
+.fr-3d-snap { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 4px; background: #011628; color: #c9d6e2; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.fr-3d-snap b { color: #5fd6ea; font-size: 16px; font-weight: 700; }
+.fr-3d-turn { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 4px; padding: 4px; border-radius: var(--radius-md); background: rgba(1, 22, 40, 0.86); }
+.fr-3d-turn button { min-width: 32px; min-height: 32px; border: 1px solid var(--ink-4); border-radius: var(--radius-sm, 4px); background: var(--ink); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
+.fr-3d-turn button:hover { border-color: #5fd6ea; }
+@media (pointer: coarse) {
+  .fr-3d-turn button { min-width: 40px; min-height: 40px; }
+}
+.fr-against select { max-width: 100%; }
+.fr-against.cam-check { gap: 6px; cursor: pointer; }
+.fr-against.cam-check input { width: 16px; height: 16px; accent-color: #16c8e8; }
