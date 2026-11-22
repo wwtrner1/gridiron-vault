@@ -111,6 +111,7 @@ export function PrintDiagram({
         <FieldBackground
           view={scene.view}
           losY={scene.losY}
+          turned={scene.pov === "defense"}
           lite={field === "lite"}
           yards={field === "yards"}
           weight={weight}
@@ -128,6 +129,7 @@ export function PrintDiagram({
         <RuleLinesLayer
           view={scene.view}
           losY={scene.losY}
+          turned={scene.pov === "defense"}
           rush={loadRules().rush}
           noRun={loadRules().noRun}
           midfield={ruleSet(loadRules().set).midfieldNoRun}

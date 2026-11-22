@@ -154,3 +154,32 @@ test("Your sets drops a formation from the coach's plays, and a recolored letter
   expect(xs.at(-1)!.fill?.toUpperCase()).toBe("#7A6BD2");
   expect(errors).toEqual([]);
 });
+
+test("on a play flipped to the defense's end, a tile runs the route toward the defense and breaks toward the middle", async ({ page }) => {
+  const errors = errorsOf(page);
+  await seedReady(page);
+  await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.waitForTimeout(300);
+  await designerMenu(page, "field");
+  await page.locator("#dz-menu-field").getByRole("button", { name: "Flip sides: defense to the bottom" }).click();
+
+  await clickPlayer(page, "X");
+  const menu = page.getByRole("dialog", { name: "Routes for X" });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("button", { name: "Slant, 3 yds" }).click();
+  await page.waitForTimeout(1000); // past the draft's 800 ms write
+  const scene = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.draft.v1")!).scene);
+  type N = { id: string; kind: string; label?: string; x: number; y: number; scaleX: number; scaleY: number; rotation: number; points?: { x: number; y: number }[]; assignOf?: string };
+  const nodes = scene.nodes as N[];
+  const who = nodes.find((n) => n.kind === "player" && n.label === "X")!;
+  const route = nodes.find((n) => n.kind === "path" && n.assignOf === who.id)!;
+  expect(scene.pov).toBe("defense");
+  expect(route, "X's route is glued to him").toBeTruthy();
+  const end = route.points![route.points!.length - 1];
+  const at = { x: route.x + end.x * route.scaleX, y: route.y + end.y * route.scaleY };
+  // The defense is at the bottom of the card, so downfield is down: the slant ends below X and nearer the middle.
+  expect(at.y).toBeGreaterThan(who.y + 20);
+  expect(Math.abs(at.x - 520)).toBeLessThan(Math.abs(who.x - 520));
+  expect(errors).toEqual([]);
+});

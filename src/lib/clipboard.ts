@@ -37,13 +37,30 @@ export function clipboardNodes(): SceneNode[] {
 export const hasClipboard = () => clipboardNodes().length > 0;
 
 /**
+ * A play drawn from the defense's end holds every element turned half a circle
+ * (both scales negative). Copies taken from the other way up are turned about
+ * their own centre before they land, so a route concept copied from an upright
+ * play still runs toward the defense on a flipped play, and the reverse.
+ */
+function sameWayUp(scene: Scene, nodes: SceneNode[]): SceneNode[] {
+  const copiedTurned = nodes.some((n) => n.scaleX < 0 && n.scaleY < 0);
+  if (copiedTurned === (scene.pov === "defense")) return nodes;
+  const box = selectionBox({ ...scene, nodes }, nodes.map((n) => n.id));
+  if (!box) return nodes;
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  return nodes.map((n) => ({ ...n, x: 2 * cx - n.x, y: 2 * cy - n.y, scaleX: -n.scaleX, scaleY: -n.scaleY }));
+}
+
+/**
  * Adds fresh copies of the clipboard to the scene, centred on `at` when
  * given. Routes keep following a player copied with them; a link to a player
  * left behind is dropped, so the copy doesn't jump back to the original.
  */
 export function pasteNodes(scene: Scene, at?: Point): { scene: Scene; ids: string[] } | null {
-  const source = clipboardNodes();
-  if (!source.length) return null;
+  const copied = clipboardNodes();
+  if (!copied.length) return null;
+  const source = sameWayUp(scene, copied);
   const box = selectionBox({ ...scene, nodes: source }, source.map((n) => n.id));
   let dx: number;
   let dy: number;

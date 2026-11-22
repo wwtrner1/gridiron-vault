@@ -74,6 +74,7 @@ test("the field's right-click menu picks a tool, selects all and closes on the s
     "Add to playbook…",
     "Add to a new playbook…",
     "Flip and save as a new play",
+    "Flip sides: defense to the bottom",
     "Field layout…",
     "Fit the field to the screen",
     "Hide the side panels",

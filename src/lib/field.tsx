@@ -29,6 +29,12 @@ type Props = {
   hashes?: HashStyle;
   /** Yard line contrast; defaults to the coach's Field Controls. */
   contrast?: FieldContrast;
+  /**
+   * The play is drawn from the defense's end (`scene.pov === "defense"`): the
+   * offense attacks down the card, so the end zone, goal line and the bounds
+   * the yard lines count out to sit at the bottom.
+   */
+  turned?: boolean;
 };
 
 /** Smallest field lettering worth printing, and the thinnest chalk line, in points. */
@@ -58,15 +64,25 @@ const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 /** Top of the playing field: the goal line on views with an end zone, else the sideline box. */
 const fieldTop = (view: FieldView) => (view === "redzone" || view === "flag" ? GOAL_Y : 14);
 
+/** The playing field's top and bottom edges: the goal line is at the top, or at the bottom when the play is turned. */
+export function fieldBounds(view: FieldView, turned = false): { top: number; bottom: number } {
+  const goal = fieldTop(view);
+  return turned ? { top: 14, bottom: CANVAS_H - goal } : { top: goal, bottom: CANVAS_H - 14 };
+}
+
 export type YardLine = { y: number; yards: number };
 
 /**
  * Yard lines every 5 yards, counted out from the line of scrimmage both ways,
  * so the number on each one is how deep a route goes. Pure, for the field and the tests of it.
+ * `turned` puts the goal line (red zone and flag fields) at the bottom.
  */
-export function yardLines(view: FieldView, losY: number, top = fieldTop(view), bottom = CANVAS_H - 14): YardLine[] {
+export function yardLines(view: FieldView, losY: number, top?: number, bottom?: number, turned = false): YardLine[] {
   const gap = SPACING[view];
   if (!gap) return [];
+  const bounds = fieldBounds(view, turned);
+  top ??= bounds.top;
+  bottom ??= bounds.bottom;
   const out: YardLine[] = [];
   for (let k = 1; losY - k * gap > top + 4; k++) out.unshift({ y: losY - k * gap, yards: k * 5 });
   for (let k = 1; losY + k * gap < bottom - 4; k++) out.push({ y: losY + k * gap, yards: k * 5 });
@@ -85,7 +101,7 @@ function labelled(lines: YardLine[], gap: number, size: number, frame?: Box): Ya
   return [];
 }
 
-export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame, hashes, contrast }: Props) {
+export function FieldBackground({ view, losY, lite = false, yards = false, weight = 1, ptPerUnit, frame, hashes, contrast, turned = false }: Props) {
   const prefs = useFieldPrefs();
   const brand = useBrand();
   const { band: BAND, chalk: CHALK, soft: CHALK_SOFT, numbers: NUMBERS, numbersPrint: NUMBERS_PRINT } = CHALKS[contrast ?? prefs.contrast];
@@ -120,7 +136,8 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
     const right = frame ? frame.x + frame.w : CANVAS_W * 2;
     const all = yards ? yardLines(view === "blank" ? "half" : view, losY, (frame?.y ?? 0) - gap, (frame ? frame.y + frame.h : CANVAS_H) + gap) : [];
     // A tall printed box frames far more field than any route runs; past these depths the lines are only noise.
-    const lines = ptPerUnit ? all.filter((l) => l.yards <= (l.y < losY ? PRINT_YARDS.up : PRINT_YARDS.back)) : all;
+    // Downfield is up the card, or down it when the play is turned.
+    const lines = ptPerUnit ? all.filter((l) => l.yards <= ((turned ? l.y > losY : l.y < losY) ? PRINT_YARDS.up : PRINT_YARDS.back)) : all;
     const edge = numSize * 0.35;
     return (
       <g pointerEvents="none">
@@ -162,8 +179,12 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
   }
 
   const inset = fieldInset(view);
-  const top = fieldTop(view);
-  const lines = yardLines(view, losY, top);
+  const { top, bottom } = fieldBounds(view, turned);
+  const lines = yardLines(view, losY, top, bottom, turned);
+  // The end zone's top edge (14 + 68 tall, so 82 is the goal line) mirrors to the bottom when the play is turned.
+  const endTop = turned ? CANVAS_H - 14 - 68 : 14;
+  const goalY = turned ? CANVAS_H - GOAL_Y : GOAL_Y;
+  const endTextY = turned ? CANVAS_H - 42 : 54;
   const teamEnds = brand.endZones && hasBrand(brand);
   const logo = brand.logoOnField && !ptPerUnit ? brand.logo : null;
   // Hash marks every yard; flag fields have none.
@@ -174,7 +195,7 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
   const ticks: { y: number; five: boolean }[] = [];
   if (showHashes && perYard > 0) {
     for (let k = 0, y = losY; y > top + 2; k++, y = losY - k * perYard) if (k % 5 === 0 || yardTicks) ticks.push({ y, five: k % 5 === 0 });
-    for (let k = 1, y = losY + perYard; y < CANVAS_H - 16; k++, y = losY + k * perYard) if (k % 5 === 0 || yardTicks) ticks.push({ y, five: k % 5 === 0 });
+    for (let k = 1, y = losY + perYard; y < bottom - 2; k++, y = losY + k * perYard) if (k % 5 === 0 || yardTicks) ticks.push({ y, five: k % 5 === 0 });
   }
   // Distances sit just inside the sidelines, or inside the printed frame when it crops them.
   const numLeft = Math.max(inset, frame?.x ?? -Infinity) + 10 + (frame ? 0 : 22);
@@ -185,8 +206,8 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
     for (let y = losY, k = 0; y > top; y -= gap, k++)
       if (k % 2 === 0) bands.push({ y: Math.max(top, y - gap), h: Math.min(gap, y - top) });
   if (gap > 0)
-    for (let y = losY + gap, k = 1; y < CANVAS_H - 14; y += gap, k++)
-      if (k % 2 === 0) bands.push({ y, h: Math.min(gap, CANVAS_H - 14 - y) });
+    for (let y = losY + gap, k = 1; y < bottom; y += gap, k++)
+      if (k % 2 === 0) bands.push({ y, h: Math.min(gap, bottom - y) });
 
   return (
     <g pointerEvents="none">
@@ -212,12 +233,12 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
           {/* End zone shading: team colors and name when the coach has set them */}
           {(view === "redzone" || view === "flag") && (
             <>
-              <rect x={inset} y={14} width={CANVAS_W - inset * 2} height={68} fill={teamEnds ? tint(brand.primary, 0.16) : "#EDF5F9"} />
-              <line x1={inset} x2={CANVAS_W - inset} y1={82} y2={82} stroke={CHALK} strokeWidth={chalk(3)} />
+              <rect x={inset} y={endTop} width={CANVAS_W - inset * 2} height={68} fill={teamEnds ? tint(brand.primary, 0.16) : "#EDF5F9"} />
+              <line x1={inset} x2={CANVAS_W - inset} y1={goalY} y2={goalY} stroke={CHALK} strokeWidth={chalk(3)} />
               {reads(19) && (
                 <text
                   x={CANVAS_W / 2}
-                  y={54}
+                  y={endTextY}
                   textAnchor="middle"
                   fontSize={19}
                   fill={teamEnds ? tint(brand.primary, 0.85) : NUMBERS}
@@ -235,7 +256,7 @@ export function FieldBackground({ view, losY, lite = false, yards = false, weigh
             <image
               href={logo}
               x={CANVAS_W / 2 - LOGO_SIZE / 2}
-              y={(top + CANVAS_H - 14) / 2 - LOGO_SIZE / 2}
+              y={(top + bottom) / 2 - LOGO_SIZE / 2}
               width={LOGO_SIZE}
               height={LOGO_SIZE}
               opacity={0.12}
@@ -310,11 +331,13 @@ const RULE_ZONE = "#D24B3E";
 const RULE_MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
 /** Where the goal line and (on the flag field) midfield sit, for rule lines and the Rules check. Null where the view doesn't show them. */
-export function fieldMarks(view: FieldView): { goal: number | null; midfield: number | null } {
+export function fieldMarks(view: FieldView, turned = false): { goal: number | null; midfield: number | null } {
   const perYard = unitsPerYard(view);
-  if (view === "redzone") return { goal: GOAL_Y, midfield: null };
+  // A turned play has its attacked end zone at the bottom of the card.
+  const at = (y: number) => (turned ? CANVAS_H - y : y);
+  if (view === "redzone") return { goal: at(GOAL_Y), midfield: null };
   // Flag 30×70: 10-yard end zones around a 50-yard field, so midfield is 25 yards out from the goal line.
-  if (view === "flag") return { goal: GOAL_Y, midfield: GOAL_Y + 25 * perYard };
+  if (view === "flag") return { goal: at(GOAL_Y), midfield: at(GOAL_Y + 25 * perYard) };
   return { goal: null, midfield: null };
 }
 
@@ -333,6 +356,7 @@ export function RuleLinesLayer({
   noRun,
   midfield = false,
   scale = 1,
+  turned = false,
 }: {
   view: FieldView;
   losY: number;
@@ -340,33 +364,36 @@ export function RuleLinesLayer({
   noRun: number;
   midfield?: boolean;
   scale?: number;
+  /** The play is drawn from the defense's end: the rush line sits below the ball and the no-run zones count up from the bottom. */
+  turned?: boolean;
 }) {
   const perYard = unitsPerYard(view);
   if (!perYard) return null;
   const inset = fieldInset(view);
   const x1 = inset;
   const x2 = CANVAS_W - inset;
-  const rushY = losY - rush * perYard;
-  const marks = fieldMarks(view);
+  const rushY = turned ? losY + rush * perYard : losY - rush * perYard;
+  const marks = fieldMarks(view, turned);
   const zones = [
     marks.goal !== null ? { from: marks.goal, label: "NO-RUN ZONE" } : null,
     midfield && marks.midfield !== null ? { from: marks.midfield, label: "NO-RUN ZONE · MIDFIELD" } : null,
-  ].filter((z): z is { from: number; label: string } => !!z && noRun > 0 && z.from < CANVAS_H - 14);
+  ].filter((z): z is { from: number; label: string } => !!z && noRun > 0 && (turned ? z.from > 14 : z.from < CANVAS_H - 14));
   return (
     <g pointerEvents="none">
       {zones.map((z) => {
-        const bottom = Math.min(CANVAS_H - 14, z.from + noRun * perYard);
+        // The zone runs from its mark toward the line of scrimmage: down the card, or up it when turned.
+        const far = turned ? Math.max(14, z.from - noRun * perYard) : Math.min(CANVAS_H - 14, z.from + noRun * perYard);
         return (
           <g key={z.label}>
-            <rect x={x1} y={z.from} width={x2 - x1} height={bottom - z.from} fill={RULE_ZONE} fillOpacity={0.1} />
-            <line x1={x1} x2={x2} y1={bottom} y2={bottom} stroke={RULE_ZONE} strokeWidth={1.6 * scale} strokeDasharray="6 5" />
-            <text x={CANVAS_W * 0.3} y={bottom - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_ZONE} fontFamily={RULE_MONO} letterSpacing="1">
+            <rect x={x1} y={Math.min(z.from, far)} width={x2 - x1} height={Math.abs(far - z.from)} fill={RULE_ZONE} fillOpacity={0.1} />
+            <line x1={x1} x2={x2} y1={far} y2={far} stroke={RULE_ZONE} strokeWidth={1.6 * scale} strokeDasharray="6 5" />
+            <text x={CANVAS_W * 0.3} y={turned ? far + 14 * scale : far - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_ZONE} fontFamily={RULE_MONO} letterSpacing="1">
               {z.label} · {noRun} YDS
             </text>
           </g>
         );
       })}
-      {rush > 0 && rushY > 20 && (
+      {rush > 0 && (turned ? rushY < CANVAS_H - 20 : rushY > 20) && (
         <>
           <line x1={x1} x2={x2} y1={rushY} y2={rushY} stroke={RULE_RUSH} strokeWidth={1.8 * scale} strokeDasharray="3 5" />
           <text x={CANVAS_W * 0.7} y={rushY - 5 * scale} stroke="#fff" strokeWidth={3 * scale} paintOrder="stroke" fontSize={11 * scale} fontWeight={700} fill={RULE_RUSH} fontFamily={RULE_MONO} letterSpacing="1" textAnchor="end">
