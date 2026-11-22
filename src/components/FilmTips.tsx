@@ -44,7 +44,7 @@ export function filmTips(coach: boolean): FilmTip[] {
         ]
       : []),
     { target: "[data-fr-tip='steps']", title: "More room for the field", text: "Hide the steps puts this panel away so the field fills the screen. Show the steps brings it back." },
-    { target: "[data-fr-tip='view']", title: "Flat or 3D", text: "Flat draws the play from above, the way it is drawn. 3D puts the players on a real field; pick a camera under the field. Your pick follows you to every device." },
+    { target: "[data-fr-tip='view']", title: "Flat or 3D", text: "Flat draws the play from above, the way it is drawn. 3D puts the players on a real field; pick a camera under the field, from the QB cam to a player's own eyes. Tap a player to ride with him, and drag to look around. Your pick follows you to every device." },
     { target: ".fr-looks", title: "Dark or light", text: "Pick the look that reads best where you teach: a dark room, a bright field or whatever your device is set to." },
     { target: "[data-fr-tip='tips']", title: "Tips, any time", text: "These tips show once. Press Tips to see them again." },
   ];

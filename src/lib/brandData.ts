@@ -1,3 +1,6 @@
+import { cleanCameraPick } from "./film3d";
+import type { CameraPick } from "./film3d";
+
 /**
  * Team branding data: the type, the checks and the color helpers, with no
  * React, so the API function checks a synced brand with the same cleanBrand
@@ -21,6 +24,8 @@ export type TeamBrand = {
   filmTips?: false;
   /** The Film Room view the coach last chose; only "3d" is stored, flat when unset. */
   filmView?: FilmView;
+  /** The 3D camera the coach last chose (which one, from which end, whether it goes with the ball), so 3D opens that way on every device. */
+  filmCam?: CameraPick;
   /** The coach's own color for each offense letter (Q, X, H…), learned from the last recolor in the Designer, so new players come out that way on every device. */
   letterColors?: Record<string, string>;
   /** When the coach last changed it (ISO); the newer copy wins when browsers and the account sync. */
@@ -87,6 +92,7 @@ export function cleanBrand(raw: unknown): TeamBrand {
     ...(filmLook ? { filmLook } : {}),
     ...(r.filmTips === false ? { filmTips: false as const } : {}),
     ...(r.filmView === "3d" ? { filmView: "3d" as const } : {}),
+    ...(cleanCameraPick(r.filmCam) ? { filmCam: cleanCameraPick(r.filmCam) } : {}),
     ...cleanLetters(r.letterColors),
     name: typeof r.name === "string" ? r.name.slice(0, BRAND_NAME_MAX) : d.name,
     logo,

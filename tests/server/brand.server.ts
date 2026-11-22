@@ -80,6 +80,13 @@ test("the Film Room look is kept with the team brand, checked, and private to th
   const odd3 = await call("PUT", "brand", { brand: { ...brand, filmView: "vr", updatedAt: new Date(Date.now() + 5000).toISOString() } });
   assert.equal("filmView" in odd3.data.brand, false);
 
+  // The 3D camera rides on the brand too: a camera we know, an end, and whether it goes with the ball.
+  const cam = await call("PUT", "brand", { brand: { ...brand, filmCam: { camera: "qb", side: "defense", pass: false, extra: 1 }, updatedAt: new Date(Date.now() + 5200).toISOString() } });
+  assert.deepEqual(cam.data.brand.filmCam, { camera: "qb", side: "defense", pass: false });
+  assert.deepEqual((await call("GET", "brand")).data.brand.filmCam, { camera: "qb", side: "defense", pass: false });
+  const oddCam = await call("PUT", "brand", { brand: { ...brand, filmCam: { camera: "drone" }, updatedAt: new Date(Date.now() + 5400).toISOString() } });
+  assert.equal("filmCam" in oddCam.data.brand, false);
+
   // Player look history: each letter's color rides on the brand; bad letters and colors are dropped.
   const letters = await call("PUT", "brand", { brand: { ...brand, letterColors: { X: "#123abc", "Q!": "#000000", Y: "red" }, updatedAt: new Date(Date.now() + 6000).toISOString() } });
   assert.deepEqual(letters.data.brand.letterColors, { X: "#123ABC" });
