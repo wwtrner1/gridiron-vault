@@ -36,7 +36,7 @@ const OURS = "Griddy is offline while we fix a problem on our side. Your plays a
  */
 const PREVIEW = "Griddy doesn't answer on test previews. Open gridiron-vault.com to talk to him; your plays are fine.";
 let previewDeploy = false;
-/** Set from the request's host once per call, like the phone check's `noteHost`. */
+/** Set from the request's host once per call (`noteAiHost`). */
 export const noteAiHost = (host: string) => {
   previewDeploy = /^deploy-preview-\d+--/.test(host);
 };

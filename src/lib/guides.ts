@@ -126,7 +126,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Flat · 3D on the field",
-            text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick (Behind the offense, Sideline, Overhead). Switch back to Flat to draw.",
+            text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick: behind the offense, wide, All 22, the QB cam, follow a player, a player's eyes, sideline, the press box, overhead or free look, from either end. Tap a player to ride with him. Switch back to Flat to draw.",
             target: tour("dz-view"),
           },
           {
@@ -182,7 +182,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Teach: Film Room",
-            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Flat draws the play from above; 3D puts the players on a real field, with a Camera to follow the lesson or hold behind the offense, on the sideline or overhead (your pick follows you to every device; videos stay flat). Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Make a video saves the lesson as an MP4, wide or tall, made in your browser. Record this step adds your own voice (up to 45 seconds; sign in first), and Read it for me has the Film Room voice read it instead. Tips walk you round the controls the first time.",
+            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Flat draws the play from above; 3D puts the players on a real field, with a Camera to follow the lesson or hold one spot: behind the offense, wide, All 22, the QB cam with its snap-to-pass clock, follow a player, a player's eyes (tap any player to ride in his helmet, drag to turn his head), sideline, the press box, overhead, a camera for each moment of the play, or free look. From picks the offense's or the defense's end, and Follow the ball swings the camera to the throw (your picks follow you to every device; videos stay flat). Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Make a video saves the lesson as an MP4, wide or tall, made in your browser. Record this step adds your own voice (up to 45 seconds; sign in first), and Read it for me has the Film Room voice read it instead. Tips walk you round the controls the first time.",
             target: tour("dz-film-room"),
             open: [TEACH],
             close: TEACH,

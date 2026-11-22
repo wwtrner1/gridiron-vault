@@ -2,54 +2,19 @@ import { expect, test } from "@playwright/test";
 import { quiet, signIn } from "./helpers";
 
 /**
- * Two Account page cards: "GridIronVault on your phone" (the browser's
+ * The Account page's "GridIronVault on your phone" card: the browser's
  * install prompt when it offers one, the Safari steps on an iPhone, the
- * installed app, else the manual words) and "Phone and devices" (the masked
- * number, the device count, Sign out other devices with a refusal in the
- * server's words; hidden while phone codes are off).
+ * installed app, else the manual words. And what is no longer there: a
+ * signed-in coach is never asked for a mobile number or a texted code, and
+ * the page has no "Phone and devices" card (sign-in phone codes were taken
+ * out on 2026-11-22).
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
-const SEC = { required: true, verified: true, trusted: true, phone: "+1 ••• ••• 4321", devices: 3 };
-
-test("the install card follows the browser's install prompt, and Sign out other devices asks the account", async ({ page, context }) => {
-  const posts: string[] = [];
-  let refuse = true;
-  let devices = SEC.devices;
-  await signIn(context, async (route, path, method) => {
-    if (path === "me") {
-      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta", security: { ...SEC, devices } } });
-      return true;
-    }
-    if (path === "phone/forget-others" && method === "POST") {
-      posts.push(path);
-      if (refuse) {
-        await route.fulfill({ status: 503, json: { error: "Texting codes is down on our side. Try again in a few minutes." } });
-      } else {
-        devices = 1;
-        await route.fulfill({ json: { security: { ...SEC, devices } } });
-      }
-      return true;
-    }
-  });
+test("the install card follows the browser's install prompt", async ({ page, context }) => {
+  await signIn(context, () => {});
   await page.goto("/account");
   await expect(page.locator("h1")).toHaveText("Your account");
-
-  // Phone and devices: the masked number and the count; a refusal keeps the card as it was; then the real thing.
-  const devicesCard = page.locator("section.card", { has: page.getByRole("heading", { name: "Phone and devices" }) });
-  await expect(devicesCard).toContainText("Codes go to +1 ••• ••• 4321. 3 of 5 devices confirmed.");
-  const forget = devicesCard.getByRole("button", { name: "Sign out other devices" });
-  await expect(forget).toBeEnabled();
-  await forget.click();
-  await expect(page.locator(".toast.is-bad", { hasText: "Texting codes is down on our side. Try again in a few minutes." })).toBeVisible();
-  await expect(devicesCard).toContainText("3 of 5 devices confirmed.");
-  await expect(forget).toBeEnabled();
-  refuse = false;
-  await forget.click();
-  await expect(page.locator(".toast", { hasText: "Every other device is signed out. They'll need a code to get back in." })).toBeVisible();
-  await expect(devicesCard).toContainText("1 of 5 devices confirmed.");
-  await expect(forget).toBeDisabled();
-  expect(posts).toEqual(["phone/forget-others", "phone/forget-others"]);
 
   // GridIronVault on your phone: the manual words in a plain browser, the install button once the browser offers a prompt.
   const install = page.locator("section.card", { has: page.getByRole("heading", { name: "GridIronVault on your phone" }) });
@@ -73,12 +38,37 @@ test("the install card follows the browser's install prompt, and Sign out other 
   await expect(install).toContainText("On a phone or tablet");
 });
 
-test("the devices card stays hidden while phone codes are off", async ({ page, context }) => {
-  await signIn(context, () => {});
+test("a signed-in coach is never asked for a phone number or a code, whatever the account answers", async ({ page, context }) => {
+  // An answer shaped like the old phone check's ("add a number", then "confirm this device"): the app has no gate to open.
+  const posts: string[] = [];
+  let meCalls = 0;
+  let security = { required: true, verified: false, trusted: false, phone: null as string | null, devices: 0 };
+  await signIn(context, async (route, path, method) => {
+    if (path === "me") {
+      meCalls += 1;
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta", security } });
+      return true;
+    }
+    if (path.startsWith("phone/") && method === "POST") posts.push(path);
+  });
   await page.goto("/account");
   await expect(page.locator("h1")).toHaveText("Your account");
   await expect(page.getByRole("heading", { name: "GridIronVault on your phone" })).toBeVisible();
+  // The old gate opened only after the account answered, so wait for that answer before asserting that nothing opened.
+  await expect.poll(() => meCalls).toBeGreaterThan(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("Add your mobile number")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Phone and devices" })).toHaveCount(0);
+
+  security = { required: true, verified: true, trusted: false, phone: "•••• 4321", devices: 1 };
+  const before = meCalls;
+  await page.goto("/vault");
+  await expect(page.locator("h1")).toBeVisible();
+  await expect.poll(() => meCalls).toBeGreaterThan(before);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("Confirm this device")).toHaveCount(0);
+  await expect(page.getByLabel("Mobile number")).toHaveCount(0);
+  expect(posts).toEqual([]);
 });
 
 test.describe("on an iPhone", () => {

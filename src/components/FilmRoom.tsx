@@ -4,9 +4,9 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
-import { FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
-import { useFilmView, useLook, useMedia } from "../lib/filmView";
-import type { FilmCamera } from "../lib/film3d";
+import { CameraControls } from "./CameraControls";
+import { FILM_CAMERAS } from "../lib/film3d";
+import { cameraPlayers, useFilmCamera, useFilmView, useLook, useMedia } from "../lib/filmView";
 import { FilmTips, filmTips, filmTipsSeen, markFilmTipsSeen } from "./FilmTips";
 import { repText } from "../lib/breakdown";
 import type { FilmRep } from "../lib/breakdown";
@@ -73,7 +73,8 @@ export function FilmRoom({
   // Flat or 3D: a coach's pick is kept with the team brand on the account, so it follows him to every device;
   // a player's pick on a team link lasts the visit. Flat stays the default.
   const { in3d, noGl, pickView, fail } = useFilmView(coach);
-  const [camera, setCamera] = useState<FilmCamera>("auto");
+  // The 3D camera is kept the same way (which one, from which end, whether it goes with the ball).
+  const cam = useFilmCamera(coach);
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
@@ -285,7 +286,11 @@ export function FilmRoom({
                       dark={dark}
                       logo={teamOn ? (brand.logo ?? undefined) : undefined}
                       team={teamOn ? { primary: brand.primary, secondary: brand.secondary } : undefined}
-                      camera={camera}
+                      camera={cam.pick.camera}
+                      side={cam.pick.side}
+                      pass={cam.pick.pass}
+                      follow={cam.follow}
+                      onPick={cam.tap}
                       light={big}
                       label={label}
                       onFail={fail}
@@ -342,18 +347,7 @@ export function FilmRoom({
                 </select>
               </label>
               )}
-              {in3d && (
-                <label className="fr-against" data-fr-tip="camera">
-                  <span>Camera</span>
-                  <select value={camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
-                    {FILM_CAMERAS.map((c) => (
-                      <option key={c} value={c}>
-                        {FILM_CAMERA_NAME[c]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              {in3d && <CameraControls cam={cam} cameras={FILM_CAMERAS} players={cameraPlayers(scene, lesson)} className="fr-against" tip="camera" />}
               {spoken && (
                 <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="sound" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
                   {sound ? "Voice on" : "Voice off"}

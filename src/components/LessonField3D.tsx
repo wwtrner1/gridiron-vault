@@ -4,16 +4,19 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { luminance } from "../lib/brandData";
-import { STATUS_COLOR } from "../lib/coverage";
-import { fieldInset, unitsPerYard, yardLines } from "../lib/field";
+import { STATUS_COLOR, yardScale } from "../lib/coverage";
+import { fieldMarks } from "../lib/field";
+import { turnsByHand } from "../lib/film3d";
+import type { CameraSide, FilmCamera, FixedCamera } from "../lib/film3d";
+import { EYE_LIMITS, ORBIT_LIMITS, ORBIT_START, momentOf, resolveCamera, shotFor } from "../lib/filmCameras";
+import type { Box, Followed, Shot } from "../lib/filmCameras";
 import { pathData, toWorld } from "../lib/geometry";
 import { pointAt } from "../lib/motion";
 import { linesFor } from "../lib/teach";
-import type { Lesson, StepId, TeachStep } from "../lib/teach";
-import { CANVAS_H, CANVAS_W, FIRST_READ } from "../lib/types";
+import type { Lesson, TeachStep } from "../lib/teach";
+import { CANVAS_W, FIRST_READ } from "../lib/types";
 import type { PathNode, PlayerNode, Point, Scene } from "../lib/types";
 import { LESSON_FPS, lessonInk } from "./LessonField";
-import type { FilmCamera } from "../lib/film3d";
 
 /*
  * The Film Room in 3D (2026-11-20, Wes: cleared by the attorney's patent review).
@@ -27,6 +30,10 @@ const FPS = LESSON_FPS;
 const BALL_FLIGHT = 0.5;
 /** Meters to yards: the athlete is modelled in meters, the field is laid out in yards. */
 const YD = 1 / 0.9144;
+/** Players are drawn a little over life size, so a letter and a stance read from the end-zone cameras. */
+const TALL = 1.3;
+/** How deep an end zone is drawn, in yards. */
+const END_ZONE = 10;
 const NAVY = "#0B1524";
 const CYAN = "#16C8E8";
 const GOLD = "#F2B705";
@@ -70,6 +77,14 @@ type Props = {
   /** Team colors for the offense; GridIronVault navy and cyan when left out. */
   team?: { primary: string; secondary: string };
   camera: FilmCamera;
+  /** Which end the end-zone and sideline cameras stand at; the offense's when left out. */
+  side?: CameraSide;
+  /** Swing to the ball once it is thrown (QB cam, Follow a player); on when left out. */
+  pass?: boolean;
+  /** The player Follow a player and Player's eyes ride with: an offense player's id, or `d0`, `d1`… for a defender. */
+  follow?: string;
+  /** A tap on a player in the picture. */
+  onPick?: (id: string) => void;
   /** Smaller screens: fewer pixels, no shadows. */
   light?: boolean;
   /** Draw the throw and the catch on any step, not only The read (the Designer's Preview runs the whole play as one). */
@@ -79,13 +94,20 @@ type Props = {
   onFail?: (why: "webgl") => void;
 };
 
-/** Canvas units to the field in yards. The x axis is mirrored so the view from behind the offense matches the flat field. */
-type Map3 = { upy: number; X: (x: number) => number; Z: (y: number) => number; halfW: number };
+/**
+ * Canvas units to the field in yards. A drawing's yard is a different length
+ * across the field than up it (the Coverage check's `yardScale`), so each way
+ * has its own scale and the 3D field comes out its real width. The x axis is
+ * mirrored so the view from behind the offense matches the flat field.
+ */
+type Map3 = { ux: number; uz: number; X: (x: number) => number; Z: (y: number) => number; halfW: number; flag: boolean; goalZ: number | null };
 function mapFor(scene: Scene): Map3 {
   const view = scene.view === "blank" ? "half" : scene.view;
-  const upy = unitsPerYard(view) || 14.4;
-  const inset = fieldInset(view);
-  return { upy, X: (x) => -(x - CANVAS_W / 2) / upy, Z: (y) => (scene.losY - y) / upy, halfW: (CANVAS_W / 2 - inset) / upy };
+  const k = yardScale(view);
+  const ux = k.x || 18.2;
+  const uz = k.y || 14.4;
+  const goal = fieldMarks(view).goal;
+  return { ux, uz, X: (x) => -(x - CANVAS_W / 2) / ux, Z: (y) => (scene.losY - y) / uz, halfW: view === "flag" ? 15 : 80 / 3, flag: view === "flag", goalZ: goal == null ? null : (scene.losY - goal) / uz };
 }
 
 /** A route's drawn line as world points, read off the same path data the flat field draws. */
@@ -255,13 +277,13 @@ function makeBody(model: GLTF | null, kit: Kit, frame: number): Body {
   if (!model) {
     const m = new THREE.MeshStandardMaterial({ color: kit.jersey, roughness: 0.6 });
     mats.push(m);
-    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.9, 20), m);
-    puck.position.y = 0.95;
+    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.55 * TALL, 0.55 * TALL, 1.9 * TALL, 20), m);
+    puck.position.y = 0.95 * TALL;
     root.add(puck);
     return { root, sample: () => undefined, clip: () => 1, mats, dim: (a) => ((m.transparent = a < 1), (m.opacity = a)) };
   }
   const m = cloneSkinned(model.scene) as THREE.Object3D;
-  m.scale.set(YD * frame, YD, YD * frame);
+  m.scale.set(YD * TALL * frame, YD * TALL, YD * TALL * frame);
   root.add(m);
   const byName = new Map<string, THREE.MeshStandardMaterial[]>();
   m.traverse((o) => {
@@ -344,38 +366,10 @@ type Mover = {
   letter: string;
   zone: boolean;
   start: THREE.Vector2;
+  /** Where he is and the way he faces at the moment on screen. */
+  at: THREE.Vector2;
+  face: number;
 };
-
-/** Where the play happens on the field, in yards: every player from the snap to the end. */
-type Bounds = { x0: number; x1: number; z0: number; z1: number };
-
-/**
- * The camera spot and the point it looks at, far enough back that the whole play
- * fits the screen at its shape (a tall phone pulls the camera back).
- */
-function cameraFor(kind: FilmCamera, stepId: StepId, focus: THREE.Vector2 | null, b: Bounds, aspect: number, fov: number): [THREE.Vector3, THREE.Vector3] {
-  const tanV = Math.tan(THREE.MathUtils.degToRad(fov / 2));
-  const tanH = tanV * aspect;
-  const cx = (b.x0 + b.x1) / 2;
-  const cz = (b.z0 + b.z1) / 2;
-  const across = (b.x1 - b.x0) / 2 + 5;
-  const deep = (b.z1 - b.z0) / 2 + 4;
-  /** Looking at a point from an angle above the grass, back far enough to fit `wide` across and `long` up the field. */
-  const from = (at: THREE.Vector3, elev: number, wide: number, long: number, dir: THREE.Vector2 = new THREE.Vector2(0, -1)) => {
-    const e = THREE.MathUtils.degToRad(elev);
-    const d = Math.max(10, wide / tanH, (long * Math.sin(e)) / tanV + long * Math.cos(e) * 0.35);
-    return [new THREE.Vector3(at.x + dir.x * Math.cos(e) * d, Math.sin(e) * d, at.z + dir.y * Math.cos(e) * d), at] as [THREE.Vector3, THREE.Vector3];
-  };
-  const mid = new THREE.Vector3(cx, 0, cz);
-  if (kind === "sideline") return from(new THREE.Vector3(cx, 0, cz), 34, deep, across, new THREE.Vector2(-1, 0));
-  if (kind === "overhead") return from(mid, 82, across, deep);
-  if (kind === "auto") {
-    if (stepId === "look" || stepId === "zones") return from(mid, 52, across, deep);
-    if (stepId === "job" && focus) return from(new THREE.Vector3(focus.x, 0, focus.y + 3), 42, 14, 14);
-  }
-  // Behind the offense: the quarterback's side of the ball, looking downfield.
-  return from(new THREE.Vector3(cx, 0, cz + 1), 34, across, deep);
-}
 
 class Stage {
   readonly renderer: THREE.WebGLRenderer;
@@ -391,7 +385,14 @@ class Stage {
   private sun = new THREE.DirectionalLight("#fff3dc", 2.2);
   private camPos = new THREE.Vector3(0, 10, -14);
   private camLook = new THREE.Vector3(0, 0, 9);
-  private camGoal: [THREE.Vector3, THREE.Vector3] = [this.camPos.clone(), this.camLook.clone()];
+  private camUp = new THREE.Vector3(0, 1, 0);
+  private goal = { pos: this.camPos.clone(), look: this.camLook.clone(), up: this.camUp.clone(), fov: 50 };
+  /** The camera on screen now, so a change of camera can cut instead of flying through the players. */
+  shot: FixedCamera = "behind";
+  private rode = "";
+  private orbit = { ...ORBIT_START };
+  private eye = { yaw: 0, pitch: 0 };
+  private soft = false;
   private raf = 0;
   private last = 0;
   private still: boolean;
@@ -401,7 +402,8 @@ class Stage {
   props: Props | null = null;
   inkKey = "";
   marksKey = "";
-  bounds: Bounds = { x0: -10, x1: 10, z0: -6, z1: 18 };
+  play: Box = { x0: -10, x1: 10, z0: -6, z1: 18 };
+  snap: Box = { x0: -10, x1: 10, z0: -6, z1: 12 };
 
   constructor(
     readonly canvas: HTMLCanvasElement,
@@ -411,6 +413,7 @@ class Stage {
     // A browser drawing WebGL without a graphics card (software rendering) gets the cheap picture: no shadows, one pixel a pixel.
     const soft = software(this.renderer);
     if (soft) light = true;
+    this.soft = soft;
     canvas.dataset.quality = soft ? "software" : light ? "light" : "full";
     this.renderer.setPixelRatio(soft ? 1 : Math.min(window.devicePixelRatio || 1, light ? 1.5 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -447,7 +450,7 @@ class Stage {
   /** Dark is a night game under the lights; light is a day game. The field and sky follow. */
   private lights(dark: boolean) {
     this.world.background = new THREE.Color(dark ? "#08111d" : "#cfe2f1");
-    this.world.fog = new THREE.Fog(dark ? "#08111d" : "#cfe2f1", 70, 190);
+    this.world.fog = new THREE.Fog(dark ? "#08111d" : "#cfe2f1", 110, 320);
     this.hemi.color.set(dark ? "#b9d3f5" : "#e6f2ff");
     this.hemi.groundColor.set(dark ? "#16301c" : "#2b4a2a");
     this.hemi.intensity = dark ? 0.85 : 1.1;
@@ -458,95 +461,175 @@ class Stage {
     this.renderer.toneMappingExposure = dark ? 1.08 : 1.0;
   }
 
-  /** Paints the field in canvas units, then lays it on the grass with matching corners. */
-  private field(scene: Scene, m: Map3, dark: boolean, logo?: string) {
-    const view = scene.view === "blank" ? "half" : scene.view;
-    const inset = fieldInset(view);
-    const S = 2;
+  /**
+   * Paints the field in yards and lays it on the grass: wider and longer than
+   * the drawing, so no camera ever looks off the end of it. Yard lines run every
+   * five yards out from the line of scrimmage and the numbers are yards from it,
+   * as on the flat field.
+   */
+  private field(scene: Scene, m: Map3, dark: boolean, logo?: string, team?: { primary: string; secondary: string }) {
+    const P = this.soft ? 14 : 22;
+    const apron = 10;
+    const half = m.halfW;
+    // The field of play: to the goal line where the drawing has one, else well past the deepest route.
+    const far = m.goalZ ?? 75;
+    const near = m.flag && m.goalZ != null ? m.goalZ - 50 : -40;
+    const front = far + (m.goalZ != null ? END_ZONE : 0) + 6;
+    const back = near - (m.flag ? END_ZONE : 0) - 6;
     const c = document.createElement("canvas");
-    c.width = CANVAS_W * S;
-    c.height = CANVAS_H * S;
+    c.width = Math.round((half + apron) * 2 * P);
+    c.height = Math.round((front - back) * P);
     const g = c.getContext("2d")!;
-    g.scale(S, S);
-    const grass = dark ? ["#1d5a2c", "#1a5228"] : ["#3f8a3a", "#3a8035"];
+    const px = (x: number) => (half + apron - x) * P;
+    const py = (z: number) => (front - z) * P;
+    const band = (z0: number, z1: number, fill: string) => {
+      g.fillStyle = fill;
+      g.fillRect(px(half), py(z1), half * 2 * P, (z1 - z0) * P);
+    };
     g.fillStyle = dark ? "#123a1d" : "#2f6d2c";
-    g.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    const lines = yardLines(scene.view, scene.losY);
-    // Mowing stripes every five yards, out from the line of scrimmage.
-    const five = m.upy * 5;
-    for (let y = scene.losY, k = 0; y > -five; y -= five, k++) {
-      g.fillStyle = grass[k % 2];
-      g.fillRect(inset, y - five, CANVAS_W - inset * 2, five);
+    g.fillRect(0, 0, c.width, c.height);
+    const grass = dark ? ["#1d5a2c", "#1a5228"] : ["#3f8a3a", "#3a8035"];
+    for (let z = Math.floor(near / 5) * 5; z < far; z += 5) band(Math.max(near, z), Math.min(far, z + 5), grass[Math.abs(Math.round(z / 5)) % 2]);
+    const zoneFill = team?.primary ?? NAVY;
+    const zoneInk = lum(zoneFill) > 0.5 ? NAVY : "#ffffff";
+    const ends: [number, number][] = [];
+    if (m.goalZ != null) ends.push([far, far + END_ZONE]);
+    if (m.flag) ends.push([near - END_ZONE, near]);
+    for (const [z0, z1] of ends) {
+      band(z0, z1, zoneFill);
+      g.fillStyle = zoneInk;
+      g.globalAlpha = 0.16;
+      for (let x = -half; x < half; x += 2.4) g.fillRect(px(x + 1.2), py(z1), 1.2 * P, (z1 - z0) * P);
+      g.globalAlpha = 1;
     }
-    for (let y = scene.losY, k = 1; y < CANVAS_H + five; y += five, k++) {
-      g.fillStyle = grass[k % 2];
-      g.fillRect(inset, y, CANVAS_W - inset * 2, five);
-    }
-    g.strokeStyle = "rgba(255,255,255,.92)";
-    g.lineWidth = 2.4;
-    g.beginPath();
-    g.moveTo(inset, 0);
-    g.lineTo(inset, CANVAS_H);
-    g.moveTo(CANVAS_W - inset, 0);
-    g.lineTo(CANVAS_W - inset, CANVAS_H);
-    g.stroke();
-    g.lineWidth = 1.6;
-    g.fillStyle = "rgba(255,255,255,.85)";
-    g.font = `700 ${Math.round(m.upy * 2.2)}px ${FONT}`;
+    const white = "rgba(255,255,255,.92)";
+    const line = (z: number, w: number, color = white) => {
+      g.fillStyle = color;
+      g.fillRect(px(half), py(z) - (w * P) / 2, half * 2 * P, w * P);
+    };
     g.textAlign = "center";
     g.textBaseline = "middle";
-    for (const l of lines) {
-      g.strokeStyle = "rgba(255,255,255,.75)";
-      g.beginPath();
-      g.moveTo(inset, l.y);
-      g.lineTo(CANVAS_W - inset, l.y);
-      g.stroke();
-      if (l.yards % 10 === 0 && l.y < scene.losY) {
-        // Numbers read from behind the offense, the way the camera sees the field.
-        for (const x of [inset + m.upy * 4, CANVAS_W - inset - m.upy * 4]) {
-          g.fillText(String(l.yards), x, l.y - m.upy * 1.4);
-        }
+    const tall = m.flag ? 1.9 : 2.7;
+    g.font = `700 ${Math.round(tall * P)}px ${FONT}`;
+    for (let z = Math.ceil(near / 5) * 5; z <= far; z += 5) {
+      if (z === 0) continue;
+      if (z > near + 0.5 && z < far - 0.5) line(z, 0.13, "rgba(255,255,255,.78)");
+      if (z > 0 && z % 10 === 0 && z < far - 3) {
+        g.fillStyle = "rgba(255,255,255,.88)";
+        // Numbers read from behind the offense, the way the first camera sees the field.
+        for (const x of [half - (m.flag ? 3 : 6.5), -(half - (m.flag ? 3 : 6.5))]) g.fillText(String(z), px(x), py(z + tall * 0.75));
       }
     }
-    g.strokeStyle = "#3FD3EE";
-    g.lineWidth = 4;
-    g.beginPath();
-    g.moveTo(inset, scene.losY);
-    g.lineTo(CANVAS_W - inset, scene.losY);
-    g.stroke();
+    if (!m.flag) {
+      g.fillStyle = "rgba(255,255,255,.7)";
+      // Yard ticks at the sidelines and the hash marks.
+      for (let z = Math.ceil(near); z <= far; z++) {
+        if (z % 5 === 0) continue;
+        for (const x of [half - 0.35, -(half - 1.05), half / 3 + 0.35, -half / 3 + 0.35]) g.fillRect(px(x), py(z) - 0.05 * P, 0.7 * P, 0.1 * P);
+      }
+    }
+    line(near, 0.26);
+    line(far, 0.26);
+    // Sidelines and the end lines, as one border.
+    const z0 = m.flag ? near - END_ZONE : near;
+    const z1 = m.goalZ != null ? far + END_ZONE : far;
+    g.strokeStyle = white;
+    g.lineWidth = 0.42 * P;
+    g.strokeRect(px(half), py(z1), half * 2 * P, (z1 - z0) * P);
+    line(0, 0.3, "#3FD3EE");
     const tex = canvasTexture(c);
     const geo = new THREE.BufferGeometry();
-    const corners: [number, number][] = [
-      [0, 0],
-      [CANVAS_W, 0],
-      [0, CANVAS_H],
-      [CANVAS_W, CANVAS_H],
-    ];
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(corners.flatMap(([x, y]) => [m.X(x), 0, m.Z(y)]), 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(corners.flatMap(([x, y]) => [x / CANVAS_W, 1 - y / CANVAS_H]), 2));
+    const w = half + apron;
+    geo.setAttribute("position", new THREE.Float32BufferAttribute([w, 0, front, -w, 0, front, w, 0, back, -w, 0, back], 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
     geo.setAttribute("normal", new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
     geo.setIndex([0, 2, 1, 1, 2, 3]);
-    const turf = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+    const turf = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }));
     turf.receiveShadow = true;
     this.fixed.add(turf);
-    const around = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ color: dark ? "#0d2414" : "#2a5a28", roughness: 1 }));
+    const around = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshStandardMaterial({ color: dark ? "#0d2414" : "#2a5a28", roughness: 1 }));
     around.rotation.x = -Math.PI / 2;
-    around.position.y = -0.02;
+    around.position.y = -0.4;
     around.receiveShadow = true;
     this.fixed.add(around);
+    this.stadium(m, dark, back, front, team);
     if (logo) {
       const img = new Image();
       img.onload = () => {
-        const s = 140 / m.upy;
+        const s = m.flag ? 6 : 9;
         const mat = new THREE.MeshBasicMaterial({ map: canvasTexture(this.logoCanvas(img)), transparent: true, opacity: 0.28, depthWrite: false });
         const plate = new THREE.Mesh(new THREE.PlaneGeometry(s, s), mat);
         plate.rotation.x = -Math.PI / 2;
         plate.rotation.z = Math.PI;
-        plate.position.set(0, 0.01, m.Z(Math.max(20, scene.losY - 330) + 70));
+        plate.position.set(0, 0.01, Math.min(18, far - s));
         this.fixed.add(plate);
         this.kick(true);
       };
       img.src = logo;
+    }
+  }
+
+  /** The ground a camera sees past the field: stands down both sides and behind both ends, and goal posts where the drawing has a goal line. */
+  private stadium(m: Map3, dark: boolean, back: number, front: number, team?: { primary: string; secondary: string }) {
+    const crowd = document.createElement("canvas");
+    crowd.width = 256;
+    crowd.height = 64;
+    const g = crowd.getContext("2d")!;
+    g.fillStyle = dark ? "#0f1b2d" : "#6c7b8c";
+    g.fillRect(0, 0, 256, 64);
+    const dots = [team?.primary ?? CYAN, team?.secondary ?? "#ffffff", "#d9e2ec", dark ? "#26384f" : "#93a2b3", dark ? "#1a2a40" : "#7f8fa1"];
+    // The same crowd every time (no random numbers), so two pictures of one play match.
+    for (let i = 0, n = 7; i < 900; i++) {
+      n = (n * 16807) % 2147483647;
+      g.fillStyle = dots[n % dots.length];
+      g.globalAlpha = dark ? 0.5 : 0.75;
+      g.fillRect(n % 256, (n >> 9) % 64, 3, 4);
+    }
+    const tex = canvasTexture(crowd);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    const stand = (len: number, tiers: number) => {
+      const group = new THREE.Group();
+      for (let i = 0; i < tiers; i++) {
+        const h = 4 + i * 3.6;
+        const t = tex.clone();
+        t.needsUpdate = true;
+        t.repeat.set(len / 30, 1);
+        const box = new THREE.Mesh(new THREE.BoxGeometry(len, h, 7), new THREE.MeshStandardMaterial({ map: t, roughness: 1 }));
+        box.position.set(0, h / 2, i * 7);
+        group.add(box);
+      }
+      return group;
+    };
+    const long = front - back + 50;
+    const midZ = (front + back) / 2;
+    for (const sgn of [1, -1]) {
+      const side = stand(long, this.soft ? 2 : 4);
+      side.rotation.y = (-sgn * Math.PI) / 2;
+      side.position.set(-sgn * (m.halfW + 22), 0, midZ);
+      this.fixed.add(side);
+    }
+    const wide = (m.halfW + 22) * 2 + 20;
+    const farEnd = stand(wide, this.soft ? 2 : 3);
+    farEnd.position.set(0, 0, front + 16);
+    const nearEnd = stand(wide, this.soft ? 2 : 3);
+    nearEnd.rotation.y = Math.PI;
+    nearEnd.position.set(0, 0, back - 16);
+    this.fixed.add(farEnd, nearEnd);
+    if (m.goalZ != null && !m.flag) {
+      const mat = new THREE.MeshStandardMaterial({ color: "#F4C430", roughness: 0.5 });
+      const post = new THREE.Group();
+      const bar = (len: number, x: number, y: number, flat: boolean) => {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, len, 10), mat);
+        if (flat) c.rotation.z = Math.PI / 2;
+        c.position.set(x, y, 0);
+        post.add(c);
+      };
+      bar(3.33, 0, 1.67, false);
+      bar(6.17, 0, 3.33, true);
+      bar(8, 3.08, 7.33, false);
+      bar(8, -3.08, 7.33, false);
+      post.position.set(0, 0, m.goalZ + END_ZONE);
+      this.fixed.add(post);
     }
   }
 
@@ -581,7 +664,7 @@ class Stage {
     this.props = p;
     const m = (this.map = mapFor(p.scene));
     this.lights(p.dark);
-    this.field(p.scene, m, p.dark, p.logo);
+    this.field(p.scene, m, p.dark, p.logo, p.team);
 
     const { result, motion } = p.lesson;
     const primary = p.team?.primary ?? NAVY;
@@ -599,17 +682,14 @@ class Stage {
       this.add({ id: `d${di}`, letter: d.label, side: "defense", zone: d.job === "zone", track: motion.defense[di] ?? [], kit, frame: d.lineman ? 1.2 : 0.95, fill: p.dark ? "#2A1717" : "#ffffff", start: d.start });
     });
 
-    const bx: number[] = [];
-    const bz: number[] = [];
-    for (const mv of this.movers) {
-      bx.push(mv.start.x);
-      bz.push(mv.start.y);
-      for (let i = 0; i < mv.track.length; i += 6) {
-        bx.push(m.X(mv.track[i].x));
-        bz.push(m.Z(mv.track[i].y));
-      }
+    const box = (pts: THREE.Vector2[]): Box => ({ x0: Math.min(...pts.map((q) => q.x)), x1: Math.max(...pts.map((q) => q.x)), z0: Math.min(...pts.map((q) => q.y)), z1: Math.max(...pts.map((q) => q.y)) });
+    const starts = this.movers.map((mv) => mv.start);
+    const all = [...starts];
+    for (const mv of this.movers) for (let i = 0; i < mv.track.length; i += 6) all.push(new THREE.Vector2(m.X(mv.track[i].x), m.Z(mv.track[i].y)));
+    if (starts.length) {
+      this.snap = box(starts);
+      this.play = box(all);
     }
-    if (bx.length) this.bounds = { x0: Math.min(...bx), x1: Math.max(...bx), z0: Math.min(...bz), z1: Math.max(...bz) };
 
     // Zones: the flat field's ellipses, laid on the grass, cyan underneath and gold deep.
     result.defenders.forEach((d, di) => {
@@ -618,8 +698,8 @@ class Stage {
       const color = deep ? "#FFD23F" : "#3FD3EE";
       const cx = m.X(d.landmark.x);
       const cz = m.Z(d.landmark.y);
-      const rx = d.reach.rx / 1.15 / m.upy;
-      const rz = d.reach.ry / 2.4 / m.upy;
+      const rx = d.reach.rx / 1.15 / m.ux;
+      const rz = d.reach.ry / 2.4 / m.uz;
       const zone = new THREE.Group();
       zone.userData.zone = true;
       const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false }));
@@ -632,6 +712,7 @@ class Stage {
       for (const part of dashes(edge, 1.1, 0.7)) ring.add(new THREE.Mesh(strip(part, 0.22, 0.04), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide })));
       const label = tag((p.lesson.jobs[di]?.job ?? "").toUpperCase(), deep ? "rgba(255,210,63,.92)" : "rgba(63,211,238,.92)", NAVY);
       label.position.set(cx, 1.4, cz);
+      label.userData.size = [label.scale.x, label.scale.y];
       label.userData.tag = true;
       zone.add(disc, ring, label);
       this.zones.add(zone);
@@ -648,9 +729,11 @@ class Stage {
     const ink = o.side === "defense" ? (dark ? "#FF8A7A" : "#9E3428") : lum(o.fill) > 0.55 ? NAVY : "#ffffff";
     const c = chip(o.letter, o.fill, ink, o.side === "defense" ? "#9E3428" : "#ffffff");
     c.scale.set(1.05, 1.05, 1);
+    c.userData.size = [1.05, 1.05];
     const run = [0];
-    for (let i = 1; i < o.track.length; i++) run.push(run[i - 1] + Math.hypot(o.track[i].x - o.track[i - 1].x, o.track[i].y - o.track[i - 1].y) / m.upy);
-    const mover: Mover = { id: o.id, body, chip: c, ring: null, track: o.track, run, side: o.side, letter: o.letter.toUpperCase(), zone: o.zone, start: new THREE.Vector2(m.X(o.start.x), m.Z(o.start.y)) };
+    for (let i = 1; i < o.track.length; i++) run.push(run[i - 1] + Math.hypot((o.track[i].x - o.track[i - 1].x) / m.ux, (o.track[i].y - o.track[i - 1].y) / m.uz));
+    const start = new THREE.Vector2(m.X(o.start.x), m.Z(o.start.y));
+    const mover: Mover = { id: o.id, body, chip: c, ring: null, track: o.track, run, side: o.side, letter: o.letter.toUpperCase(), zone: o.zone, start, at: start.clone(), face: o.side === "offense" ? 0 : Math.PI };
     this.world.add(body.root, c);
     this.movers.push(mover);
   }
@@ -674,7 +757,7 @@ class Stage {
       let color = first ? FIRST_READ : n.stroke;
       // Dark ink would vanish on the grass at night; it reads as white.
       if (lum(color) < 0.05) color = p.dark ? "#E9F0F6" : "#101820";
-      const width = Math.max(0.32, (n.width * 2) / m.upy) * (bold ? 1.6 : 1) * (first && id === "call" ? 1.25 : 1);
+      const width = Math.max(0.32, (n.width * 2) / m.uz) * (bold ? 1.6 : 1) * (first && id === "call" ? 1.25 : 1);
       const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
       const parts = n.style === "solid" ? [pts] : dashes(pts, n.style === "dotted" ? 0.35 : 1.1, n.style === "dotted" ? 0.45 : 0.7);
       for (const part of parts) if (part.length > 1) this.ink.add(new THREE.Mesh(strip(part, width, 0.05), mat));
@@ -714,7 +797,6 @@ class Stage {
     }
     const thrown = (id === "read" || !!p.ball) && p.t >= result.throwAt;
     const status = new Map(id === "read" ? result.rows.map((r) => [r.id, r.status]) : []);
-    let focus: THREE.Vector2 | null = null;
     let qbHand: THREE.Vector3 | null = null;
     let targetAt: THREE.Vector3 | null = null;
     for (const mv of this.movers) {
@@ -738,6 +820,8 @@ class Stage {
       }
       mv.body.root.position.set(pos.x, 0, pos.y);
       mv.body.root.rotation.y = face;
+      mv.at.copy(pos);
+      mv.face = face;
       const f = Math.min(mv.run.length - 1, Math.max(0, now * FPS));
       const i = Math.floor(f);
       const dist = mv.run.length ? mv.run[i] + ((mv.run[Math.min(mv.run.length - 1, i + 1)] ?? mv.run[i]) - mv.run[i]) * (f - i) : 0;
@@ -745,17 +829,17 @@ class Stage {
       const w = clamp(speed / 4, 0, 1);
       if (p.t <= 0.02 || speed < 0.3) entries.push([now > 0 ? "Idle" : "Ready", 0.5, 1]);
       else {
-        const stride = backpedal ? 1.6 : 2.6;
+        const stride = (backpedal ? 1.6 : 2.6) * TALL;
         entries.push([backpedal ? "Backpedal" : "Sprint", (dist / stride) % 1, w], ["Ready", 0.5, 1 - w]);
       }
       if (mv.side === "offense" && mv.letter === "Q") {
         const dur = mv.body.clip("Throw");
         const ph = (p.t - result.throwAt) / dur + 0.55;
         if (ph > 0 && ph < 1 && p.t > 0) entries.splice(0, entries.length, ["Throw", ph, 1]);
-        qbHand = new THREE.Vector3(pos.x, 2.0, pos.y);
+        qbHand = new THREE.Vector3(pos.x, 2.0 * TALL, pos.y);
       }
       if (result.target && mv.id === result.target.id) {
-        targetAt = new THREE.Vector3(pos.x, 1.4, pos.y);
+        targetAt = new THREE.Vector3(pos.x, 1.4 * TALL, pos.y);
         const dur = mv.body.clip("Catch");
         const ph = (p.t - result.throwAt - BALL_FLIGHT) / dur + 0.45;
         if ((id === "read" || p.ball) && ph > 0 && ph < 1) entries.splice(0, entries.length, ["Catch", ph, 1]);
@@ -763,13 +847,12 @@ class Stage {
       mv.body.sample(entries);
       const dimmed = id === "job" && (mv.side === "defense" || mv.letter !== p.who);
       mv.body.dim(dimmed ? 0.3 : 1);
-      if (id === "job" && mv.side === "offense" && mv.letter === p.who) focus = pos.clone();
-      mv.chip.position.set(pos.x, 2.75, pos.y);
+      mv.chip.position.set(pos.x, 2.75 * TALL, pos.y);
       (mv.chip.material as THREE.SpriteMaterial).opacity = dimmed ? 0.3 : 1;
       const s = thrown ? status.get(mv.id) : undefined;
       if (s) {
         if (!mv.ring) {
-          mv.ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.25, 40), new THREE.MeshBasicMaterial({ color: STATUS_COLOR[s], transparent: true, opacity: 0.95, depthWrite: false }));
+          mv.ring = new THREE.Mesh(new THREE.RingGeometry(0.95 * TALL, 1.25 * TALL, 40), new THREE.MeshBasicMaterial({ color: STATUS_COLOR[s], transparent: true, opacity: 0.95, depthWrite: false }));
           mv.ring.rotation.x = -Math.PI / 2;
           this.world.add(mv.ring);
         }
@@ -789,7 +872,8 @@ class Stage {
       for (const r of result.rows) {
         const b = chip(String(r.read), GOLD, NAVY, NAVY);
         b.scale.set(0.95, 0.95, 1);
-        b.position.set(m.X(r.end.x), 3.2, m.Z(r.end.y));
+        b.userData.size = [0.95, 0.95];
+        b.position.set(m.X(r.end.x), 3.2 * TALL, m.Z(r.end.y));
         this.marks.add(b);
       }
 
@@ -803,18 +887,115 @@ class Stage {
       this.ball.lookAt(to.x, this.ball.position.y, to.z);
     } else this.ball.visible = false;
 
-    // The camera follows the lesson, or holds the spot the coach picked.
-    const [pos, look] = cameraFor(p.camera, id, focus, this.bounds, this.cam.aspect, this.cam.fov);
-    this.camGoal = [pos, look];
-    this.canvas.dataset.camera = p.camera === "auto" ? `auto:${id}` : p.camera;
-    this.kick(false);
+    // The camera: the lesson's own, one for each moment of the play, or the one the coach picked.
+    const canThrow = id === "read" || !!p.ball;
+    const { shot, tag } = resolveCamera(p.camera, id, momentOf(p.t, result.throwAt, BALL_FLIGHT, canThrow));
+    const qbMover = this.movers.find((mv) => mv.side === "offense" && mv.letter === "Q") ?? null;
+    const target = result.target ? (this.movers.find((mv) => mv.id === result.target!.id) ?? null) : null;
+    let rider: Mover | null;
+    if (p.camera === "auto") rider = id === "job" ? (this.movers.find((mv) => mv.side === "offense" && mv.letter === p.who) ?? null) : null;
+    else if (p.camera === "modular") rider = target ?? qbMover;
+    else rider = this.movers.find((mv) => mv.id === p.follow) ?? (shot === "eyes" ? (qbMover ?? target) : (target ?? qbMover)) ?? this.movers[0] ?? null;
+    let follow: Followed | null = null;
+    if (rider) {
+      const watch = rider === qbMover ? (target ?? this.movers.find((mv) => mv.id === result.rows[0]?.id) ?? null) : rider.side === "defense" ? qbMover : null;
+      // The quarterback watches his read, eyes downfield; a defender watches the quarterback.
+      const eyes = !watch ? undefined : rider === qbMover ? { x: rider.at.x + (watch.at.x - rider.at.x) * 0.55, z: Math.max(rider.at.y + 16, watch.at.y + 4) } : { x: watch.at.x, z: watch.at.y };
+      follow = { x: rider.at.x, z: rider.at.y, hx: Math.sin(rider.face), hz: Math.cos(rider.face), offense: rider.side === "offense", eyes };
+    }
+    // A new rider or a new camera starts looking straight ahead again.
+    const rode = `${shot}|${rider?.id ?? ""}`;
+    if (rode !== this.rode) {
+      this.rode = rode;
+      this.eye = { yaw: 0, pitch: 0 };
+    }
+    for (const mv of this.movers) {
+      // Inside a helmet there is no helmet to see.
+      const hidden = shot === "eyes" && mv === rider;
+      mv.body.root.visible = !hidden;
+      mv.chip.visible = !hidden;
+    }
+    // Follow the lesson is the lesson's own camera work: a From or Follow the ball saved for another camera doesn't reach it.
+    const own = p.camera === "auto";
+    const side = own ? "offense" : (p.side ?? "offense");
+    const ballAt = thrown && this.ball.visible ? { x: this.ball.position.x, y: this.ball.position.y, z: this.ball.position.z } : null;
+    const s: Shot = shotFor(shot, {
+      aspect: this.cam.aspect,
+      side,
+      play: this.play,
+      snap: this.snap,
+      halfField: m.halfW,
+      qb: qbMover ? { x: qbMover.at.x, z: qbMover.at.y } : null,
+      follow,
+      ball: ballAt,
+      pass: own || p.pass !== false,
+      orbit: this.orbit,
+      eye: this.eye,
+      tall: TALL,
+    });
+    this.goal.pos.set(...s.pos);
+    this.goal.look.set(...s.look);
+    this.goal.up.set(...(s.up ?? [0, 1, 0]));
+    this.goal.fov = s.fov;
+    // A cut, not a flight, when the camera changes to or from a helmet or the top-down view.
+    // So is a top-down view turned to the other end: its up flips to the opposite, which an ease could never cross.
+    const cut = (shot !== this.shot && (shot === "eyes" || this.shot === "eyes" || shot === "overhead" || this.shot === "overhead")) || this.camUp.dot(this.goal.up) < -0.9;
+    this.shot = shot;
+    const d = this.canvas.dataset;
+    d.camera = tag;
+    d.shot = shot;
+    d.fov = String(Math.round(s.fov));
+    d.side = side;
+    d.follow = follow && (shot === "zoom" || shot === "eyes") ? (rider?.id ?? "") : "";
+    d.goal = s.pos.map((v) => v.toFixed(1)).join(",");
+    if (turnsByHand(shot)) d.drag = "1";
+    else delete d.drag;
+    this.kick(cut);
+  }
+
+  /** The coach turning the camera by hand: a drag in pixels on Free look or inside a helmet. */
+  turn(dx: number, dy: number) {
+    if (this.shot === "eyes") {
+      this.eye.yaw = clamp(this.eye.yaw + dx * 0.004, ...EYE_LIMITS.yaw);
+      this.eye.pitch = clamp(this.eye.pitch + dy * 0.003, ...EYE_LIMITS.pitch);
+    } else if (this.shot === "free") {
+      this.orbit.az -= dx * 0.006;
+      this.orbit.el = clamp(this.orbit.el + dy * 0.004, ...ORBIT_LIMITS.el);
+    }
+  }
+
+  /** Free look closer (under 1) or farther (over 1). */
+  zoomBy(k: number) {
+    if (this.shot === "free") this.orbit.r = clamp(this.orbit.r * k, ...ORBIT_LIMITS.r);
+  }
+
+  /** The player under a tap, if one is close enough to it. */
+  pickAt(clientX: number, clientY: number): string | null {
+    const r = this.canvas.getBoundingClientRect();
+    let best: string | null = null;
+    let near = 48;
+    const v = new THREE.Vector3();
+    for (const mv of this.movers) {
+      if (!mv.body.root.visible) continue;
+      v.set(mv.at.x, 1.1 * TALL, mv.at.y).project(this.cam);
+      if (v.z > 1) continue;
+      const dist = Math.hypot(r.left + ((v.x + 1) / 2) * r.width - clientX, r.top + ((1 - v.y) / 2) * r.height - clientY);
+      if (dist < near) {
+        near = dist;
+        best = mv.id;
+      }
+    }
+    return best;
   }
 
   /** Draws now, and keeps drawing while the camera is still on its way. */
   kick(snap: boolean) {
     if (snap || this.still) {
-      this.camPos.copy(this.camGoal[0]);
-      this.camLook.copy(this.camGoal[1]);
+      this.camPos.copy(this.goal.pos);
+      this.camLook.copy(this.goal.look);
+      this.camUp.copy(this.goal.up);
+      this.cam.fov = this.goal.fov;
+      this.cam.updateProjectionMatrix();
     }
     if (this.raf) return;
     this.last = performance.now();
@@ -825,17 +1006,41 @@ class Stage {
     this.raf = 0;
     const dt = Math.min(0.5, (now - this.last) / 1000);
     this.last = now;
-    const k = 1 - Math.exp(-dt * 3.2);
-    this.camPos.lerp(this.camGoal[0], k);
-    this.camLook.lerp(this.camGoal[1], k);
+    // A helmet rides with its player exactly; the other cameras ease to where they are going.
+    const riding = this.shot === "eyes";
+    const k = 1 - Math.exp(-dt * (riding ? 9 : this.shot === "free" ? 8 : 3.2));
+    if (riding) this.camPos.copy(this.goal.pos);
+    else this.camPos.lerp(this.goal.pos, k);
+    this.camLook.lerp(this.goal.look, riding ? Math.max(k, 0.16) : k);
+    this.camUp.lerp(this.goal.up, Math.max(k, 0.2)).normalize();
+    if (Math.abs(this.cam.fov - this.goal.fov) > 0.01) {
+      this.cam.fov += (this.goal.fov - this.cam.fov) * k;
+      this.cam.updateProjectionMatrix();
+    }
     this.cam.position.copy(this.camPos);
+    this.cam.up.copy(this.camUp);
     this.cam.lookAt(this.camLook);
+    this.labels();
     this.renderer.render(this.world, this.cam);
     this.frames++;
     this.canvas.dataset.frames = String(this.frames);
-    const away = this.camPos.distanceTo(this.camGoal[0]) + this.camLook.distanceTo(this.camGoal[1]);
+    const away = this.camPos.distanceTo(this.goal.pos) + this.camLook.distanceTo(this.goal.look) + Math.abs(this.cam.fov - this.goal.fov) * 0.1 + this.camUp.distanceTo(this.goal.up);
     if (away > 0.02) this.raf = requestAnimationFrame(this.frame);
   };
+
+  /** Letters, read badges and zone names hold their size on the screen, so they read from the press box and from a helmet alike. */
+  private labels() {
+    const tan = Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2));
+    const size = (o: THREE.Object3D, share: number, lo: number, hi: number) => {
+      const base = o.userData.size as [number, number] | undefined;
+      if (!base) return;
+      const k = clamp((2 * o.position.distanceTo(this.camPos) * tan * share) / base[1], lo, hi);
+      o.scale.set(base[0] * k, base[1] * k, 1);
+    };
+    for (const mv of this.movers) size(mv.chip, 0.05, 0.45, 3.4);
+    for (const b of this.marks.children) size(b, 0.045, 0.9, 3.2);
+    for (const z of this.zones.children) for (const c of z.children) if (c.userData.tag) size(c, 0.04, 0.8, 3);
+  }
 
   dispose() {
     cancelAnimationFrame(this.raf);
@@ -902,6 +1107,51 @@ export function LessonField3D(props: Props) {
       latest.current.onFail?.("webgl");
     };
     el.addEventListener("webglcontextlost", lost);
+    const again = () => st.props && st.pose(latest.current);
+    // Free look and the helmet cam turn with a drag; on any camera a tap on a player picks him.
+    // One finger or the mouse at a time: a second finger never joins the drag or ends it.
+    let press: { id: number; x: number; y: number; moved: number } | null = null;
+    const down = (e: PointerEvent) => {
+      if (press) return;
+      press = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 };
+      if (turnsByHand(st.shot)) el.setPointerCapture?.(e.pointerId);
+    };
+    const move = (e: PointerEvent) => {
+      if (!press || e.pointerId !== press.id) return;
+      // The button was let go somewhere the field never heard about.
+      if (e.pointerType === "mouse" && e.buttons === 0) {
+        press = null;
+        return;
+      }
+      const dx = e.clientX - press.x;
+      const dy = e.clientY - press.y;
+      press = { id: press.id, x: e.clientX, y: e.clientY, moved: press.moved + Math.abs(dx) + Math.abs(dy) };
+      if (!turnsByHand(st.shot)) return;
+      st.turn(dx, dy);
+      again();
+    };
+    const up = (e: PointerEvent) => {
+      if (!press || e.pointerId !== press.id) return;
+      const was = press;
+      press = null;
+      if (was.moved > 6) return;
+      const id = st.pickAt(e.clientX, e.clientY);
+      if (id) latest.current.onPick?.(id);
+    };
+    const cancel = (e: PointerEvent) => {
+      if (press && e.pointerId === press.id) press = null;
+    };
+    const wheel = (e: WheelEvent) => {
+      if (st.shot !== "free") return;
+      e.preventDefault();
+      st.zoomBy(e.deltaY > 0 ? 1.1 : 1 / 1.1);
+      again();
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", cancel);
+    el.addEventListener("wheel", wheel, { passive: false });
     let live = true;
     loadAthlete().then(
       (g) => live && setModel(g),
@@ -911,6 +1161,11 @@ export function LessonField3D(props: Props) {
       live = false;
       ro.disconnect();
       el.removeEventListener("webglcontextlost", lost);
+      el.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", cancel);
+      el.removeEventListener("wheel", wheel);
       st.dispose();
       stage.current = null;
     };
@@ -937,10 +1192,54 @@ export function LessonField3D(props: Props) {
     if (st?.props) st.pose(props);
   });
 
+  // The camera on screen, worked out the way the stage does, for the controls drawn over the picture.
+  const { result } = lesson;
+  const canThrow = props.step.id === "read" || !!props.ball;
+  const { shot } = resolveCamera(props.camera, props.step.id, momentOf(props.t, result.throwAt, BALL_FLIGHT, canThrow));
+  const nudge = (dx: number, dy: number, zoom = 1) => {
+    const st = stage.current;
+    if (!st?.props) return;
+    st.turn(dx, dy);
+    st.zoomBy(zoom);
+    st.pose(latest.current);
+  };
+  const free = shot === "free";
+
   return (
     <div className="fr-3d">
       <canvas ref={canvas} role="img" aria-label={props.label} data-athlete="loading" />
       {model === null && <span className="fr-3d-wait">Loading the players…</span>}
+      {shot === "qb" && canThrow && props.t > 0 && (
+        <span className="fr-3d-snap" aria-hidden="true">
+          Snap to pass <b>{Math.min(props.t, result.throwAt).toFixed(2)}</b>
+        </span>
+      )}
+      {turnsByHand(shot) && (
+        <div className="fr-3d-turn" role="group" aria-label="Turn the camera">
+          <button type="button" aria-label="Turn left" onClick={() => nudge(free ? 40 : -60, 0)}>
+            ←
+          </button>
+          <button type="button" aria-label="Turn right" onClick={() => nudge(free ? -40 : 60, 0)}>
+            →
+          </button>
+          <button type="button" aria-label={free ? "Higher" : "Look up"} onClick={() => nudge(0, free ? 40 : -50)}>
+            ↑
+          </button>
+          <button type="button" aria-label={free ? "Lower" : "Look down"} onClick={() => nudge(0, free ? -40 : 50)}>
+            ↓
+          </button>
+          {free && (
+            <>
+              <button type="button" aria-label="Closer" onClick={() => nudge(0, 0, 1 / 1.2)}>
+                +
+              </button>
+              <button type="button" aria-label="Farther" onClick={() => nudge(0, 0, 1.2)}>
+                −
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

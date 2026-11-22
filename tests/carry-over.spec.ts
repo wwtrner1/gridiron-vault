@@ -106,3 +106,51 @@ test("a packed link with only settings says so, one with nothing new is quiet, a
   await expect(page).toHaveURL(/\/vault$/);
   expect(errors).toEqual([]);
 });
+
+test("call sheets: a blank starter and a copy this browser already holds are not added again; a sheet with calls is", async ({ page }) => {
+  const errors = errorsOf(page);
+  const HEADERS = ["#", "Play Name", "Group", "Run", "Pass", "Down", "Distance", "Hash", "YL", "Route", "Position"];
+  const sheet = (id: string, name: string, calls: string[], extra: Record<string, unknown> = {}) => {
+    const columns = HEADERS.map((label, i) => ({ id: `${id}-c${i}`, label, width: 96, type: "text" }));
+    const play = columns.find((c) => c.label === "Play Name")!.id;
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      id: `${id}-r${i}`,
+      cells: Object.fromEntries(columns.map((c) => [c.id, c.label === "#" ? String(i + 1) : c.id === play ? (calls[i] ?? "") : ""])),
+      colors: {},
+      playId: null,
+    }));
+    return { id, name, columns, rows, updatedAt: "2026-11-01T12:00:00.000Z", remoteId: null, ...extra };
+  };
+  const ROW = "33333333-3333-4333-8333-333333333333";
+  await seedReady(page);
+  // This browser already holds the account's copy of "Saturday" (its id is the account row's id).
+  await page.evaluate(
+    ([s]) => {
+      const ws = JSON.parse(localStorage.getItem("snapline.workspace.v1")!);
+      ws.sheets = [s];
+      localStorage.setItem("snapline.workspace.v1", JSON.stringify(ws));
+    },
+    [sheet(ROW, "Saturday", ["Mesh"], { remoteId: ROW })],
+  );
+  const carried = {
+    v: 2,
+    ws: {
+      sheets: [
+        sheet("old-blank", "Call Sheet", []),
+        // The old address's copy of the same account row, under its own local id.
+        sheet("old-saturday", "Saturday", ["Mesh"], { remoteId: ROW }),
+        sheet("old-week-4", "Week 4", ["Stick", "Smash"]),
+      ],
+    },
+    presets: null,
+  };
+  await arrive(page, raw(carried));
+  await expect
+    .poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem("snapline.workspace.v1")!).sheets as { name: string }[]).map((s) => s.name).sort()))
+    .toEqual(["Saturday", "Week 4"]);
+  // A reload doesn't repeat any of it.
+  await page.reload();
+  await expect(page.locator(".play-card").first()).toBeVisible();
+  expect(await page.evaluate(() => (JSON.parse(localStorage.getItem("snapline.workspace.v1")!).sheets as unknown[]).length)).toBe(2);
+  expect(errors).toEqual([]);
+});
