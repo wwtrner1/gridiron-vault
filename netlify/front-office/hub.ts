@@ -8,7 +8,7 @@ import { depthCharts, hubEvents, hubMessages, organizations, orgMembers, teamPla
 import { cleanDepth, cleanEvent, familyContacts, MESSAGE_LIMITS, teamText, type HubMessage, cleanPlayer, SCHEDULE_LIMITS, type EventDraft, type HubEvent, cleanTeam, DEPTH_UNITS, HUB_LIMITS, type DepthChart, type DepthUnit, type HubPlayer, type HubState, type HubTeam, type PlayerInfo, emptyPlayer } from "../../src/lib/teamHub.js";
 
 /**
- * Team hub routes, behind the sign-in and phone checks. The director of an
+ * Team hub routes, behind the sign-in check. The director of an
  * organisation sees and changes everything in it; an active member coach
  * sees the teams whose staff they are on. Rosters hold minors' contacts and
  * medical notes, so every answer is per-person and `private, no-store`, and a

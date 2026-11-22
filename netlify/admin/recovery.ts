@@ -10,11 +10,10 @@ import {
   plays,
   profiles,
   trash,
-  trustedDevices,
 } from "../../db/schema.js";
 import { TIERS, type TierId } from "../../src/lib/plan.js";
 import { audit, type Actor } from "./admin.js";
-import { activityOf } from "./activity.js";
+import { activityOf, DEVICE_DAYS, deviceUse } from "./activity.js";
 
 /** How long a deleted play, playbook or Call Sheet can be put back. */
 export const TRASH_DAYS = 30;
@@ -59,7 +58,13 @@ export async function userDetail(actor: Actor, uid: string) {
       .from(trash)
       .where(and(eq(trash.ownerId, uid), gte(trash.deletedAt, day(TRASH_DAYS))))
       .orderBy(desc(trash.deletedAt)),
-    db.select({ label: trustedDevices.label, lastSeen: trustedDevices.lastSeen }).from(trustedDevices).where(eq(trustedDevices.ownerId, uid)),
+    // The devices this coach used lately, newest first, from the sign-in audit (there are no confirmed devices any more).
+    deviceUse(uid).then((rows) =>
+      rows
+        .filter((d) => d.last >= day(DEVICE_DAYS))
+        .sort((a, b) => b.last.getTime() - a.last.getTime())
+        .map((d) => ({ label: d.browser, lastSeen: d.last })),
+    ),
     db
       .select({ day: aiUsage.day, kind: aiUsage.kind, count: aiUsage.count })
       .from(aiUsage)

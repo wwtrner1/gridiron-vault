@@ -1,7 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { admin, getUser } from "@netlify/identity";
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, gt, gte, ilike, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   accountActivity,
@@ -30,22 +30,9 @@ import {
   playArchive,
   readLessons,
 } from "../../db/schema.js";
-import {
-  checkCode,
-  DEVICE_DAYS,
-  DEVICE_LIMIT,
-  hashDevice,
-  maskPhone,
-  normalizePhone,
-  noteHost,
-  PhoneError,
-  phoneRequired,
-  sendCode,
-  SMS_PER_DAY,
-} from "../security/phone.js";
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { SUPPORT_EMAIL } from "../../src/lib/site.js";
-import { emailKey, isDisposable, isInternetNumber, phoneKey, trialsOn } from "../security/trial.js";
+import { emailKey, isDisposable, trialsOn } from "../security/trial.js";
 import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
@@ -154,7 +141,7 @@ async function ensureProfile(user: Session) {
 /**
  * The 14-day Head Coach trial, once per person. It starts only when this email (with +tags and Gmail dots
  * folded) has never had one, including from an account since deleted, and is not a throwaway inbox. A coach
- * who is refused simply stays on Sideline. The phone check in verifiedPhone() can still take it back.
+ * who is refused simply stays on Sideline.
  */
 async function startTrial(user: Session) {
   const key = emailKey(user.email);
@@ -170,34 +157,17 @@ async function startTrial(user: Session) {
     .where(and(eq(profiles.id, user.id), eq(profiles.plan, "free")));
 }
 
-/**
- * Called when a coach's phone is confirmed. A number already tied to another person's trial (or to a deleted
- * account), or an internet-only number, ends this coach's trial: they stay on Sideline with everything they made.
- */
-async function verifiedPhone(me: Session, phone: string) {
-  const [row] = await db.select({ plan: profiles.plan }).from(profiles).where(eq(profiles.id, me.id));
-  if (row?.plan !== "trial") return;
-  const key = phoneKey(phone);
-  const [claimed] = await db.select({ userId: trialClaims.userId }).from(trialClaims).where(eq(trialClaims.keyHash, key));
-  const [deleted] = await db.select({ id: accountLedger.userId }).from(accountLedger).where(and(eq(accountLedger.phoneHash, sha(phone)), ne(accountLedger.userId, me.id)));
-  if ((claimed && claimed.userId !== me.id) || deleted || (await isInternetNumber(phone))) {
-    await db.update(profiles).set({ plan: "free", trialEndsAt: null }).where(and(eq(profiles.id, me.id), eq(profiles.plan, "trial")));
-    return;
-  }
-  await db.insert(trialClaims).values({ keyHash: key, kind: "phone", userId: me.id }).onConflictDoNothing();
-}
-
 const DEVICE_COOKIE = "gv_device";
 const DEVICE_ID = /^[A-Za-z0-9-]{8,100}$/;
 
 /**
- * Which device this is. The browser's random id comes with every request; the
- * server also keeps it in its own long-lived cookie, which iPhone Safari holds
- * onto when it clears a site's saved data. So a confirmed phone stays
- * confirmed, and a coach isn't texted a new code after every clean-up.
+ * Which device this is, for the owner's sign-in audit and the visitor counter
+ * (nothing is asked of the coach: there is no phone or device code). The
+ * browser's random id comes with every request; the server also keeps it in
+ * its own long-lived cookie, which iPhone Safari holds onto when it clears a
+ * site's saved data, so one device isn't counted as several.
  */
 export default async (req: Request, context?: Context) => {
-  noteHost(new URL(req.url).hostname);
   noteAiHost(new URL(req.url).hostname);
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
@@ -221,7 +191,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     if (resource === "me") {
       if (req.method === "DELETE") {
         if (!me) return fail("Sign in first.", 401);
-        return await deleteAccount(me, deviceId, await req.json().catch(() => ({})));
+        return await deleteAccount(me, await req.json().catch(() => ({})));
       }
       if (!me) return json({ user: null });
       await ensureProfile(me);
@@ -244,7 +214,6 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         pausedUntil: state.pausedUntil?.toISOString(),
         paymentFailed: state.paymentFailed,
         suspended: me.owner ? false : await isSuspended(me.id),
-        security: await securityOf(me, deviceId),
       });
     }
 
@@ -267,12 +236,9 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     }
 
     /* ---------------------------------------------------------- phone --- */
-    if (resource === "phone") {
-      if (!me) return fail("Sign in first.", 401);
-      if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
-      await ensureProfile(me);
-      return await phoneRoute(me, deviceId, id, await req.json().catch(() => ({})));
-    }
+    // Phone and device codes were taken out on 2026-11-22: nobody is asked for a number or a texted code, whatever keys
+    // are set on the site. A tab left open on the old gate still posts here, and it shows these words in place.
+    if (resource === "phone") return fail(PHONE_CODES_GONE, 410);
 
     /* ----------------------------------------------- player links (public) --- */
     // A player opens a link and sends back a quiz score with no account, so these come before the sign-in checks.
@@ -304,13 +270,6 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
 
     // An account the owner switched off: every other signed-in call is refused. Work in this browser stays.
     if (me && !me.owner && (await isSuspended(me.id))) return suspendedFail();
-
-    // Every other signed-in request: a verified phone, from a device confirmed with a code.
-    if (me && phoneRequired()) {
-      const sec = await securityOf(me, deviceId);
-      if (!sec.verified) return json({ error: "Add your mobile number to keep using your account.", code: "phone_required" }, 403);
-      if (!sec.trusted) return json({ error: "Confirm this device with the code we text you.", code: "device_unverified" }, 403);
-    }
 
     /* ---------------------------------------------------------- admin --- */
     // The owner's console. Anyone else gets the same answer as for an address that doesn't exist.
@@ -873,7 +832,6 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     return fail("That address is not part of the playbook API.", 404);
   } catch (error) {
     if (error instanceof AiError) return fail(error.message, error.status);
-    if (error instanceof PhoneError) return fail(error.message, error.status);
     const detail = error instanceof Error ? error.message : "Unknown error";
     return json({ error: "The playbook service could not complete that request.", detail }, 500);
   }
@@ -889,7 +847,6 @@ async function adminRoute(me: Session, req: Request, path: string[]) {
     if (req.method === "GET" && tail === "export") return json(await userExport(me, uid));
     if (req.method === "POST" && tail === "delete") return await adminDeleteUser(me, uid, body);
     if (req.method === "POST" && (tail === "suspend" || tail === "unsuspend")) return await adminSuspend(me, uid, tail === "suspend", body);
-    if (req.method === "POST" && tail === "phone-skip") return await adminPhoneSkip(me, uid, body.on === true);
     if (req.method === "POST" && tail === "plan") {
       const r = await setUserPlan(me, uid, String(body.plan ?? ""));
       return r.error ? fail(r.error, r.status ?? 400) : json(r);
@@ -1067,10 +1024,9 @@ async function recordEvent(me: Session, raw: string) {
 }
 
 /** Most AI calls one coach can make in a day, whatever their plan: the hard stop on cost. */
-// "texts" counts codes Twilio actually sent. (It replaced "sms", which also counted refused sends.)
 // "import" counts plays Griddy draws from a dump, one per play, so a big import doesn't use up the coach's chat for the day.
 // "scan" counts pages looked over for plays; each play read from a page is a "photo".
-const DAILY_AI = { assistant: 60, import: 200, photo: 15, scan: 40, texts: SMS_PER_DAY } as const;
+const DAILY_AI = { assistant: 60, import: 200, photo: 15, scan: 40 } as const;
 
 /** Counts this call against today's limit; false when the coach is over it. */
 async function spend(me: Session, kind: keyof typeof DAILY_AI) {
@@ -1102,7 +1058,7 @@ async function chargedOnSuccess<T>(me: Session, kind: keyof typeof DAILY_AI, run
   }
 }
 
-/** Gives back a call that never happened (e.g. Twilio refused to send). */
+/** Gives back a call that never happened. */
 async function refund(me: Session, kind: keyof typeof DAILY_AI) {
   const day = new Date().toISOString().slice(0, 10);
   await db
@@ -1245,14 +1201,15 @@ async function photo(me: Session, body: Partial<PhotoRequest>) {
   return json({ read: fixQuarterback(read) });
 }
 
-/* --------------------------------------------------- one login, one coach */
+/* ------------------------------------------------------- the account --- */
 
-type Security = { required: boolean; verified: boolean; trusted: boolean; phone: string | null; devices: number };
+/** What a tab still showing the retired phone gate is told when it asks for a code. */
+const PHONE_CODES_GONE = "GridIronVault no longer asks for a phone code. Reload this page and you're in.";
 
 /**
  * Deletes the coach's account and everything stored with it: plays (and their
  * playbook links and saves), playbooks, call sheets, devices, AI usage counts,
- * the profile and phone number, then the sign-in itself. Images and video are
+ * the profile (and any phone number an old account still holds), then the sign-in itself. Images and video are
  * never stored on the server, so there is nothing else to remove.
  */
 /* ------------------------------------------------------- player links --- */
@@ -1342,12 +1299,9 @@ async function shareRoute(me: Session, method: string, token: string | undefined
   return fail("That address is not part of the playbook API.", 404);
 }
 
-async function deleteAccount(me: Session, deviceId: string, body: Record<string, unknown>) {
+async function deleteAccount(me: Session, body: Record<string, unknown>) {
   const typed = String(body.confirm ?? "").trim().toLowerCase();
   if (!typed || typed !== me.email.toLowerCase()) return fail("Type your account email exactly to confirm.");
-  // A stolen password alone can't delete an account protected by a phone.
-  const sec = await securityOf(me, deviceId);
-  if (sec.verified && !sec.trusted) return json({ error: "Confirm this device with the code we text you first.", code: "device_unverified" }, 403);
 
   // A deleted account must never be billed again, so the subscription ends first; if Stripe can't be reached, nothing is deleted.
   if ((await cancelBilling(me.id)) === "failed")
@@ -1463,19 +1417,6 @@ async function adminSuspend(actor: Session, uid: string, on: boolean, body: Reco
   return json({ ok: true, billing });
 }
 
-/** Lets one coach in with no phone number or device code (or puts the check back), while codes stay on for everyone else. */
-async function adminPhoneSkip(actor: Session, uid: string, on: boolean) {
-  const target = await accountOf(uid);
-  if (!target) return fail("There's no account with that id.", 404);
-  const at = on ? new Date() : null;
-  await db
-    .insert(profiles)
-    .values({ id: uid, email: target.email, displayName: target.name, plan: target.plan || "beta", phoneSkipAt: at })
-    .onConflictDoUpdate({ target: profiles.id, set: { phoneSkipAt: at } });
-  await audit(actor, on ? "phone_skip_on" : "phone_skip_off", uid, { email: target.email });
-  return json({ ok: true, phoneSkip: on });
-}
-
 /** The account as the profile row or, failing that, the sign-in provider knows it. */
 async function accountOf(uid: string) {
   const [p] = await db.select({ email: profiles.email, name: profiles.displayName, plan: profiles.plan }).from(profiles).where(eq(profiles.id, uid));
@@ -1493,97 +1434,6 @@ function protectedAccount(actor: Session, t: { id: string; email: string; plan: 
   if (t.id === actor.id) return "That's your own account. Delete it from Your account instead.";
   if (t.plan === "master" || onOwnerList(t.email)) return "That's an owner account. Take it off the owner list first.";
   return "";
-}
-
-async function securityOf(me: Session, deviceId: string): Promise<Security> {
-  if (!phoneRequired()) return { required: false, verified: true, trusted: true, phone: null, devices: 0 };
-  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt, skip: profiles.phoneSkipAt }).from(profiles).where(eq(profiles.id, me.id));
-  // The owner let this coach skip the phone code: no number, no device code.
-  if (profile?.skip) return { required: false, verified: true, trusted: true, phone: profile.phone ? maskPhone(profile.phone) : null, devices: 0 };
-  const verified = Boolean(profile?.phone && profile.at);
-  const since = new Date(Date.now() - DEVICE_DAYS * 86400_000);
-  let trusted = false;
-  if (verified && deviceId) {
-    const [row] = await db
-      .update(trustedDevices)
-      .set({ lastSeen: new Date() })
-      .where(and(eq(trustedDevices.ownerId, me.id), eq(trustedDevices.deviceHash, hashDevice(deviceId)), gt(trustedDevices.lastSeen, since)))
-      .returning({ id: trustedDevices.id });
-    trusted = Boolean(row);
-  }
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(trustedDevices).where(eq(trustedDevices.ownerId, me.id));
-  return { required: true, verified, trusted, phone: profile?.phone ? maskPhone(profile.phone) : null, devices: n };
-}
-
-/** Remembers this device; past the limit, the device used longest ago is signed out. */
-async function trustDevice(me: Session, deviceId: string, label: string) {
-  if (!deviceId) throw new PhoneError("This browser didn't send a device id. Reload the page and try again.");
-  await db
-    .insert(trustedDevices)
-    .values({ ownerId: me.id, deviceHash: hashDevice(deviceId), label: label.slice(0, 80) })
-    .onConflictDoUpdate({ target: [trustedDevices.ownerId, trustedDevices.deviceHash], set: { lastSeen: new Date(), label: label.slice(0, 80) } });
-  const rows = await db.select({ id: trustedDevices.id }).from(trustedDevices).where(eq(trustedDevices.ownerId, me.id)).orderBy(desc(trustedDevices.lastSeen));
-  const extra = rows.slice(DEVICE_LIMIT).map((r) => r.id);
-  if (extra.length) await db.delete(trustedDevices).where(inArray(trustedDevices.id, extra));
-}
-
-async function phoneRoute(me: Session, deviceId: string, action: string | undefined, body: Record<string, unknown>) {
-  if (!phoneRequired()) return json({ security: await securityOf(me, deviceId) });
-  const label = String(body.label ?? "");
-  const [profile] = await db.select({ phone: profiles.phone, at: profiles.phoneVerifiedAt }).from(profiles).where(eq(profiles.id, me.id));
-  const sec = await securityOf(me, deviceId);
-  // Only codes that actually go out count toward the daily limit.
-  const text = async (to: string) => {
-    if (!(await spend(me, "texts"))) {
-      await refund(me, "texts");
-      throw new PhoneError(`That's ${SMS_PER_DAY} codes today — the daily limit. Try again tomorrow.`, 429);
-    }
-    try {
-      await sendCode(to);
-    } catch (e) {
-      await refund(me, "texts");
-      throw e;
-    }
-  };
-
-  // Add or change the account's number (changing it needs a device that's already confirmed).
-  if (action === "start" || action === "check") {
-    if (sec.verified && !sec.trusted) throw new PhoneError("Confirm this device first, then change your number.", 403);
-    const phone = normalizePhone(String(body.phone ?? ""));
-    if (!phone) throw new PhoneError("Enter a mobile number, like 555-123-4567. Outside the US and Canada, start with + and the country code.");
-    const [taken] = await db.select({ id: profiles.id }).from(profiles).where(and(eq(profiles.phone, phone), ne(profiles.id, me.id)));
-    if (taken) throw new PhoneError("That number is already on another GridIronVault account. Each coach needs their own number.", 409);
-    if (action === "start") {
-      await text(phone);
-      return json({ sentTo: maskPhone(phone) });
-    }
-    if (!(await checkCode(phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
-    await db.update(profiles).set({ phone, phoneVerifiedAt: new Date() }).where(eq(profiles.id, me.id));
-    await verifiedPhone(me, phone);
-    await trustDevice(me, deviceId, label);
-    return json({ security: await securityOf(me, deviceId) });
-  }
-
-  // Confirm a new device with a code to the number on file.
-  if (action === "device-start" || action === "device-check") {
-    if (!profile?.phone || !profile.at) throw new PhoneError("Add your mobile number first.", 403);
-    if (action === "device-start") {
-      await text(profile.phone);
-      return json({ sentTo: maskPhone(profile.phone) });
-    }
-    if (!(await checkCode(profile.phone, String(body.code ?? "")))) throw new PhoneError("That code isn't right. Check the text and try again.");
-    await trustDevice(me, deviceId, label);
-    return json({ security: await securityOf(me, deviceId) });
-  }
-
-  // Sign out every other device.
-  if (action === "forget-others") {
-    if (!sec.trusted) throw new PhoneError("Confirm this device first.", 403);
-    await db.delete(trustedDevices).where(and(eq(trustedDevices.ownerId, me.id), ne(trustedDevices.deviceHash, hashDevice(deviceId))));
-    return json({ security: await securityOf(me, deviceId) });
-  }
-
-  return fail("That address is not part of the playbook API.", 404);
 }
 
 function sanitisePlay(body: Record<string, unknown>) {
@@ -1614,6 +1464,6 @@ export const config: Config = {
   path: "/api/*",
   // Rate-limit rule 1 (Pro allows 5; rule 2, the feedback form, is in netlify.toml).
   // Per visitor IP: generous for a coach working fast, a wall for a script. The
-  // daily AI and SMS caps above still apply per account.
+  // daily AI caps above still apply per account.
   rateLimit: { windowLimit: 180, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };

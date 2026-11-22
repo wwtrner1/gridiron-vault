@@ -4,7 +4,9 @@ import { createHash } from "node:crypto";
  * The 14-day Head Coach trial, once per person. TRIAL_SIGNUPS=on starts it for
  * new coaches (otherwise new coaches join as Beta Coach, as before). These
  * helpers decide who is the same person: an email with its +tags and Gmail dots
- * removed, and a phone number. Fingerprints go in the trial_claims table.
+ * removed. Fingerprints go in the trial_claims table. (A phone number was a
+ * second key until the sign-in phone code was taken out on 2026-11-22; rows of
+ * kind "phone" from before then stay in the table and are no longer read.)
  */
 export const trialsOn = () => process.env.TRIAL_SIGNUPS === "on";
 
@@ -38,26 +40,3 @@ export const emailKey = (email: string) => {
   const n = normalizeEmail(email);
   return n ? fingerprint("email", n) : null;
 };
-export const phoneKey = (e164: string) => fingerprint("phone", e164);
-
-/**
- * True when Twilio says the number is internet-only (the kind anyone can make
- * unlimited). Asks Twilio Lookup, which is billed per call, once per new
- * number. Fails open: any error, or no Twilio credentials, means "not VoIP",
- * so a Lookup outage never costs a coach their trial. Set TRIAL_BLOCK_VOIP=off to skip it.
- */
-export async function isInternetNumber(e164: string): Promise<boolean> {
-  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
-  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
-  if (!sid || !token || process.env.TRIAL_BLOCK_VOIP === "off") return false;
-  try {
-    const res = await fetch(`https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(e164)}?Fields=line_type_intelligence`, {
-      headers: { Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}` },
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { line_type_intelligence?: { type?: string } | null };
-    return data.line_type_intelligence?.type === "nonFixedVoip";
-  } catch {
-    return false;
-  }
-}

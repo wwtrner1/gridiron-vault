@@ -31,11 +31,8 @@ export type ApiPlay = {
   updatedAt: string;
 };
 
-/** "One login, one coach": what the server knows about this account's phone and this device. */
-export type Security = { required: boolean; verified: boolean; trusted: boolean; phone: string | null; devices: number };
-
-/** Fired when the server asks for the phone or a device code, so the gate can open. */
-export const SECURITY_EVENT = "grid1ronvault:security";
+/** Fired when a call is refused because the owner switched the account off, so the account's state is asked for again. */
+export const ACCOUNT_EVENT = "grid1ronvault:security";
 
 /** A team's family texts link and the people who signed up on it. */
 export type TextList = { token: string; signups: TextSignup[]; sms: boolean };
@@ -77,7 +74,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 429 && !data.error) data.error = "That's a lot of requests at once. Wait a minute, then try again.";
   if (!res.ok) {
-    if (data.code === "phone_required" || data.code === "device_unverified" || data.code === "account_suspended") window.dispatchEvent(new Event(SECURITY_EVENT));
+    if (data.code === "account_suspended") window.dispatchEvent(new Event(ACCOUNT_EVENT));
     // 502/504 without our JSON: the platform gave up waiting on the function.
     const fallback = res.status === 502 || res.status === 504 ? "That didn't get an answer in time. Try again in a minute." : "The playbook service is unavailable right now.";
     throw new ApiError(data.error ?? fallback, res.status);
@@ -106,7 +103,7 @@ export const api = {
     request<{ lessons: { id: string; kind: string; from: string; to: string; times: number }[] }>("read-lessons"),
   forgetLesson: (id?: string) => request<{ ok: true }>(id ? `read-lessons/${id}` : "read-lessons", { method: "DELETE" }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; security?: Security }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean }>("me"),
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
@@ -116,10 +113,6 @@ export const api = {
   pausePlan: (months: number) => request<{ pausedUntil: string }>("billing/pause", { method: "POST", body: JSON.stringify({ months }) }),
   resumePlan: () => request<{ ok: true }>("billing/resume", { method: "POST", body: "{}" }),
   setPlan: (plan: string) => request<{ plan: string }>("me/plan", { method: "PUT", body: JSON.stringify({ plan }) }),
-
-  /** start / check (add or change the number), device-start / device-check, forget-others. */
-  phone: (action: "start" | "check" | "device-start" | "device-check" | "forget-others", body: Record<string, string> = {}) =>
-    request<{ sentTo?: string; security?: Security }>(`phone/${action}`, { method: "POST", body: JSON.stringify(body) }),
 
   listPlays: (params: Record<string, string>) =>
     request<{ plays: ApiPlay[] }>(`plays?${new URLSearchParams(params)}`),

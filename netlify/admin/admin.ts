@@ -9,9 +9,8 @@ import {
   events,
   plays,
   profiles,
-  trustedDevices,
 } from "../../db/schema.js";
-import { captureCounts } from "./activity.js";
+import { captureCounts, DEVICE_DAYS, deviceUse } from "./activity.js";
 
 /**
  * The owner's console. Everything here is reached only through api.ts after
@@ -32,11 +31,9 @@ export const WATCH = {
   griddyDay: 48,
   /** play_exported events in 24 hours. */
   exportsDay: 40,
-  /** Confirmed devices (the limit is 5). */
-  devices: 4,
-  /** Days a verified phone may be missing before the account is flagged. */
-  noPhoneDays: 3,
-  /** Accounts confirmed on one device within `deviceWindowDays` (the launch plan's repeat-trial signal). */
+  /** Devices one account was used on in the last DEVICE_DAYS days. A phone, tablet, laptop, home-screen app and a spare make five; a sixth looks like a shared login. */
+  devices: 6,
+  /** Accounts first seen on one device within `deviceWindowDays` (the launch plan's repeat-trial signal). */
   accountsPerDevice: 3,
   deviceWindowDays: 7,
   /** Griddy messages on the day the account was made (someone burning a fresh trial). */
@@ -66,10 +63,11 @@ export type UserRow = {
   photosMonth: number;
   exports: number;
   exports24h: number;
+  /** Devices this account signed in or opened the app from in the last DEVICE_DAYS days (from the sign-in audit). */
   devices: number;
   /** Accounts that have used this phone number, current and deleted. */
   phoneSignups: number;
-  /** Most accounts confirmed on any one of this coach's devices in the last WATCH.deviceWindowDays days. */
+  /** Most accounts first seen on any one of this coach's devices in the last WATCH.deviceWindowDays days. */
   devicePeers: number;
   /** Griddy messages on the day the account was made. */
   griddyFirstDay: number;
@@ -77,8 +75,6 @@ export type UserRow = {
   captures7d: number;
   /** Switched off from the console. */
   suspended: boolean;
-  /** The owner let this coach skip the phone code. */
-  phoneSkip: boolean;
   flags: string[];
 };
 
@@ -104,12 +100,11 @@ const count = (n: unknown) => Number(n ?? 0);
 export async function userRows(): Promise<{ users: UserRow[]; identity: boolean }> {
   const day = (n: number) => new Date(Date.now() - n * 86400_000);
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const [ident, profs, ledger, playN, devN, aiM, aiPeak, expN, exp24, devRows, aiDays, captures] = await Promise.all([
+  const [ident, profs, ledger, playN, aiM, aiPeak, expN, exp24, devRows, aiDays, captures] = await Promise.all([
     identityUsers(),
     db.select().from(profiles),
     db.select().from(accountLedger),
     db.select({ id: plays.ownerId, n: sql`count(*)` }).from(plays).groupBy(plays.ownerId),
-    db.select({ id: trustedDevices.ownerId, n: sql`count(*)` }).from(trustedDevices).groupBy(trustedDevices.ownerId),
     db
       .select({ id: aiUsage.ownerId, kind: aiUsage.kind, n: sql`sum(${aiUsage.count})` })
       .from(aiUsage)
@@ -126,7 +121,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       .from(events)
       .where(and(eq(events.name, "play_exported"), gte(events.at, day(1))))
       .groupBy(events.ownerId),
-    db.select({ id: trustedDevices.ownerId, hash: trustedDevices.deviceHash, at: trustedDevices.createdAt }).from(trustedDevices),
+    deviceUse(),
     db
       .select({ id: aiUsage.ownerId, day: aiUsage.day, n: aiUsage.count })
       .from(aiUsage)
@@ -135,22 +130,27 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
   ]);
 
   const by = (rows: { id: string; n: unknown }[]) => new Map(rows.map((r) => [r.id, count(r.n)]));
-  const plays_ = by(playN), dev_ = by(devN), peak_ = by(aiPeak), exp_ = by(expN), exp24_ = by(exp24);
+  const plays_ = by(playN), peak_ = by(aiPeak), exp_ = by(expN), exp24_ = by(exp24);
   const ai = (id: string, kind: string) => count(aiM.find((r) => r.id === id && r.kind === kind)?.n);
 
   const phoneUse = new Map<string, number>();
   for (const l of ledger) if (l.phoneHash) phoneUse.set(l.phoneHash, (phoneUse.get(l.phoneHash) ?? 0) + 1);
   for (const p of profs) if (p.phone) phoneUse.set(sha(p.phone), (phoneUse.get(sha(p.phone)) ?? 0) + 1);
 
-  // Accounts per device, counting only confirmations inside the window, so a family laptop used over a season isn't flagged.
+  // Devices come from the sign-in audit: every device an account signed in or opened the app from.
+  const devicesOf = new Map<string, typeof devRows>();
+  for (const d of devRows) devicesOf.set(d.id, [...(devicesOf.get(d.id) ?? []), d]);
+  const inUse = day(DEVICE_DAYS);
+  const deviceCount = (id: string) => (devicesOf.get(id) ?? []).filter((d) => d.last >= inUse).length;
+  // Accounts per device, counting only accounts first seen on it inside the window, so a family laptop used over a season isn't flagged.
   const recent = day(WATCH.deviceWindowDays);
   const onDevice = new Map<string, Set<string>>();
   for (const d of devRows) {
-    if (!d.at || new Date(d.at) < recent) continue;
+    if (d.first < recent) continue;
     if (!onDevice.has(d.hash)) onDevice.set(d.hash, new Set());
     onDevice.get(d.hash)!.add(d.id);
   }
-  const peers = (id: string) => Math.max(0, ...devRows.filter((d) => d.id === id).map((d) => onDevice.get(d.hash)?.size ?? 0));
+  const peers = (id: string) => Math.max(0, ...(devicesOf.get(id) ?? []).map((d) => onDevice.get(d.hash)?.size ?? 0));
   const griddyOn = new Map(aiDays.map((r) => [`${r.id}|${r.day}`, count(r.n)]));
 
   const profile = new Map(profs.map((p) => [p.id, p]));
@@ -182,13 +182,12 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       photosMonth: ai(id, "photo"),
       exports: exp_.get(id) ?? 0,
       exports24h: exp24_.get(id) ?? 0,
-      devices: dev_.get(id) ?? 0,
+      devices: deviceCount(id),
       phoneSignups: p?.phone ? phoneUse.get(sha(p.phone)) ?? 1 : 0,
       devicePeers: peers(id),
       griddyFirstDay: signedUpAt ? griddyOn.get(`${id}|${signedUpAt.slice(0, 10)}`) ?? 0 : 0,
       captures7d: captures.get(id) ?? 0,
       suspended: Boolean(p?.suspendedAt),
-      phoneSkip: Boolean(p?.phoneSkipAt),
       flags: [],
     };
     // The owner's own testing never raises a flag.
@@ -201,8 +200,6 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
     if (row.griddyPeakDay >= WATCH.griddyDay) f.push("Near the daily Griddy cap");
     if (row.exports24h >= WATCH.exportsDay) f.push("Heavy exporting today");
     if (row.captures7d >= WATCH.captures) f.push("Lots of prints, screenshots or copies this week");
-    if (phone === "none" && !row.phoneSkip && signedUpAt && Date.now() - Date.parse(signedUpAt) > WATCH.noPhoneDays * 86400_000 && row.plays + row.griddyMonth > 0)
-      f.push("Using the app with no verified phone");
     return row;
   });
 
@@ -210,7 +207,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
     users.push({
       id: l.userId, email: l.email, name: l.name, signedUpAt: iso(l.signedUpAt), confirmed: true, provider: "", lastSignInAt: null,
       lastActiveAt: null, plan: l.lastPlan, phone: "none", phoneNumber: null, deleted: true, deletedAt: iso(l.deletedAt), plays: l.playCount,
-      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0, captures7d: 0, suspended: false, phoneSkip: false,
+      griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0, captures7d: 0, suspended: false,
       phoneSignups: l.phoneHash ? phoneUse.get(l.phoneHash) ?? 1 : 0, flags: [],
     });
   }
@@ -229,7 +226,7 @@ export function usersCsv(users: UserRow[]) {
   const cols: [string, (u: UserRow) => unknown][] = [
     ["Email", (u) => u.email], ["Name", (u) => u.name], ["Signed up", (u) => u.signedUpAt], ["Email confirmed", (u) => u.confirmed ? "yes" : "no"],
     ["Sign-in method", (u) => u.provider], ["Last sign-in", (u) => u.lastSignInAt], ["Last active", (u) => u.lastActiveAt], ["Plan", (u) => u.plan],
-    ["Phone", (u) => u.phoneNumber ?? ""], ["Phone verified", (u) => (u.phone === "verified" ? "yes" : "no")], ["Skips phone code", (u) => (u.phoneSkip ? "yes" : "no")], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : u.suspended ? "switched off" : "active")], ["Plays", (u) => u.plays],
+    ["Phone", (u) => u.phoneNumber ?? ""], ["Phone verified", (u) => (u.phone === "verified" ? "yes" : "no")], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : u.suspended ? "switched off" : "active")], ["Plays", (u) => u.plays],
     ["Griddy this month", (u) => u.griddyMonth], ["Photo reviews this month", (u) => u.photosMonth], ["Exports", (u) => u.exports],
     ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Accounts on one device (7 days)", (u) => u.devicePeers], ["Griddy on signup day", (u) => u.griddyFirstDay], ["Captures (7 days)", (u) => u.captures7d], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],
   ];
