@@ -807,10 +807,17 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
           .from(callSheets)
           .where(eq(callSheets.ownerId, me.id))
           .orderBy(desc(callSheets.updatedAt));
-        return json({ sheets: rows });
+        // `owner` lets the browser tell "this account has no such sheet" (deleted on another device) from a signed-out answer.
+        return json({ sheets: rows, owner: me.id });
       }
-      if (req.method === "POST") {
+      if (req.method === "POST" && !id) {
         const body = await req.json();
+        // The same browser sheet sent again (a retry after a lost answer, a second tab or device) gets the row it already made.
+        const clientId = typeof body.clientId === "string" && body.clientId.trim() ? body.clientId.trim().slice(0, 100) : null;
+        const findSame = async () =>
+          clientId ? (await db.select().from(callSheets).where(and(eq(callSheets.ownerId, me.id), eq(callSheets.clientId, clientId))))[0] : undefined;
+        const same = await findSame();
+        if (same) return json({ sheet: same });
         const tier = await planOf(me);
         const [grids] = await db.select({ n: sql<number>`count(*)::int` }).from(callSheets).where(eq(callSheets.ownerId, me.id));
         const gate = gateGrid(tier, grids?.n ?? 0);
@@ -822,11 +829,21 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
             name: String(body.name ?? "Game plan"),
             columns: body.columns ?? [],
             rows: body.rows ?? [],
+            clientId,
           })
+          .onConflictDoNothing()
           .returning();
+        if (!row) {
+          // Two copies of the same create raced: the other one made the row.
+          const raced = await findSame();
+          if (raced) return json({ sheet: raced });
+          return fail("That call sheet couldn't be saved to your account. Try again in a moment.", 409);
+        }
         return json({ sheet: row }, 201);
       }
       if (req.method === "PUT" && id) {
+        // An id that was never the account's (a sheet only this browser holds) can't be on it.
+        if (!UUID.test(id)) return fail("That call sheet isn't in your account.", 404);
         const body = await req.json();
         const [row] = await db
           .update(callSheets)
@@ -842,7 +859,9 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         return json({ sheet: row });
       }
       if (req.method === "DELETE" && id) {
-        const [old] = UUID.test(id) ? await db.select().from(callSheets).where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id))) : [];
+        // An id that was never the account's has nothing to delete (and isn't a uuid Postgres can compare).
+        if (!UUID.test(id)) return json({ ok: true });
+        const [old] = await db.select().from(callSheets).where(and(eq(callSheets.id, id), eq(callSheets.ownerId, me.id)));
         if (old) await keepInTrash(me.id, "call_sheet", old);
         await db
           .delete(callSheets)

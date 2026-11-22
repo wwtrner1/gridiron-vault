@@ -210,10 +210,12 @@ export const callSheets = pgTable(
     name: text().notNull(),
     columns: jsonb().$type<unknown>().notNull(),
     rows: jsonb().$type<unknown>().notNull(),
+    /** The browser's own id for the sheet: a create sent twice (a retry, a lost answer, two tabs or devices) finds the first row instead of making a copy. */
+    clientId: text("client_id"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-  (t) => [index("call_sheets_owner_idx").on(t.ownerId)],
+  (t) => [index("call_sheets_owner_idx").on(t.ownerId), uniqueIndex("call_sheets_owner_client_idx").on(t.ownerId, t.clientId)],
 );
 
 /**
