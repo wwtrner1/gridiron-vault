@@ -43,7 +43,7 @@ export function DesignerMenu({ id, label, name, hint, open, onToggle, onClose, d
   const menuId = `dz-menu-${id}`;
   return (
     <div className={`dz-more${className ? ` ${className}` : ""}`}>
-      <Tooltip title={name} hint={hint} side="bottom">
+      <Tooltip title={name} hint={dot ? `${hint} The cyan dot means something in it is switched on.` : hint} side="bottom">
         <button
           type="button"
           ref={btn}

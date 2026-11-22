@@ -1,17 +1,18 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
-import { PLAYBOOK_NAV } from "../lib/nav";
 import { PUBLIC_TIERS, plusTax } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { lazyPage } from "../lib/lazyPage";
+import type { Watch } from "./home/tools";
 import "../styles/home.css";
 
-// The Designer slides and feature illustrations are about 120 KB of canvas markup, all below the fold: they load
-// right after the hero, so every other screen's first download doesn't carry them.
-const DesignerTour = lazyPage(() => import("./home/DesignerTour"), "DesignerTour");
-const FeatureSection = lazyPage(() => import("./home/FeatureSection"), "FeatureSection");
+// The featured tools, the camera gallery and the every-tool grid (with the clip list they draw from) are all below the
+// fold: they load right after the hero, so every other screen's first download doesn't carry them. The video pop-out
+// loads the first time a visitor presses Watch.
+const ToolSections = lazyPage(() => import("./home/ToolSections"), "ToolSections");
+const VideoPopout = lazyPage(() => import("./home/VideoPopout"), "VideoPopout");
 
 /** Scrolls to the address's #section once the sections above it have drawn (they arrive a moment after the page). */
 function ScrollToHash({ hash }: { hash: string }) {
@@ -41,26 +42,35 @@ const STEPS = [
   {
     n: "02",
     title: "Set your formation",
-    body: "Ten presets drop five players in the right spots. Or drag them yourself; nobody is stopping you.",
+    body: "Drop a formation on the ball, or one of your own sets, and flip it left or right. Or drag the players yourself; nobody is stopping you.",
   },
   {
     n: "03",
     title: "Draw the routes",
-    body: "Click point to point, or freehand it. Every line gets an arrow unless you tell it otherwise.",
+    body: "Click a receiver and pick a route; it draws at real depth in his color. Tap a lineman, then a defender, and the block is drawn.",
   },
   {
     n: "04",
-    title: "Print it and go",
-    body: "Wristband for the quarterback, binder page for you, phone view for the parent who is helping out.",
+    title: "Teach it, print it, go",
+    body: "Teach it in the 3D Film Room, then print the wristband for the quarterback, the call sheet for you and a player link for the parent who is helping out.",
   },
 ];
 
-/** What the tools reel shows, in order; the list beside the video says the same thing in words. */
-const REEL = ["Draw the play", "Run it", "Teach it in the Film Room", "Check the coverage", "Print the wristbands", "Build the call sheet"];
+/** What the tools reel shows, in order, and the second each part starts; the list beside the video says the same thing in words and jumps the clip. */
+const REEL: { title: string; at: number }[] = [
+  { title: "Draw plays in seconds", at: 2.96 },
+  { title: "Teach it in the Film Room, even in 3D", at: 4.64 },
+  { title: "Check it against any coverage", at: 7.32 },
+  { title: "Print wristbands and call sheets", at: 9.24 },
+  { title: "Plan practice from the Drill Vault", at: 11.12 },
+  { title: "Run your roster and depth chart", at: 13.2 },
+  { title: "Ask Griddy", at: 15.47 },
+];
 
 /**
- * The tools reel: a short silent clip of the app itself, with its captions drawn into the picture. It loads and
- * plays only once it is on screen, stops when it leaves, and waits for a press when the visitor asked for less motion.
+ * The tools reel: a short clip of the app itself that starts silent, with its captions drawn into the picture and a
+ * narrator one press away. It loads and plays only once it is on screen, stops when it leaves, and waits for a press
+ * when the visitor asked for less motion. The list beside it jumps the clip to each part.
  */
 function ToolsReel() {
   const video = useRef<HTMLVideoElement>(null);
@@ -100,18 +110,26 @@ function ToolsReel() {
     setFloating(false);
     video.current?.pause();
   };
+  const jumpTo = (at: number) => {
+    const el = video.current;
+    if (!el) return;
+    el.currentTime = at;
+    el.play().catch(() => undefined);
+  };
   const backToReel = () => document.getElementById("reel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   return (
     <section className="home-reel" id="reel" aria-labelledby="reel-h">
       <div className="home-band-head home-rv">
         <p className="home-eyebrow">See it move</p>
-        <h2 id="reel-h">The whole Vault in under a minute</h2>
-        <p>This is the app itself, not a mock-up: one play drawn, run, taught, checked against a coverage, printed and called.</p>
+        <h2 id="reel-h">The whole Vault in 20 seconds</h2>
+        <p>This is the app itself, not a mock-up: plays drawn, taught in 3D, checked against a coverage, printed, planned and asked about. Press a part to jump to it.</p>
         <ol className="home-reel-list">
           {REEL.map((r, i) => (
-            <li key={r}>
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              {r}
+            <li key={r.title}>
+              <button type="button" onClick={() => jumpTo(r.at)}>
+                <span>{String(i + 1).padStart(2, "0")}</span>
+                {r.title}
+              </button>
             </li>
           ))}
         </ol>
@@ -128,7 +146,7 @@ function ToolsReel() {
               </button>
             </div>
           )}
-          <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls={!floating} muted loop playsInline preload="none" onVolumeChange={(e) => setSound(!e.currentTarget.muted && e.currentTarget.volume > 0)} aria-label="Video: GridIronVault's tools in under a minute, with captions on screen and a narrator you can switch on">
+          <video ref={video} poster="/clips/home-reel.jpg" width={1280} height={720} controls={!floating} muted loop playsInline preload="none" onVolumeChange={(e) => setSound(!e.currentTarget.muted && e.currentTarget.volume > 0)} aria-label="Video: GridIronVault's tools in 20 seconds, with captions on screen and a narrator you can switch on">
             <source src="/clips/home-reel.webm" type="video/webm" />
             <source src="/clips/home-reel.mp4" type="video/mp4" />
             A short clip of the tools. Your browser can't play it here; the sections below show the same tools.
@@ -172,6 +190,12 @@ export function Landing() {
   const tier = useTier();
   const page = useRef<HTMLDivElement>(null);
   useReveal(page);
+  // One video pop-out for the whole page: the featured tools, the camera gallery and the every-tool grid all open it.
+  const [watch, setWatch] = useState<Watch | null>(null);
+  const openWatch = useCallback((w: Watch) => {
+    document.querySelector<HTMLVideoElement>("#reel video")?.pause();
+    setWatch(w);
+  }, []);
 
   // The shared nav links to /#how from any page; scroll there once the section exists.
   useEffect(() => {
@@ -207,9 +231,10 @@ export function Landing() {
               <span className="hl-cyan">Win the game</span>
             </h1>
             <p className="home-hero-lede">
-              GridIronVault is the playbook studio for anyone who loves the game of football. Design plays with real drawing
-              tools, keep them in one searchable Vault, build your call sheet in a spreadsheet that learns your shorthand, and
-              print anything from a quarterback wristband to a full binder page.
+              GridIronVault is the playbook studio for anyone who loves the game of football. Draw plays in a click, teach
+              them in a 3D Film Room, check them against any coverage, keep them in one searchable Vault, build your call
+              sheet in a spreadsheet that learns your shorthand, and print anything from a quarterback wristband to a full
+              binder page.
             </p>
             <div className="home-hero-actions">
               <Link to="/build" className="btn btn-primary btn-lg">
@@ -219,6 +244,10 @@ export function Landing() {
                 Browse the starter plays
               </Link>
             </div>
+            <Link to="/#reel" className="home-hero-watch">
+              <Icon name="play" size={16} />
+              Watch the 20-second tour
+            </Link>
             <p className="home-hero-fine">Works on the laptop you install from and the tablet you carry to the sideline.</p>
           </div>
           <div className="home-hero-stage">
@@ -277,103 +306,8 @@ export function Landing() {
 
         <ToolsReel />
 
-        <section className="home-all" id="everything" aria-labelledby="all-h">
-          <div className="home-band-head home-rv">
-            <p className="home-eyebrow">Everything in the Vault</p>
-            <h2 id="all-h">Every tool, one click away</h2>
-            <p>The same tools as the side menu inside the app. Jump straight to the one you need.</p>
-          </div>
-          <ul className="home-all-grid home-rv-kids">
-            <li>
-              <Link to="/build" className="home-all-card">
-                <Icon name="pencil" size={22} />
-                <b>Designer</b>
-                <small>Draw a play: players, routes, blocks and coverage on a real field.</small>
-              </Link>
-            </li>
-            {PLAYBOOK_NAV.map((item) => (
-              <li key={item.to}>
-                <Link to={item.to} className="home-all-card">
-                  <Icon name={item.icon} size={22} />
-                  <b>{item.label}</b>
-                  <small>{item.hint}</small>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="home-head" aria-labelledby="tools-h">
-          <p className="home-eyebrow">What you get</p>
-          <h2 id="tools-h">Four tools that talk to each other</h2>
-          <p>Draw a play once. It shows up in the Vault, drops into your call sheet, and prints at any size.</p>
-        </section>
-
         <Suspense fallback={<div className="home-lazy" aria-hidden="true" />}>
-          <DesignerTour />
-
-          <FeatureSection
-            id="call-sheet"
-            visual="callSheet"
-            ground="white"
-            eyebrow="The call sheet"
-            title="A call sheet that adapts to you"
-            body="Easy to pick up, built around the way you call a game. Filter down to the calls you need — third and short, red zone, left hash — in one click. Tap any call to see the diagram, add a note or flag it. Then drag calls up and down the sheet, or between situations, until the order matches how you want to call it on Saturday."
-            points={[
-              "Filter by down, distance, hash, field zone or play type",
-              "Drag calls to reorder them or move them between situations",
-              "Rename columns, color-code rows and let it learn your shorthand",
-            ]}
-            cta={{ to: "/grid", label: "Build a call sheet" }}
-          />
-
-          <FeatureSection
-            id="export"
-            visual="exportPrint"
-            ground="paper"
-            eyebrow="Export and print"
-            title="From a wristband to a binder"
-            body="One diagram, every size. Six, eight or ten plays on a wristband card. Full 8.5 × 11 landscape with the coaching notes underneath for the three-ring binder. PNG at 600 DPI when you want it on a banner."
-            points={[
-              "Wristband cards at 6, 8 or 10 per sheet",
-              "Letter PDFs with notes under the diagram",
-              "High-resolution PNG, JPEG and raw SVG",
-            ]}
-            cta={{ to: "/starters", label: "See the starter plays" }}
-          />
-
-          <FeatureSection
-            id="vault"
-            visual="vault"
-            ground="white"
-            eyebrow="The Vault"
-            title="Every play your program has ever drawn"
-            body="Search by name, formation, personnel or the labels you made up yourself. Check off twelve plays and export them as one packet. Share a book with your staff so the 8U coach installs the same Trips Flood you do."
-            points={[
-              "Filter by formation, type and label",
-              "Multi-select then export as a packet",
-              "Copy any shared play into your Vault",
-            ]}
-            cta={{ to: "/vault", label: "Look inside the Vault" }}
-          />
-
-          <FeatureSection
-            id="film"
-            visual="film"
-            ground="paper"
-            wide
-            eyebrow="Game film"
-            title="Put the film next to the play"
-            body="Upload practice or game video and attach it to any play in the Vault. Mark the snap once and Run play animates every route in time with the clip, so your players see the drawing and the real rep side by side — the first read, the break, the throw. It turns film review into install."
-            points={[
-              "Upload a video file or paste a Hudl or YouTube link",
-              "Mark the snap once — the clip and the drawing stay in sync",
-              "Slow it to 0.5×, scrub, or step a tenth of a second at a time",
-              "One main clip per play, with extra reps listed underneath",
-              "Wristbands and binder pages still print the clean diagram",
-            ]}
-            cta={{ to: "/build", label: "See Run play" }}
-          />
+          <ToolSections onWatch={openWatch} />
           <ScrollToHash hash={hash} />
         </Suspense>
 
@@ -441,6 +375,12 @@ export function Landing() {
           </Link>
         </section>
       </main>
+
+      {watch && (
+        <Suspense fallback={null}>
+          <VideoPopout watch={watch} onClose={() => setWatch(null)} />
+        </Suspense>
+      )}
 
       <MarketingFooter />
     </div>

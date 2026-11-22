@@ -1,0 +1,131 @@
+{
+ "07-precision-drawing": [
+  "[confident] Clean plays read faster. Here's how to draw them clean.",
+  "Open Field controls. Snap to the grid, and every player lines up.",
+  "Pick your hash marks, and turn the yard lines up or down.",
+  "Right click any route to change the line, the weight, the color, or the end.",
+  "Turn on route depths, and every break shows its yards.",
+  "[excited] Sharp on the screen. Sharp on the wristband."
+ ],
+ "08-upload-any-play": [
+  "[confident] Got plays on a whiteboard, or in a binder? Bring them with you.",
+  "Open Upload, and drop in a photo, a scan, or a PDF.",
+  "Grid Iron Vault reads the players, the routes, and the blocks.",
+  "Check the read, and fix anything with a click.",
+  "Save it, and it's a real play you can edit, teach, and print.",
+  "[excited] Your old playbook, in your new Vault."
+ ],
+ "09-griddy": [
+  "[confident] Meet Griddy, your coaching assistant. He's on every page.",
+  "Ask for a play in plain words, and he draws it.",
+  "Like it? Save it straight to your Vault.",
+  "Tell him to recolor a whole playbook, and it's done. Undo is one click.",
+  "He'll even build a call sheet from the plays you already have.",
+  "[excited] Got a question? Just ask Griddy."
+ ],
+ "10-sets-and-defense": [
+  "[confident] Line up faster. Formations and defenses are one click away.",
+  "Open Sets, pick a formation, and drop it on the ball.",
+  "Flip it left or right with one switch.",
+  "Need a look to beat? Pick a front and a coverage, and every defender gets a job.",
+  "Or turn your offense into a defense, matched to the formation.",
+  "[excited] Set it. Flip it. Coach it."
+ ],
+ "11-call-sheet": [
+  "[confident] Game day runs on your call sheet. Build it right here.",
+  "Type a play name, and it links to the play in your Vault.",
+  "Paint your calls by situation, and add any column you need.",
+  "Find a call in a second, or fold away what you don't need.",
+  "Then print the sheet, and send the same calls to your wristbands.",
+  "[excited] One sheet. Every call."
+ ],
+ "12-practice-drills": [
+  "[confident] A good practice is planned to the minute.",
+  "Build your script in timed periods, and watch the clock add up.",
+  "Drop in plays from your Vault, one at a time, or a whole playbook.",
+  "Open the Drill Vault for animated drills with coaching points.",
+  "Add a drill to tonight's practice, right from the Drill Vault.",
+  "[excited] Then print the script, and the scout cards."
+ ],
+ "13-my-team": [
+  "[confident] Your roster, your depth chart, and your colors, all in one place.",
+  "Import your roster from a spreadsheet, parents and all.",
+  "Set your depth chart right on the field.",
+  "Add your logo and colors, and they show up on the field, the wristbands, and the PDFs.",
+  "Then text the whole team from your own phone.",
+  "[excited] Your team. Your Vault."
+ ],
+ "14-playbooks-players": [
+  "[confident] A playbook only works if your players know it.",
+  "Group your plays into a playbook, in the order you install them.",
+  "Share it with one link. No account, and no app to download.",
+  "Each player picks a letter, and sees their own job on every play.",
+  "Then the Griddy Quiz shows you who really knows it.",
+  "[excited] Teach it once. Let them study all week."
+ ],
+ "01-designer-tools": [
+  "[confident] This is the Grid Iron Vault play designer. Let me show you around.",
+  "Every tool sits in one panel. Draw, routes, players, sets, playbooks, and style.",
+  "Open one section, and the rest fold away. No clutter.",
+  "Drop a formation from your own sets, right on the ball.",
+  "Click a receiver, pick a route, and it draws at real depth, in his color.",
+  "Tap a lineman, tap the defender, and the block is drawn.",
+  "Slide the line of scrimmage, and the whole play moves with it.",
+  "Edit, Field, Teach, and Go to, right up top. Undo is always one click away.",
+  "[excited] Draw it fast. Draw it right. Grid Iron Vault dot com."
+ ],
+ "02-film-room-3d": [
+  "[confident] Your players learn it faster when they can see it. That's the Film Room.",
+  "Open any play, and press Teach.",
+  "Six steps. The look. The zones. The call.",
+  "The snap. The read. Your job.",
+  "Flip it to 3D, and the play runs on a real field.",
+  "Pick your camera. Behind the offense, the sideline, or straight overhead.",
+  "Record your voice for each step, or let it read for you.",
+  "[excited] Then turn it into a video for the meeting room."
+ ],
+ "03-wristbands": [
+  "[confident] Draw the routes once. Wear them on game day.",
+  "Click a receiver, pick a route. One click, real depth.",
+  "Save it, and the play lands in your playbook.",
+  "Open Wristbands, pick the playbook, and the cards build themselves.",
+  "Same size in every box, numbered the way you call them.",
+  "Preview exactly what prints, then download the PDF.",
+  "[excited] From the designer to the wrist. Grid Iron Vault dot com."
+ ],
+ "04-every-tool": [
+  "[excited] One Vault. Every tool a coach needs.",
+  "Draw plays in seconds.",
+  "Teach them in the Film Room, even in 3D.",
+  "Check them against any coverage.",
+  "Print wristbands and call sheets.",
+  "Plan practice from the Drill Vault.",
+  "Run your roster and your depth chart.",
+  "And ask Griddy, your coaching assistant.",
+  "[confident] Grid Iron Vault. Your whole playbook, in one place."
+ ],
+ "05-one-click-routes": [
+  "[confident] Routes in one click. Here's how.",
+  "Click the receiver. Pick the route. Slant, three yards. Done.",
+  "Flip the break, or change the line end, right there.",
+  "Linemen? Tap him, tap the defender, and he blocks.",
+  "In five on five and seven on seven, your center runs routes too.",
+  "[excited] Less clicking. More coaching."
+ ],
+ "06-coverage-check": [
+  "[confident] Will it beat Cover 3? Find out before Saturday.",
+  "Open Teach, and run the Coverage check.",
+  "Every look gets a grade. Green means it wins.",
+  "See who's open, who's tight, and who's covered.",
+  "Then build your call sheet from the plays that win.",
+  "[excited] Know it works, before you call it."
+ ],
+ "15-film-room-cameras": [
+  "[confident] Teach any play in the Film Room, now from twelve different cameras.",
+  "Start behind the offense, and watch the whole play unfold.",
+  "Jump to the quarterback cam, and ride with him to the throw.",
+  "Go wide, high above the end zone, to the sideline, or straight overhead.",
+  "Follow any one player, or look through his helmet.",
+  "[excited] One play. Twelve ways to teach it."
+ ]
+}

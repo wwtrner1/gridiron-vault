@@ -32,6 +32,7 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   const hero = page.locator("section").filter({ has: page.locator("#hero-h") });
   await expect(hero.getByRole("link", { name: "Start drawing — it is free" })).toHaveAttribute("href", "/build");
   await expect(hero.getByRole("link", { name: "Browse the starter plays" })).toHaveAttribute("href", "/starters");
+  await expect(hero.getByRole("link", { name: "Watch the 20-second tour" })).toHaveAttribute("href", "/#reel");
   await expect(page.getByRole("heading", { name: "Start free, upgrade when it earns it" })).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#plans-h") }).locator('a[href="/pricing"]').first()).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#cta-h") }).locator('a[href="/build"]')).toHaveCount(1);
@@ -45,10 +46,10 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   await expect(hero.locator(".home-float")).toHaveCount(3);
   for (const f of await hero.locator(".home-float").all()) await expect(f).toHaveAttribute("aria-hidden", "true");
 
-  // The tools reel: a clip of the app that starts silent, with a narrator one press away and its six parts listed in words, fetched only when it is on screen.
+  // The tools reel: a clip of the app that starts silent, with a narrator one press away and its seven parts listed in words (each a button that seeks the video), fetched only when it is on screen.
   const reel = page.locator("section").filter({ has: page.locator("#reel-h") });
-  await expect(reel.getByRole("heading", { name: "The whole Vault in under a minute" })).toBeVisible();
-  await expect(reel.locator(".home-reel-list li")).toHaveText(["01Draw the play", "02Run it", "03Teach it in the Film Room", "04Check the coverage", "05Print the wristbands", "06Build the call sheet"]);
+  await expect(reel.getByRole("heading", { name: "The whole Vault in 20 seconds" })).toBeVisible();
+  await expect(reel.locator(".home-reel-list li")).toHaveText(["01Draw plays in seconds", "02Teach it in the Film Room, even in 3D", "03Check it against any coverage", "04Print wristbands and call sheets", "05Plan practice from the Drill Vault", "06Run your roster and depth chart", "07Ask Griddy"]);
   const video = reel.locator("video");
   await expect(video).toHaveAttribute("preload", "none");
   await expect(video).toHaveJSProperty("muted", true);

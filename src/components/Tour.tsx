@@ -130,7 +130,7 @@ export function PageHelp({
         className={`page-help-btn is-${tone}${seen ? "" : " is-new"}`}
         onClick={show}
         aria-label={`Help on this screen: every button on ${guide.title}`}
-        title="What every button here does"
+        title={seen ? "What every button here does" : "What every button here does. The cyan dot means you haven't opened this screen's help yet."}
         data-tour="page-help"
       >
         ?
