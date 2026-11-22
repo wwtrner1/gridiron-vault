@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { StoredPlay } from "./types";
 import type { Playbook } from "./api";
 import { pendingDeletes } from "./pendingDeletes";
+import { DEFAULT_SHEET_NAME, isUntouchedSheet } from "./sheet";
 
 /**
  * `cloudId` is the playbook's id on the account once it has been saved there
@@ -25,6 +26,12 @@ export type SheetRow = {
   playId?: string | null;
 };
 
+/**
+ * `remoteId` is the sheet's id on the account once it has been saved there
+ * (see sheetSync.ts), and `remoteOwner` the account it was saved to. `syncKey`
+ * (else the id) goes with the first save, so the account never makes two rows
+ * for one sheet; a sheet brought back after a delete gets a new one.
+ */
 export type SheetDoc = {
   id: string;
   name: string;
@@ -32,6 +39,8 @@ export type SheetDoc = {
   rows: SheetRow[];
   updatedAt: string;
   remoteId?: string | null;
+  remoteOwner?: string;
+  syncKey?: string;
 };
 
 type State = {
@@ -191,27 +200,70 @@ export const store = {
     return () => removedBooks.delete(cb);
   },
   upsertSheet(sheet: SheetDoc) {
+    const had = state.sheets.find((s) => s.id === sheet.id);
     const rest = state.sheets.filter((s) => s.id !== sheet.id);
-    commit({ ...state, sheets: [sheet, ...rest] });
+    // A copy of the sheet read before sync gave it its account id (a slow handler, a card, another screen) keeps that
+    // link, or the next sync would save it to the account a second time and the first copy would come back as a duplicate.
+    const link = had?.remoteId && !sheet.remoteId ? { remoteId: had.remoteId, remoteOwner: had.remoteOwner, syncKey: had.syncKey } : {};
+    commit({ ...state, sheets: [{ ...sheet, ...link }, ...rest] });
   },
   /** Change a call sheet without marking it edited (used by sync, which is not the coach editing). */
   patchSheet(id: string, patch: Partial<SheetDoc>) {
     commit({ ...state, sheets: state.sheets.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
   },
-  /** Call sheets pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it. */
-  mergeRemoteSheets(remote: SheetDoc[]) {
-    const sheets = [...state.sheets];
+  /**
+   * Call sheets pulled from the account: new ones are added, and a cloud copy newer than the local one replaces it.
+   * With `owner` (the account the list came from), a sheet this browser saved to that account and the account no
+   * longer has was deleted on another device, so it goes here too instead of being saved again as a copy; and the
+   * blank sheet the page laid out before the account's sheets arrived steps aside for them.
+   */
+  mergeRemoteSheets(remote: SheetDoc[], owner?: string) {
+    let sheets = [...state.sheets];
     const deleted = pendingDeletes("sheet");
+    const stamp = owner ? { remoteOwner: owner } : {};
+    const keyOf = (s: SheetDoc) => s.syncKey ?? s.id;
     for (const r of remote) {
-      if (r.remoteId && deleted.has(r.remoteId)) continue;
-      const at = sheets.findIndex((s) => s.remoteId === r.remoteId || s.id === r.remoteId);
+      if (!r.remoteId || deleted.has(r.remoteId)) continue;
+      // The copy already linked to this row first; else one not saved yet that is this row (same id, or the id it was first saved with).
+      let at = sheets.findIndex((s) => s.remoteId === r.remoteId);
+      if (at < 0) at = sheets.findIndex((s) => !s.remoteId && (s.id === r.remoteId || (!!r.syncKey && keyOf(s) === r.syncKey)));
       if (at < 0) {
-        sheets.push(r);
+        sheets.push({ ...r, ...stamp });
         continue;
       }
-      if (new Date(r.updatedAt) > new Date(sheets[at].updatedAt)) sheets[at] = { ...r, id: sheets[at].id };
+      const local = sheets[at];
+      if (new Date(r.updatedAt) > new Date(local.updatedAt)) sheets[at] = { ...r, id: local.id, syncKey: local.syncKey ?? r.syncKey, ...stamp };
+      else sheets[at] = { ...local, remoteId: r.remoteId, ...stamp };
+    }
+    // Two copies in this browser of one account row (a copy carried from an old address beside the pulled one) are one
+    // sheet: the newer stays, and the account's row is untouched.
+    const newest = new Map<string, SheetDoc>();
+    for (const s of sheets) {
+      const have = s.remoteId ? newest.get(s.remoteId) : undefined;
+      if (s.remoteId && (!have || new Date(s.updatedAt) > new Date(have.updatedAt))) newest.set(s.remoteId, s);
+    }
+    sheets = sheets.filter((s) => !s.remoteId || newest.get(s.remoteId) === s);
+    if (owner) {
+      const onAccount = new Set(remote.map((r) => r.remoteId));
+      sheets = sheets.filter((s) => {
+        // Deleted on another device (or waiting to be deleted from this one): gone here too. Another account's copy stays.
+        if (s.remoteId) return onAccount.has(s.remoteId) || (!!s.remoteOwner && s.remoteOwner !== owner);
+        // The blank "Call Sheet" laid out before sign-in: the account already has the coach's sheets.
+        return !(remote.length > 0 && isUntouchedSheet(s) && (s.name === DEFAULT_SHEET_NAME || s.name === "Season Grid"));
+      });
     }
     commit({ ...state, sheets });
+  },
+  /** Take call sheets out of this browser only (the account already doesn't have them): no account delete is sent. */
+  dropSheets(ids: string[]) {
+    const gone = new Set(ids);
+    commit({ ...state, sheets: state.sheets.filter((s) => !gone.has(s.id)) });
+  },
+  /** Undo of a delete: the account's copy is gone (or going), so it goes up again as a new sheet. */
+  restoreSheet(sheet: SheetDoc) {
+    const syncKey = `${sheet.id}.${Date.now().toString(36)}`;
+    const rest = state.sheets.filter((s) => s.id !== sheet.id);
+    commit({ ...state, sheets: [{ ...sheet, remoteId: null, remoteOwner: undefined, syncKey, updatedAt: new Date().toISOString() }, ...rest] });
   },
   removeSheet(id: string) {
     const gone = state.sheets.find((s) => s.id === id);

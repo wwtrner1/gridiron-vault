@@ -11,14 +11,15 @@ import { PlayThumb } from "../components/PlayThumb";
 import { playNamed, store, useStore, type SheetColumn, type SheetDoc, type SheetRow } from "../lib/store";
 import { learn, suggest } from "../lib/autofill";
 import { coachError, isOffline } from "../lib/api";
-import { pushSheetNow } from "../lib/sheetSync";
+import { pushSheetNow, useSheetsReady } from "../lib/sheetSync";
+import { findDuplicateSheets } from "../lib/sheetDupes";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
 import { gateGrid } from "../lib/plan";
 import { useToast } from "../lib/toast";
 import { track } from "../lib/track";
 import { uid } from "../lib/types";
-import { DEFAULT_SHEET_NAME, blankRow, freshSheet, isBlankSheet, newColumn } from "../lib/sheet";
+import { DEFAULT_SHEET_NAME, blankRow, freshSheet, isBlankSheet, newColumn, nextSheetName } from "../lib/sheet";
 import { useSheetView } from "../lib/sheetView";
 import { useGriddy } from "../components/Griddy";
 
@@ -93,9 +94,12 @@ export function SeasonGrid() {
     return q ? plays.filter((p) => `${p.name} ${p.formation}`.toLowerCase().includes(q)) : plays;
   }, [plays, linkQuery]);
 
-  // Open the coach's grid, or lay a fresh one out on the first visit.
+  // Open the coach's grid, or lay a fresh one out on the first visit. Not before the account's own sheets have
+  // arrived: a blank one laid out sooner is one more "Call Sheet" for every browser that opens this page.
+  const ready = useSheetsReady();
   useEffect(() => {
     if (sheets.length === 0) {
+      if (!ready) return;
       const sheet = freshSheet();
       store.upsertSheet(sheet);
       setActiveId(sheet.id);
@@ -104,7 +108,7 @@ export function SeasonGrid() {
     }
     track("call_sheet_opened", { sheets: sheets.length });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheets.length]);
+  }, [sheets.length, ready]);
 
   const sheet = useMemo(() => sheets.find((s) => s.id === activeId) ?? sheets[0] ?? null, [sheets, activeId]);
 
@@ -150,6 +154,9 @@ export function SeasonGrid() {
     document.querySelector<HTMLElement>(`[data-col-grip="${CSS.escape(movedCol)}"]`)?.focus();
     setMovedCol(null);
   }, [movedCol, sheet?.columns]);
+
+  // Copies the old sync left behind (found before any early return, so the hooks keep their order).
+  const dupes = useMemo(() => findDuplicateSheets(sheets), [sheets]);
 
   if (!sheet) {
     return (
@@ -339,8 +346,9 @@ export function SeasonGrid() {
     }
     setSaving(true);
     try {
-      const res = await pushSheetNow(sheet.id);
+      const res = await pushSheetNow(sheet.id, account.id);
       if (res.ok) toast("Call sheet saved to your account.");
+      else if (res.removed) toast(`${sheet.name} was deleted on another device, so it is gone from this one too. Your plays stay in the Vault.`, true);
       else if (isOffline(res.error)) toast("No signal, so the call sheet is in this browser for now. It goes to your account as soon as you're back online.", true);
       else toast(`${coachError(res.error, "The call sheet didn't reach your account.")} It is safe in this browser.`, true);
     } finally {
@@ -355,9 +363,24 @@ export function SeasonGrid() {
       navigate("/pricing");
       return;
     }
-    const sheetDoc = freshSheet(`${DEFAULT_SHEET_NAME} ${sheets.length + 1}`);
+    const sheetDoc = freshSheet(nextSheetName(sheets));
     store.upsertSheet(sheetDoc);
     setActiveId(sheetDoc.id);
+  };
+
+  // Offered as one Tidy up, never removed on their own.
+  const tidy = () => {
+    const gone = dupes.remove;
+    const keepOpen = sheet && !gone.some((g) => g.id === sheet.id) ? sheet.id : null;
+    gone.forEach((g) => store.removeSheet(g.id));
+    if (!keepOpen) setActiveId(store.get().sheets[0]?.id ?? null);
+    const left = dupes.differ
+      ? ` ${dupes.differ} more with the same name ${dupes.differ === 1 ? "holds" : "hold"} different calls, so ${dupes.differ === 1 ? "it stays" : "they stay"} for you to check.`
+      : "";
+    toast(`${gone.length} duplicate call ${gone.length === 1 ? "sheet" : "sheets"} removed. No plays were deleted.${left}`, false, {
+      label: "Undo",
+      run: () => gone.forEach((g) => store.restoreSheet(g)),
+    });
   };
 
   const deleteSheet = () => {
@@ -369,7 +392,7 @@ export function SeasonGrid() {
       label: "Undo",
       run: () => {
         // The account's copy is in its trash by now, so it goes back up as a new sheet (SheetSync sends it).
-        store.upsertSheet({ ...gone, remoteId: null, updatedAt: new Date().toISOString() });
+        store.restoreSheet(gone);
         // The blank sheet laid out because none was left goes away again.
         for (const s of store.get().sheets) if (s.id !== gone.id && !kept.includes(s.id) && isBlankSheet(s)) store.removeSheet(s.id);
         setActiveId(gone.id);
@@ -437,6 +460,17 @@ export function SeasonGrid() {
             </select>
           )}
         </div>
+
+        {dupes.remove.length > 0 && (
+          <div className="sheet-dupes" role="status">
+            <span>
+              {dupes.remove.length} duplicate call {dupes.remove.length === 1 ? "sheet" : "sheets"}: blank sheets and exact repeats. Sheets with their own calls are never removed.
+            </span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={tidy}>
+              Tidy up
+            </button>
+          </div>
+        )}
 
         <div className="filters">
           <Tooltip

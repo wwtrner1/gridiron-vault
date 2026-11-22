@@ -26,6 +26,29 @@ export const isBlankSheet = (sheet: SheetDoc): boolean => {
   return sheet.rows.every((r) => !r.playId && Object.entries(r.cells).every(([id, v]) => numbers.has(id) || !v));
 };
 
+/** A name the app gave the sheet itself: "Call Sheet", "Call Sheet 3", or the older "Season Grid". */
+export const isStockSheetName = (name: string): boolean => /^(call sheet|season grid)( \d+)?$/i.test(name.trim().replace(/\s+/g, " "));
+
+/**
+ * True while the sheet is still exactly what the page lays out: the starting
+ * headers, nothing typed, linked or painted. A sheet with renamed or added
+ * columns, or a painted cell, is a coach's work even with no calls on it.
+ */
+export const isUntouchedSheet = (sheet: SheetDoc): boolean =>
+  isBlankSheet(sheet) &&
+  sheet.columns.length === DEFAULT_HEADERS.length &&
+  sheet.columns.every((c, i) => c.label === DEFAULT_HEADERS[i]) &&
+  sheet.rows.every((r) => Object.values(r.colors ?? {}).every((hex) => !hex));
+
+/** "Call Sheet 2", "Call Sheet 3"…: the first number no sheet is using, so New sheet never repeats a name. */
+export function nextSheetName(sheets: SheetDoc[]): string {
+  const taken = new Set(sheets.map((s) => s.name.trim().toLowerCase().replace(/\s+/g, " ")));
+  for (let n = sheets.length + 1; ; n++) {
+    const name = `${DEFAULT_SHEET_NAME} ${n}`;
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+}
+
 export function freshSheet(name = DEFAULT_SHEET_NAME): SheetDoc {
   const columns = DEFAULT_HEADERS.map(newColumn);
   return {
