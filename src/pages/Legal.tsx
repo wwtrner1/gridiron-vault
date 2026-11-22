@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 18, 2026";
+const UPDATED = "November 22, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -68,12 +68,15 @@ export function Privacy() {
           never see them.
         </li>
         <li>
-          <b>Mobile number:</b> one per account, so each login belongs to one coach. We text a code to it when you add it and
-          when you sign in on a new device.
+          <b>Mobile number:</b> we don't ask for one to sign in, and we don't text sign-in codes. If you gave us a number
+          before November 22, 2026, when we used those codes, it stays with your account until you delete the account or
+          ask us to remove it. We don't text it. The site owner can still see it when helping you, and compares it with
+          other accounts only to spot one number used on several.
         </li>
         <li>
           <b>Devices:</b> a random code each browser makes for itself, kept in that browser and in a cookie only our site can
-          read, and stored on our side only as a one-way fingerprint, so we can recognise up to five devices you've confirmed.
+          read, and stored on our side only as a one-way fingerprint, so the sign-in record below can tell one device from
+          another.
         </li>
         <li>
           <b>Sign-ins and account activity:</b> while you're signed in we record when you sign in or open the app, the browser and
@@ -107,7 +110,9 @@ export function Privacy() {
         </li>
         <li>
           <b>Sign-up record:</b> when you delete your account we keep your email, sign-up date and a one-way fingerprint of
-          your phone number and of your email (not the number, and none of your plays), so one person can't open an endless run of free trials.
+          your email (not your plays), so one person can't open an endless run of free trials. If your account had a mobile
+          number from before November 22, 2026, we also keep a one-way fingerprint of it, not the number, so we can spot one
+          number used on several accounts.
         </li>
         <li>
           <b>Your work:</b> plays, playbooks and Call Sheets you save to your account, and while you're signed in your own drills, starred drills and practice script.
@@ -135,7 +140,7 @@ export function Privacy() {
           the names they enter, the team and when they agreed, so the team's coaches can text them updates.
         </li>
         <li>
-          <b>Usage counts:</b> how many AI requests and text codes your account used today, to keep the daily limits fair.
+          <b>Usage counts:</b> how many AI requests your account used today, to keep the daily limits fair.
         </li>
       </ul>
       <p>
@@ -149,7 +154,7 @@ export function Privacy() {
           <b>Netlify</b> hosts the site and stores accounts, plays, team information and feedback.
         </li>
         <li>
-          <b>Twilio</b> sends the text-message codes and team texts.
+          <b>Twilio</b> sends team texts.
         </li>
         <li>
           <b>Anthropic</b> (Claude) powers Griddy: it reads your messages, play calls and whiteboard photos, and, when you
@@ -176,7 +181,7 @@ export function Privacy() {
       <p>
         No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text
         messaging opt-in data and consent will not be shared with any third parties. Your number is used only for the
-        texts you signed up for: sign-in codes, and team updates from the coaches of a team you joined. Reply STOP to any
+        texts you signed up for: team updates from the coaches of a team you joined. Reply STOP to any
         team text to stop them, or ask the team's coach to take you off.
       </p>
 
@@ -203,11 +208,8 @@ export function Privacy() {
           <b>Download</b> a copy of your plays from Your account → Download a backup.
         </li>
         <li>
-          <b>Delete everything</b> from Your account → Delete my account. It removes your sign-in, phone number, devices,
-          and every play, playbook and Call Sheet saved to your account.
-        </li>
-        <li>
-          <b>Forget a device</b> from Your account → Devices.
+          <b>Delete everything</b> from Your account → Delete my account. It removes your sign-in, any mobile number on
+          your account, and every play, playbook and Call Sheet saved to your account.
         </li>
       </ul>
 
@@ -240,7 +242,7 @@ export function Terms() {
     <LegalPage eyebrow="Terms of Use" title="The ground rules.">
       <h2>Using GridIronVault</h2>
       <ul>
-        <li>Accounts are for coaches and staff, 18 and older. One account per person, tied to one mobile number.</li>
+        <li>Accounts are for coaches and staff, 18 and older. One account per person.</li>
         <li>
           If you add players' or families' details, you confirm you're allowed to, and you use them only to run your team.
         </li>
