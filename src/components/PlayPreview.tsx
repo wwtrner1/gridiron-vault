@@ -1,18 +1,16 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "../lib/dialogFocus";
-import { FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
-import type { FilmCamera } from "../lib/film3d";
-import { useFilmView, useMedia, usePlayLesson } from "../lib/filmView";
+import { PREVIEW_CAMERAS as CAMERAS, cameraOn } from "../lib/film3d";
+import { cameraPlayers, useFilmView, useMedia, usePlayLesson } from "../lib/filmView";
+import type { FilmCameraState } from "../lib/filmView";
 import { lazyPage } from "../lib/lazyPage";
 import type { TeachStep } from "../lib/teach";
 import type { Scene } from "../lib/types";
+import { CameraControls } from "./CameraControls";
 import { LessonField } from "./LessonField";
 import "../styles/filmroom.css";
 
 const LessonField3D = lazyPage(() => import("./LessonField3D"), "LessonField3D");
-
-/** One step has nothing for "Follow the lesson" to follow, so Preview offers the fixed cameras, like the field's own chip. */
-const CAMERAS = FILM_CAMERAS.filter((c) => c !== "auto");
 
 /** A beat lined up before the snap, so the eye finds the formation first. */
 const SET = 0.8;
@@ -27,8 +25,7 @@ export function PlayPreview({
   scene,
   name,
   rushYards = 7,
-  camera,
-  onCamera,
+  cam,
   onExport,
   onVideo,
   onFilmRoom,
@@ -38,8 +35,7 @@ export function PlayPreview({
   name: string;
   rushYards?: number;
   /** The 3D camera, shared with the Designer's own 3D look. */
-  camera: FilmCamera;
-  onCamera: (c: FilmCamera) => void;
+  cam: FilmCameraState;
   onExport: () => void;
   onVideo: () => void;
   onFilmRoom: () => void;
@@ -61,7 +57,8 @@ export function PlayPreview({
   uRef.current = u;
   const t = Math.max(0, Math.min(end, u - SET));
   const atEnd = u >= length;
-  const cam = camera === "auto" ? "behind" : camera;
+  const camera = cameraOn(CAMERAS, cam.pick.camera);
+  const players = useMemo(() => cameraPlayers(scene, lesson), [scene, lesson]);
 
   useEffect(() => {
     if (!playing) return;
@@ -121,7 +118,7 @@ export function PlayPreview({
             <div className={in3d ? "fr-field is-3d" : "fr-field"}>
               {in3d ? (
                 <Suspense fallback={<div className="fr-3d"><span className="fr-3d-wait">Loading 3D…</span></div>}>
-                  <LessonField3D scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} team={colors} camera={cam} light={big} ball label={label} onFail={fail} />
+                  <LessonField3D scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} team={colors} camera={camera} side={cam.pick.side} pass={cam.pick.pass} follow={cam.follow} onPick={cam.tap} light={big} ball label={label} onFail={fail} />
                 </Suspense>
               ) : (
                 <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={logo} grow={big ? 1.5 : 1} crop={big} spread={narrow && !sideways} ball label={label} />
@@ -158,18 +155,7 @@ export function PlayPreview({
                   onChange={(e) => (setPlaying(false), setU(SET + Number(e.target.value)))}
                 />
               </label>
-              {in3d && (
-                <label className="fr-against">
-                  <span>Camera</span>
-                  <select value={cam} onChange={(e) => onCamera(e.target.value as FilmCamera)}>
-                    {CAMERAS.map((c) => (
-                      <option key={c} value={c}>
-                        {FILM_CAMERA_NAME[c]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              {in3d && <CameraControls cam={cam} cameras={CAMERAS} players={players} className="fr-against" />}
             </div>
 
             <div className="pv-next">
