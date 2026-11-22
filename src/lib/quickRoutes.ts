@@ -12,6 +12,16 @@ function yardScale(view: FieldView): { x: number; y: number } {
   return { x: (CANVAS_W - fieldInset(v) * 2) / wide, y: unitsPerYard(v) };
 }
 
+/** Canvas units per yard across and up the field for this scene's view, for the block and assignment libraries. */
+export function unitsFor(scene: Scene): { x: number; y: number } {
+  return yardScale(scene.view ?? "half");
+}
+
+/** How wide the field is in yards for this scene's view (53 1/3 for tackle fields, 30 for the flag one). */
+export function fieldWidthYards(scene: Scene): number {
+  return scene.view === "flag" ? 30 : 160 / 3;
+}
+
 /** 11-man when there's a line or nine or more on offense (the Coverage check's `formatOf`). */
 function elevenMan(scene: Scene): boolean {
   const offense = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && n.side === "offense");

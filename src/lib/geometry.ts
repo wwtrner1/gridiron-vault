@@ -226,5 +226,34 @@ export function motionPath(pts: Point[], amp = 5, step = 11): string {
   return `${d} L ${end.x} ${end.y}`;
 }
 
+/**
+ * A zigzag along the points: sharp teeth either side of the line, the way a
+ * defense sheet draws a read or a "hit". It leaves the line's ends on the
+ * line itself, so an arrow or a T at the end sits where the coach clicked.
+ */
+export function zigzagPath(pts: Point[], amp = 4.5, step = 8): string {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+  let side = 1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const len = dist(a, b);
+    if (len < 1) continue;
+    const ux = (b.x - a.x) / len;
+    const uy = (b.y - a.y) / len;
+    // Teeth stop short of the last point, and a short straight run on the axis ends the segment, so an arrowhead or T cap points along the line and not across a tooth.
+    for (let t = step; t < len - step * 1.4; t += step) {
+      const px = a.x + ux * t - uy * amp * side;
+      const py = a.y + uy * t + ux * amp * side;
+      d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
+      side = -side;
+    }
+    const run = Math.min(step * 0.5, len / 2);
+    d += ` L ${(b.x - ux * run).toFixed(2)} ${(b.y - uy * run).toFixed(2)} L ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+  }
+  return d;
+}
+
 export const snap = (value: number, grid: number) =>
   grid > 0 ? Math.round(value / grid) * grid : value;

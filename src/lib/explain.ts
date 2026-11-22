@@ -2,6 +2,7 @@ import { unitsPerYard } from "./field";
 import { toWorld } from "./geometry";
 import { linesOf } from "./assignments";
 import { upright } from "./pov";
+import { blockOf } from "./quickBlocks";
 import type { PathNode, PlayerNode, Point, Scene } from "./types";
 import { CANVAS_W } from "./types";
 
@@ -26,7 +27,8 @@ function sentence(scene: Scene, who: PlayerNode, line: PathNode, sign: 1 | -1): 
   const letter = who.label.trim().toUpperCase();
   const yardsAt = (p: Point) => Math.round((sign * (who.y - p.y)) / perYard);
   const label = line.tag?.trim();
-  if (line.endCap === "tee") return `${letter} blocks.`;
+  // A one-click block names itself ("G pulls and kicks out the end man on the line."); any other T-ended line is just a block.
+  if (line.endCap === "tee") return `${letter} ${blockOf(line)?.talk ?? "blocks."}`;
   if (line.style === "motion") return `${letter} goes in motion across the formation before the snap.`;
   // The break: the sharpest turn in the route.
   let at = -1;

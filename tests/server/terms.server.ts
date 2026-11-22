@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { randomUUID } from "node:crypto";
+import { BLOCK_GLOSSARY, DEFENSE_GLOSSARY, GAP_GLOSSARY, STARTER_GLOSSARY } from "../../src/lib/termsData.ts";
 
 delete process.env.TRIAL_SIGNUPS;
 delete process.env.STRIPE_SECRET_KEY;
@@ -134,4 +135,19 @@ test("a director's terms reach the staff read-only, without the Just you ones, u
   assert.equal((await call("PUT", "terms", { terms: { ...terms, shareWithStaff: false, updatedAt: "2026-11-13T08:00:00.000Z" } })).status, 200);
   signInAs({ id: staffer.id, email: staffer.email });
   assert.equal((await call("GET", "terms")).data.staff, null);
+});
+
+test("the blocking and defensive-call starters keep their type and their place in the seeded list on the account", async () => {
+  await coach();
+  const all = [...STARTER_GLOSSARY, ...GAP_GLOSSARY, ...BLOCK_GLOSSARY, ...DEFENSE_GLOSSARY];
+  const put = await call("PUT", "terms", { terms: { terms: all, ignored: [], seeded: all.map((t) => t.id), updatedAt: "2026-11-22T07:00:00.000Z" } });
+  assert.equal(put.status, 200);
+  const got = (await call("GET", "terms")).data.terms;
+  assert.equal(got.terms.length, all.length);
+  // A type the function doesn't know would come back as "concept": every starter keeps its own.
+  assert.deepEqual(got.terms.map((t: { id: string; type: string }) => [t.id, t.type]), all.map((t) => [t.id, t.type]));
+  assert.equal(got.terms.filter((t: { type: string }) => t.type === "block").length, BLOCK_GLOSSARY.length);
+  assert.equal(got.terms.filter((t: { type: string }) => t.type === "defense").length, DEFENSE_GLOSSARY.length);
+  // Every starter id is remembered as offered, so one the coach deletes isn't added again.
+  assert.deepEqual(got.seeded, all.map((t) => t.id));
 });

@@ -3,7 +3,7 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import { uid } from "./types";
 import type { StoredPlay } from "./types";
-import { cleanTerm, cleanTerms, GAP_GLOSSARY, STARTER_BY_ID, STARTER_GLOSSARY, type StaffTerms, type Term, type TermsState, type TermType } from "./termsData";
+import { BLOCK_GLOSSARY, cleanTerm, cleanTerms, DEFENSE_GLOSSARY, GAP_GLOSSARY, STARTER_BY_ID, STARTER_GLOSSARY, type StaffTerms, type Term, type TermsState, type TermType } from "./termsData";
 
 export * from "./termsData";
 
@@ -17,12 +17,16 @@ export * from "./termsData";
  */
 const KEY = "grid1ronvault.terms.v1";
 type State = TermsState;
-const ALL = [...STARTER_GLOSSARY, ...GAP_GLOSSARY];
+const ALL = [...STARTER_GLOSSARY, ...GAP_GLOSSARY, ...BLOCK_GLOSSARY, ...DEFENSE_GLOSSARY];
+const norm = (s: string) => s.trim().toLowerCase();
 
-/** Starter terms this list has never been offered get added once; one the coach deleted stays deleted. */
+/**
+ * Starter terms this list has never been offered get added once; one the coach deleted stays deleted, and a
+ * word the coach already has under their own id ("Power", "Trap") is theirs, so the starter never doubles it.
+ */
 function withSeeds(s: State): State {
   const seen = new Set(s.seeded ?? STARTER_GLOSSARY.map((t) => t.id));
-  const fresh = ALL.filter((t) => !seen.has(t.id) && !s.terms.some((x) => x.id === t.id));
+  const fresh = ALL.filter((t) => !seen.has(t.id) && !s.terms.some((x) => x.id === t.id || norm(x.term) === norm(t.term)));
   return { ...s, terms: [...s.terms, ...fresh], seeded: [...new Set([...(s.seeded ?? []), ...ALL.map((t) => t.id)])] };
 }
 
@@ -54,8 +58,6 @@ function write(next: State, from: "local" | "account") {
 
 /** A change made here: stamped now, so it wins over older copies on other devices. */
 const commit = (next: State) => write({ ...next, updatedAt: new Date().toISOString() }, "local");
-
-const norm = (s: string) => s.trim().toLowerCase();
 
 /** Today as YYYY-MM-DD in the coach's own time zone. */
 const localDate = () => {

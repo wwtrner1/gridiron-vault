@@ -1205,6 +1205,7 @@ export function PlayCanvas({
                   // A fingertip covers about 44px, so touch screens get a wider reach than a mouse.
                   r={coarse ? Math.min(Math.max(half + 8, 22 / zoom), half + 20) : Math.min(Math.max(half + 6, 18 / zoom), half + 12)}
                   fill="transparent"
+                  data-grab="player"
                   style={{ cursor: node.locked ? "not-allowed" : "move" }}
                   onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(node.id)}
                   onPointerLeave={() => setHovered((h) => (h === node.id ? null : h))}

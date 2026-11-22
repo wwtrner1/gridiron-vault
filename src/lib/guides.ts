@@ -226,7 +226,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Routes, Players, Sets, Plays",
-            text: "Routes: every route with its depth in yards; pick one, then click a player (or just click the player on the field, see below). Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5-on-5, 7-on-7, 11-man), Your sets drops the players of any formation you've saved a play with (labeled or plain, as drawn or flipped), Defense lines up a front and coverage, Layers lists everything, Saved play format copies one play's look to others. Playbooks: your playbook folders.",
+            text: "Routes: every route with its depth in yards; pick one, then click a player (or just click the player on the field, see below). Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5-on-5, 7-on-7, 11-man), Your sets drops the players of any formation you've saved a play with (labeled or plain, as drawn or flipped), Defense lines up a front (4-3, 4-2-5, 3-4 and more) and coverage, Blocking puts a whole line's blocks on in one click (inside zone, power, trap, slide protection…) to the left or right, Pressures puts one of the rush packages (SOB, Go, Mob, Missile, Sextra, Swing, Twist…) on the defense with the rover's Gold job, Layers lists everything, Saved play format copies one play's look to others. Playbooks: your playbook folders.",
             target: ".dz-acc", ...RAIL,
           },
           {
@@ -261,7 +261,12 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Click to block",
-            text: "Click a lineman (T, G or the center in 11-man), then the defender he blocks, and a T-block line is drawn to him. Block straight ahead draws one up the field instead; Esc puts it away.",
+            text: "Click a lineman (T, G or the center in 11-man), then either click the defender he blocks, or pick a block from the menu: Base, Reach, Down, Combo, Climb, Pull and kick out, Pull and lead, Trap, Fold, Scoop, Pass set, Hinge or Screen release. Every block ends in a T and is drawn in his color, aimed at the defender it fits when there is a defense on the field. The bar that follows has Flip side, Undo and Done. Block straight ahead draws one up the field instead; Esc puts it away. A back, tight end or receiver has Blocks beside his routes: Base, Stalk, Crack, Lead, Kick out, Arc, Slice or Pass pro.",
+            target: ".builder-stage",
+          },
+          {
+            title: "Click a defender",
+            text: "Click a defender to give him a job: Rush, A, B or C gap, Slant, Loop, Contain, Peel or Hit, or a coverage: Man (then click the receiver, or Nearest receiver), Flat, Curl, Hook, Hole, Robber, Deep 1/3, 1/2, 1/4, Deep middle or Spy. His line is drawn from him (solid for rushes, dashed for coverage, a zigzag for Hit) and the job's name goes under his token. Flip side, Undo and Done are on the bar that follows; Clear assignment takes it off.",
             target: ".builder-stage",
           },
           {

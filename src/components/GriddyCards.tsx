@@ -7,12 +7,13 @@ import type { Assignment, AssistantRead } from "../lib/assistant";
 import { useAuth } from "../lib/auth";
 import { describeChange, editScene, OPEN_PLAY_ID, planBulkEdit, restorePlayers } from "../lib/bulkEdit";
 import type { BulkEdit, BulkFiling, BulkTarget } from "../lib/bulkEdit";
+import { SET_LABELS } from "../lib/bulkSets";
 import { colorName } from "../lib/colors";
 import { GRIDDY } from "../lib/griddy";
 import type { CallSheetLine, GriddyAction, ImportItem, RosterUpdate } from "../lib/griddy";
 import { griddyRoster, type GriddyRoster } from "../lib/griddyRoster";
 import { currentGame, playFromRead, playFromScene, savePlays } from "../lib/griddyVault";
-import { buildDefense, defaultFormation, defenseField } from "../lib/griddyDefense";
+import { buildDefense, defaultFormation, defenseAlone, defenseField } from "../lib/griddyDefense";
 import { DEFENSE_COVERAGES, DEFENSE_FRONTS, coverageFor } from "../lib/griddy";
 import type { DefenseCall } from "../lib/griddy";
 import { unitsPerYard } from "../lib/fieldUnits";
@@ -486,6 +487,13 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
   const players = targets.reduce((n, t) => n + t.players, 0);
   const doubled = targets.filter((t) => t.doubled.length);
   const changeLabel = `Griddy: ${changes.join(", ")}`;
+  // A block scheme or pressure that can't go on a play says why, once per reason; what it did to a single play is said in the coach's words.
+  const skipped = applied ? [] : live.skips;
+  const skipLines = [...new Set(skipped.map((k) => k.reason))].map((reason) => {
+    const some = skipped.filter((k) => k.reason === reason);
+    return live.inScope === 1 ? reason : some.length === 1 ? `${some[0].name}: ${reason}` : `${some.length} plays: ${reason}`;
+  });
+  const setNote = targets.length === 1 ? targets[0].notes.join(" ") : "";
 
   async function apply() {
     const list = live.targets;
@@ -498,7 +506,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       const after = list[0]?.after;
       if (after) drawer.onMeta({ name: after.name, formation: after.formation });
       setApplied({ targets: list, filings: [] });
-      setOutcome(id, `The coach applied ${changes.join(", ")} to the play on the Designer's field (${list.reduce((n, t) => n + t.players, 0)} players or lines changed). It isn't saved yet.`);
+      setOutcome(id, `The coach applied ${changes.join(", ")} to the play on the Designer's field (${list.reduce((n, t) => n + t.players, 0)} players or lines changed).${setNote ? ` ${setNote}` : ""} It isn't saved yet.`);
       toast("Changed on the field. Save the play to keep it.");
       dance();
       setBusy(false);
@@ -521,7 +529,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       setApplied({ targets: list, filings: books });
       setOutcome(
         id,
-        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players, lines or text boxes changed${books.length ? `; playbooks updated: ${books.map((f) => f.book.name).join(", ")}` : ""}).${band?.op === "wristband" ? " The Wristbands page is set to that card layout." : ""}${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
+        `The coach applied ${changes.join(", ")} to ${list.length} plays in ${where} (${list.reduce((n, t) => n + t.players, 0)} players, lines or text boxes changed${books.length ? `; playbooks updated: ${books.map((f) => f.book.name).join(", ")}` : ""}).${setNote ? ` ${setNote}` : ""}${skipLines.length ? ` Skipped: ${skipLines.join("; ")}` : ""}${band?.op === "wristband" ? " The Wristbands page is set to that card layout." : ""}${doubled.length ? ` ${doubled.length} plays now have two of the same letter.` : ""}${live.firstReads ? ` ${live.firstReads} first-read ${live.firstReads === 1 ? "route stays" : "routes stay"} cyan.` : ""}`,
       );
       toast(
         list.length
@@ -590,7 +598,15 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       ) : live.missingBook && !applied ? (
         <p className="pa-error">There's no playbook called "{live.missingBook}". Tell me which one you mean.</p>
       ) : !anything ? (
-        <p className="gd-done">None of the {live.inScope} plays here have anything to change.</p>
+        skipLines.length ? (
+          <ul className="pa-unsure gd-skips">
+            {skipLines.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="gd-done">None of the {live.inScope} plays here have anything to change.</p>
+        )
       ) : (
         <>
           {filings.length > 0 && (
@@ -608,6 +624,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
             )}
           </p>
           )}
+          {setNote && <p className="gd-bulk-count">{setNote}</p>}
           <ul className="gd-bulk-list">
             {targets.slice(0, 3).map((t) => (
               <li key={t.before.id}>
@@ -636,6 +653,13 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
               <p>{targets.slice(3).map((t) => (t.after.name !== t.before.name ? `${t.before.name} → ${t.after.name}` : t.before.name)).join(" · ")}</p>
             </details>
           )}
+          {skipLines.length > 0 && (
+            <ul className="pa-unsure gd-skips">
+              {skipLines.map((l) => (
+                <li key={l}>Skipped: {l}</li>
+              ))}
+            </ul>
+          )}
           {doubled.length > 0 && (
             <p className="pa-error">
               {doubled.length} {doubled.length === 1 ? "play already has" : "plays already have"} a {doubled[0].doubled.join("/")}, so{" "}
@@ -648,7 +672,7 @@ function BulkCard({ id, edit }: { id: string; edit: BulkEdit }) {
       {done ? (
         <div className="gd-bulk-done">
           <p className="gd-done">
-            <Icon name="check" size={14} /> {undone ? done.replace(/^The coach applied the change, then undid it: /, "Undone. ") : count ? `Applied to ${count} ${count === 1 ? "play" : "plays"}.` : "Done."}
+            <Icon name="check" size={14} /> {undone ? done.replace(/^The coach applied the change, then undid it: /, "Undone. ").replace(/^The coach applied the change to the play on the field, then undid it\./, "Undone. The play on the field is back as it was.") : count ? `Applied to ${count} ${count === 1 ? "play" : "plays"}.` : "Done."}
           </p>
           {band?.op === "wristband" && !undone && (
             <p className="gd-bulk-count">
@@ -933,7 +957,10 @@ function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
   const field = onField && drawer ? drawer.scene : null;
   const rush = (view: Parameters<typeof unitsPerYard>[0]) => (loadRules().rush || 7) * (unitsPerYard(view) || 14.4);
   const built = useMemo(() => (field ? buildDefense(call, field, tokens, rush(field.view)) : null), [call, field, tokens]); // eslint-disable-line react-hooks/exhaustive-deps
-  const alone = useMemo(() => defenseField(call, tokens, rush("half")), [call, tokens]); // eslint-disable-line react-hooks/exhaustive-deps
+  const standalone = useMemo(() => defenseAlone(call, tokens, rush("half")), [call, tokens]); // eslint-disable-line react-hooks/exhaustive-deps
+  const alone = standalone.scene;
+  // What building the call said (the rushers of a pressure, a player it couldn't send), from the field's build or the stock one.
+  const said = field && built ? built : standalone.built;
   const preview = field && built ? { ...field, nodes: [...field.nodes, ...built.nodes] } : alone;
   const against = call.against ? `${call.mirrored ? call.against.replace(/\bRight\b/, "Left") : call.against}` : onField ? drawer?.play.name || "the play on the field" : defaultFormation(call);
   const offenseCount = (field ?? alone).nodes.filter((n) => n.kind === "player" && n.side === "offense").length;
@@ -944,7 +971,7 @@ function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
     // Against a named formation there is no `field`, so lay it out on the open play here: it comes back in the play's own frame.
     const nodes = (built ?? buildDefense(call, drawer.scene, tokens, rush(drawer.scene.view))).nodes;
     drawer.onAdd(nodes, `Griddy: ${call.name}`);
-    setOutcome(id, `The coach put ${call.name} (${built?.look ?? call.coverage}${call.jobs ? ", jobs tagged" : ""}) on the field in the Designer.`);
+    setOutcome(id, `The coach put ${call.name} (${built?.look ?? call.coverage}${call.jobs ? ", jobs tagged" : ""}) on the field in the Designer.${said.rush ? ` ${said.rush}` : ""}`);
     dance();
     if (window.matchMedia("(max-width: 900px)").matches) setOpen(false);
   }
@@ -993,6 +1020,34 @@ function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
             ))}
           </select>
         </label>
+        {call.game === "11" && (
+          <label className="pa-chip">
+            Pressure ·{" "}
+            <select
+              value={call.pressure ?? ""}
+              onChange={(e) => change(e.target.value ? { pressure: e.target.value } : { pressure: undefined, gold: undefined })}
+              disabled={Boolean(done)}
+              aria-label="Pressure"
+            >
+              <option value="">None</option>
+              {SET_LABELS.pressure.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {call.game === "11" && call.pressure && (
+          <label className="pa-chip">
+            Rover ·{" "}
+            <select value={call.gold ?? ""} onChange={(e) => change({ gold: e.target.value === "back" || e.target.value === "free" ? e.target.value : undefined })} disabled={Boolean(done)} aria-label="Rover's Gold job">
+              <option value="">The package's own</option>
+              <option value="back">Gold Back</option>
+              <option value="free">Gold Free</option>
+            </select>
+          </label>
+        )}
         <label className="pa-chip">
           <input type="checkbox" checked={Boolean(call.flip)} onChange={(e) => change({ flip: e.target.checked })} disabled={Boolean(done)} /> Flip strength
         </label>
@@ -1001,6 +1056,14 @@ function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
         </label>
       </div>
       {!offenseCount && !done && <p className="pa-unsure">No offense on the field yet, so man defenders are placed without lines. Draw or drop a formation first.</p>}
+      {!done && said.rush && <p className="gd-bulk-count">{said.rush}</p>}
+      {!done && said.notes.length > 0 && (
+        <ul className="pa-unsure">
+          {said.notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
       <div className="pa-preview">
         <PlayThumb scene={preview} label={`Preview of ${call.name}`} />
         <span className="pa-badge">{done ? "Done" : "Preview · not drawn until confirmed"}</span>

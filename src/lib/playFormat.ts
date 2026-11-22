@@ -41,9 +41,19 @@ function ownerOf(line: PathNode, players: PlayerNode[]): PlayerNode | undefined 
   return players.find((p) => Math.hypot(p.x - line.x, p.y - line.y) < 30);
 }
 
+/**
+ * A line a defender owns (his rush, man or zone drop, drawn by a click on him). A format paints routes and
+ * blocks; painting these would turn a dashed man line solid or a dot into an arrow, and the Rules check
+ * would then count the defender as a rusher.
+ */
+const defenderLine = (line: PathNode, players: PlayerNode[]): boolean => {
+  const id = line.assignOf ?? line.fromId;
+  return !!id && players.some((p) => p.id === id && p.side === "defense");
+};
+
 export function captureFormat(play: Pick<StoredPlay, "id" | "name" | "scene">): PlayFormat {
   const players = play.scene.nodes.filter((n): n is PlayerNode => n.kind === "player");
-  const paths = play.scene.nodes.filter((n): n is PathNode => n.kind === "path" && !n.closed);
+  const paths = play.scene.nodes.filter((n): n is PathNode => n.kind === "path" && !n.closed && !defenderLine(n, players));
   const tokens: PlayFormat["tokens"] = {};
   for (const p of players) {
     const key = p.label.toUpperCase() || (p.side === "defense" ? "DEF" : "OFF");
@@ -75,7 +85,7 @@ export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): S
         if (on.has("letters")) next = { ...next, textColor: look.textColor, size: look.size } as PlayerNode;
       }
     }
-    if (n.kind === "path" && !n.closed) {
+    if (n.kind === "path" && !n.closed && !defenderLine(n, players)) {
       const owner = ownerOf(n, players);
       const look = (owner?.label && f.lines[owner.label.toUpperCase()]) || f.lines["*"];
       if (look) {

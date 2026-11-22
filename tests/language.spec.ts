@@ -16,9 +16,9 @@ test("a coach teaches, finds, edits and deletes a term, and it is kept after a r
 
   // The starter glossary comes with the app.
   const rows = page.locator(".lang-table tbody tr");
-  await expect(rows).toHaveCount(33);
+  await expect(rows).toHaveCount(65);
   const stats = page.locator(".lang-stats .stat b");
-  await expect(stats).toHaveText(["33", "0", "0"]);
+  await expect(stats).toHaveText(["65", "0", "0"]);
 
   // The form refuses an empty name, an empty meaning and a term already taught.
   await page.getByRole("button", { name: "Teach a new term" }).click();
@@ -35,15 +35,16 @@ test("a coach teaches, finds, edits and deletes a term, and it is kept after a r
   // A new term, shared with the staff, goes to the top and the counts follow.
   await form.getByLabel("Term").fill("Sail");
   await form.getByLabel("Means").fill("Corner over an out over a flat");
+  await expect(form.getByLabel("Type").getByRole("option")).toHaveText(["Concept", "Formation", "Tag", "Gap & technique", "Blocking", "Defensive call"]);
   await form.getByLabel("Type").selectOption("concept");
   await form.getByLabel("Who uses it").selectOption("staff");
   await form.getByRole("button", { name: "Save term" }).click();
   await expect(form).toHaveCount(0);
-  await expect(rows).toHaveCount(34);
+  await expect(rows).toHaveCount(66);
   await expect(rows.first()).toContainText("Sail");
   await expect(rows.first()).toContainText("Corner over an out over a flat");
   await expect(rows.first()).toContainText("You + staff");
-  await expect(stats).toHaveText(["34", "1", "1"]);
+  await expect(stats).toHaveText(["66", "1", "1"]);
 
   // Search and the type filter narrow the table.
   await page.getByLabel("Search terms").fill("sail");
@@ -57,8 +58,17 @@ test("a coach teaches, finds, edits and deletes a term, and it is kept after a r
   await expect(rows).toHaveCount(21);
   await expect(rows.first()).toContainText("A gap");
   await expect(rows.first()).toContainText("Between the center and a guard");
-  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "All" }).click();
-  await expect(rows).toHaveCount(34);
+  // Wes's blocks and schemes and his defensive calls each have their own filter, with the type shown on the row.
+  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Blocking" }).click();
+  await expect(rows).toHaveCount(15);
+  await expect(rows.first()).toContainText("Base block");
+  await expect(rows.first()).toContainText("Blocking");
+  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Defensive calls" }).click();
+  await expect(rows).toHaveCount(17);
+  await expect(rows.first()).toContainText("SOB");
+  await expect(rows.first()).toContainText("Defensive call");
+  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "All", exact: true }).click();
+  await expect(rows).toHaveCount(66);
 
   // Edit keeps the row and changes its meaning.
   await page.getByRole("button", { name: "Edit Sail" }).click();
@@ -66,17 +76,17 @@ test("a coach teaches, finds, edits and deletes a term, and it is kept after a r
   await expect(editForm.getByLabel("Means")).toHaveValue("Corner over an out over a flat");
   await editForm.getByLabel("Means").fill("Z corner · Y out · H flat");
   await editForm.getByRole("button", { name: "Save term" }).click();
-  await expect(rows).toHaveCount(34);
+  await expect(rows).toHaveCount(66);
   await expect(rows.first()).toContainText("Z corner · Y out · H flat");
 
   // Kept after a reload, then deleted.
   await page.reload();
-  await expect(rows).toHaveCount(34);
+  await expect(rows).toHaveCount(66);
   await expect(rows.first()).toContainText("Z corner · Y out · H flat");
   await page.getByRole("button", { name: "Delete Sail" }).click();
-  await expect(rows).toHaveCount(33);
+  await expect(rows).toHaveCount(65);
   await expect(page.getByRole("button", { name: "Delete Sail" })).toHaveCount(0);
-  await expect(stats).toHaveText(["33", "0", "0"]);
+  await expect(stats).toHaveText(["65", "0", "0"]);
 });
 
 test("a word used across the Vault is suggested as a term, and Ignore puts it away", async ({ page }) => {

@@ -8,7 +8,8 @@ import type { DefenseCall } from "./griddy";
 import { toFrame, turnAround, upright } from "./pov";
 import { emptyScene } from "./presets";
 import type { TokenPreset } from "./presets";
-import { CANVAS_W } from "./types";
+import { applyPressure, pressure } from "./pressures";
+import { CANVAS_W, DEFAULT_STROKE } from "./types";
 import type { PlayerNode, Scene, SceneNode } from "./types";
 
 /**
@@ -69,7 +70,34 @@ export type BuiltDefense = {
   /** Receivers the man defenders could match. */
   receivers: number;
   look: string;
+  /** With a pressure: who rushes, in the coach's words ("Boom: W, N, B rush (3); everyone else covers."). */
+  rush?: string;
+  /** Things the card should say: a pressure the front can't run, or a player it couldn't send. */
+  notes: string[];
 };
+
+/**
+ * The call's pressure on the new defenders: the offense stands in so the
+ * package can read the strength and match receivers, the library's own drops
+ * and lines are replaced by the package's, and only the defense's nodes come
+ * back (the open play's own players and lines are never touched).
+ */
+function pressed(call: DefenseCall, base: Scene, offense: PlayerNode[], defense: SceneNode[]): { nodes: SceneNode[]; rush?: string; notes: string[] } {
+  const pkg = call.pressure ? pressure(call.pressure) : undefined;
+  if (!pkg || call.game !== "11") return { nodes: defense, notes: [] };
+  const stand = new Set(offense.map((p) => p.id));
+  const stage: Scene = { ...base, nodes: [...offense, ...defense] };
+  const z = stage.nodes.reduce((m, n) => Math.max(m, n.z), 0) + 1;
+  const made = applyPressure(stage, pkg.id, { gold: call.gold, width: DEFAULT_STROKE, z });
+  if ("error" in made) return { nodes: defense, notes: [made.error] };
+  const gold = (call.gold ?? pkg.gold) === "back" ? "the rover takes the back" : "the rover is free";
+  const names = made.rushers.map((d) => d.label.trim() || "?");
+  return {
+    nodes: made.scene.nodes.filter((n) => !stand.has(n.id)),
+    rush: `${pkg.label}: ${names.join(", ")} rush (${names.length}); everyone else covers, and ${gold}.`,
+    notes: made.notes,
+  };
+}
 
 /**
  * Lays the call out on `field` (the open play, or a fresh field for a named
@@ -95,25 +123,30 @@ export function buildDefense(call: DefenseCall, field: Scene, tokens: TokenPrese
   const lineXs = offense.filter((p) => Math.abs(p.y - base.losY) <= 30 && p !== center).map((p) => p.x - ball.x);
   const jobs = call.jobs ? jobsFor(call, layout, eligible, lineXs) : [];
   let defenders = 0;
-  let nodes = defenseNodes(layout, ball, true, 1).map((n) => {
+  const laid = defenseNodes(layout, ball, true, 1).map((n) => {
     if (n.kind !== "player") return n;
     const job = jobs[defenders++];
     return job ? { ...n, job } : n;
   });
-  nodes = [...(call.against ? scout : []), ...nodes];
-  nodes = toFrame(field, nodes);
-  return { nodes, receivers: receivers.length, look: defenseLookName(call) };
+  const hit = pressed(call, base, offense, laid);
+  const nodes = toFrame(field, [...(call.against ? scout : []), ...hit.nodes]);
+  const label = hit.rush && call.pressure ? pressure(call.pressure)?.label : undefined;
+  return { nodes, receivers: receivers.length, look: `${defenseLookName(call)}${label ? ` · ${label}` : ""}`, ...(hit.rush ? { rush: hit.rush } : {}), notes: hit.notes };
 }
 
 /**
  * A fresh field for a call with no play open: the scout offense and the defense
- * on the half field, drawn from the defense's end like any defense the coach
- * starts in New play setup (the offense on top, the defense at the bottom).
+ * on the half field, with what building it said. It is drawn from the defense's
+ * end like any defense the coach starts in New play setup (the offense on top,
+ * the defense at the bottom).
  */
-export function defenseField(call: DefenseCall, tokens: TokenPreset[], rushUnits: number): Scene {
+export function defenseAlone(call: DefenseCall, tokens: TokenPreset[], rushUnits: number): { scene: Scene; built: BuiltDefense } {
   const base = emptyScene();
-  return turnAround({ ...base, nodes: buildDefense({ ...call, against: call.against ?? defaultFormation(call) }, base, tokens, rushUnits).nodes });
+  const built = buildDefense({ ...call, against: call.against ?? defaultFormation(call) }, base, tokens, rushUnits);
+  return { scene: turnAround({ ...base, nodes: built.nodes }), built };
 }
+
+export const defenseField = (call: DefenseCall, tokens: TokenPreset[], rushUnits: number): Scene => defenseAlone(call, tokens, rushUnits).scene;
 
 /** The set a defense is drawn against when the coach named none and no play is open. */
 export const defaultFormation = (call: DefenseCall) => (call.game === "11" ? "Pro Set" : "Trips Right");
