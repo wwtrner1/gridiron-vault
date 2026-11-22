@@ -1,5 +1,6 @@
 import { assignmentsFor, type Assignment } from "./assignments";
 import { toWorld } from "./geometry";
+import { upright } from "./pov";
 import type { PathNode, PlayerNode, Scene } from "./types";
 
 /**
@@ -84,11 +85,13 @@ function nameQuestion(a: Assignment<Play>, plays: Play[], letter: string, n: num
 }
 
 /** A round for one player: up to `count` questions, routes and play names mixed. */
-export function buildQuiz(plays: Play[], letter: string, count = 8): Question[] {
+export function buildQuiz(drawn: Play[], letter: string, count = 8): Question[] {
+  // A play drawn from the defense's end is turned; every question is asked offense-up so borrowed routes all run the same way.
+  const plays = drawn.map((p) => (p.scene.pov ? { ...p, scene: upright(p.scene) } : p));
   const all = assignmentsFor(plays, letter);
   // Plays where he has a route or block teach more than standing still, so those lead.
-  const drawn = all.filter((a) => a.lines.length);
-  const jobs = drawn.length >= 3 ? drawn : all;
+  const withLines = all.filter((a) => a.lines.length);
+  const jobs = withLines.length >= 3 ? withLines : all;
   const everyone = (letterOf: string) => assignmentsFor(plays, letterOf);
   // Routes borrowed from every other offensive letter in the book.
   const pool: Assignment<Play>[] = [];

@@ -1130,8 +1130,8 @@ export function PlayCanvas({
         onContextMenu={onContext}
       >
         <MarkerDefs colors={markerColors} />
-        <FieldBackground view={scene.view} losY={scene.losY} />
-        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} midfield={ruleSet(rules.set).midfieldNoRun} />}
+        <FieldBackground view={scene.view} losY={scene.losY} turned={scene.pov === "defense"} />
+        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} midfield={ruleSet(rules.set).midfieldNoRun} turned={scene.pov === "defense"} />}
 
         <rect
           x={0}

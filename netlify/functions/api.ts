@@ -121,6 +121,17 @@ async function session(): Promise<Session | null> {
   }
 }
 
+/** True when this exact logo is the one an owner account keeps as its team logo (the owner's logo is the owner's alone). */
+async function isOwnersLogo(logo: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: teamBrands.ownerId })
+    .from(teamBrands)
+    .innerJoin(profiles, eq(profiles.id, teamBrands.ownerId))
+    .where(and(eq(profiles.plan, "master"), sql`${teamBrands.data}->>'logo' = ${logo}`))
+    .limit(1);
+  return !!row;
+}
+
 async function ensureProfile(user: Session) {
   // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
   const created = await db
@@ -527,12 +538,17 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
       if (!me) return req.method === "GET" ? mine({ brand: null }) : fail("Sign in to keep your team branding on your account.", 401);
       if (req.method === "GET") {
         const [row] = await db.select().from(teamBrands).where(eq(teamBrands.ownerId, me.id));
-        return mine({ brand: row ? cleanBrand(row.data) : null });
+        const held = row ? cleanBrand(row.data) : null;
+        // The owner's own team logo belongs to the owner's account alone: another account that picked it up
+        // (an old shared browser) gets the plain look, and the row is left as it is.
+        if (held?.logo && !me.owner && (await isOwnersLogo(held.logo))) return mine({ brand: null, withheld: true });
+        return mine({ brand: held });
       }
       if (req.method === "PUT") {
         await ensureProfile(me);
         const body = (await req.json().catch(() => ({}))) as { brand?: unknown };
         const brand = cleanBrand(body.brand);
+        if (brand.logo && !me.owner && (await isOwnersLogo(brand.logo))) return mine({ brand: null, withheld: true });
         if (!brand.updatedAt) brand.updatedAt = new Date().toISOString();
         await db
           .insert(teamBrands)

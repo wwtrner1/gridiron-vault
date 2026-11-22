@@ -125,6 +125,11 @@ export const GUIDES: Guide[] = [
             target: tour("dz-preview"),
           },
           {
+            title: "Flip sides",
+            text: "The chip in the field's corner turns the whole play half a circle: the defense goes to the bottom of the card (or the offense does, flipped again). Routes, blocks, responsibilities and the line of scrimmage go with their players, and the one-click routes, formations and defenses you add after that run toward the other side of the ball. It works on every field.",
+            target: tour("dz-flip"),
+          },
+          {
             title: "Flat · 3D on the field",
             text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick: behind the offense, wide, All 22, the QB cam, follow a player, a player's eyes, sideline, the press box, overhead or free look, from either end. Tap a player to ride with him. Switch back to Flat to draw.",
             target: tour("dz-view"),
@@ -168,7 +173,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Field",
-            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. View from the defense turns the whole play half a circle about the ball (half, full and blank fields). Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
+            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. Flip sides puts the other side of the ball at the bottom of the card, on every field, and every route and block goes with its player. Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
             target: tour("dz-more-field"),
             open: [MENU("field")],
             close: MENU("field"),

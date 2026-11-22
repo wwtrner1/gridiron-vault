@@ -1,6 +1,7 @@
 import { unitsPerYard } from "./field";
 import { toWorld } from "./geometry";
 import { linesOf } from "./assignments";
+import { upright } from "./pov";
 import type { PathNode, PlayerNode, Point, Scene } from "./types";
 import { CANVAS_W } from "./types";
 
@@ -97,7 +98,8 @@ export function routeWord(scene: Scene, who: PlayerNode, line: PathNode, sign: 1
 }
 
 /** "X go · Y corner 10 · Z flat · H block": the routes in a play, for naming it. Pure; offense only. */
-export function routeSummary(scene: Scene): string {
+export function routeSummary(drawn: Scene): string {
+  const scene = upright(drawn); // read from the offense's end, so left, right and depth mean the same on a turned play
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && n.side === "offense" && !!n.label.trim());
   const parts: string[] = [];
   for (const p of players) {
@@ -111,7 +113,8 @@ export function routeSummary(scene: Scene): string {
 }
 
 /** Talking points for a play, one line per player, quarterback first and the first read called out. */
-export function explainPlay(scene: Scene): string {
+export function explainPlay(drawn: Scene): string {
+  const scene = upright(drawn);
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && n.side === "offense" && !!n.label.trim());
   const lines: string[] = [];
   const qb = players.find((p) => p.label.trim().toUpperCase() === "Q");

@@ -4,6 +4,7 @@ import { letterColor } from "./colors";
 import { baseNode, CANVAS_W, FIRST_READ, STROKE_WEIGHTS, uid } from "./types";
 import type { PathNode, PlayerNode, Scene } from "./types";
 import { nextZ } from "./scene";
+import { inUpright } from "./pov";
 
 /**
  * Player presets from the Grid1ron Design canvas (Designer → Player presets):
@@ -223,7 +224,10 @@ function assignmentPath(player: PlayerNode, p: PlayerPreset, z: number): PathNod
  * A player's earlier preset route is replaced; if the preset marks the first
  * read, any other first read in the play is cleared.
  */
-export function applyPreset(scene: Scene, ids: string[], p: PlayerPreset): Scene {
+export const applyPreset = (scene: Scene, ids: string[], p: PlayerPreset): Scene => inUpright(scene, (u) => applyUpright(u, ids, p));
+
+/** `applyPreset` in the offense-up frame, where a route runs up the card and a break toward the near sideline means the same thing for every play. */
+function applyUpright(scene: Scene, ids: string[], p: PlayerPreset): Scene {
   const targets = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && ids.includes(n.id));
   if (!targets.length) return scene;
   const targetIds = new Set(targets.map((t) => t.id));
@@ -242,11 +246,19 @@ export function applyPreset(scene: Scene, ids: string[], p: PlayerPreset): Scene
   return { ...scene, nodes: [...kept, ...paths] };
 }
 
-/** Drop a new player built from a preset, with its assignment. */
+/**
+ * Drop a new player built from a preset, with its assignment. `at` is in the
+ * offense-up frame (a play drawn from the defense's end turns the new player
+ * and his line with the rest, so he faces the right way).
+ */
 export function dropPreset(scene: Scene, p: PlayerPreset, at: { x: number; y: number }, makeBase: () => PlayerNode) {
-  const player: PlayerNode = { ...makeBase(), ...playerLook(p), x: at.x, y: at.y, z: nextZ(scene), name: p.name };
-  const withPlayer = { ...scene, nodes: [...scene.nodes, player] };
-  return { scene: applyPreset(withPlayer, [player.id], p), playerId: player.id };
+  let playerId = "";
+  const out = inUpright(scene, (u) => {
+    const player: PlayerNode = { ...makeBase(), ...playerLook(p), x: at.x, y: at.y, z: nextZ(u), name: p.name };
+    playerId = player.id;
+    return applyUpright({ ...u, nodes: [...u.nodes, player] }, [player.id], p);
+  });
+  return { scene: out, playerId };
 }
 
 /** CSS color for the preview of a preset's line. */

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { upright } from "./pov";
 import type { FieldView, PathNode, PlayerNode, Scene, StoredPlay } from "./types";
 
 /**
@@ -55,14 +56,16 @@ export function captureFormat(play: Pick<StoredPlay, "id" | "name" | "scene">): 
     if (owner?.label) lines[owner.label.toUpperCase()] ??= look;
     lines["*"] ??= look;
   }
-  return { sourceId: play.id, sourceName: play.name || "Untitled play", tokens, lines, view: play.scene.view, losY: play.scene.losY };
+  return { sourceId: play.id, sourceName: play.name || "Untitled play", tokens, lines, view: play.scene.view, losY: upright(play.scene).losY };
 }
 
 /** The scene with the chosen parts of the format applied; nothing else changes. */
 export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): Scene {
   const on = new Set(parts);
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player");
-  const shift = on.has("field") ? f.losY - scene.losY : 0;
+  // The saved line of scrimmage is the offense-up one; a play drawn from the defense's end holds it mirrored.
+  const losY = scene.pov === "defense" ? scene.height - f.losY : f.losY;
+  const shift = on.has("field") ? losY - scene.losY : 0;
   const nodes = scene.nodes.map((n) => {
     let next = shift ? { ...n, y: n.y + shift } : n;
     if (n.kind === "player") {
@@ -83,7 +86,7 @@ export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): S
     }
     return next;
   });
-  return { ...scene, nodes, ...(on.has("field") ? { view: f.view, losY: f.losY } : {}) };
+  return { ...scene, nodes, ...(on.has("field") ? { view: f.view, losY } : {}) };
 }
 
 /* ------------------------------------------------------------- the store */

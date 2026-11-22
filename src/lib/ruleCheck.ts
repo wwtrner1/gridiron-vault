@@ -3,6 +3,7 @@ import { toWorld } from "./geometry";
 import { linesOf } from "./assignments";
 import type { RuleLines, RuleSet } from "./rules";
 import { ruleSet } from "./rules";
+import { upright } from "./pov";
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene } from "./types";
 
 /**
@@ -60,7 +61,11 @@ function segGap([a, b]: [Point, Point], [c, d]: [Point, Point]): number {
   return Math.min(toSeg(a, c, d), toSeg(b, c, d), toSeg(c, a, b), toSeg(d, a, b));
 }
 
-export function checkRules(scene: Scene, meta: Pick<PlayMeta, "playType">, rules: RuleLines, opts: Options = {}): RuleCheck {
+export function checkRules(drawn: Scene, meta: Pick<PlayMeta, "playType">, rules: RuleLines, opts: Options = {}): RuleCheck {
+  // Every test below is written for the offense attacking up the card; a play drawn from the defense's end is read turned back
+  // (node ids don't change, so "Show me on the field" still picks the right players). The Vs defense is already in the play's own frame.
+  const scene = upright(drawn);
+  opts = opts.underlay ? { ...opts, underlay: upright({ ...opts.underlay, pov: drawn.pov }) } : opts;
   const set = ruleSet(rules.set);
   const perYard = unitsPerYard(scene.view);
   const los = scene.losY;

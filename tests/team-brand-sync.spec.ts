@@ -121,3 +121,61 @@ test("A brand made signed out stays and goes to the account on sign-in", async (
   await expect.poll(() => put.length).toBe(1);
   expect(errors).toEqual([]);
 });
+
+const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+test("The account's own brand beats a brand this browser holds with no account recorded", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  const put: unknown[] = [];
+  // An old shared browser: someone's brand with a newer stamp and no record of whose it is.
+  await context.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem("grid1ronvault.brand.v1", JSON.stringify({ name: "Sharks", logo: null, primary: "#008E97", secondary: "#FC4C02", logoOnField: true, endZones: true, prints: true, updatedAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await signIn(context, (route, path, method) => {
+    if (path === "brand" && method === "GET") {
+      void route.fulfill({ json: { brand: { name: "Mustangs", logo: null, primary: "#1B2A4A", secondary: "#F2B705", logoOnField: true, endZones: true, prints: true, updatedAt: "2026-11-01T00:00:00.000Z" } } });
+      return true;
+    }
+    if (path === "brand" && method === "PUT") {
+      put.push(route.request().postDataJSON());
+      void route.fulfill({ json: route.request().postDataJSON() });
+      return true;
+    }
+  });
+  await page.goto("/roster");
+  await expect(page.getByRole("region", { name: "Team branding" }).getByLabel("Name on the field and prints")).toHaveValue("Mustangs");
+  await page.waitForTimeout(2000);
+  expect(put).toHaveLength(0);
+  expect(errors).toEqual([]);
+});
+
+test("A logo the account refuses to hold (the owner's) goes back to the plain look", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  let puts = 0;
+  // This browser holds the owner's logo for this coach's account, as an old build left it.
+  await context.addInitScript((logo) => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem("grid1ronvault.brand.v1", JSON.stringify({ name: "Dolphins", logo, primary: "#008E97", secondary: "#FC4C02", logoOnField: true, endZones: true, prints: true, updatedAt: "2026-11-02T00:00:00.000Z" }));
+    localStorage.setItem("grid1ronvault.brand.owner.v1", "u1");
+  }, PIXEL);
+  await signIn(context, (route, path, method) => {
+    if (path === "brand" && (method === "GET" || method === "PUT")) {
+      if (method === "PUT") puts++;
+      void route.fulfill({ json: { brand: null, withheld: true } });
+      return true;
+    }
+  });
+  await page.goto("/roster");
+  const panel = page.getByRole("region", { name: "Team branding" });
+  await expect(panel.getByLabel("Name on the field and prints")).toHaveValue("");
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.brand.v1")!).logo)).toBeNull();
+  expect(puts).toBe(1);
+  // It is not sent again on its own.
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await page.waitForTimeout(500);
+  expect(puts).toBe(1);
+  expect(errors).toEqual([]);
+});

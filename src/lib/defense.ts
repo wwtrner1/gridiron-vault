@@ -336,7 +336,7 @@ export function defenseNodes(layout: DefenseLayout, ball: Point, show: boolean, 
         p.x,
         p.y,
       ),
-      size: 30,
+      // Same size as an offensive token, so a defender's letter reads as large as the offense's.
       outlineStyle: "none",
       ...(tags && d.tag ? { job: d.tag } : {}),
     });
@@ -389,6 +389,72 @@ export function layoutFlagDefense(look: FlagLook, rushUnits: number, receivers: 
   }
   return tagCoverage({ defenders, zones, lines });
 }
+
+type Spot = { dx: number; dy: number; label: string };
+type Zone7 = { dx: number; dy: number; rx: number; ry: number };
+const zone7 = (dx: number, dy: number, rx: number, ry: number): Zone7 => ({ dx, dy, rx, ry });
+
+/** 7-on-7 passing: seven in coverage and no rush. */
+export function layoutSeven(kind: "Cover 1" | "Cover 2" | "Cover 3" | "Man", receivers: { dx: number; dy: number }[]): DefenseLayout {
+  const out: DefenseLayout = { defenders: [], zones: [], lines: [] };
+  const zoneMan = (spot: Spot, zone: Zone7) => {
+    out.defenders.push({ ...spot, job: "zone" });
+    out.zones.push(zone);
+    out.lines.push({ from: out.defenders.length - 1, to: { dx: zone.dx, dy: zone.dy }, kind: "drop" });
+  };
+  const manUp = (spots: Spot[]) => {
+    const start = out.defenders.length;
+    spots.forEach((s) => out.defenders.push({ ...s, job: "man" }));
+    const left = new Set(spots.map((_, i) => start + i));
+    for (const r of [...receivers].sort((a, b) => Math.abs(b.dx) - Math.abs(a.dx))) {
+      let best = -1;
+      let bestD = Infinity;
+      for (const i of left) {
+        const d = Math.abs(out.defenders[i].dx - r.dx);
+        if (d < bestD) (bestD = d), (best = i);
+      }
+      if (best < 0) break;
+      left.delete(best);
+      out.lines.push({ from: best, to: r, kind: "man" });
+    }
+    // Spare men sit underneath in the middle as a robber.
+    for (const i of left) {
+      out.defenders[i].job = "zone";
+      const z = zone7(0, -130, 120, 40);
+      out.zones.push(z);
+      out.lines.push({ from: i, to: { dx: z.dx, dy: z.dy }, kind: "drop" });
+    }
+  };
+  const press: Spot[] = [
+    { dx: -400, dy: -40, label: "C" },
+    { dx: 400, dy: -40, label: "C" },
+    { dx: -200, dy: -60, label: "N" },
+    { dx: 200, dy: -60, label: "N" },
+    { dx: -60, dy: -90, label: "M" },
+    { dx: 60, dy: -90, label: "W" },
+  ];
+  if (kind === "Man") {
+    manUp([...press, { dx: 0, dy: -150, label: "S" }]);
+  } else if (kind === "Cover 1") {
+    zoneMan({ dx: 0, dy: -210, label: "FS" }, zone7(0, -280, 220, 56));
+    manUp(press);
+  } else if (kind === "Cover 2") {
+    zoneMan({ dx: -230, dy: -200, label: "S" }, zone7(-230, -270, 225, 56));
+    zoneMan({ dx: 230, dy: -200, label: "S" }, zone7(230, -270, 225, 56));
+    [zone7(-400, -110, 105, 39), zone7(-200, -125, 95, 39), zone7(0, -130, 90, 39), zone7(200, -125, 95, 39), zone7(400, -110, 105, 39)].forEach((z, i) =>
+      zoneMan({ dx: z.dx, dy: i === 0 || i === 4 ? -40 : -80, label: i === 0 || i === 4 ? "C" : i === 2 ? "M" : "N" }, z),
+    );
+  } else {
+    [zone7(-340, -265, 150, 52), zone7(0, -280, 150, 52), zone7(340, -265, 150, 52)].forEach((z, i) =>
+      zoneMan({ dx: z.dx === 0 ? 0 : Math.sign(z.dx) * 400, dy: i === 1 ? -200 : -70, label: i === 1 ? "FS" : "C" }, z),
+    );
+    [zone7(-300, -120, 110, 39), zone7(-100, -128, 100, 39), zone7(100, -128, 100, 39), zone7(300, -120, 110, 39)].forEach((z, i) =>
+      zoneMan({ dx: z.dx, dy: -80, label: i === 0 || i === 3 ? "N" : i === 1 ? "M" : "W" }, z),
+    );
+  }
+  return tagCoverage(out);
+}
+
 
 /** A defense turned left to right about the ball: defenders, zones and drop spots all change sign across the field. */
 export function mirrorDefense(layout: DefenseLayout): DefenseLayout {
