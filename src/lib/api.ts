@@ -285,14 +285,16 @@ export const api = {
   dropPlayerFiles: (scope: string, playerId?: string) =>
     request<{ ok: true }>(`player-files/${encodeURIComponent(scope)}${playerId ? `/${encodeURIComponent(playerId)}` : ""}`, { method: "DELETE" }),
 
-  listSheets: () => request<{ sheets: RemoteSheet[] }>("call-sheets"),
+  /** `owner` is the account the list came from: only a list that says whose it is can take a sheet out of this browser. */
+  listSheets: () => request<{ sheets: RemoteSheet[]; owner?: string }>("call-sheets"),
 
   deleteSheet: (id: string) => request<{ ok: true }>(`call-sheets/${id}`, { method: "DELETE" }),
 
-  createSheet: (body: unknown) =>
+  /** `clientId` is the browser's own id for the sheet, so a create sent twice finds the first row instead of making a copy. */
+  createSheet: (body: { name: string; columns: unknown; rows: unknown; clientId: string }) =>
     request<{ sheet: RemoteSheet }>("call-sheets", { method: "POST", body: JSON.stringify(body) }),
 
-  updateSheet: (id: string, body: unknown) =>
+  updateSheet: (id: string, body: { name: string; columns: unknown; rows: unknown }) =>
     request<{ sheet: RemoteSheet }>(`call-sheets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
 
   /** Owner console. The server answers 404 to anyone who isn't on the owner list. */
@@ -325,6 +327,8 @@ export type RemoteSheet = {
   columns: unknown;
   rows: unknown;
   updatedAt: string;
+  /** The browser id the sheet was first saved with (none on sheets saved before ids were sent). */
+  clientId?: string | null;
 };
 
 export const toStoredPlay = (p: ApiPlay): StoredPlay => ({
