@@ -1,4 +1,4 @@
-import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, OFF_LINE, tagCoverage } from "./defense";
+import { COVERAGES, FLAG_LOOKS, layoutDefense, layoutFlagDefense, layoutSeven, OFF_LINE } from "./defense";
 import type { Coverage, DefenseLayout, FlagLook, Front } from "./defense";
 import { routeWord } from "./explain";
 import { fieldInset, unitsPerYard } from "./fieldUnits";
@@ -79,71 +79,6 @@ const FIVE: Look[] = FLAG_LOOKS.map((l: FlagLook) => ({
   layout: (receivers, rushUnits) => layoutFlagDefense(l, rushUnits, receivers),
 }));
 
-type Spot = { dx: number; dy: number; label: string };
-type Zone7 = { dx: number; dy: number; rx: number; ry: number };
-const zone7 = (dx: number, dy: number, rx: number, ry: number): Zone7 => ({ dx, dy, rx, ry });
-
-/** 7-on-7 passing: seven in coverage and no rush. */
-export function layoutSeven(kind: "Cover 1" | "Cover 2" | "Cover 3" | "Man", receivers: { dx: number; dy: number }[]): DefenseLayout {
-  const out: DefenseLayout = { defenders: [], zones: [], lines: [] };
-  const zoneMan = (spot: Spot, zone: Zone7) => {
-    out.defenders.push({ ...spot, job: "zone" });
-    out.zones.push(zone);
-    out.lines.push({ from: out.defenders.length - 1, to: { dx: zone.dx, dy: zone.dy }, kind: "drop" });
-  };
-  const manUp = (spots: Spot[]) => {
-    const start = out.defenders.length;
-    spots.forEach((s) => out.defenders.push({ ...s, job: "man" }));
-    const left = new Set(spots.map((_, i) => start + i));
-    for (const r of [...receivers].sort((a, b) => Math.abs(b.dx) - Math.abs(a.dx))) {
-      let best = -1;
-      let bestD = Infinity;
-      for (const i of left) {
-        const d = Math.abs(out.defenders[i].dx - r.dx);
-        if (d < bestD) (bestD = d), (best = i);
-      }
-      if (best < 0) break;
-      left.delete(best);
-      out.lines.push({ from: best, to: r, kind: "man" });
-    }
-    // Spare men sit underneath in the middle as a robber.
-    for (const i of left) {
-      out.defenders[i].job = "zone";
-      const z = zone7(0, -130, 120, 40);
-      out.zones.push(z);
-      out.lines.push({ from: i, to: { dx: z.dx, dy: z.dy }, kind: "drop" });
-    }
-  };
-  const press: Spot[] = [
-    { dx: -400, dy: -40, label: "C" },
-    { dx: 400, dy: -40, label: "C" },
-    { dx: -200, dy: -60, label: "N" },
-    { dx: 200, dy: -60, label: "N" },
-    { dx: -60, dy: -90, label: "M" },
-    { dx: 60, dy: -90, label: "W" },
-  ];
-  if (kind === "Man") {
-    manUp([...press, { dx: 0, dy: -150, label: "S" }]);
-  } else if (kind === "Cover 1") {
-    zoneMan({ dx: 0, dy: -210, label: "FS" }, zone7(0, -280, 220, 56));
-    manUp(press);
-  } else if (kind === "Cover 2") {
-    zoneMan({ dx: -230, dy: -200, label: "S" }, zone7(-230, -270, 225, 56));
-    zoneMan({ dx: 230, dy: -200, label: "S" }, zone7(230, -270, 225, 56));
-    [zone7(-400, -110, 105, 39), zone7(-200, -125, 95, 39), zone7(0, -130, 90, 39), zone7(200, -125, 95, 39), zone7(400, -110, 105, 39)].forEach((z, i) =>
-      zoneMan({ dx: z.dx, dy: i === 0 || i === 4 ? -40 : -80, label: i === 0 || i === 4 ? "C" : i === 2 ? "M" : "N" }, z),
-    );
-  } else {
-    [zone7(-340, -265, 150, 52), zone7(0, -280, 150, 52), zone7(340, -265, 150, 52)].forEach((z, i) =>
-      zoneMan({ dx: z.dx === 0 ? 0 : Math.sign(z.dx) * 400, dy: i === 1 ? -200 : -70, label: i === 1 ? "FS" : "C" }, z),
-    );
-    [zone7(-300, -120, 110, 39), zone7(-100, -128, 100, 39), zone7(100, -128, 100, 39), zone7(300, -120, 110, 39)].forEach((z, i) =>
-      zoneMan({ dx: z.dx, dy: -80, label: i === 0 || i === 3 ? "N" : i === 1 ? "M" : "W" }, z),
-    );
-  }
-  return tagCoverage(out);
-}
-
 const SEVEN: Look[] = (["Cover 1", "Cover 2", "Cover 3", "Man"] as const).map((k) => ({
   id: `7:${k}`,
   name: k === "Man" ? "Cover 0 (all man)" : k,
@@ -151,6 +86,7 @@ const SEVEN: Look[] = (["Cover 1", "Cover 2", "Cover 3", "Man"] as const).map((k
   layout: (receivers) => layoutSeven(k, receivers),
 }));
 
+export { layoutSeven };
 export const LOOKS: Record<Format, Look[]> = { "5v5": FIVE, "7v7": SEVEN, "11": ELEVEN };
 export const FORMAT_NAME: Record<Format, string> = { "5v5": "5-on-5", "7v7": "7-on-7", "11": "11-man" };
 /** When the ball is due out, by format (seconds after the snap). */

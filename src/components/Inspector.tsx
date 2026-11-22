@@ -467,10 +467,10 @@ export function Inspector({ scene, selection, meta, onMeta, onScene, onSelection
               Space down
             </button>
             <button type="button" className="chip" onClick={() => onScene(flipNodes(scene, selection, "x"), "Flip")}>
-              <Icon name="flip" size={12} /> Flip sides
+              <Icon name="flip" size={12} /> Mirror left/right
             </button>
             <button type="button" className="chip" onClick={() => onScene(flipNodes(scene, selection, "y"), "Flip")}>
-              Flip up/down
+              Mirror up/down
             </button>
           </div>
           <div className="chip-row" style={{ marginTop: 7 }}>

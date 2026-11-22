@@ -19,12 +19,12 @@ export type LivePatch = {
   /** Ids of nodes taken off the field. */
   remove: string[];
   /** Field, line of scrimmage and the rest, only when changed. */
-  frame?: Partial<Pick<Scene, "view" | "width" | "height" | "losY" | "pivot">>;
+  frame?: Partial<Pick<Scene, "view" | "width" | "height" | "losY" | "pivot">> & { pov?: "defense" | null };
 };
 
 export type LivePlay = { id: string; orgId: string; name: string; rev: number; updatedAt: string; updatedBy: string };
 
-const FRAME = ["view", "width", "height", "losY", "pivot"] as const;
+const FRAME = ["view", "width", "height", "losY", "pivot", "pov"] as const;
 
 /** JSON with sorted keys: the database does not keep key order, so equal nodes must compare equal anyway. */
 export function canon(v: unknown): string {
@@ -49,7 +49,8 @@ export function diffScene(from: Scene, to: Scene): LivePatch {
   const have = new Set(to.nodes.map((n) => n.id));
   const remove = from.nodes.filter((n) => !have.has(n.id)).map((n) => n.id);
   const frame: NonNullable<LivePatch["frame"]> = {};
-  for (const k of FRAME) if (canon(from[k]) !== canon(to[k])) Object.assign(frame, { [k]: to[k] });
+  // "pov" travels as "defense" or null (a play turned back has none), because a missing key can't say "take it off".
+  for (const k of FRAME) if (canon(from[k]) !== canon(to[k])) Object.assign(frame, { [k]: k === "pov" ? to.pov ?? null : to[k] });
   return { set, remove, ...(Object.keys(frame).length ? { frame } : {}) };
 }
 
@@ -66,7 +67,11 @@ export function applyPatch(scene: Scene, patch: LivePatch): Scene {
       return swap ?? n;
     });
   for (const n of patch.set) if (!used.has(n.id) && !gone.has(n.id)) nodes.push(n);
-  return { ...scene, ...(patch.frame ?? {}), nodes };
+  const { pov, ...frame } = patch.frame ?? {};
+  const out: Scene = { ...scene, ...frame, nodes };
+  if (pov === "defense") out.pov = "defense";
+  else if (pov === null) delete out.pov;
+  return out;
 }
 
 /** The same scene to the eye: nothing for the browser to redraw. */
@@ -90,6 +95,7 @@ export function cleanPatch(raw: unknown): LivePatch | string {
     if (typeof f.view === "string") frame.view = f.view as Scene["view"];
     for (const k of ["width", "height", "losY"] as const) if (typeof f[k] === "number" && Number.isFinite(f[k])) frame[k] = f[k] as number;
     if (f.pivot === null || (f.pivot && typeof f.pivot === "object")) frame.pivot = f.pivot as Scene["pivot"];
+    if (f.pov === "defense" || f.pov === null) frame.pov = f.pov;
   }
   return { set: p.set as SceneNode[], remove, ...(Object.keys(frame).length ? { frame } : {}) };
 }

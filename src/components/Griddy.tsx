@@ -12,7 +12,7 @@ import type { GriddyAction, GriddyContext, GriddyTurn } from "../lib/griddy";
 import { gateAi } from "../lib/plan";
 import type { TokenPreset } from "../lib/presets";
 import { loadRules } from "../lib/rules";
-import { reconcileConnections } from "../lib/scene";
+import { reconcileConnections, upright } from "../lib/scene";
 import { store } from "../lib/store";
 import { spokenTerms, useStaffTerms, useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
@@ -80,7 +80,7 @@ function beatsOf(p: StoredPlay, rushYards: number, check: typeof import("../lib/
   if (p.playType !== "pass") return "";
   const hit = beatsCache.get(p.id);
   if (hit && hit.at === p.updatedAt) return hit.text;
-  const report = check.checkAll(reconcileConnections(p.scene), { rushYards });
+  const report = check.checkAll(upright(reconcileConnections(p.scene)), { rushYards });
   const text = report.results.some((r) => r.rows.length)
     ? `${report.format}: ${report.results.filter(check.wins).map((r) => r.look.name).join(", ") || "none"}`
     : "";

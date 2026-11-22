@@ -60,8 +60,11 @@ import {
   moveNodes,
   extendToSideline,
   flipNodes,
-  canTurnAround,
+  framePoint,
+  inUpright,
+  toFrame,
   turnAround,
+  upright,
   nextZ,
   reconcileConnections,
   removeGhost,
@@ -77,9 +80,10 @@ import {
 import { CANVAS_H, CANVAS_W, DEFAULT_STROKE, PALETTE, STROKE_WEIGHTS, uid } from "../lib/types";
 import type { PathNode, PlayMeta, PlayerNode, Point, Scene, SceneNode, StoredPlay } from "../lib/types";
 import { store, useStore } from "../lib/store";
-import { lookName, lookScene, overlayStore, parseLook, useOverlay } from "../lib/overlay";
+import { alignUnder, lookName, lookScene, overlayStore, parseLook, useOverlay } from "../lib/overlay";
 import { unitsPerYard } from "../lib/field";
 import { convertField } from "../lib/fieldConvert";
+import type { FieldMove } from "../lib/fieldConvert";
 import { editScene, swapSides } from "../lib/bulkEdit";
 import { savePlays } from "../lib/griddyVault";
 import { loadRules, saveRules, type RuleLines } from "../lib/rules";
@@ -707,8 +711,11 @@ export function Builder() {
   /* ------------------------------------------------------------- placements */
 
   const placeToken = (preset: TokenPreset, at?: { x: number; y: number }) => {
-    const spot = at ?? { x: CANVAS_W / 2 + (scene.nodes.length % 5) * 34 - 68, y: scene.losY - 46 };
-    const node = { ...makePlayer(preset, spot.x, spot.y), z: nextZ(scene) };
+    // Built in the offense-up frame, then put in the play's own: on a play drawn from the defense's end the token faces the right way up too.
+    // With nothing clicked it goes just past the line on the defense's side.
+    const spot = at ? framePoint(scene, at) : { x: CANVAS_W / 2 + (scene.nodes.length % 5) * 34 - 68, y: upright(scene).losY - 46 };
+    const [made] = toFrame(scene, [makePlayer(preset, spot.x, spot.y)]);
+    const node = { ...made, z: nextZ(scene) };
     applyScene({ ...scene, nodes: [...scene.nodes, node] }, `${preset.title} added`);
     setSelection([node.id]);
     picked();
@@ -717,11 +724,16 @@ export function Builder() {
   const applyFormation = (set: { name: string; note: string; placed: Placed[] }) => {
     const group = uid("grp");
     const z = nextZ(scene);
-    const nodes = set.placed.map((p, i) => ({
-      ...makePlayer(tokenFor(p, offense), CANVAS_W / 2 + p.dx, scene.losY + p.dy),
-      groupId: group,
-      z: z + i,
-    }));
+    const line = upright(scene).losY;
+    // Formations are laid out offense-up; a play drawn from the defense's end turns them with it.
+    const nodes = toFrame(
+      scene,
+      set.placed.map((p, i) => ({
+        ...makePlayer(tokenFor(p, offense), CANVAS_W / 2 + p.dx, line + p.dy),
+        groupId: group,
+        z: z + i,
+      })),
+    );
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.name} set`);
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: set.name }));
@@ -733,12 +745,31 @@ export function Builder() {
   const dropYourSet = (name: string, players: PlayerNode[]) => {
     const group = uid("grp");
     const z = nextZ(scene);
-    const nodes = players.map((p, i) => ({ ...p, id: uid("n"), groupId: group, z: z + i }));
+    // The set arrives offense-up (see `setPlayers`); a play drawn from the defense's end turns it with the rest.
+    const nodes = toFrame(
+      scene,
+      players.map((p, i) => ({ ...p, id: uid("n"), groupId: group, z: z + i })),
+    );
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${name} set`);
     setSelection(nodes.map((n) => n.id));
     if (!meta.formation) setMeta((m) => ({ ...m, formation: name }));
     setStatus(`${name} dropped in. Click a player to give him a route.`);
     picked();
+  };
+
+  /**
+   * Flip the sides of the ball on a play that is already drawn: the card turns
+   * half a circle, so the defense lands at the bottom (or the offense goes back
+   * there). Every route, block, motion and label turns with its player.
+   */
+  const flipSides = () => {
+    const turned = scene.pov === "defense";
+    applyScene(turnAround(scene), turned ? "Offense at the bottom" : "Defense at the bottom");
+    setStatus(
+      turned
+        ? "Flipped: the offense is back at the bottom of the card and attacks up the field. Every route and block went with its player."
+        : "Flipped: the defense is at the bottom of the card and the offense attacks down it. Every route and block went with its player.",
+    );
   };
 
   const startSetup = (c: SetupChoice) => {
@@ -785,10 +816,11 @@ export function Builder() {
   // A new field keeps routes true to the yard (a 10-yard out stays 10 yards); Undo puts the old drawing back.
   const changeField = (view: Scene["view"]) => {
     if (view === scene.view) return;
-    // An end zone has a fixed side, so a play drawn from the defense's end turns back first.
-    const upright = scene.pov === "defense" && !canTurnAround(view) ? turnAround(scene) : scene;
-    const move = convertField(upright, view);
-    applyScene(move.scene, "Field view");
+    // Every field can be turned, so a play drawn from the defense's end keeps its side on the new field.
+    // The conversion runs offense-up, so its limits on the line of scrimmage mean the same thing for either way up.
+    let move!: FieldMove;
+    const next = inUpright(scene, (u) => ((move = convertField(u, view)), move.scene));
+    applyScene(next, "Field view");
     const name = FIELD_VIEWS.find((v) => v.id === view)?.label ?? view;
     setStatus(
       !move.moved
@@ -796,16 +828,18 @@ export function Builder() {
         : move.clipped
           ? `${name}, routes kept to the yard. The play is taller than this field, so some lines run off it.`
           : move.slidYards
-            ? `${name}, routes kept to the yard. The play slid ${Math.abs(move.slidYards)} yds ${move.slidYards < 0 ? "up" : "down"} to fit.`
+            ? `${name}, routes kept to the yard. The play slid ${Math.abs(move.slidYards)} yds ${move.slidYards < 0 !== (scene.pov === "defense") ? "up" : "down"} to fit.`
             : `${name}, routes kept to the yard.`,
     );
   };
 
   const applyDefense = (set: { front: Front; coverage: Coverage; show: boolean; flip?: boolean; tags?: boolean }) => {
+    // Read the set and lay the defense out offense-up, then put it in the play's own frame (below the offense on a turned play).
+    const u = upright(scene);
     // Line up on the ball: the center if there is one, else the middle of the field.
-    const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
+    const players = u.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden);
     const center = players.find((p) => p.side === "offense" && p.label === "C");
-    const ball = { x: center?.x ?? CANVAS_W / 2, y: scene.losY };
+    const ball = { x: center?.x ?? CANVAS_W / 2, y: u.losY };
     const offense = players.filter((p) => p.side === "offense");
     const hasLine = offense.some(isLineman);
     const receivers = offense
@@ -815,7 +849,7 @@ export function Builder() {
     const layout = set.flip
       ? mirrorDefense(layoutDefense(set.front, set.coverage, receivers.map((r) => ({ ...r, dx: -r.dx }))))
       : layoutDefense(set.front, set.coverage, receivers);
-    const nodes = defenseNodes(layout, ball, set.show, nextZ(scene), set.tags ?? false);
+    const nodes = toFrame(scene, defenseNodes(layout, ball, set.show, nextZ(scene), set.tags ?? false));
     applyScene({ ...scene, nodes: [...scene.nodes, ...nodes] }, `${set.front} ${set.coverage} set`);
     setSelection(nodes.map((n) => n.id));
     setStatus(
@@ -835,15 +869,15 @@ export function Builder() {
    */
   const matchOffense = () => {
     const turned = scene.pov === "defense";
-    const upright = turned ? turnAround(scene) : scene;
-    const read = readOffense(upright);
+    const u = upright(scene);
+    const read = readOffense(u);
     if (!read) {
       setStatus("Put an offense on the field first (Sets → Formations), then turn it into a defense.");
       return;
     }
     const pick = pickDefense(read, lookUnits);
-    const { scene: cleared, removed } = withoutDefense(upright);
-    const nodes = defenseNodes(pick.layout, { x: read.ball, y: upright.losY }, true, nextZ(cleared), true);
+    const { scene: cleared, removed } = withoutDefense(u);
+    const nodes = defenseNodes(pick.layout, { x: read.ball, y: u.losY }, true, nextZ(cleared), true);
     const next = { ...cleared, nodes: [...cleared.nodes, ...nodes] };
     applyScene(turned ? turnAround(next) : next, `${pick.name} vs the offense`);
     setSelection(nodes.map((n) => n.id));
@@ -907,7 +941,7 @@ export function Builder() {
   const copySelection = () => {
     const source = scene.nodes.filter((n) => selection.includes(n.id));
     if (!source.length) return;
-    copyNodes(source);
+    copyNodes(source, scene.pov);
     setStatus(`Copied ${source.length === 1 ? describe(source[0]) : `${source.length} elements`}. Paste here or on another play with Ctrl+V.`);
   };
 
@@ -1334,6 +1368,7 @@ export function Builder() {
         ]
       : []),
     ...(existing ? [{ id: "flip-copy", label: "Flip and save as a new play", run: () => void flipToCopy() }] : []),
+    { id: "flip-sides", label: `Flip sides: ${scene.pov === "defense" ? "offense" : "defense"} to the bottom`, run: flipSides },
     { id: "layout", label: "Field layout…", run: () => setMenu(compactBar ? "all" : "field") },
     { id: "fit", label: "Fit the field to the screen", run: () => setAutoFit(true) },
     ...(sheetScreen() ? [] : [{ id: "panels", label: panelsShown ? "Hide the side panels" : "Show the side panels", run: togglePanels }]),
@@ -1875,7 +1910,14 @@ export function Builder() {
   const underLook = parseLook(overlayId);
   const lookUnits = (rules.rush || 7) * (unitsPerYard(scene.view) || 14.4);
   const lookUnder = useMemo(() => (underLook ? lookScene(scene, underLook, lookUnits) : null), [overlayId, scene.nodes, scene.losY, lookUnits]); // eslint-disable-line react-hooks/exhaustive-deps
-  const underPlay = savedUnder ?? (underLook && lookUnder ? { id: overlayId!, name: lookName(underLook), scene: lookUnder } : null);
+  // A saved play goes under this one the same way up and on this line of scrimmage, whichever end it was drawn from.
+  const savedAligned = useMemo(() => (savedUnder ? alignUnder({ pov: scene.pov, losY: scene.losY }, savedUnder.scene) : null), [savedUnder, scene.pov, scene.losY]);
+  const underPlay =
+    savedUnder && savedAligned
+      ? { id: savedUnder.id, name: savedUnder.name, scene: savedAligned }
+      : underLook && lookUnder
+        ? { id: overlayId!, name: lookName(underLook), scene: lookUnder }
+        : null;
   const overlayChoices = useMemo(() => {
     const others = plays.filter((p) => p.id !== existing?.id).sort((a, b) => a.name.localeCompare(b.name));
     return { defenses: others.filter((p) => p.playType === "defense"), rest: others.filter((p) => p.playType !== "defense") };
@@ -1928,7 +1970,8 @@ export function Builder() {
   // Preview's hand-offs put it away first, so focus is back on the Designer's button before the next box opens and reads its opener.
   const closePreview = () => flushSync(() => setPreviewing(false));
   const watching = covering || teaching || previewing || videoing || view3d;
-  const coverScene = useMemo(() => (watching ? reconcileConnections(scene) : scene), [watching, scene]);
+  // The Coverage check, Film Room, Preview, videos and 3D are read-only looks that always show the offense at the bottom, so a play drawn from the defense's end is turned upright for them (the saved play is never touched).
+  const coverScene = useMemo(() => upright(watching ? reconcileConnections(scene) : scene), [watching, scene]);
   const pickView3d = (on: boolean) => {
     if (!on) return view3d ? (setView3d(false), setStatus("Back on the drawing.")) : undefined;
     if (!teachable) return setStatus("3D needs an offense on the field. Add your players, then switch to 3D.");
@@ -1969,11 +2012,13 @@ export function Builder() {
   const losFresh = useRef(true);
   const losKeyAt = useRef(0);
   const moveLos = (y: number) => {
-    const dy = y - scene.losY;
+    // The slider speaks the offense-up line (more room downfield to the right) for every play; a play drawn from the defense's end moves the other way on the card.
+    const up = y - upright(scene).losY;
+    const dy = scene.pov === "defense" ? -up : up;
     if (!dy) return;
     const label = losFresh.current ? "Line of scrimmage" : undefined;
     losFresh.current = false;
-    applyScene({ ...scene, losY: y, nodes: scene.nodes.map((n) => ({ ...n, y: n.y + dy })), pivot: scene.pivot ? { ...scene.pivot, y: scene.pivot.y + dy } : scene.pivot }, label);
+    applyScene({ ...scene, losY: scene.losY + dy, nodes: scene.nodes.map((n) => ({ ...n, y: n.y + dy })), pivot: scene.pivot ? { ...scene.pivot, y: scene.pivot.y + dy } : scene.pivot }, label);
   };
 
   /* ---------------------------------------------- one-click routes and blocks */
@@ -2018,7 +2063,7 @@ export function Builder() {
   const drawQuick = (route: QuickRoute) => {
     const p = quick && playerById(quick.playerId);
     if (!p) return;
-    const mirror = leftSide(p);
+    const mirror = leftSide(p, scene);
     const result = giveQuickRoute(scene, route, p, { mirror, ink: routeInk(p, color), width, z: nextZ(scene) });
     applyScene(result.scene, route.label);
     setSelection([p.id]);
@@ -2333,7 +2378,7 @@ export function Builder() {
                     ))}
                   </div>
                   {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
-                  {lists === "yours" && <YourSets losY={scene.losY} onDrop={dropYourSet} />}
+                  {lists === "yours" && <YourSets losY={upright(scene).losY} onDrop={dropYourSet} />}
                   {lists === "defense" && <DefenseLibrary onDrop={applyDefense} onMatch={matchOffense} />}
                   {lists === "layers" && (
                     <div className="dz-list" id="dz-list-tray">
@@ -2471,15 +2516,8 @@ export function Builder() {
           ))}
         </select>
       </label>
-      <button
-        type="button"
-        aria-pressed={scene.pov === "defense"}
-        disabled={!canTurnAround(scene.view)}
-        title={canTurnAround(scene.view) ? undefined : "The red zone and flag fields have a fixed end zone, so they can't be turned around."}
-        onClick={() => applyScene(turnAround(scene), scene.pov === "defense" ? "View from the offense" : "View from the defense")}
-        data-tour="dz-more-field"
-      >
-        View from the {scene.pov === "defense" ? "offense" : "defense"}
+      <button type="button" onClick={flipSides} data-tour="dz-more-field">
+        Flip sides: {scene.pov === "defense" ? "offense" : "defense"} to the bottom
       </button>
       <label className={`dz-more-field${underPlay ? " is-on" : ""}`} onClick={(e) => e.stopPropagation()} data-tour="dz-more-field">
         <span>Vs defense</span>
@@ -3155,7 +3193,7 @@ export function Builder() {
                   aria-label="Line of scrimmage: the play moves with it"
                   min={90}
                   max={600}
-                  value={scene.losY}
+                  value={upright(scene).losY}
                   onPointerDown={() => (losFresh.current = true)}
                   onKeyDown={() => {
                     // A run of arrow presses is one slide, so one Undo puts it back.
@@ -3168,6 +3206,16 @@ export function Builder() {
               </label>
             )}
             <div className="dz-view" data-tour="dz-view">
+              <button
+                type="button"
+                className="dz-view-flip"
+                onClick={flipSides}
+                disabled={view3d}
+                title={`Flip the sides of the ball: put the ${scene.pov === "defense" ? "offense" : "defense"} at the bottom of the card. Routes and blocks go with their players.`}
+                data-tour="dz-flip"
+              >
+                <Icon name="rotate" size={12} /> Flip sides
+              </button>
               <button type="button" className="dz-view-preview" onClick={() => setPreviewing(true)}>
                 <Icon name="play" size={12} /> Preview
               </button>
@@ -3215,7 +3263,7 @@ export function Builder() {
               const name = p.label || p.name || "Player";
               const left = Math.max(8, Math.min(quick.at.x + 14, window.innerWidth - 396));
               const top = Math.max(64, Math.min(quick.at.y - 20, window.innerHeight - (quick.drawn ? 70 : blockArm ? 120 : 380)));
-              const mirrored = leftSide(p);
+              const mirrored = leftSide(p, scene);
               const path = quickPathNode();
               const endLabel = QUICK_ENDS.find((e) => e.cap === path?.endCap)?.label ?? "Arrow";
               if (blockArm === p.id) {
@@ -3253,7 +3301,7 @@ export function Builder() {
                     {QUICK_ROUTES.map((r) => (
                       <button key={r.id} type="button" className="dz-quick-tile" onClick={() => drawQuick(r)} aria-label={`${r.label}, ${r.depth}`}>
                         <svg viewBox="0 0 56 44" aria-hidden="true">
-                          <g transform={mirrored ? "translate(56 0) scale(-1 1)" : undefined}>
+                          <g transform={`${scene.pov === "defense" ? "rotate(180 28 22) " : ""}${mirrored ? "translate(56 0) scale(-1 1)" : ""}`.trim() || undefined}>
                             <path d={r.icon} fill="none" stroke={routeInk(p, "#E8F1F8")} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx="28" cy="40" r="3.5" fill={routeInk(p, "#E8F1F8")} />
                           </g>

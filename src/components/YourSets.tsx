@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { swapSides } from "../lib/formations";
+import { upright } from "../lib/pov";
 import { useStore } from "../lib/store";
 import { CANVAS_W } from "../lib/types";
 import type { PlayerNode, Scene, StoredPlay } from "../lib/types";
@@ -27,15 +28,19 @@ export function setsFromPlays(plays: StoredPlay[]): YourSet[] {
     else byName.set(key, { first: p.updatedAt < had.first.updatedAt ? p : had.first, count: had.count + 1 });
   }
   return [...byName.values()]
-    .map(({ first, count }) => ({
-      name: first.formation.trim(),
-      plays: count,
-      scene: { ...first.scene, pov: undefined, nodes: first.scene.nodes.filter((n) => n.kind === "player" && n.side === "offense" && !n.hidden && !n.ghostOf) },
-    }))
+    .map(({ first, count }) => {
+      // A play drawn from the defense's end is turned upright first, so the set always reads offense-up (the Designer turns it back on a turned play).
+      const flat = upright(first.scene);
+      return {
+        name: first.formation.trim(),
+        plays: count,
+        scene: { ...flat, nodes: flat.nodes.filter((n) => n.kind === "player" && n.side === "offense" && !n.hidden && !n.ghostOf) },
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** The set's players for the field: lined up on this play's line, plain or as saved, flipped if asked. */
+/** The set's players for the field, offense-up: lined up on this play's line (its offense-up line, `upright(scene).losY`), plain or as saved, flipped if asked. */
 export function setPlayers(set: YourSet, losY: number, opts: { plain: boolean; flip: boolean }): PlayerNode[] {
   const dy = losY - set.scene.losY;
   return (set.scene.nodes as PlayerNode[]).map((p) => ({

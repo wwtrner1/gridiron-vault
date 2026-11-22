@@ -96,3 +96,44 @@ test("the Film Room look is kept with the team brand, checked, and private to th
   assert.notEqual(one, two);
   assert.equal((await call("GET", "brand")).data.brand, null);
 });
+
+test("the owner's team logo stays on the owner's account: another account is never served it and can't store it", async () => {
+  const logo = `data:image/png;base64,${randomUUID().replace(/-/g, "")}`;
+  const stamp = () => new Date().toISOString();
+  const dolphins = { name: "Dolphins", logo, primary: "#008E97", secondary: "#FC4C02", logoOnField: true, endZones: true, prints: true, updatedAt: stamp() };
+
+  // The owner (a listed, confirmed address) keeps the logo as theirs.
+  const owner = randomUUID();
+  signInAs({ id: owner, email: "wwtrner1@gmail.com" });
+  assert.equal((await call("GET", "me")).data.owner, true);
+  const kept = await call("PUT", "brand", { brand: dolphins });
+  assert.equal(kept.status, 200);
+  assert.equal(kept.data.brand.logo, logo);
+  assert.equal((await call("GET", "brand")).data.brand.logo, logo);
+
+  // Another coach sending the same logo (an old shared browser) gets the plain look, and nothing is stored.
+  const other = await coach();
+  const refused = await call("PUT", "brand", { brand: dolphins });
+  assert.equal(refused.status, 200);
+  assert.equal(refused.data.brand, null);
+  assert.equal(refused.data.withheld, true);
+  assert.deepEqual((await call("GET", "brand")).data, { brand: null });
+
+  // A row that picked the logo up before this rule is withheld, and stays in the table untouched.
+  await client.query(`insert into team_brands (owner_id, data, updated_at) values ($1, $2, now()) on conflict (owner_id) do update set data = excluded.data`, [other, JSON.stringify(dolphins)]);
+  const got = await call("GET", "brand");
+  assert.equal(got.data.brand, null);
+  assert.equal(got.data.withheld, true);
+  const rows = await client.query<{ logo: string }>(`select data->>'logo' as logo from team_brands where owner_id = $1`, [other]);
+  assert.equal(rows.rows[0].logo, logo);
+
+  // The same coach's own logo goes through, replaces the held row and is served back.
+  const own = { ...dolphins, name: "Hawks", logo: `data:image/png;base64,${randomUUID().replace(/-/g, "")}`, updatedAt: new Date(Date.now() + 1000).toISOString() };
+  const saved = await call("PUT", "brand", { brand: own });
+  assert.equal(saved.data.brand.logo, own.logo);
+  assert.equal((await call("GET", "brand")).data.brand.logo, own.logo);
+
+  // And the owner still sees theirs.
+  signInAs({ id: owner, email: "wwtrner1@gmail.com" });
+  assert.equal((await call("GET", "brand")).data.brand.logo, logo);
+});

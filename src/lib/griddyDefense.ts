@@ -5,7 +5,7 @@ import type { DefenseLayout, FlagLook } from "./defense";
 import { isLineman } from "./formations";
 import { BOX_DEPTH, fitGaps, gapsFrom, zoneJob } from "./gapFits";
 import type { DefenseCall } from "./griddy";
-import { turnAround } from "./pov";
+import { toFrame, turnAround, upright } from "./pov";
 import { emptyScene } from "./presets";
 import type { TokenPreset } from "./presets";
 import { CANVAS_W } from "./types";
@@ -78,9 +78,9 @@ export type BuiltDefense = {
  * defense turned back with it, so it still faces the offense.
  */
 export function buildDefense(call: DefenseCall, field: Scene, tokens: TokenPreset[], rushUnits: number): BuiltDefense {
-  const upright = field.pov === "defense" ? turnAround(field) : field;
-  const scout = scoutOffense(call, tokens, upright.losY);
-  const base: Scene = call.against ? { ...upright, nodes: scout } : upright;
+  const u = upright(field);
+  const scout = scoutOffense(call, tokens, u.losY);
+  const base: Scene = call.against ? { ...u, nodes: scout } : u;
   const players = base.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf);
   const offense = players.filter((p) => p.side === "offense");
   const center = offense.find((p) => p.label === "C");
@@ -101,14 +101,18 @@ export function buildDefense(call: DefenseCall, field: Scene, tokens: TokenPrese
     return job ? { ...n, job } : n;
   });
   nodes = [...(call.against ? scout : []), ...nodes];
-  if (field.pov === "defense") nodes = turnAround({ ...upright, nodes }).nodes;
+  nodes = toFrame(field, nodes);
   return { nodes, receivers: receivers.length, look: defenseLookName(call) };
 }
 
-/** A fresh field for a call with no play open: the scout offense and the defense on the half field. */
+/**
+ * A fresh field for a call with no play open: the scout offense and the defense
+ * on the half field, drawn from the defense's end like any defense the coach
+ * starts in New play setup (the offense on top, the defense at the bottom).
+ */
 export function defenseField(call: DefenseCall, tokens: TokenPreset[], rushUnits: number): Scene {
   const base = emptyScene();
-  return { ...base, nodes: buildDefense({ ...call, against: call.against ?? defaultFormation(call) }, base, tokens, rushUnits).nodes };
+  return turnAround({ ...base, nodes: buildDefense({ ...call, against: call.against ?? defaultFormation(call) }, base, tokens, rushUnits).nodes });
 }
 
 /** The set a defense is drawn against when the coach named none and no play is open. */

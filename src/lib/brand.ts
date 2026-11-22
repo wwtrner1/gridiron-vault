@@ -90,6 +90,12 @@ async function pushBrand() {
   if (!b.updatedAt || b.updatedAt === sentAt) return;
   try {
     const res = await api.saveBrand(b);
+    if (res.withheld) {
+      // The owner's own logo can't ride on another account: back to the plain look.
+      write({ ...DEFAULT_BRAND }, "account");
+      sentAt = "";
+      return;
+    }
     sentAt = res.brand?.updatedAt ?? b.updatedAt;
   } catch {
     /* still saved in this browser; the next change tries again */
@@ -122,7 +128,9 @@ export function BrandSync() {
       write({ ...DEFAULT_BRAND }, "account");
       sentAt = "";
     }
-    // A brand made signed out in this browser is this coach's own work, so it goes to this account.
+    // A brand made signed out in this browser is this coach's own work, so it goes to this account, unless the
+    // account already has a brand of its own: a browser that never recorded whose brand it holds can't vouch for it.
+    const unowned = !owner;
     setOwner(id);
     let alive = true;
     let timer: number | undefined;
@@ -138,7 +146,7 @@ export function BrandSync() {
         if (!alive || !raw) return;
         const remote = cleanBrand(raw);
         const local = brandStore.get();
-        if (remote.updatedAt > local.updatedAt) {
+        if (remote.updatedAt > local.updatedAt || (unowned && hasBrand(remote))) {
           write(remote, "account");
           sentAt = remote.updatedAt;
         } else if (remote.updatedAt === local.updatedAt) sentAt = local.updatedAt;

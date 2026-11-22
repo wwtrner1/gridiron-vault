@@ -369,7 +369,7 @@ function playerNode(p: BoardPlayer, at: Point, tokens: TokenPreset[], z: number)
   const code = CODE_FOR[p.vault.toUpperCase()];
   const token = p.side === "offense" && code ? tokens.find((t) => t.code === code) : undefined;
   const node = makePlayer(token ?? neutral(p.vault.toUpperCase().slice(0, 2), p.side), at.x, at.y);
-  return { ...node, z, ...(p.side === "defense" ? { size: 30, outlineStyle: "none" as const } : {}), ...(p.job ? { job: p.job } : {}) };
+  return { ...node, z, ...(p.side === "defense" ? { outlineStyle: "none" as const } : {}), ...(p.job ? { job: p.job } : {}) };
 }
 
 /** A line traced from the photo, starting at its player's token. */
