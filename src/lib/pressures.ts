@@ -1,14 +1,17 @@
-import { depthOf, FIRST_LEVEL, firstLevel, GAP, readField, secondLevel, type Field } from "./fieldRead";
-import { clearDefender, giveAssignment, hasDefense, type JobOpts } from "./quickDefense";
+import { depthOf, FIRST_LEVEL, firstLevel, GAP, inBox, readField, secondLevel, type Field } from "./fieldRead";
+import { clearDefender, gapAt, giveAssignment, hasDefense, type JobOpts } from "./quickDefense";
 import type { PlayerNode, Scene } from "./types";
 
 /**
  * Pressures (Wes, 2026-11-22): his blitz packages from the Shark set and the
  * man-pressure sheets, applied to whatever defense is on the field. Each
  * package names its players by what they are (the 3 technique, the nose, the
- * ends, the backer to or away from the 3 technique, the nickel), so it fits a
- * 4-2-5, a 4-3 or a 3-4 alike; the players it doesn't send cover man behind it,
- * with the leftover deepest man free and the next one the hole player.
+ * ends, the backer to or away from the 3 technique, the nickel), so it applies
+ * to any front with at least three down linemen. The counts in the sheets are
+ * for a four-man line: against a 5-2 the whole line rushes and against a 3-4 or
+ * 3-3 one fewer does, and a role the front lacks is skipped and named in a note.
+ * The players it doesn't send cover man behind it, with the leftover deepest
+ * man free and the next one the hole player.
  *
  * "Gold" is the rover's job behind it: Gold Back, the rover takes the back;
  * Gold Free, he is free. Those words, the nickel ($) and the PEEL, HIT, SWAP and
@@ -22,7 +25,7 @@ export type Gold = "back" | "free";
 export type Pressure = {
   id: string;
   label: string;
-  /** Rushers, counting the line. */
+  /** Rushers, counting the line, against a four-man line. */
   count: number;
   /** One line under the name: who goes where. */
   hint: string;
@@ -89,10 +92,8 @@ const label = (p: PlayerNode) => p.label.trim().toUpperCase();
 export function rolesOf(scene: Scene): Roles {
   const f = readField(scene);
   // The box: from one gap outside the widest blocker. A corner pressed on a receiver is first level too, but he is no lineman, and the nickel and rover are not backers.
-  const reach = Math.max(GAP, ...[...f.ol, ...f.tes].map((p) => Math.abs(p.x - f.ball))) + GAP * 0.8;
-  const inBox = (d: PlayerNode) => Math.abs(d.x - f.ball) <= reach;
-  const down = firstLevel(f).filter(inBox);
-  const backers = secondLevel(f).filter((d) => inBox(d) && !["$", "R", "F"].includes(label(d)));
+  const down = firstLevel(f).filter((d) => inBox(f, d));
+  const backers = secondLevel(f).filter((d) => inBox(f, d) && !["$", "R", "F"].includes(label(d)));
   const guards = [-1, 1]
     .map((s) => f.ol.filter((p) => s * (p.x - f.ball) > 4).sort((a, b) => Math.abs(a.x - f.ball) - Math.abs(b.x - f.ball))[0])
     .filter(Boolean);
@@ -146,7 +147,13 @@ export function rolesOf(scene: Scene): Roles {
 
 /* ------------------------------------------------------------------ the packages */
 
-type Send = { who: PlayerNode | null | undefined; job: string; o?: Partial<JobOpts> };
+type Send = {
+  who: PlayerNode | null | undefined;
+  job: string;
+  o?: Partial<JobOpts>;
+  /** What the package needs here, for the note when the front doesn't have him ("a backer"). */
+  need?: string;
+};
 
 /** The rushers of a package: who, which job, and any words Wes puts on the line. */
 function sends(id: string, r: Roles): Send[] {
@@ -154,35 +161,36 @@ function sends(id: string, r: Roles): Send[] {
   const toSide = dir;
   const awaySide = (-dir) as 1 | -1;
   const line = (except: (PlayerNode | null)[] = []): Send[] => r.down.filter((d) => !except.includes(d)).map((who) => ({ who, job: "rush" }));
+  const backerTo = (job: string, o?: Partial<JobOpts>): Send => ({ who: r.backerTo, job, o, need: "a backer" });
+  const backerAway = (job: string, o?: Partial<JobOpts>): Send => ({ who: r.backerAway, job, o, need: "a second backer" });
+  const end = (e: PlayerNode | null, job: string, o?: Partial<JobOpts>): Send => ({ who: e, job, o, need: "an end" });
   switch (id) {
     case "sob":
-      return [...line(), { who: r.backerAway, job: "b-gap", o: { side: awaySide } }];
+      return [...line(), backerAway("b-gap", { side: awaySide })];
     case "go":
-      return [...line(), { who: r.backerTo, job: "a-gap", o: { side: toSide } }];
+      return [...line(), backerTo("a-gap", { side: toSide })];
     case "mob":
-      return [...line([r.three]), { who: r.three, job: "slant", o: { inside: true } }, { who: r.backerTo, job: "b-gap", o: { side: toSide } }];
+      return [...line([r.three]), { who: r.three, job: "slant", o: { inside: true }, need: "a 3 technique" }, backerTo("b-gap", { side: toSide })];
     case "pinch-mow":
-      return [...line([r.endStrong, r.endWeak]), { who: r.endStrong, job: "slant", o: { inside: true } }, { who: r.endWeak, job: "slant", o: { inside: true } }, { who: r.backerAway, job: "contain", o: { side: awaySide, pathTag: "READ" } }];
+      return [...line([r.endStrong, r.endWeak]), end(r.endStrong, "slant", { inside: true }), end(r.endWeak, "slant", { inside: true }), backerAway("contain", { side: awaySide, pathTag: "READ" })];
     case "missile":
-      return [...line([r.nose]), { who: r.nose, job: "slant", o: { inside: false } }, { who: r.backerTo, job: "a-gap", o: { side: toSide } }, { who: r.backerAway, job: "a-gap", o: { side: awaySide } }];
+      return [...line([r.nose]), { who: r.nose, job: "slant", o: { inside: false }, need: "a nose" }, backerTo("a-gap", { side: toSide }), backerAway("a-gap", { side: awaySide })];
     case "boom":
-      return [...line([r.three]), { who: r.three, job: "slant", o: { inside: true } }, { who: r.backerTo, job: "b-gap", o: { side: toSide } }, { who: r.backerAway, job: "b-gap", o: { side: awaySide } }];
+      return [...line([r.three]), { who: r.three, job: "slant", o: { inside: true }, need: "a 3 technique" }, backerTo("b-gap", { side: toSide }), backerAway("b-gap", { side: awaySide })];
     case "extra":
-      return [...line(), { who: r.backerTo, job: "a-gap", o: { side: awaySide } }, { who: r.backerAway, job: "a-gap", o: { side: toSide } }];
+      return [...line(), backerTo("a-gap", { side: awaySide }), backerAway("a-gap", { side: toSide })];
     case "backer":
-      return [...line([r.endStrong, r.endWeak]), { who: r.endStrong, job: "peel" }, { who: r.endWeak, job: "peel" }, { who: r.backerTo, job: "rush" }, { who: r.backerAway, job: "rush" }];
+      return [...line([r.endStrong, r.endWeak]), end(r.endStrong, "peel"), end(r.endWeak, "peel"), backerTo("rush"), backerAway("rush")];
     case "sextra":
-      return [
-        ...line([r.endStrong, r.endWeak]),
-        { who: r.endStrong, job: "peel" },
-        { who: r.endWeak, job: "peel" },
-        { who: r.backerTo, job: "hit" },
-        { who: r.backerAway, job: "b-gap", o: { side: awaySide } },
-      ];
+      return [...line([r.endStrong, r.endWeak]), end(r.endStrong, "peel"), end(r.endWeak, "peel"), backerTo("hit"), backerAway("b-gap", { side: awaySide })];
     case "swing":
-      return [...line(), { who: r.backerAway, job: "b-gap", o: { side: awaySide, pathTag: "SWAP" } }];
+      return [...line(), backerAway("b-gap", { side: awaySide, pathTag: "SWAP" })];
     case "twist":
-      return [...line([r.three, r.nose]), { who: r.three, job: "slant", o: { inside: true } }, { who: r.nose, job: "loop", o: { side: toSide, pathTag: "SWAP" } }];
+      return [
+        ...line([r.three, r.nose]),
+        { who: r.three, job: "slant", o: { inside: true }, need: "a 3 technique" },
+        { who: r.nose, job: "loop", o: { side: toSide, to: gapAt(r.f, "B", toSide).x, pathTag: "SWAP" }, need: "a nose" },
+      ];
     default:
       return [];
   }
@@ -249,9 +257,11 @@ export function applyPressure(scene: Scene, id: string, o: { gold?: Gold; width:
   const roles = rolesOf(scene);
   if (roles.down.length < 3) return { error: `${pkg.label} needs a front of at least three down linemen. Pick a front from the Defense library.` };
   const notes: string[] = [];
+  // The sheets' counts are for a line of four (a 5-2's whole line rushes, a 3-4's three do), so the count on the field can differ, and the note says why.
+  if (roles.down.length !== 4) notes.push(`This front has ${roles.down.length} down linemen and ${pkg.label} is written for four, so its rush count is not ${pkg.count}.`);
   const plan = sends(id, roles).filter((s) => {
     if (s.who) return true;
-    notes.push(`${pkg.label} has no ${s.job === "b-gap" || s.job === "a-gap" || s.job === "hit" || s.job === "contain" ? "backer" : "player"} to send here.`);
+    notes.push(`${pkg.label} needs ${s.need ?? "a player"} this front doesn't have, so that part is skipped.`);
     return false;
   });
   // A player named twice keeps the last job the package gave him (the line's plain rush gives way to his own).

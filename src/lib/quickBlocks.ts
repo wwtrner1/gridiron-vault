@@ -1,5 +1,5 @@
 import { fromOwner, lineFor, replaceLines, type Ink, type LineSpec } from "./assignLine";
-import { firstLevel, GAP, HEAD_UP, isQuarterback, nearestDefender, readField, secondLevel, SECOND_LEVEL, stopShort, type Field } from "./fieldRead";
+import { firstLevel, GAP, HEAD_UP, inBox, isQuarterback, nearestDefender, onLine, readField, secondLevel, SECOND_LEVEL, stopShort, type Field } from "./fieldRead";
 import { unitsFor } from "./quickRoutes";
 import type { PathNode, PlayerNode, Point, Scene } from "./types";
 
@@ -42,17 +42,17 @@ function blockIcon(pts: [number, number][]): string {
 /** What a lineman can do: Wes's blocks, plus the click on a defender that was always there. */
 export const LINE_BLOCKS: BlockKind[] = [
   { id: "base", label: "Base", hint: "Man over you", talk: "blocks the man over him.", icon: blockIcon([[28, 40], [28, 14]]) },
-  { id: "reach", label: "Reach", hint: "Get outside him", talk: "reaches: steps to the play side and gets his head outside the defender.", icon: blockIcon([[20, 40], [40, 14]]) },
+  { id: "reach", label: "Reach", hint: "Get outside him", talk: "reaches the man over him, stepping to the play side to get his head outside.", icon: blockIcon([[20, 40], [40, 14]]) },
   { id: "down", label: "Down", hint: "Inside gap", talk: "blocks down on the defender inside him.", icon: blockIcon([[36, 40], [20, 14]]) },
   { id: "combo", label: "Combo", hint: "Double, then climb", talk: "doubles with his neighbor, then climbs to the backer.", icon: blockIcon([[28, 40], [28, 26], [36, 10]]) },
   { id: "climb", label: "Climb", hint: "To the backer", talk: "climbs to the second level and blocks a backer.", icon: blockIcon([[28, 40], [28, 6]]) },
   { id: "pull-kick", label: "Pull and kick out", hint: "Around to the end", talk: "pulls and kicks out the end man on the line.", icon: blockIcon([[12, 40], [20, 43], [40, 42], [46, 22]]) },
   { id: "pull-lead", label: "Pull and lead", hint: "Through the hole", talk: "pulls and leads through the hole to a backer.", icon: blockIcon([[10, 40], [18, 43], [38, 42], [46, 10]]) },
   { id: "trap", label: "Trap", hint: "Across to a lineman", talk: "pulls across and traps the first defender past the center.", icon: blockIcon([[20, 40], [26, 43], [38, 42], [42, 22]]) },
-  { id: "fold", label: "Fold", hint: "Wrap behind", talk: "folds: wraps behind his neighbor and blocks the man he leaves.", icon: blockIcon([[18, 40], [24, 44], [38, 42], [44, 16]]) },
-  { id: "scoop", label: "Scoop", hint: "Inside man", talk: "scoops: steps inside and blocks the defender over the next lineman.", icon: blockIcon([[34, 40], [22, 22], [20, 8]]) },
+  { id: "fold", label: "Fold", hint: "Wrap behind", talk: "folds behind his neighbor and blocks the man the neighbor leaves.", icon: blockIcon([[18, 40], [24, 44], [38, 42], [44, 16]]) },
+  { id: "scoop", label: "Scoop", hint: "Inside man", talk: "scoops inside and blocks the defender over the next lineman.", icon: blockIcon([[34, 40], [22, 22], [20, 8]]) },
   { id: "pass-set", label: "Pass set", hint: "Kick back", talk: "sets back in pass protection.", icon: blockIcon([[28, 28], [30, 34], [34, 42]]) },
-  { id: "hinge", label: "Hinge", hint: "Backside", talk: "hinges: steps back and across to seal the backside.", icon: blockIcon([[30, 26], [26, 34], [22, 41]]) },
+  { id: "hinge", label: "Hinge", hint: "Backside", talk: "hinges back and across to seal the backside.", icon: blockIcon([[30, 26], [26, 34], [22, 41]]) },
   { id: "screen", label: "Screen release", hint: "Out to the screen", talk: "blocks for a count, then releases to the screen and leads upfield.", icon: blockIcon([[10, 40], [10, 30], [26, 22], [44, 14]]) },
 ];
 
@@ -89,11 +89,15 @@ export function playSide(scene: Scene, p: Point): 1 | -1 {
 
 /* ------------------------------------------------------------------ geometry */
 
-/** The defender furthest toward the play side on the line (the end man), outside `from`. */
-function edgeDefender(f: Field, from: number, dir: 1 | -1): PlayerNode | null {
-  const pool = firstLevel(f).filter((d) => dir * (d.x - from) > GAP * 0.4);
+/**
+ * The defender furthest toward the play side on the line (the end man), outside `from` by `past`
+ * (a tight end can kick out a man head up on him, so he passes a negative one). Only men in the
+ * box count: a corner pressed on a receiver stands on the line too, but he is no end man.
+ */
+function edgeDefender(f: Field, from: number, dir: 1 | -1, past = GAP * 0.4): PlayerNode | null {
+  const pool = firstLevel(f).filter((d) => inBox(f, d) && dir * (d.x - from) > past);
   if (pool.length) return pool.reduce((a, b) => (dir * b.x > dir * a.x ? b : a));
-  const backers = secondLevel(f).filter((d) => dir * (d.x - from) > GAP);
+  const backers = secondLevel(f).filter((d) => inBox(f, d) && dir * (d.x - from) > GAP);
   return backers.length ? backers.reduce((a, b) => (dir * b.x > dir * a.x ? b : a)) : null;
 }
 
@@ -196,7 +200,7 @@ function shape(scene: Scene, f: Field, p: PlayerNode, id: string, dir: 1 | -1): 
       return t ? { points: [stopShort({ x: bx, y: by }, t)], target: t } : { points: [{ x: bx, y: by - u.y * 5 }], target: null };
     }
     case "crack": {
-      const t = nearestDefender(f, bx + inDir * u.x * 6, by - u.y * 6, (d) => dir * (d.x - bx) !== 0, u.y * 10);
+      const t = nearestDefender(f, bx + inDir * u.x * 6, by - u.y * 6, (d) => !onLine(f, d) && !/^C$/i.test(d.label.trim()) && inDir * (d.x - bx) > 0, u.y * 10);
       return t
         ? { points: [{ x: bx, y: by - u.y * 2 }, stopShort({ x: bx, y: by - u.y * 2 }, t)], target: t }
         : { points: [{ x: bx, y: by - u.y * 2 }, { x: bx + inDir * u.x * 5, y: by - u.y * 6 }], target: null };
@@ -206,7 +210,7 @@ function shape(scene: Scene, f: Field, p: PlayerNode, id: string, dir: 1 | -1): 
       return t ? { points: [stopShort({ x: bx, y: by }, t)], target: t } : { points: [{ x: bx + dir * GAP * 0.5, y: f.losY - 56 }], target: null };
     }
     case "kick-out": {
-      const t = edgeDefender(f, bx, dir);
+      const t = edgeDefender(f, bx, dir, -GAP * 0.5);
       if (t) {
         const end = { x: t.x - dir * (t.size ?? 30) * 0.5, y: t.y + (t.size ?? 30) * 0.7 };
         return { points: [{ x: bx + dir * GAP * 0.4, y: by - 6 }, end], curve: "spline", target: t };

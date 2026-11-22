@@ -94,6 +94,10 @@ export const onLine = (f: Field, d: PlayerNode) => depthOf(f, d) <= FIRST_LEVEL;
 export const firstLevel = (f: Field) => f.defense.filter((d) => onLine(f, d));
 /** Backers and walked-up backs: off the line but inside the box. */
 export const secondLevel = (f: Field) => f.defense.filter((d) => depthOf(f, d) > FIRST_LEVEL && depthOf(f, d) <= SECOND_LEVEL);
+/** How far out from the ball the box reaches: one gap (and most of another) past the widest blocker. */
+export const boxReach = (f: Field): number => Math.max(GAP, ...[...f.ol, ...f.tes].map((p) => Math.abs(p.x - f.ball))) + GAP * 0.8;
+/** A defender inside the box: a corner pressed on a receiver is first level too, but he is no end man and no backer. */
+export const inBox = (f: Field, d: PlayerNode): boolean => Math.abs(d.x - f.ball) <= boxReach(f);
 /** Everyone deeper. */
 export const thirdLevel = (f: Field) => f.defense.filter((d) => depthOf(f, d) > SECOND_LEVEL);
 

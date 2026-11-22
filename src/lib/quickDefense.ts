@@ -1,6 +1,7 @@
 import { fromOwner, lineFor, replaceLines, type LineSpec } from "./assignLine";
 import { DEFENSE_INK, ZONE_STROKE } from "./defense";
 import { firstLevel, GAP, readField, secondLevel, stopShort, type Field } from "./fieldRead";
+import { fieldInset } from "./fieldUnits";
 import { fieldWidthYards, ownLines, unitsFor } from "./quickRoutes";
 import { CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, Scene } from "./types";
@@ -45,13 +46,13 @@ export const DEFENDER_JOBS: DefenderJob[] = [
   { id: "slant", label: "Slant", hint: "Next gap over", talk: "slants into the next gap over.", tag: "Slant", group: "rush", flips: true, icon: "M22 6 L36 34" },
   { id: "loop", label: "Loop", hint: "Curve around", talk: "loops around behind his teammate, into the gap he leaves.", tag: "Loop", group: "rush", flips: true, icon: "M18 6 Q42 12 34 22 Q24 30 38 38" },
   { id: "contain", label: "Contain", hint: "Rush wide, keep him in", talk: "rushes wide and keeps the quarterback inside him.", tag: "Contain", group: "rush", flips: true, icon: "M34 6 Q50 18 42 38" },
-  { id: "peel", label: "Peel", hint: "Rush, then the back", talk: "rushes, then peels off to cover the back if he releases.", tag: "Peel", group: "rush", flips: true, icon: "M28 6 L28 20 Q38 26 46 38" },
-  { id: "hit", label: "Hit", hint: "Read, then fill", talk: "hits: reads the blocker in front of him, then fills the gap.", tag: "Hit", group: "rush", icon: "M28 6 L22 12 L34 18 L22 24 L34 30 L28 36" },
+  { id: "peel", label: "Peel", hint: "Rush, then the back", talk: "rushes, then peels off to cover the back if he releases.", tag: "Peel", group: "rush", icon: "M28 6 L28 20 Q38 26 46 38" },
+  { id: "hit", label: "Hit", hint: "Read, then fill", talk: "hits, reading the blocker in front of him, then filling the gap.", tag: "Hit", group: "rush", icon: "M28 6 L22 12 L34 18 L22 24 L34 30 L28 36" },
   { id: "man", label: "Man", hint: "Then click a receiver", talk: "covers his man.", tag: "Man", group: "coverage", needsTarget: true, icon: "M12 6 L44 38" },
   { id: "flat", label: "Flat", hint: "5 yds, toward the sideline", talk: "drops to the flat, about five yards deep toward the sideline.", tag: "Flat", group: "coverage", flips: true, icon: "M28 6 L48 18" },
   { id: "curl", label: "Curl", hint: "10 yds over the hash", talk: "drops to the curl, about ten yards deep over the hash.", tag: "Hook/curl", group: "coverage", flips: true, icon: "M28 6 L34 28 M26 28 L42 28" },
   { id: "hook", label: "Hook", hint: "10 yds middle", talk: "drops to the middle hook, about ten yards deep.", tag: "Middle hook", group: "coverage", icon: "M28 6 L28 30 M20 30 L36 30" },
-  { id: "hole", label: "Hole", hint: "Read the hole", talk: "plays the hole: reads the run, then drops to the middle.", tag: "Hole", group: "coverage", icon: "M28 6 L28 22 M22 22 a6 3 0 1 0 12 0 a6 3 0 1 0 -12 0" },
+  { id: "hole", label: "Hole", hint: "Read the hole", talk: "plays the hole, reading the run, then dropping to the middle.", tag: "Hole", group: "coverage", icon: "M28 6 L28 22 M22 22 a6 3 0 1 0 12 0 a6 3 0 1 0 -12 0" },
   { id: "robber", label: "Robber", hint: "Jump the middle", talk: "robs the middle, about ten yards deep, jumping anything over the middle.", tag: "Robber", group: "coverage", icon: "M12 22 L44 22" },
   { id: "deep-third", label: "Deep 1/3", hint: "Deep third", talk: "drops to the deep third.", tag: "Deep 1/3", group: "coverage", flips: true, icon: "M28 6 L38 38" },
   { id: "deep-half", label: "Deep 1/2", hint: "Deep half", talk: "drops to the deep half.", tag: "Deep 1/2", group: "coverage", flips: true, icon: "M28 6 L34 40" },
@@ -67,7 +68,11 @@ export const isDefender = (p: PlayerNode) => p.side === "defense";
 
 /* ------------------------------------------------------------------ geometry */
 
-const clampX = (x: number) => Math.min(CANVAS_W - 16, Math.max(16, x));
+/** Keeps an x on the field: the sidelines of this scene's view (a flag field's are well in from the card's edge), or the card's edge on a whiteboard. */
+function clampFor(scene: Scene): (x: number) => number {
+  const inset = scene.view === "blank" ? 16 : fieldInset(scene.view ?? "half");
+  return (x) => Math.min(CANVAS_W - inset, Math.max(inset, x));
+}
 
 /** Where the quarterback is, or where he would be in a normal drop. */
 export function qbSpot(f: Field, scene: Scene): Point {
@@ -130,26 +135,37 @@ export function slantGap(f: Field, d: PlayerNode, inside: boolean, dir: 1 | -1):
   return gaps[Math.min(gaps.length - 1, Math.max(0, i + step))];
 }
 
+/** True for a defender lined up over the ball (the nose, a free safety): he has no side of his own to flip away from. */
+export const isCentered = (f: Field, d: PlayerNode): boolean => Math.abs(d.x - f.ball) < 6;
+
 /** Which way a defender's own side is: toward the sideline he stands nearest (the middle goes by `dir`). */
 export function ownSide(f: Field, d: PlayerNode, dir: 1 | -1): 1 | -1 {
-  return Math.abs(d.x - f.ball) < 6 ? dir : d.x < f.ball ? -1 : 1;
+  return isCentered(f, d) ? dir : d.x < f.ball ? -1 : 1;
 }
 
 /** A rusher's line: through a spot on the line, then on to the quarterback's depth, slightly toward him. */
 function rushThrough(f: Field, scene: Scene, d: PlayerNode, through: Point, bendTo = 0.3): Point[] {
+  const clampX = clampFor(scene);
   const qb = qbSpot(f, scene);
   const end = { x: through.x + (qb.x - through.x) * bendTo, y: qb.y - 16 };
   return [{ x: clampX(through.x), y: through.y }, { x: clampX(end.x), y: Math.max(through.y + 8, end.y) }].filter((p, i, a) => i === 0 || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 4);
 }
 
-/** The deep and underneath drops, by landmark: yards from the line and fractions of the field's width. */
-function dropSpot(scene: Scene, f: Field, d: PlayerNode, id: string, dir: 1 | -1): Point | null {
+/**
+ * The deep and underneath drops, by landmark: yards from the line and fractions of the field's width.
+ * `side` is the side the coach wants (his own unless he flipped it); a deep landmark is the one he is
+ * nearest to, mirrored across the field when `flipped`.
+ */
+function dropSpot(scene: Scene, f: Field, d: PlayerNode, id: string, side: 1 | -1, flipped: boolean): Point | null {
   const u = unitsFor(scene);
   const W = fieldWidthYards(scene);
   const mid = CANVAS_W / 2;
-  const side = ownSide(f, d, dir);
+  const clampX = clampFor(scene);
   const at = (xYards: number, deep: number): Point => ({ x: clampX(mid + xYards * u.x), y: Math.max(24, f.losY - deep * u.y) });
-  const nearest = (stops: number[]) => stops.reduce((best, s) => (Math.abs(mid + s * u.x - d.x) < Math.abs(mid + best * u.x - d.x) ? s : best), stops[0]);
+  const nearest = (stops: number[]) => {
+    const n = stops.reduce((best, s) => (Math.abs(mid + s * u.x - d.x) < Math.abs(mid + best * u.x - d.x) ? s : best), stops[0]);
+    return flipped ? -n : n;
+  };
   switch (id) {
     case "flat":
       return { x: clampX(d.x + side * Math.max(7, W * 0.17) * u.x), y: Math.max(24, f.losY - 5 * u.y) };
@@ -158,7 +174,8 @@ function dropSpot(scene: Scene, f: Field, d: PlayerNode, id: string, dir: 1 | -1
     case "hook":
       return at(0, 10);
     case "hole":
-      return at(0, 6);
+      // The middle, six yards off the line, and always a drop: a backer already standing there still goes a couple of yards deeper.
+      return at(0, Math.max(6, (f.losY - d.y) / u.y + 2.5));
     case "robber":
       return at(0, 10);
     case "deep-third":
@@ -196,8 +213,12 @@ export type JobOpts = {
   dir: 1 | -1;
   inside?: boolean;
   target?: PlayerNode | null;
-  /** Force a gap rush or loop to this side instead of the side he stands on. */
+  /** Force a gap rush, loop, contain or drop to this side instead of the side he stands on. */
   side?: 1 | -1;
+  /** The coach flipped the job: a deep landmark goes to the mirror of the one he is nearest to. */
+  flipped?: boolean;
+  /** Where a loop comes out (an x on the line, a gap's middle): the gap a twist names, instead of a step over from where he stands. */
+  to?: number;
   /** Text on the line itself ("PEEL", "HIT", "SWAP", "READ HOLE"), in place of the job's own. */
   pathTag?: string;
   /** The words under his token, in place of the job's own. */
@@ -209,6 +230,7 @@ export function jobShape(scene: Scene, f: Field, d: PlayerNode, id: string, o: J
   const u = unitsFor(scene);
   const dir = o.dir;
   const side = o.side ?? ownSide(f, d, dir);
+  const clampX = clampFor(scene);
   const here: Point = { x: d.x, y: d.y };
   const qb = qbSpot(f, scene);
   const losY = f.losY;
@@ -227,11 +249,12 @@ export function jobShape(scene: Scene, f: Field, d: PlayerNode, id: string, o: J
     }
     case "loop": {
       const o2 = side;
+      const out = clampX(o.to ?? d.x + o2 * GAP * 0.55);
       return {
         points: [
           { x: d.x + o2 * GAP * 0.45, y: Math.min(d.y + 14, losY - 14) },
-          { x: d.x + o2 * GAP * 0.95, y: losY - 2 },
-          { x: d.x + o2 * GAP * 0.55, y: Math.max(losY + 22, qb.y - 26) },
+          { x: clampX((d.x + out) / 2 + o2 * GAP * 0.4), y: losY - 2 },
+          { x: out, y: Math.max(losY + 22, qb.y - 26) },
         ],
         spec: { curve: "spline" },
         target: null,
@@ -268,7 +291,7 @@ export function jobShape(scene: Scene, f: Field, d: PlayerNode, id: string, o: J
       return { points: [spot], spec: { style: "dashed", endCap: "dot" }, target: null };
     }
     default: {
-      const to = dropSpot(scene, f, d, id, dir);
+      const to = dropSpot(scene, f, d, id, side, !!o.flipped);
       return to ? { points: [to], spec: { style: "dashed", endCap: "dot" }, target: null } : null;
     }
   }

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { designerMenu, errorsOf, quiet, seedReady } from "./helpers";
 
 /**
- * Extras → Select all and the Selection drawer's Arrange panel: Flip sides
+ * Extras → Select all and the Selection drawer's Arrange panel: Mirror left/right
  * mirrors the whole play, an align edge lines the players up, Undo takes each
  * back, Group, Hide, Lock (the arrows refuse a locked element and move an
  * unlocked one), Space across and Delete, with the panel gone once nothing
@@ -42,8 +42,8 @@ test("Select all and the Arrange panel flip, align, space, lock and delete the w
   await panel.locator(".panel-head").click();
   const chip = (name: string) => panel.getByRole("button", { name, exact: true });
 
-  // Flip sides mirrors every player; "top" lines them up on one line; Undo takes each back.
-  await chip("Flip sides").click();
+  // Mirror left/right moves every player to the mirrored spot; "top" lines them up on one line; Undo takes each back.
+  await chip("Mirror left/right").click();
   await expect(status).toHaveText("Flip");
   expect(await spots()).toEqual([
     [624, 430],

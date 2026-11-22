@@ -169,7 +169,7 @@ function settle(before: SceneNode[], after: SceneNode[]): { nodes: SceneNode[]; 
 }
 
 /** The Designer's panels end a status with a hint about their own buttons; a card has none of them. */
-const plain = (status: string) => status.replace(/ (Click any (blocker|defender) to change his (block|job)\.|Flip changes the side; drag a point to adjust\.)$/, "");
+const plain = (status: string) => status.replace(/ (Click any (blocker|defender) to change his (block|job)\.|(Flip changes the side; )?[Dd]rag a point to adjust\.)$/, "");
 
 /** Plain words for the libraries' refusals, pointing at Griddy where the Designer's panels point at a library. */
 const forGriddy = (reason: string) => reason.replace("Drop one from the Defense library first.", "Ask me to draw a defense first, or drop one from the Defense library.");

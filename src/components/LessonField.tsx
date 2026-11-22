@@ -66,7 +66,10 @@ export function lessonInk(scene: Scene, dark: boolean): SceneNode[] {
       const pl = scene.nodes.find((x) => x.id === tr.playerId);
       if (pl?.kind === "player" && pl.side !== "defense" && bright(pl.fill) && !owner.has(tr.pathId)) owner.set(tr.pathId, pl.fill);
     }
-  return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
+  // The defense in the lesson is the look's, so a defender's own line (rush, man or zone drop, drawn by a click on him) stays off the field with him.
+  const defenders = new Set(scene.nodes.filter((n) => n.kind === "player" && n.side === "defense").map((n) => n.id));
+  const theirs = (n: SceneNode) => n.kind === "path" && ((!!n.assignOf && defenders.has(n.assignOf)) || (!!n.fromId && defenders.has(n.fromId)));
+  return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense") && !theirs(n))).map((n) => {
     if (!dark) return n;
     const fill = owner.get(n.id);
     return n.kind === "path" && fill && !n.firstRead && isDarkInk(n.stroke) ? { ...n, stroke: lift(fill) } : onDark(n);

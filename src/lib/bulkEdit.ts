@@ -1,10 +1,10 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
 import { applySet, cleanSet, describeSet } from "./bulkSets";
 import type { SetChange } from "./bulkSets";
-import { convertField } from "./fieldConvert";
+import { convertField, type FieldMove } from "./fieldConvert";
 import { swapSides } from "./formations";
 import { BOX_DEPTH, fitGaps, gapsFrom } from "./gapFits";
-import { canTurnAround, turnAround } from "./pov";
+import { inUpright, turnAround } from "./pov";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
@@ -111,7 +111,7 @@ export type BulkChange =
   | { op: "rename"; names: { id: string; name: string; formation?: string }[] }
   /** Tags every defender in the box with the gap he owns, from where he lines up; `replace` overwrites tags the coach set. */
   | { op: "gaps"; replace?: boolean }
-  /** Draws plays from the defense's end, or back from the offense's (only fields without a fixed side). */
+  /** Draws plays from the defense's end, or back from the offense's (the defense at the bottom of the card, on every field). */
   | { op: "pov"; end: "defense" | "offense" }
   /** One of Wes's blocking schemes or pressures, or a one-click block or assignment, put on the play (`lib/bulkSets.ts`). A play that can't take it is skipped with the reason. */
   | SetChange;
@@ -300,10 +300,11 @@ export function editScene(
     }
     if (change.op === "pov") {
       const at = now();
-      if ((at.pov === "defense") === (change.end === "defense") || !canTurnAround(view)) continue;
+      if ((at.pov === "defense") === (change.end === "defense")) continue;
+      // Every field turns: the card goes half a circle, so the line of scrimmage moves with it.
       const next = turnAround(at);
       nodes = next.nodes;
-      frame = { ...(frame ?? {}), pov: next.pov, pivot: next.pivot };
+      frame = { ...(frame ?? {}), pov: next.pov, pivot: next.pivot, losY: next.losY };
       nodes.forEach((n) => touched.add(n.id));
       continue;
     }
@@ -330,17 +331,12 @@ export function editScene(
       continue;
     }
     if (change.op === "field") {
-      // An end zone has a fixed side, so a play drawn from the defense's end turns back first, as in the Designer.
-      if (now().pov === "defense" && !canTurnAround(change.view)) {
-        const back = turnAround(now());
-        nodes = back.nodes;
-        frame = { ...(frame ?? {}), pov: back.pov, pivot: back.pivot };
-        nodes.forEach((n) => touched.add(n.id));
-      }
       // Routes keep their depth in yards on the new field, as when the coach changes it in the Designer.
-      const move = convertField(now(), change.view);
+      // The conversion is written for the offense-up frame, so a play drawn from the defense's end is converted turned back and put back.
+      let move!: FieldMove;
+      const converted = inUpright(now(), (u) => ((move = convertField(u, change.view)), move.scene));
       view = change.view;
-      if (move.moved) (nodes = move.scene.nodes), (frame = { ...(frame ?? {}), losY: move.scene.losY, pivot: move.scene.pivot });
+      if (move.moved) (nodes = converted.nodes), (frame = { ...(frame ?? {}), losY: converted.losY, pivot: converted.pivot });
       continue;
     }
     if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
@@ -659,7 +655,7 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
   // A field change comes back whole (field, line of scrimmage, pivot) while the play is still on the field it was moved to.
   const unmove = before.view !== after.view && field.view === after.view ? { view: before.view, losY: before.losY, pivot: before.pivot } : {};
   // A turn to the other end comes back too, while the field is still turned the way the edit left it.
-  const unturn = (before.pov ?? null) !== (after.pov ?? null) && (field.pov ?? null) === (after.pov ?? null) ? { pov: before.pov, pivot: before.pivot } : null;
+  const unturn = (before.pov ?? null) !== (after.pov ?? null) && (field.pov ?? null) === (after.pov ?? null) ? { pov: before.pov, pivot: before.pivot, losY: before.losY } : null;
   if (!changed.size && !removed.length && !added.size && !("view" in unmove) && !unturn) return field;
   const back: Scene = {
     ...field,

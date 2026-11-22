@@ -120,7 +120,7 @@ export type Scene = {
   losY: number;
   /** Fixed rotation centre dropped by the Pivot Point tool. */
   pivot: Point | null;
-  /** Drawn as the defense sees it (the play turned half a circle about the ball). Unset means the offense's view. */
+  /** Drawn from the defense's end: the whole card turned half a circle about its middle, the defense at the bottom. Unset means the offense's end (offense at the bottom, attacking up). */
   pov?: "defense";
   nodes: SceneNode[];
   /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */

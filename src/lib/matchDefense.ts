@@ -1,5 +1,6 @@
-import { isQb, layoutSeven } from "./coverage";
-import { layoutDefense, layoutFlagDefense, mirrorDefense } from "./defense";
+import { isQb } from "./coverage";
+import { layoutDefense, layoutFlagDefense, layoutSeven, mirrorDefense } from "./defense";
+import { upright } from "./pov";
 import type { Coverage, DefenseLayout, FlagLook, Front, LineSet } from "./defense";
 import { isLineman } from "./formations";
 import { CANVAS_W } from "./types";
@@ -43,7 +44,13 @@ const BACK_WIDTH = 110;
 
 const sideOf = (dx: number) => (dx > 8 ? 1 : dx < -8 ? -1 : 0);
 
-export function readOffense(scene: Scene): OffenseRead | null {
+/**
+ * Reads the set in the offense-up frame (a play drawn from the defense's end is
+ * turned upright first), so `ball` and every offset mean the same thing for any
+ * play; whoever places the answer puts it in the play's own frame with `toFrame`.
+ */
+export function readOffense(drawn: Scene): OffenseRead | null {
+  const scene = upright(drawn);
   const offense = scene.nodes.filter(
     (n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf && n.side === "offense",
   );

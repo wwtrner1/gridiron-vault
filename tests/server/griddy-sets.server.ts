@@ -241,14 +241,16 @@ test("a pressure on a defense Griddy calls rushes the front and leaves the open 
   assert.equal(plain.rush, undefined);
   assert.notEqual(plain.look, built.look);
   // Drawn from the defense's end, the whole thing is turned round with the play: the defenders stand on the near side of the line.
-  const turned = buildDefense(call, turnAround(field), TOKENS, 100);
+  const flipped = turnAround(field);
+  const turned = buildDefense(call, flipped, TOKENS, 100);
   assert.match(turned.rush ?? "", /^Boom:/);
   const standing = (b: typeof built) => b.nodes.filter((n) => n.kind === "player").map((n) => n.y);
   assert.ok(standing(built).every((y) => y < field.losY), "upright: the defense is up the field");
-  assert.ok(standing(turned).every((y) => y > field.losY), "turned round: the defense is below the line");
+  assert.ok(standing(turned).every((y) => y > flipped.losY), "turned round: the defense is below the line");
   // A front without the player a package sends says so, and the rest of the package still runs.
   const short = buildDefense({ ...call, front: "3-4", pressure: "pinch-mow", coverage: "Cover 3" }, build(), TOKENS, 100);
-  assert.ok(short.notes.some((n) => /Pinch Mow has no player to send here/.test(n)), short.notes.join(" "));
+  assert.ok(short.notes.some((n) => /Pinch Mow needs an end this front doesn't have/.test(n)), short.notes.join(" "));
+  assert.ok(short.notes.some((n) => /3 down linemen and Pinch Mow is written for four/.test(n)), "a front that isn't a four-man line is told so");
   assert.match(short.rush ?? "", /^Pinch Mow: /);
   assert.equal(short.nodes.filter((n) => n.kind === "player").length, 11);
 });

@@ -14,6 +14,14 @@ import { SetTiles, type TileItem } from "./QuickSetMenus";
 
 const INK = "#E8F1F8";
 
+type GoldPick = "sheet" | Gold;
+
+/**
+ * The picks (which way the run goes, the rover's Gold job) last the visit and are never stored:
+ * a list is closed when another opens, so they live here, not in the panel, and are found as the coach left them.
+ */
+const picks: { dir: Dir; gold: GoldPick } = { dir: 1, gold: "sheet" };
+
 function Switch<T extends string | number>({
   label,
   id,
@@ -49,7 +57,11 @@ const items = (list: { id: string; label: string; hint: string; icon: string }[]
 
 /** Whole-line block schemes: inside zone, power, trap, slide protection… run to the left or the right of the screen. */
 export function BlockingPanel({ onApply, onClear, hasBlocks }: { onApply: (id: string, dir: Dir) => void; onClear: () => void; hasBlocks: boolean }) {
-  const [dir, setDir] = useState<Dir>(1);
+  const [dir, setDirState] = useState<Dir>(picks.dir);
+  const setDir = (d: Dir) => {
+    picks.dir = d;
+    setDirState(d);
+  };
   const groups = [
     { id: "run", title: "Run blocking" },
     { id: "pass", title: "Pass protection" },
@@ -84,11 +96,13 @@ export function BlockingPanel({ onApply, onClear, hasBlocks }: { onApply: (id: s
   );
 }
 
-type GoldPick = "sheet" | Gold;
-
 /** Wes's pressures: Shark set and man-pressure packages put on the defense on the field, with the rover's Gold job. */
 export function PressuresPanel({ onApply, onClear, hasDefense }: { onApply: (id: string, gold: Gold | null) => void; onClear: () => void; hasDefense: boolean }) {
-  const [gold, setGold] = useState<GoldPick>("sheet");
+  const [gold, setGoldState] = useState<GoldPick>(picks.gold);
+  const setGold = (g: GoldPick) => {
+    picks.gold = g;
+    setGoldState(g);
+  };
   return (
     <div className="fl" id="dz-list-tray">
       <Switch

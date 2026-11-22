@@ -5,7 +5,7 @@ import type { DefenseLayout, FlagLook } from "./defense";
 import { isLineman } from "./formations";
 import { BOX_DEPTH, fitGaps, gapsFrom, zoneJob } from "./gapFits";
 import type { DefenseCall } from "./griddy";
-import { turnAround } from "./pov";
+import { toFrame, turnAround, upright } from "./pov";
 import { emptyScene } from "./presets";
 import type { TokenPreset } from "./presets";
 import { applyPressure, pressure } from "./pressures";
@@ -106,9 +106,9 @@ function pressed(call: DefenseCall, base: Scene, offense: PlayerNode[], defense:
  * defense turned back with it, so it still faces the offense.
  */
 export function buildDefense(call: DefenseCall, field: Scene, tokens: TokenPreset[], rushUnits: number): BuiltDefense {
-  const upright = field.pov === "defense" ? turnAround(field) : field;
-  const scout = scoutOffense(call, tokens, upright.losY);
-  const base: Scene = call.against ? { ...upright, nodes: scout } : upright;
+  const u = upright(field);
+  const scout = scoutOffense(call, tokens, u.losY);
+  const base: Scene = call.against ? { ...u, nodes: scout } : u;
   const players = base.nodes.filter((n): n is PlayerNode => n.kind === "player" && !n.hidden && !n.ghostOf);
   const offense = players.filter((p) => p.side === "offense");
   const center = offense.find((p) => p.label === "C");
@@ -129,17 +129,21 @@ export function buildDefense(call: DefenseCall, field: Scene, tokens: TokenPrese
     return job ? { ...n, job } : n;
   });
   const hit = pressed(call, base, offense, laid);
-  let nodes = [...(call.against ? scout : []), ...hit.nodes];
-  if (field.pov === "defense") nodes = turnAround({ ...upright, nodes }).nodes;
+  const nodes = toFrame(field, [...(call.against ? scout : []), ...hit.nodes]);
   const label = hit.rush && call.pressure ? pressure(call.pressure)?.label : undefined;
   return { nodes, receivers: receivers.length, look: `${defenseLookName(call)}${label ? ` · ${label}` : ""}`, ...(hit.rush ? { rush: hit.rush } : {}), notes: hit.notes };
 }
 
-/** A fresh field for a call with no play open: the scout offense and the defense on the half field, with what building it said. */
+/**
+ * A fresh field for a call with no play open: the scout offense and the defense
+ * on the half field, with what building it said. It is drawn from the defense's
+ * end like any defense the coach starts in New play setup (the offense on top,
+ * the defense at the bottom).
+ */
 export function defenseAlone(call: DefenseCall, tokens: TokenPreset[], rushUnits: number): { scene: Scene; built: BuiltDefense } {
   const base = emptyScene();
   const built = buildDefense({ ...call, against: call.against ?? defaultFormation(call) }, base, tokens, rushUnits);
-  return { scene: { ...base, nodes: built.nodes }, built };
+  return { scene: turnAround({ ...base, nodes: built.nodes }), built };
 }
 
 export const defenseField = (call: DefenseCall, tokens: TokenPreset[], rushUnits: number): Scene => defenseAlone(call, tokens, rushUnits).scene;

@@ -3,6 +3,7 @@ import type { Assignment } from "./assistant";
 import { ZONE_FILL, ZONE_STROKE } from "./defense";
 import { isLineman } from "./formations";
 import { makeShape, reconcileConnections } from "./scene";
+import { framePoint, turnAround } from "./pov";
 import { leftSide, QUICK_ROUTES, quickPath, routeInk } from "./quickRoutes";
 import { baseNode, CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Point, Scene, SceneNode } from "./types";
@@ -102,10 +103,26 @@ function line(from: Point, to: Point, opts: Partial<PathNode>, z: number): PathN
 export type ApplyResult = { scene: Scene; ids: string[]; message: string } | { error: string };
 
 /**
+ * Runs a tile edit written for the offense-up frame (routes run up the card, a
+ * break "toward the near sideline" means the same for every play) on a play
+ * that may be drawn from the defense's end, and puts the result back in the
+ * play's own frame. Node ids survive the turn, so `ids` still pick the new lines.
+ */
+function inFrame(scene: Scene, run: (upright: Scene) => ApplyResult): ApplyResult {
+  if (scene.pov !== "defense") return run(scene);
+  const out = run(turnAround(scene));
+  return "error" in out ? out : { ...out, scene: turnAround({ ...out.scene, pov: undefined }) };
+}
+
+/**
  * Gives each chosen player the tile's job. A player's earlier job from the
  * library or a preset is replaced, so clicking another tile swaps the route.
  */
 export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: string, width: number, z: number): ApplyResult {
+  return inFrame(scene, (u) => applyTileUpright(u, tile, playerIds, ink, width, z));
+}
+
+function applyTileUpright(scene: Scene, tile: Tile, playerIds: string[], ink: string, width: number, z: number): ApplyResult {
   const { players, receivers } = cast(scene);
   const chosen = players.filter((p) => playerIds.includes(p.id));
   if (!chosen.length) return { error: `Pick a player first, or drag ${tile.label} onto one.` };
@@ -126,7 +143,7 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
       case "motion": {
         const quick = tile.kind === "route" ? QUICK_ROUTES.find((r) => r.id === tile.action) : undefined;
         if (quick) {
-          added.push({ ...quickPath(scene, quick, p, { mirror: leftSide(p), ink: routeInk(p, ink), width, z: zi++ }), name: `${p.label || "Player"} ${tile.label}` });
+          added.push({ ...quickPath(scene, quick, p, { mirror: leftSide(p, scene), ink: routeInk(p, ink), width, z: zi++ }), name: `${p.label || "Player"} ${tile.label}` });
           break;
         }
         const a: Assignment = { player: p.label, kind: tile.kind, action: tile.action ?? tile.kind, heard: "" };
@@ -174,6 +191,11 @@ export function applyTile(scene: Scene, tile: Tile, playerIds: string[], ink: st
  * near sideline like a library route does.
  */
 export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, width: number, z: number): ApplyResult {
+  // `at` is where the coach clicked on the card; the tile is built offense-up from the matching spot.
+  return inFrame(scene, (u) => placeTileUpright(u, tile, framePoint(scene, at), ink, width, z));
+}
+
+function placeTileUpright(scene: Scene, tile: Tile, at: Point, ink: string, width: number, z: number): ApplyResult {
   const own = { stroke: ink, width };
   switch (tile.kind) {
     case "route":
@@ -183,7 +205,7 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
       const quick = tile.kind === "route" ? QUICK_ROUTES.find((r) => r.id === tile.action) : undefined;
       if (quick) {
         const spot = { ...at, id: "", label: "", size: 36 } as PlayerNode;
-        const node = { ...quickPath(scene, quick, spot, { mirror: leftSide(at), ink, width, z }), name: tile.label, assignOf: undefined };
+        const node = { ...quickPath(scene, quick, spot, { mirror: leftSide(at, scene), ink, width, z }), name: tile.label, assignOf: undefined };
         return { scene: { ...scene, nodes: [...scene.nodes, node] }, ids: [node.id], message: `${tile.label} placed. Right-click it and pick Snap to nearest player to give it to someone.` };
       }
       const kind = tile.kind === "rush" ? "route" : tile.kind;
@@ -220,6 +242,18 @@ export function placeTile(scene: Scene, tile: Tile, at: Point, ink: string, widt
  * when they move, and it leaves the receiver's own route alone.
  */
 export function exchangeLine(
+  scene: Scene,
+  tile: Tile,
+  giverId: string,
+  to: { playerId: string | null; at: Point },
+  ink: string,
+  width: number,
+  z: number,
+): ApplyResult {
+  return inFrame(scene, (u) => exchangeUpright(u, tile, giverId, { playerId: to.playerId, at: framePoint(scene, to.at) }, ink, width, z));
+}
+
+function exchangeUpright(
   scene: Scene,
   tile: Tile,
   giverId: string,

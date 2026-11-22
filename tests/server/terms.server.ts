@@ -12,7 +12,6 @@ import { randomUUID } from "node:crypto";
 import { BLOCK_GLOSSARY, DEFENSE_GLOSSARY, GAP_GLOSSARY, STARTER_GLOSSARY } from "../../src/lib/termsData.ts";
 
 delete process.env.TRIAL_SIGNUPS;
-delete process.env.TWILIO_VERIFY_SID;
 delete process.env.STRIPE_SECRET_KEY;
 
 const { migrate, client } = await import("./fake-db.ts");

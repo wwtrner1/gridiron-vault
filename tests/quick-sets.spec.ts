@@ -122,8 +122,12 @@ test("a click on a defender offers rush and coverage jobs, man coverage asks for
   await menu.getByRole("button", { name: /^A gap/ }).click();
   await expect(status).toContainText("blitzes the A gap");
   const bar = page.getByRole("dialog", { name: `Adjust ${d.label}'s a gap` });
+  // Flip has to change the line, not only the words: the A gap rush goes to the other side of the center.
+  const shape = () => lines(page).last().locator("path").first().getAttribute("d");
+  const drawn = await shape();
   await bar.getByRole("button", { name: "Flip side" }).click();
   await expect(status).toContainText("Switched to the");
+  expect(await shape()).not.toBe(drawn);
   await bar.getByRole("button", { name: "Done" }).click();
 
   // The same defender again: Clear assignment is there now.
@@ -145,6 +149,15 @@ test("a click on a defender offers rush and coverage jobs, man coverage asks for
   await page.getByRole("dialog", { name: `Assignments for ${d.label}` }).getByRole("button", { name: /^Man/ }).click();
   await page.keyboard.press("Escape");
   await expect(status).toHaveText("Assignment put away.");
+  // A press on empty field puts the ask away too, so the next tap on a player opens his own menu and doesn't answer the old question.
+  await page.mouse.click(d.x, d.y);
+  await page.getByRole("dialog", { name: `Assignments for ${d.label}` }).getByRole("button", { name: /^Man/ }).click();
+  const box = (await page.locator(".stage-frame svg").first().boundingBox())!;
+  await page.mouse.click(box.x + box.width - 30, box.y + 30);
+  await expect(status).toHaveText("Assignment put away.");
+  await clickPlayer(page, "X");
+  await expect(page.getByRole("dialog", { name: "Routes for X" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.mouse.click(d.x, d.y);
   await page.getByRole("dialog", { name: `Assignments for ${d.label}` }).getByRole("button", { name: /^Man/ }).click();
   await page.getByRole("dialog", { name: `Man coverage for ${d.label}` }).getByRole("button", { name: "Nearest receiver" }).click();
@@ -185,7 +198,7 @@ test("the Sets section's Blocking and Pressures lists do a whole line and a whol
   await expect(status).toContainText("Swing:");
   await expect(status).toContainText("the rover is free");
   await rail.getByRole("button", { name: "Clear all assignments" }).click();
-  await expect(status).toHaveText("Defender assignments cleared.");
+  await expect(status).toHaveText("Defender assignments cleared, lines and tags.");
   expect(errors).toEqual([]);
 });
 
@@ -201,11 +214,11 @@ test("a pressure with no defense on the field says what to do, and a scheme work
   await expect(status).toContainText("Drop one from the Defense library first");
 
   await (await designerMenu(page, "edit")).getByRole("button", { name: "Turn this offense into a defense" }).click();
-  await (await designerMenu(page, "field")).getByRole("button", { name: /View from the defense/ }).click();
+  await (await designerMenu(page, "field")).getByRole("button", { name: /Flip sides: defense to the bottom/ }).click();
   await rail.getByRole("button", { name: "Blocking", exact: true }).click();
   await rail.getByRole("button", { name: /^Outside zone/ }).click();
   await expect(status).toContainText("Outside zone to the right:");
-  await (await designerMenu(page, "field")).getByRole("button", { name: /View from the offense/ }).click();
+  await (await designerMenu(page, "field")).getByRole("button", { name: /Flip sides: offense to the bottom/ }).click();
   expect(errors).toEqual([]);
 });
 

@@ -159,17 +159,21 @@ export function defenderJobs(scene: Scene, result: Result): DefJob[] {
   });
 }
 
+/** The verbs the coach's play sentences use (routes, one-click blocks), third person to the base form said to a player. */
+const BASE_VERB: Record<string, string> = {
+  runs: "run", blocks: "block", goes: "go", breaks: "break", takes: "take", looks: "look", reaches: "reach", doubles: "double", climbs: "climb",
+  pulls: "pull", kicks: "kick", traps: "trap", folds: "fold", scoops: "scoop", sets: "set", hinges: "hinge", releases: "release", cracks: "crack",
+  leads: "lead", arcs: "arc", slices: "slice", cuts: "cut", stays: "stay", stalks: "stalk",
+};
+
 /** "Y runs 10 yards, then breaks…" said to the player: "Y, you run 10 yards, then break…". */
 function toYou(letter: string, sentence: string): string {
   const rest = sentence.slice(letter.length).trim();
   const you = rest
-    .replace(/^runs\b/, "run")
-    .replace(/^blocks\b/, "block")
-    .replace(/^goes\b/, "go")
-    .replace(/^breaks\b/, "break")
-    .replace(/^takes\b/, "take")
-    .replace(/\bthen breaks\b/, "then break")
-    .replace(/\band looks\b/, "and look");
+    .replace(/\b[a-z]+\b/g, (w) => BASE_VERB[w] ?? w)
+    .replace(/\bhim\b/g, "you")
+    .replace(/\bhis\b/g, "your")
+    .replace(/\bhe\b/g, "you");
   return `${letter}, you ${you}`;
 }
 

@@ -1,8 +1,9 @@
 import { onUpright, type Ink } from "./assignLine";
 import { applyScheme, blockScheme, type Pick } from "./blockSchemes";
+import { readField } from "./fieldRead";
 import { applyPressure, pressure, type Gold } from "./pressures";
 import { blockKind, giveBlock } from "./quickBlocks";
-import { clearDefender, defenderJob, giveAssignment } from "./quickDefense";
+import { clearDefender, defenderJob, giveAssignment, isCentered } from "./quickDefense";
 import { CANVAS_W } from "./types";
 import type { PathNode, PlayerNode, Scene } from "./types";
 
@@ -27,43 +28,69 @@ export function defaultDir(scene: Scene, p: { x: number }): Dir {
   return p.x < ball - 4 ? -1 : 1;
 }
 
-/** A one-click block for a lineman, back, tight end or receiver. */
-export function blockFromMenu(scene: Scene, who: PlayerNode, id: string, dir: Dir, ink: Ink): (Made & { path: PathNode }) | null {
+/** The hint that ends a block's or an assignment's status: Flip only gets a mention where it changes something. */
+export const HINT = ["Drag a point to adjust.", "Flip changes the side; drag a point to adjust."] as const;
+
+/** True when two lines run the same way: Flip has nothing to change on a block or drop that reads the same from both sides. */
+const sameRun = (a: PathNode, b: PathNode) =>
+  a.points.length === b.points.length && a.points.every((p, i) => Math.abs(p.x - b.points[i].x) < 0.5 && Math.abs(p.y - b.points[i].y) < 0.5);
+
+/** A one-click block for a lineman, back, tight end or receiver. `flips` says whether Flip side would change it. */
+export function blockFromMenu(scene: Scene, who: PlayerNode, id: string, dir: Dir, ink: Ink): (Made & { path: PathNode; flips: boolean }) | null {
   const kind = blockKind(id);
   if (!kind) return null;
-  const done = onUpright(scene, dir, (flat, d) => {
-    const p = find(flat, who.id);
-    return p ? giveBlock(flat, p, id, { ...ink, dir: d }) : null;
-  });
+  const run = (way: Dir) =>
+    onUpright(scene, way, (flat, d) => {
+      const p = find(flat, who.id);
+      return p ? giveBlock(flat, p, id, { ...ink, dir: d }) : null;
+    });
+  const done = run(dir);
   if (!done) return null;
   const path = done.scene.nodes.find((n): n is PathNode => n.id === done.path.id && n.kind === "path");
   if (!path) return null;
+  const other = run(-dir as Dir);
+  const otherPath = other?.scene.nodes.find((n): n is PathNode => n.id === other.path.id && n.kind === "path");
   const aimed = done.target ? ` (${nameOf(done.target, "the defender")})` : "";
+  const flips = !!otherPath && !sameRun(path, otherPath);
   return {
     scene: done.scene,
     path,
+    flips,
     label: kind.label,
     select: [path.id],
-    status: `${nameOf(who, "The player")} ${kind.talk.replace(/\.$/, "")}${aimed}. Flip changes the side; drag a point to adjust.`,
+    status: `${nameOf(who, "The player")} ${kind.talk.replace(/\.$/, "")}${aimed}. ${HINT[+flips]}`,
   };
 }
 
-/** A one-click assignment for a defender. `target` is the receiver a man job covers. */
-export function jobFromMenu(scene: Scene, who: PlayerNode, id: string, dir: Dir, ink: Ink, target?: PlayerNode | null): (Made & { path: PathNode }) | null {
+/**
+ * A one-click assignment for a defender. `target` is the receiver a man job covers.
+ * `dir` is the side of the formation the job goes to; his own side (`defaultDir`) is the first
+ * pick and the other side is Flip. `flips` says whether Flip would change it for him.
+ */
+export function jobFromMenu(scene: Scene, who: PlayerNode, id: string, dir: Dir, ink: Ink, target?: PlayerNode | null): (Made & { path: PathNode; flips: boolean }) | null {
   const job = defenderJob(id);
   if (!job) return null;
-  const done = onUpright(scene, dir, (flat, d) => {
-    const p = find(flat, who.id);
-    if (!p) return null;
-    const t = target ? find(flat, target.id) : null;
-    return giveAssignment(flat, p, id, { dir: d, target: t, ...ink });
-  });
+  const natural = defaultDir(scene, who);
+  const run = (way: Dir) =>
+    onUpright(scene, way, (flat, d) => {
+      const p = find(flat, who.id);
+      if (!p) return null;
+      const t = target ? find(flat, target.id) : null;
+      const flipped = way !== natural;
+      // A defender off the ball has a side of his own (the gap, the sideline, the third he stands in); over the ball the direction alone says which way.
+      const off = !isCentered(readField(flat), p);
+      return giveAssignment(flat, p, id, { dir: d, side: d, flipped, ...(off ? { inside: !flipped } : {}), target: t, ...ink });
+    });
+  const done = run(dir);
   if (!done) return null;
   const path = done.scene.nodes.find((n): n is PathNode => n.id === done.path.id && n.kind === "path");
   if (!path) return null;
+  const other = job.flips ? run(-dir as Dir) : null;
+  const otherPath = other?.scene.nodes.find((n): n is PathNode => n.id === other.path.id && n.kind === "path");
   const who2 = nameOf(who, "The defender");
   const status = done.target ? `${who2} covers ${nameOf(done.target, "his man")} man to man.` : `${who2} ${job.talk.replace(/\.$/, "")}.`;
-  return { scene: done.scene, path, label: job.label, select: [path.id], status: `${status} Flip changes the side; drag a point to adjust.` };
+  const flips = !!otherPath && !sameRun(path, otherPath);
+  return { scene: done.scene, path, flips, label: job.label, select: [path.id], status: `${status} ${HINT[+flips]}` };
 }
 
 /** A defender's own line and tag taken off. */
@@ -118,7 +145,7 @@ export function pressureFromPanel(scene: Scene, id: string, gold: Gold | null, i
   };
 }
 
-/** Every one-click block and defender assignment taken off the field (routes stay). */
+/** Every one-click block and every defender's line and tag taken off the field (routes stay). */
 export function clearSets(scene: Scene, which: "blocks" | "defense"): { scene: Scene; removed: number } {
   if (which === "blocks") {
     const owners = new Set(scene.nodes.filter((n) => n.kind === "player" && n.side === "offense").map((n) => n.id));
@@ -130,7 +157,8 @@ export function clearSets(scene: Scene, which: "blocks" | "defense"): { scene: S
   for (const d of scene.nodes.filter((n): n is PlayerNode => n.kind === "player" && n.side === "defense" && !n.ghostOf)) {
     const before = next.nodes.length;
     next = clearDefender(next, d);
-    removed += before - next.nodes.length;
+    // A tag with no line is an assignment too (the Defense library's technique and gap tags): it counts, and goes.
+    removed += before - next.nodes.length + (d.job ? 1 : 0);
   }
   return { scene: next, removed };
 }

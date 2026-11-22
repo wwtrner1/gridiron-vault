@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { upright } from "./pov";
 import type { FieldView, PathNode, PlayerNode, Scene, StoredPlay } from "./types";
 
 /**
@@ -40,9 +41,19 @@ function ownerOf(line: PathNode, players: PlayerNode[]): PlayerNode | undefined 
   return players.find((p) => Math.hypot(p.x - line.x, p.y - line.y) < 30);
 }
 
+/**
+ * A line a defender owns (his rush, man or zone drop, drawn by a click on him). A format paints routes and
+ * blocks; painting these would turn a dashed man line solid or a dot into an arrow, and the Rules check
+ * would then count the defender as a rusher.
+ */
+const defenderLine = (line: PathNode, players: PlayerNode[]): boolean => {
+  const id = line.assignOf ?? line.fromId;
+  return !!id && players.some((p) => p.id === id && p.side === "defense");
+};
+
 export function captureFormat(play: Pick<StoredPlay, "id" | "name" | "scene">): PlayFormat {
   const players = play.scene.nodes.filter((n): n is PlayerNode => n.kind === "player");
-  const paths = play.scene.nodes.filter((n): n is PathNode => n.kind === "path" && !n.closed);
+  const paths = play.scene.nodes.filter((n): n is PathNode => n.kind === "path" && !n.closed && !defenderLine(n, players));
   const tokens: PlayFormat["tokens"] = {};
   for (const p of players) {
     const key = p.label.toUpperCase() || (p.side === "defense" ? "DEF" : "OFF");
@@ -55,14 +66,16 @@ export function captureFormat(play: Pick<StoredPlay, "id" | "name" | "scene">): 
     if (owner?.label) lines[owner.label.toUpperCase()] ??= look;
     lines["*"] ??= look;
   }
-  return { sourceId: play.id, sourceName: play.name || "Untitled play", tokens, lines, view: play.scene.view, losY: play.scene.losY };
+  return { sourceId: play.id, sourceName: play.name || "Untitled play", tokens, lines, view: play.scene.view, losY: upright(play.scene).losY };
 }
 
 /** The scene with the chosen parts of the format applied; nothing else changes. */
 export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): Scene {
   const on = new Set(parts);
   const players = scene.nodes.filter((n): n is PlayerNode => n.kind === "player");
-  const shift = on.has("field") ? f.losY - scene.losY : 0;
+  // The saved line of scrimmage is the offense-up one; a play drawn from the defense's end holds it mirrored.
+  const losY = scene.pov === "defense" ? scene.height - f.losY : f.losY;
+  const shift = on.has("field") ? losY - scene.losY : 0;
   const nodes = scene.nodes.map((n) => {
     let next = shift ? { ...n, y: n.y + shift } : n;
     if (n.kind === "player") {
@@ -72,7 +85,7 @@ export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): S
         if (on.has("letters")) next = { ...next, textColor: look.textColor, size: look.size } as PlayerNode;
       }
     }
-    if (n.kind === "path" && !n.closed) {
+    if (n.kind === "path" && !n.closed && !defenderLine(n, players)) {
       const owner = ownerOf(n, players);
       const look = (owner?.label && f.lines[owner.label.toUpperCase()]) || f.lines["*"];
       if (look) {
@@ -83,7 +96,7 @@ export function applyFormat(scene: Scene, f: PlayFormat, parts: FormatPart[]): S
     }
     return next;
   });
-  return { ...scene, nodes, ...(on.has("field") ? { view: f.view, losY: f.losY } : {}) };
+  return { ...scene, nodes, ...(on.has("field") ? { view: f.view, losY } : {}) };
 }
 
 /* ------------------------------------------------------------- the store */

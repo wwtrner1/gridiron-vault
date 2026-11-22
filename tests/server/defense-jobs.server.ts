@@ -41,7 +41,7 @@ test("the 4-2-5 is a real front: four down, two backers, five defensive backs, w
     assert.ok(down.length >= 4, `${coverage}: the four down men stand on the line`);
   }
   const plan = planFor("Nickel 4-2-5");
-  assert.equal(plan.side === "defense" && plan.front, "4-2-5");
+  assert.equal(plan.side === "defense" && plan.look.kind === "front" && plan.look.front, "4-2-5");
   assert.ok(plan.side === "defense" && plan.exact);
 });
 

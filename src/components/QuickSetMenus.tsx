@@ -16,11 +16,19 @@ const firstPoint = (d: string): { x: number; y: number } => {
   return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 28, y: 40 };
 };
 
-/** A grid of tiles in the player's color; `mirrored` draws them for the other side of the ball. */
+/** Half a circle turns the drawing the other way up; a turned drawing is mirrored when the player is on the right. */
+const tileTransform = (mirrored: boolean, turned: boolean): string | undefined =>
+  `${turned ? "rotate(180 28 22) " : ""}${mirrored !== turned ? "translate(56 0) scale(-1 1)" : ""}`.trim() || undefined;
+
+/**
+ * A grid of tiles in the player's color. `mirrored` draws them for a player left of the ball on the coach's screen;
+ * `turned` draws them half a circle round, the way a line comes out on a play drawn from the defense's end.
+ */
 export function SetTiles({
   items,
   ink,
   mirrored,
+  turned = false,
   label,
   onPick,
   dot = true,
@@ -28,6 +36,7 @@ export function SetTiles({
   items: TileItem[];
   ink: string;
   mirrored: boolean;
+  turned?: boolean;
   label: string;
   onPick: (id: string) => void;
   /** A player's dot where the drawing starts; whole-line drawings (the schemes) have none. */
@@ -40,7 +49,7 @@ export function SetTiles({
         return (
           <button key={item.id} type="button" className="dz-set-tile" onClick={() => onPick(item.id)}>
             <svg viewBox="0 0 56 44" aria-hidden="true">
-              <g transform={mirrored ? "translate(56 0) scale(-1 1)" : undefined}>
+              <g transform={tileTransform(mirrored, turned)}>
                 <path d={item.icon} fill="none" stroke={ink} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 {dot && <circle cx={start.x} cy={start.y} r="3.5" fill={ink} />}
               </g>
@@ -58,11 +67,12 @@ function Head({ title, onClose, closeLabel, children }: { title: string; onClose
   return (
     <div className="dz-quick-head">
       <span className="dz-quick-title">{title}</span>
+      {/* The close button comes first in the tab order, so opening the menu never lands focus on Clear assignment; the row is laid out the other way round so it still sits last on the screen. */}
       <span className="dz-quick-head-end">
-        {children}
         <button type="button" className="dz-quick-x" onClick={onClose} aria-label={closeLabel}>
           <Icon name="close" size={14} />
         </button>
+        {children}
       </span>
     </div>
   );
@@ -74,6 +84,7 @@ export function LineBlockMenu({
   tiles,
   ink,
   mirrored,
+  turned = false,
   hasDefense,
   onPick,
   onStraight,
@@ -83,6 +94,7 @@ export function LineBlockMenu({
   tiles: TileItem[];
   ink: string;
   mirrored: boolean;
+  turned?: boolean;
   hasDefense: boolean;
   onPick: (id: string) => void;
   onStraight: () => void;
@@ -92,7 +104,7 @@ export function LineBlockMenu({
     <>
       <p className="dz-quick-note">Now click the defender {name} blocks.</p>
       <p className="dz-quick-sub">{hasDefense ? "Or pick how he blocks" : "Or pick how he blocks (it fits the defense when there is one)"}</p>
-      <SetTiles items={tiles} ink={ink} mirrored={mirrored} label={`Blocks for ${name}`} onPick={onPick} />
+      <SetTiles items={tiles} ink={ink} mirrored={mirrored} turned={turned} label={`Blocks for ${name}`} onPick={onPick} />
       <div className="dz-quick-row">
         <button type="button" onClick={onStraight}>Block straight ahead</button>
         <button type="button" onClick={onCancel}>Cancel</button>
@@ -107,6 +119,7 @@ export function SkillBlockMenu({
   tiles,
   ink,
   mirrored,
+  turned = false,
   hasDefense,
   onPick,
   onRoutes,
@@ -116,6 +129,7 @@ export function SkillBlockMenu({
   tiles: TileItem[];
   ink: string;
   mirrored: boolean;
+  turned?: boolean;
   hasDefense: boolean;
   onPick: (id: string) => void;
   onRoutes: () => void;
@@ -125,7 +139,7 @@ export function SkillBlockMenu({
     <>
       <Head title={`Blocks for ${name}`} onClose={onClose} closeLabel="Close the block menu" />
       {!hasDefense && <p className="dz-quick-note">No defense on the field yet, so each block draws its own shape.</p>}
-      <SetTiles items={tiles} ink={ink} mirrored={mirrored} label={`Blocks for ${name}`} onPick={onPick} />
+      <SetTiles items={tiles} ink={ink} mirrored={mirrored} turned={turned} label={`Blocks for ${name}`} onPick={onPick} />
       <div className="dz-quick-row">
         <button type="button" onClick={onRoutes}>Routes instead</button>
       </div>
@@ -140,6 +154,7 @@ export function JobMenu({
   coverage,
   ink,
   mirrored,
+  turned = false,
   hasJob,
   onPick,
   onClear,
@@ -150,6 +165,7 @@ export function JobMenu({
   coverage: TileItem[];
   ink: string;
   mirrored: boolean;
+  turned?: boolean;
   hasJob: boolean;
   onPick: (id: string) => void;
   onClear: () => void;
@@ -165,9 +181,9 @@ export function JobMenu({
         )}
       </Head>
       <p className="dz-quick-sub">Rush</p>
-      <SetTiles items={rush} ink={ink} mirrored={mirrored} label={`Rush assignments for ${name}`} onPick={onPick} />
+      <SetTiles items={rush} ink={ink} mirrored={mirrored} turned={turned} label={`Rush assignments for ${name}`} onPick={onPick} />
       <p className="dz-quick-sub">Coverage</p>
-      <SetTiles items={coverage} ink={ink} mirrored={mirrored} label={`Coverage assignments for ${name}`} onPick={onPick} />
+      <SetTiles items={coverage} ink={ink} mirrored={mirrored} turned={turned} label={`Coverage assignments for ${name}`} onPick={onPick} />
     </>
   );
 }

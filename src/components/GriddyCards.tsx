@@ -23,6 +23,7 @@ import { gridFromPlays } from "../lib/sheet";
 import { usePositionTokens } from "../lib/positions";
 import { emptyScene } from "../lib/presets";
 import { nextZ } from "../lib/scene";
+import { toFrame, upright } from "../lib/pov";
 import { store, useStore } from "../lib/store";
 import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
@@ -61,7 +62,8 @@ function DrawCard({ id, initial }: { id: string; initial: AssistantRead }) {
 
   const scene = drawer?.scene ?? emptyScene();
   const tokens = drawer?.tokens ?? ownTokens;
-  const proposed = useMemo(() => readToNodes(read, tokens, scene.losY, drawer ? nextZ(scene) : 1), [read, tokens, scene, drawer]);
+  // Griddy draws the offense-up set at this play's own line; on a play drawn from the defense's end it is turned with the rest.
+  const proposed = useMemo(() => toFrame(scene, readToNodes(read, tokens, upright(scene).losY, drawer ? nextZ(scene) : 1)), [read, tokens, scene, drawer]);
   // Anyone the call gave a job who still isn't on the field, so no route goes missing quietly.
   const missing = useMemo(() => {
     const on = new Set(proposed.flatMap((n) => (n.kind === "player" && n.label ? [n.label.toUpperCase()] : [])));
@@ -966,7 +968,8 @@ function DefenseCard({ id, call: initial }: { id: string; call: DefenseCall }) {
 
   function put() {
     if (!drawer) return;
-    const nodes = built?.nodes ?? defenseField(call, tokens, rush(drawer.scene.view)).nodes;
+    // Against a named formation there is no `field`, so lay it out on the open play here: it comes back in the play's own frame.
+    const nodes = (built ?? buildDefense(call, drawer.scene, tokens, rush(drawer.scene.view))).nodes;
     drawer.onAdd(nodes, `Griddy: ${call.name}`);
     setOutcome(id, `The coach put ${call.name} (${built?.look ?? call.coverage}${call.jobs ? ", jobs tagged" : ""}) on the field in the Designer.${said.rush ? ` ${said.rush}` : ""}`);
     dance();

@@ -1,6 +1,7 @@
 import { linesOf } from "./assignments";
 import { fieldInset, unitsPerYard } from "./fieldUnits";
 import { isLineman } from "./formations";
+import { downfield } from "./pov";
 import { baseNode, CANVAS_W } from "./types";
 import type { FieldView, PathNode, PlayerNode, Point, Scene } from "./types";
 
@@ -34,7 +35,10 @@ function elevenMan(scene: Scene): boolean {
  * so they read true on every field. Shapes are for a receiver on the right:
  * positive x breaks toward his sideline, negative x toward the middle. A
  * player left of the ball gets the shape mirrored, and Flip break mirrors it
- * again.
+ * again. On a play drawn from the defense's end (`scene.pov === "defense"`) the
+ * offense attacks down the card and its left is the screen's right, so the
+ * same shapes are laid out turned half a circle: a route always runs toward the
+ * defense, never back at its own quarterback.
  */
 export type QuickRoute = {
   id: string;
@@ -95,23 +99,30 @@ export function routeInk(p: PlayerNode, fallback: string): string {
   return lum > 0.85 ? fallback : `#${hex.toUpperCase()}`;
 }
 
-/** Which way a player's routes break by default: mirrored when he's left of the ball. */
-export const leftSide = (p: Point) => p.x < CANVAS_W / 2;
+/**
+ * Which way a player's routes break by default: mirrored when he's left of the
+ * ball. From the defense's end (a turned play) the offense's left is the
+ * screen's right.
+ */
+export const leftSide = (p: Point, scene?: Pick<Scene, "pov">) => (scene?.pov === "defense" ? p.x > CANVAS_W / 2 : p.x < CANVAS_W / 2);
 
 /** The route's points from the player, in canvas units. */
 export function quickPoints(scene: Scene, route: QuickRoute, from: Point, mirror: boolean): Point[] {
   const u = yardScale(scene.view ?? "half");
-  const sx = mirror ? -1 : 1;
+  // Across the card the offense's break side turns with the play; down the card (`dir`) is toward the defense.
+  const turned = scene.pov === "defense" ? -1 : 1;
+  const dir = downfield(scene);
+  const sx = (mirror ? -1 : 1) * turned;
   const points: Point[] = [{ x: 0, y: 0 }];
   for (const [ax, dy] of route.legs) {
     const x = ax * u.x * sx;
-    const y = route.fromPlayer ? -dy * u.y : scene.losY - dy * u.y - from.y;
+    const y = route.fromPlayer ? dir * dy * u.y : scene.losY + dir * dy * u.y - from.y;
     // Routes stop at the sideline rather than running off the field.
     const p = { x: Math.min(CANVAS_W - 16 - from.x, Math.max(16 - from.x, x)), y };
     const prev = points[points.length - 1];
     if (Math.hypot(p.x - prev.x, p.y - prev.y) >= 6) points.push(p);
   }
-  if (points.length < 2) points.push({ x: 0, y: -u.y * 5 });
+  if (points.length < 2) points.push({ x: 0, y: dir * u.y * 5 });
   return points;
 }
 

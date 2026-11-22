@@ -242,14 +242,15 @@ export function zigzagPath(pts: Point[], amp = 4.5, step = 8): string {
     if (len < 1) continue;
     const ux = (b.x - a.x) / len;
     const uy = (b.y - a.y) / len;
-    // Teeth stop short of the last point so the line ends square on it.
-    for (let t = step; t < len - step * 0.6; t += step) {
+    // Teeth stop short of the last point, and a short straight run on the axis ends the segment, so an arrowhead or T cap points along the line and not across a tooth.
+    for (let t = step; t < len - step * 1.4; t += step) {
       const px = a.x + ux * t - uy * amp * side;
       const py = a.y + uy * t + ux * amp * side;
       d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
       side = -side;
     }
-    d += ` L ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+    const run = Math.min(step * 0.5, len / 2);
+    d += ` L ${(b.x - ux * run).toFixed(2)} ${(b.y - uy * run).toFixed(2)} L ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
   }
   return d;
 }
