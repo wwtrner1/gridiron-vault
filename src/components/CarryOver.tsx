@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { store } from "../lib/store";
+import { isStockSheetName, isUntouchedSheet } from "../lib/sheet";
 import type { LocalPlaybook, SheetDoc } from "../lib/store";
 import { presetStore, type PlayerPreset } from "../lib/playerPresets";
 import { useToast } from "../lib/toast";
@@ -85,7 +86,13 @@ export function CarryOver() {
         const have = store.get();
         if (plays.length) store.mergeRemotePlays(plays);
         for (const b of got.ws?.playbooks ?? []) if (!have.playbooks.some((x) => x.id === b.id)) store.upsertPlaybook(b);
-        for (const s of got.ws?.sheets ?? []) if (!have.sheets.some((x) => x.id === s.id)) store.upsertSheet(s);
+        for (const s of got.ws?.sheets ?? []) {
+          // The blank starter sheet carries nothing worth moving (the page lays out its own), and a sheet this browser
+          // already holds, under its own id or as the account's copy of it, is not added a second time.
+          if (isUntouchedSheet(s) && isStockSheetName(s.name)) continue;
+          const same = (x: SheetDoc) => x.id === s.id || (!!s.remoteId && (x.remoteId === s.remoteId || x.id === s.remoteId)) || (!!x.syncKey && x.syncKey === s.id);
+          if (!have.sheets.some(same)) store.upsertSheet(s);
+        }
         for (const p of got.presets ?? []) if (!presetStore.get().some((x) => x.id === p.id)) presetStore.save(p);
         const books = got.ws?.playbooks?.length ?? 0;
         const wrote = carryKeys(got.keys);
