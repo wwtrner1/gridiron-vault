@@ -17,13 +17,14 @@ import {
   wristbandSheets,
   type BandOptions,
 } from "../../src/lib/wristbands";
+import { HOUSE_PREFS } from "../../src/lib/bandPrefs";
 import { matchLook } from "../../src/lib/printLook";
 import { STARTERS, starterMeta, starterScene } from "../../src/lib/starters";
 import type { StoredPlay } from "../../src/lib/types";
 
 const plays = STARTERS.slice(0, 16).map((s, i) => ({ ...starterMeta(s), id: `s${i}`, scene: starterScene(s) }) as unknown as StoredPlay);
 
-type Case = { id: string; size: string; grid: string; preset?: string; paper?: BandOptions["paper"]; plays?: number; num?: BandOptions["numberSize"] };
+type Case = { id: string; size: string; grid: string; preset?: string; paper?: BandOptions["paper"]; plays?: number; num?: BandOptions["numberSize"]; house?: boolean };
 const CASES: Case[] = [
   { id: "teen-8up-sheet", size: "large", grid: "4x2" },
   { id: "teen-single-pages", size: "large", grid: "3x2", paper: "card" },
@@ -47,6 +48,8 @@ const CASES: Case[] = [
   ...["3x1", "2x2", "3x2-5", "3x2", "4x2-7", "4x2", "3x3", "5x2"].map((grid) => ({ id: `playcard-teen-${grid}`, size: "large", grid, preset: "playcard" })),
   { id: "playcard-youth-3x2", size: "fpc-youth", grid: "3x2", preset: "playcard" },
   { id: "playcard-flag-4x2", size: "flag", grid: "4x2", preset: "playcard" },
+  // What a coach gets on a first visit (the Gridiron-Vault setup): the G and GRIDDY in the header, GRIDIRON-VAULT.COM underneath.
+  { id: "gridiron-vault-default", size: HOUSE_PREFS.sizeId, grid: HOUSE_PREFS.grid, house: true },
   { id: "playcard-adult-5x2", size: "fpc-adult", grid: "5x2", preset: "playcard" },
 ];
 
@@ -54,7 +57,7 @@ function build(c: Case): { opts: BandOptions; entries: ReturnType<typeof entries
   const size = c.id.startsWith("midtn") ? { w: 4.45, h: 2.45 } : BAND_SIZES.find((s) => s.id === c.size)!;
   const best = c.grid === "best" ? bestLayout(size) : null;
   const grid = gridByKey(best?.grid ?? c.grid)!;
-  const preset = best?.prefs ?? BAND_PRESETS.find((p) => p.id === c.preset)?.prefs;
+  const preset = best?.prefs ?? (c.house ? HOUSE_PREFS : BAND_PRESETS.find((p) => p.id === c.preset)?.prefs);
   const opts: BandOptions = {
     card: { w: size.w, h: size.h },
     grid,
@@ -63,7 +66,7 @@ function build(c: Case): { opts: BandOptions; entries: ReturnType<typeof entries
     numberSize: c.num ?? preset?.numberSize ?? "m",
     numberStyle: preset?.numberStyle ?? "band",
     header: preset?.header ?? { show: true, ...defaultBandText },
-    footer: "",
+    footer: c.house ? HOUSE_PREFS.footer : "",
     paper: c.paper ?? "letter",
     cutMarks: true,
     copies: { qb: 1, center: 0, coach: 0 },

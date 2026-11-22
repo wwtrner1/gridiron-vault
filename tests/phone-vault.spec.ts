@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, seedReady, wbSection } from "./helpers";
 
 /**
  * The Vault and the Wristbands page at phone width (Pixel 7, 412 px): play
@@ -45,12 +45,14 @@ test("the Vault and Wristbands work by tap on a phone @phone", async ({ page }, 
 
   // Wristbands: the preview's cards and the settings chips fit and answer a tap.
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const wb = page.locator('.wb-preview [aria-label^="Card "]');
   await expect(wb.first()).toBeVisible();
   const first = (await wb.first().boundingBox())!;
   expect(first.x).toBeGreaterThanOrEqual(0);
   expect(first.x + first.width, "a wristband card runs past the screen").toBeLessThanOrEqual(width);
+  await wbSection(page, "grid");
   const per = page.getByRole("group", { name: "Plays per card (columns × rows)" });
   await per.getByRole("button", { name: "4 plays, 2 across and 2 down" }).tap();
   await expect(wb).toHaveCount(6);

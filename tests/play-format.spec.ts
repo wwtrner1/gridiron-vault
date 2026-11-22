@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, railSection, seedReady } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, wbSection } from "./helpers";
 
 /**
  * Saved play format: the Designer's Sets tab saves one play's look (colors,
@@ -79,10 +79,12 @@ test("a play's format is saved in the Designer, painted onto Vault plays with Un
 
   // Wristbands: Apply game-day format prints every card in that look, with the parts as left (fills back on here).
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const card = page.locator('.wb-preview [aria-label^="Card "]').first();
   const svg = card.locator("svg").first();
   await expect(svg.locator(`path[stroke="${ORANGE}"]`)).toHaveCount(0);
+  await wbSection(page, "format");
   const gameDay = page.getByLabel("Apply game-day format");
   await expect(gameDay).toBeEnabled();
   await gameDay.check();

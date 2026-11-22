@@ -29,7 +29,7 @@ import { useTerms } from "../lib/terms";
 import { useTier } from "../lib/tier";
 import type { StoredPlay } from "../lib/types";
 import { useToast } from "../lib/toast";
-import { chooseBandPreset } from "../lib/wristbands";
+import { chooseBandPreset } from "../lib/bandPrefs";
 import { useGriddy } from "./Griddy";
 import { Icon } from "./Icon";
 import { PlayThumb } from "./PlayThumb";
