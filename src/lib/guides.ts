@@ -46,6 +46,8 @@ const TEACH = MENU("teach");
 const GRIDDY_OPEN = ".gd-launch";
 /** On phones the tools panel is a sheet behind the thumb bar's Tools button, and the play panel is in the Edit menu. */
 const RAIL = { open: ['.dz-dock button[aria-controls="dz-tools"]'], close: ".dz-sheet-head .dz-top-btn" };
+/** A section of the Wristbands page's left panel: its body is the target, and the tour presses its head when it is closed. */
+const WB = (id: string) => ({ target: `[data-panel="${id}"] .panel-body`, open: [`[data-panel="${id}"] .panel-head`] });
 const SIDE = { open: [EDIT, tour("dz-details")], close: ".dz-side-head .dz-top-btn" };
 const GRIDDY_CLOSE = '.gd-head button[aria-label^="Close"]';
 
@@ -603,17 +605,19 @@ export const GUIDES: Guide[] = [
       {
         heading: "Set up the card",
         steps: [
-          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
-          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
-          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
-          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
-          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
-          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
-          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
-          { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
-          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
-          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet") },
+          { title: "Left panel", text: "Every group of settings is a drop-down, all closed to start. Open one to change it; opening another closes the first. A small dot on a heading means something in it needs a look, and the line under each heading says what it is set to.", target: ".wb-controls" },
+          { title: "Saved setups", text: "Gridiron-Vault is built in and is what you start on. Name your own settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). Whatever you change is kept on your account too. The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", ...WB("styles") },
+          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "Plays on the cards", text: "Every play on the cards, in print order. Add plays from your Vault, Draw a new play, open a play in the Designer with its pencil, or take one off with its X (a playbook or Call Sheet loses it, your Vault keeps it, and the toast's Undo puts it back). When a box will print with something cut off, Fix pulls the piece back onto the field and Fix all does every box.", ...WB("plays") },
+          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", ...WB("numbering") },
+          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", ...WB("size") },
+          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", ...WB("grid") },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", ...WB("look") },
+          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors"), open: ['[data-panel="colors"] .panel-head'] },
+          { title: "Each box shows", text: "Number, name, formation and the label style.", ...WB("shows") },
+          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest, and the GridIronVault G beside the words), paper size or one card per page, cut marks, and how many copies of each card.", ...WB("text") },
+          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet"), open: ['[data-panel="callsheet"] .panel-head'] },
         ],
       },
       {
@@ -621,7 +625,7 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Card layout",
-            text: "Shown at actual size. Drag a box to move a call, or use the arrows. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
+            text: "Shown at actual size. Drag a box to move a call, or use the arrows; hover a box for its pencil and X. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
             target: ".wb-body > :last-child",
           },
         ],

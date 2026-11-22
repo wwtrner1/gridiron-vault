@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { quiet, seedReady, signIn } from "./helpers";
+import { quiet, seedReady, signIn, wbSection } from "./helpers";
 
 /**
  * Wristbands page settings: the source, plays per card, numbering, a one-click
@@ -16,13 +16,18 @@ test("wristband settings lay out the cards, number the calls and are kept after 
   await page.goto("/wristbands");
   await expect(page.locator("h1")).toHaveText("Wristbands");
 
+  // Every section of the left panel starts closed.
+  await expect(page.locator('.wb-controls .panel-head[aria-expanded="true"]')).toHaveCount(0);
+
   // Pull the Ready-to-Go playbook: 24 calls.
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   await source.selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const cards = page.locator('.wb-preview [aria-label^="Card "]');
   await expect(cards.first()).toBeVisible();
 
   // Plays per card: 8 a card makes three cards, 4 a card makes six.
+  await wbSection(page, "grid");
   await chip(page, "Plays per card (columns × rows)", "8 plays, 4 across and 2 down").click();
   await expect(cards).toHaveCount(3);
   await expect(cards.first()).toHaveAttribute("aria-label", /^Card A, 8 plays/);
@@ -32,6 +37,7 @@ test("wristband settings lay out the cards, number the calls and are kept after 
   await chip(page, "Plays per card (columns × rows)", "8 plays, 4 across and 2 down").click();
 
   // Numbering: in print order from 10, then by card (11… on A, 21… on B, 31… on C).
+  await wbSection(page, "numbering");
   const numbering = page.getByRole("group", { name: "Numbering" });
   await numbering.getByRole("button", { name: "1, 2, 3 in print order" }).click();
   await numbering.getByLabel("Start at").fill("10");
@@ -42,12 +48,15 @@ test("wristband settings lay out the cards, number the calls and are kept after 
   await expect(page.locator('.wb-preview button[aria-label^="Move 11 "]').first()).toBeVisible();
 
   // A one-click style: Sideline 2×4 is pressed and keeps the grid at eight.
+  await wbSection(page, "styles");
   await chip(page, "One-click styles", "Sideline 2×4").click();
   await expect(chip(page, "One-click styles", "Sideline 2×4")).toHaveAttribute("aria-pressed", "true");
-  await expect(chip(page, "Plays per card (columns × rows)", "8 plays, 4 across and 2 down")).toHaveAttribute("aria-pressed", "true");
   await expect(cards).toHaveCount(3);
+  await wbSection(page, "grid");
+  await expect(chip(page, "Plays per card (columns × rows)", "8 plays, 4 across and 2 down")).toHaveAttribute("aria-pressed", "true");
 
   // The bottom border text shows on every card, with {card} filled in.
+  await wbSection(page, "text");
   await page.getByLabel("Bottom border").fill("Mustangs · card {card}");
   await expect(cards.first()).toContainText("Mustangs · card A");
   await expect(cards.last()).toContainText("Mustangs · card C");
@@ -64,6 +73,7 @@ test("wristband settings lay out the cards, number the calls and are kept after 
   await expect(cards.first().locator('button[aria-label$=" later"]').first()).toHaveAttribute("aria-label", label);
 
   // Card size: a youth window says what it fits.
+  await wbSection(page, "size");
   await page.getByRole("combobox", { name: "Card size" }).selectOption("fpc-youth");
   await expect(page.getByRole("group", { name: "Card size" })).toContainText("Fits a 3.75 × 2.25 in youth window");
 
@@ -71,9 +81,13 @@ test("wristband settings lay out the cards, number the calls and are kept after 
   await page.reload();
   await expect(cards.first()).toBeVisible();
   await expect(cards).toHaveCount(3);
+  await wbSection(page, "grid");
   await expect(chip(page, "Plays per card (columns × rows)", "8 plays, 4 across and 2 down")).toHaveAttribute("aria-pressed", "true");
+  await wbSection(page, "numbering");
   await expect(numbering.getByRole("button", { name: "By card" })).toHaveAttribute("aria-pressed", "true");
+  await wbSection(page, "text");
   await expect(page.getByLabel("Bottom border")).toHaveValue("Mustangs · card {card}");
+  await wbSection(page, "size");
   await expect(page.getByRole("combobox", { name: "Card size" })).toHaveValue("fpc-youth");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
   expect(saved).toMatchObject({ grid: "4x2", sizeId: "fpc-youth", footer: "Mustangs · card {card}", numbering: { mode: "card" } });
@@ -82,6 +96,7 @@ test("wristband settings lay out the cards, number the calls and are kept after 
 test("plays picked by hand make the cards, and nothing picked says so", async ({ page }) => {
   await seedReady(page);
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   await source.selectOption("hand");
   await expect(page.getByText("No plays to print yet")).toBeVisible();
@@ -98,10 +113,12 @@ test("plays picked by hand make the cards, and nothing picked says so", async ({
 test("Play card style prints 3 to 10 plays a card, with 5 and 7 on a centred short row", async ({ page }) => {
   await seedReady(page);
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const cards = page.locator('.wb-preview [aria-label^="Card "]');
   await expect(cards.first()).toBeVisible();
   const per = "Plays per card (columns × rows)";
+  await wbSection(page, "grid");
 
   // Every count from 3 to 10 has a chip; 24 calls make that many cards.
   for (const [count, name, made] of [
@@ -127,19 +144,24 @@ test("Play card style prints 3 to 10 plays a card, with 5 and 7 on a centred sho
   expect(low.x - top.x).toBeCloseTo(top.width / 2, 0);
 
   // The Play card style: gray strip, each card's numbers in its own color, a bold edge, the line of scrimmage lined up.
+  await wbSection(page, "styles");
   await chip(page, "One-click styles", "Play card").click();
   await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
+  await wbSection(page, "grid");
   await expect(chip(page, per, "5 plays, 3 over 2, the short row centred")).toHaveAttribute("aria-pressed", "true");
   await expect(cards.first()).toHaveAttribute("data-border", "bold");
   await expect(cards.nth(0).locator(".wb-cell-band").first()).toHaveCSS("color", "rgb(224, 32, 27)");
   await expect(cards.nth(1).locator(".wb-cell-band").first()).toHaveCSS("color", "rgb(31, 71, 224)");
+  await wbSection(page, "look");
   await expect(page.getByLabel("Same size in every box")).toBeChecked();
   await expect(page.getByLabel("Line up the line of scrimmage in every box")).toBeChecked();
+  await wbSection(page, "shows");
   await expect(page.getByRole("combobox", { name: "Number color" })).toHaveValue("card");
 
   // Kept after a reload.
   await page.reload();
   await expect(cards).toHaveCount(5);
+  await wbSection(page, "styles");
   await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
   expect(saved).toMatchObject({ grid: "3x2-5", numberInk: "card", border: "bold", sameSize: true, look: { lineUp: true } });
@@ -148,9 +170,11 @@ test("Play card style prints 3 to 10 plays a card, with 5 and 7 on a centred sho
 test("Undo and Redo, saved setups, the call sheet's columns and the one-page sheet with diagrams", async ({ page }) => {
   await seedReady(page);
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const cards = page.locator('.wb-preview [aria-label^="Card "]');
   const grid = "Plays per card (columns × rows)";
+  await wbSection(page, "grid");
   const undo = page.getByRole("button", { name: "Undo", exact: true });
   const redo = page.getByRole("button", { name: "Redo", exact: true });
 
@@ -171,19 +195,25 @@ test("Undo and Redo, saved setups, the call sheet's columns and the one-page she
   await expect(cards).toHaveCount(6);
 
   // Save these settings under a name, change them, then load the setup back.
+  await wbSection(page, "styles");
   await chip(page, "One-click styles", "Play card").click();
+  await wbSection(page, "start");
   await page.getByLabel("Name for these settings").fill("Varsity Friday");
   await page.getByRole("button", { name: "Save setup" }).click();
   await expect(page.locator(".toast", { hasText: 'Saved "Varsity Friday"' })).toBeVisible();
+  await wbSection(page, "styles");
   await chip(page, "One-click styles", "Sideline 2×4").click();
   await expect(cards).toHaveCount(3);
+  await wbSection(page, "start");
   await page.getByLabel("Setup to load").selectOption({ label: "Varsity Friday" });
   await page.getByRole("button", { name: "Load", exact: true }).click();
+  await wbSection(page, "styles");
   await expect(chip(page, "One-click styles", "Play card")).toHaveAttribute("aria-pressed", "true");
   await expect(cards).toHaveCount(6);
   // Loading is one step: Undo puts the Sideline settings back.
   await undo.click();
   await expect(chip(page, "One-click styles", "Sideline 2×4")).toHaveAttribute("aria-pressed", "true");
+  await wbSection(page, "start");
   // Delete, then the toast's Undo brings the setup back.
   await page.getByRole("button", { name: "Delete the picked setup" }).click();
   await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(0);
@@ -191,6 +221,7 @@ test("Undo and Redo, saved setups, the call sheet's columns and the one-page she
   await expect(page.getByLabel("Setup to load").locator("option", { hasText: "Varsity Friday" })).toHaveCount(1);
 
   // The call sheet prints the columns the coach picks; the number always stays.
+  await wbSection(page, "callsheet");
   const sheet = page.getByRole("group", { name: "Coach's call sheet" });
   const cols = sheet.getByRole("group", { name: "Columns on the call sheet" });
   const heads = page.locator(".wb-sheet-table thead th");
@@ -214,6 +245,7 @@ test("Undo and Redo, saved setups, the call sheet's columns and the one-page she
 
   // Every call sheet choice and the saved setup are kept after a reload.
   await page.reload();
+  await wbSection(page, "start");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("grid1ronvault.wristbands.v1") ?? "{}"));
   expect(saved.coachSheet).toBe("onepage");
   expect(saved.sheet).toMatchObject({
@@ -247,6 +279,7 @@ test("saved setups live on the account: another device's setup loads here, and a
   });
   await seedReady(page);
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const pick = page.getByLabel("Setup to load");
   await expect(pick.locator("option", { hasText: "Phone setup" })).toHaveCount(1);
@@ -255,7 +288,9 @@ test("saved setups live on the account: another device's setup loads here, and a
   // Loading the phone's setup sets this page: 5 a card, a color per card.
   await pick.selectOption({ label: "Phone setup" });
   await page.getByRole("button", { name: "Load", exact: true }).click();
+  await wbSection(page, "grid");
   await expect(chip(page, "Plays per card (columns × rows)", /5 plays, 3 over 2/)).toHaveAttribute("aria-pressed", "true");
+  await wbSection(page, "start");
 
   // A setup saved here goes to the account beside the phone's.
   await page.getByLabel("Name for these settings").fill("Laptop setup");

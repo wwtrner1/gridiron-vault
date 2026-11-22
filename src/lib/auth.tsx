@@ -16,6 +16,9 @@ import { api } from "./api";
 
 export type Account = { id: string; email: string; name: string };
 
+/** Fired on `window` after the coach signs out on purpose, so per-account settings kept in this browser can be put away. */
+export const SIGNED_OUT_EVENT = "grid1ronvault:signed-out";
+
 type AuthValue = {
   account: Account | null;
   status: "loading" | "ready";
@@ -218,6 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await identityLogout();
     setAccount(null);
+    // The coach chose to leave (a session that just ran out says nothing): per-account settings in this browser can go.
+    window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
   }, []);
 
   const value = useMemo<AuthValue>(

@@ -64,7 +64,7 @@ import { gateAi, gateGrid, gateLibrary, gatePlaybook, gateSave, gateShare, heldB
 import { griddy } from "../ai/griddy.js";
 import { cleanMyTeam, cleanMyTeams, type MyTeamsDoc } from "../../src/lib/teamHub.js";
 import { cleanBrand } from "../../src/lib/brandData.js";
-import { cleanSetupsDoc, mergeSetups } from "../../src/lib/bandSetupsData.js";
+import { cleanSetupsDoc, clampCurrent, mergeSetups } from "../../src/lib/bandSetupsData.js";
 import { cleanVault, mergeVault } from "../../src/lib/practiceVaultData.js";
 import { cleanTerms, sharedWithStaff, type StaffTerms } from "../../src/lib/termsData.js";
 import { cleanSnapshot, SHARE_LIMITS, type Snapshot } from "../../src/lib/share.js";
@@ -595,7 +595,9 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         await ensureProfile(me);
         const body = (await req.json().catch(() => ({}))) as { setups?: unknown };
         if (!body.setups || typeof body.setups !== "object") return fail("Those setups didn't come through. Try saving again.", 400);
-        const merged = held ? mergeSetups(held, cleanSetupsDoc(body.setups)) : cleanSetupsDoc(body.setups);
+        // The device's own clock stamps the live settings, so one set ahead is cut back to now (it must not outrank later changes).
+        const incoming = clampCurrent(cleanSetupsDoc(body.setups));
+        const merged = held ? mergeSetups(held, incoming) : incoming;
         await db
           .insert(wristbandSetups)
           .values({ ownerId: me.id, data: merged, updatedAt: new Date() })

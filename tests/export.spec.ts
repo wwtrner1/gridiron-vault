@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, seedReady, wbSection } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -10,6 +10,7 @@ test("wristband cards preview as PDF pages, then download", async ({ page }) => 
   const errors = errorsOf(page);
   await seedReady(page);
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   const book = source.locator('option[value^="book:"]').first();
   await expect(book).toBeAttached();
@@ -52,6 +53,7 @@ test("a player dragged off the field is flagged before printing wristbands", asy
     localStorage.setItem("snapline.workspace.v1", JSON.stringify(ws));
   });
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   await source.selectOption((await source.locator('option[value^="book:"]').first().getAttribute("value"))!);
   await expect(page.locator(".wb-preview .pp-warn")).toContainText("cut off");

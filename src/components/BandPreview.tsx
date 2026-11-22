@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Icon } from "./Icon";
 import { useBrand } from "../lib/brand";
 import { PrintDiagram } from "../lib/export";
 import {
@@ -26,6 +28,10 @@ type Props = {
   /** Move the entry at `from` to position `to` in print order. */
   onMove: (from: number, to: number) => void;
   onEditHeader?: () => void;
+  /** Take the call at this print position off the cards. Left out: no button. */
+  onRemove?: (index: number) => void;
+  /** Where to edit the call's play (the Designer); null for a call with no linked play. Left out: no button. */
+  editHref?: (index: number) => string | null;
 };
 
 /** Percent of a length, for absolutely placed card parts. */
@@ -36,7 +42,7 @@ const pct = (part: number, whole: number) => `${(part / whole) * 100}%`;
  * PDF uses. Cells drag into a new order; the arrow buttons do the same from
  * the keyboard.
  */
-export function BandPreview({ entries, options: o, actualSize, onMove, onEditHeader }: Props) {
+export function BandPreview({ entries, options: o, actualSize, onMove, onEditHeader, onRemove, editHref }: Props) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const perCard = perCardOf(o.grid);
@@ -172,6 +178,20 @@ export function BandPreview({ entries, options: o, actualSize, onMove, onEditHea
                       ›
                     </button>
                   </span>
+                  {(onRemove || editHref) && (
+                    <span className="wb-tools">
+                      {editHref?.(index) && (
+                        <Link to={editHref(index)!} aria-label={`Edit play ${e.number} ${e.name}`} title="Edit this play in the Designer" draggable={false}>
+                          <Icon name="pencil" size={12} />
+                        </Link>
+                      )}
+                      {onRemove && (
+                        <button type="button" aria-label={`Remove ${e.number} ${e.name} from the cards`} title="Take this play off the cards" onClick={() => onRemove(index)}>
+                          <Icon name="close" size={12} />
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </div>
               );
             })}

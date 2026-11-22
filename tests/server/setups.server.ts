@@ -115,3 +115,56 @@ test("wristband setups follow the coach to every device and merge, never overwri
   const rows = await client.query("select 1 from wristband_setups where owner_id = $1", [a.id]);
   assert.equal(rows.rows.length, 0);
 });
+
+test("the page's live settings follow the account: the newer change wins, an older tab never erases them, junk is dropped", async () => {
+  await coach();
+  const live = (grid: string, at: string) => ({ prefs: { grid }, at });
+
+  // The laptop's settings are stored with the list.
+  const first = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: live("3x2-5", "2026-11-22T08:00:00.000Z") } });
+  assert.equal(first.status, 200);
+  assert.deepEqual(first.data.setups.current, live("3x2-5", "2026-11-22T08:00:00.000Z"));
+
+  // The phone changed them later: its copy replaces the laptop's.
+  const later = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: live("4x2", "2026-11-22T09:00:00.000Z") } });
+  assert.deepEqual(later.data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+
+  // A tab that is still open on the old settings sends an older stamp: the newer one stays.
+  const stale = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: live("2x2", "2026-11-22T07:00:00.000Z") } });
+  assert.deepEqual(stale.data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+
+  // A copy with no settings at all (an older browser) leaves them alone, and a setup saved meanwhile is kept beside them.
+  const bare = await call("PUT", "wristband-setups", { setups: { setups: [setup("setup-z", "Scrimmage", "2026-11-22T09:30:00.000Z")], deleted: [] } });
+  assert.deepEqual(bare.data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+  assert.deepEqual(bare.data.setups.setups.map((s: any) => s.name), ["Scrimmage"]);
+  assert.deepEqual((await call("GET", "wristband-setups")).data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+
+  // Settings with no time, or that aren't an object, are dropped rather than stored.
+  const junk = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: { prefs: { grid: "x" } } } });
+  assert.deepEqual(junk.data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+  const arrayPrefs = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: { prefs: [1, 2], at: "2026-11-22T10:00:00.000Z" } } });
+  assert.deepEqual(arrayPrefs.data.setups.current, live("4x2", "2026-11-22T09:00:00.000Z"));
+
+  // Another coach starts with none.
+  await coach();
+  assert.equal((await call("GET", "wristband-setups")).data.setups, null);
+});
+
+test("a device whose clock is set ahead can't keep its settings on top of later changes: the stamp is cut back to the server's now", async () => {
+  await coach();
+  const live = (grid: string, at: string) => ({ prefs: { grid }, at });
+  const before = Date.now();
+
+  // A laptop with the wrong year stamps its settings far in the future; the account stores them at its own time.
+  const ahead = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: live("2x2", "2999-01-01T00:00:00.000Z") } });
+  assert.equal(ahead.status, 200);
+  const stored = Date.parse(ahead.data.setups.current.at);
+  assert.ok(stored >= before - 1 && stored <= Date.now() + 1, `stamp ${ahead.data.setups.current.at} should be about now`);
+  assert.deepEqual(ahead.data.setups.current.prefs, { grid: "2x2" });
+
+  // A phone with the right time changes the settings a moment later: its change wins, as it should.
+  await new Promise((r) => setTimeout(r, 25));
+  const phone = await call("PUT", "wristband-setups", { setups: { setups: [], deleted: [], current: live("3x2-5", new Date().toISOString()) } });
+  assert.deepEqual(phone.data.setups.current.prefs, { grid: "3x2-5" });
+  assert.deepEqual((await call("GET", "wristband-setups")).data.setups.current.prefs, { grid: "3x2-5" });
+});

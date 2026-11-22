@@ -1,4 +1,4 @@
-import type { BrowserContext, Page, Route } from "@playwright/test";
+import { expect, type BrowserContext, type Page, type Route } from "@playwright/test";
 
 /** Keeps the Designer's animated slides and first-visit tours out of the way. */
 export async function quiet(context: BrowserContext) {
@@ -100,6 +100,18 @@ export async function railSection(page: Page, id: "draw" | "routes" | "players" 
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
   const panel = page.locator(`#dz-tabpanel-${id}`);
   await panel.waitFor();
+  return panel;
+}
+
+export type WristbandSection =
+  | "start" | "plays" | "styles" | "numbering" | "size" | "grid" | "look" | "shows" | "colors" | "text" | "paper" | "copies" | "callsheet" | "format";
+
+/** Opens one section of the Wristbands page's left panel if it is closed (they all start closed and fold as one, so opening it closes the others). */
+export async function wbSection(page: Page, id: WristbandSection) {
+  const panel = page.locator(`.wb-controls [data-panel="${id}"]`);
+  const head = panel.locator(".panel-head");
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "true");
   return panel;
 }
 

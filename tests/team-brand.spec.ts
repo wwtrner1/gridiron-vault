@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, seedReady, wbSection } from "./helpers";
 
 /**
  * Team branding on My team: the name on the field, a color preset, a logo
@@ -83,12 +83,16 @@ test("Team branding: name, preset, logo and its colors, the switches, the wristb
 
   // Wristbands: the header band takes the team colors and logo, and {team} fills in the name.
   await page.goto("/wristbands");
+  await wbSection(page, "start");
   await page.locator('[data-tour="wb-source"] select').selectOption({ label: "Playbook · Ready-to-Go 5v5 Playbook" });
   const card = page.locator('.wb-preview [aria-label^="Card "]').first();
   const head = card.locator(".wb-card-head");
   await expect(head).toHaveCSS("background-color", "rgb(31, 91, 58)");
   await expect(head.locator(".wb-card-logo")).toHaveCount(1);
+  const teamLogo = await head.locator(".wb-card-logo").getAttribute("src");
+  await wbSection(page, "colors");
   await expect(page.getByRole("group", { name: "Card colors" }).locator(".chip[aria-pressed=true]")).toHaveText("Team colors");
+  await wbSection(page, "text");
   await page.getByLabel("Header, left").fill("{team} · Card {card}");
   await expect(head).toContainText("Wildcats · Card A");
 
@@ -97,7 +101,10 @@ test("Team branding: name, preset, logo and its colors, the switches, the wristb
   await panel.getByLabel(/On wristbands and PDFs/).uncheck();
   await page.goto("/wristbands");
   await expect(head).toHaveCSS("background-color", "rgb(11, 21, 36)");
-  await expect(head.locator(".wb-card-logo")).toHaveCount(0);
+  // The Gridiron-Vault header's own G takes the team logo's place.
+  await expect(head.locator(".wb-card-logo")).toHaveCount(1);
+  await expect(head.locator(".wb-card-logo")).not.toHaveAttribute("src", teamLogo!);
+  await wbSection(page, "colors");
   await expect(page.getByRole("group", { name: "Card colors" }).locator(".chip[aria-pressed=true]")).toHaveText("GridIronVault");
 
   // Kept in this browser after a reload.

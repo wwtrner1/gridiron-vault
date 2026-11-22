@@ -46,8 +46,8 @@ export function cloneNodes(nodes: SceneNode[], dx = 0, dy = 0): SceneNode[] {
  * player's routes and assignment lines ride along, and auto-connect lines
  * stay glued to their tokens.
  */
-export function moveNodes(scene: Scene, ids: string[], dx: number, dy: number): Scene {
-  const moving = new Set(scene.nodes.filter((n) => ids.includes(n.id) && !n.locked).map((n) => n.id));
+export function moveNodes(scene: Scene, ids: string[], dx: number, dy: number, ignoreLocks = false): Scene {
+  const moving = new Set(scene.nodes.filter((n) => ids.includes(n.id) && (ignoreLocks || !n.locked)).map((n) => n.id));
   const riders = scene.nodes.filter(
     (n) => n.kind === "path" && !n.toId && !moving.has(n.id) && ((n.fromId && moving.has(n.fromId)) || (n.assignOf && moving.has(n.assignOf))),
   );
