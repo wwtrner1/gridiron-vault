@@ -55,8 +55,8 @@ export function routeDepths(scene: Scene): DepthMark[] {
     if (n.kind !== "path") continue;
     const who = owner(n, players);
     if (!isRoute(n, who)) continue;
-    // Downfield is away from the line of scrimmage on the offense's side.
-    const sign = who.y >= scene.losY ? 1 : -1;
+    // Downfield is the way the play attacks: up the card, or down it when the play is drawn from the defense's end.
+    const sign = scene.pov === "defense" ? -1 : 1;
     const pts = n.points.map((p) => toWorld(n, p));
     let last: number | null = null;
     for (let i = 1; i < pts.length - 1; i++) {

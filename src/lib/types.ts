@@ -78,6 +78,8 @@ export type PathNode = NodeCommon & {
   firstRead?: boolean;
   /** The player this route or block belongs to, when a player preset drew it. */
   assignOf?: string;
+  /** Drawn as a zigzag along its points: a defender's read or "hit" (Wes's defense sheets). Everything else about the line stays as set, so a reader still sees a solid line. */
+  zigzag?: boolean;
   /** Short label that rides at the end of the route ("Post", "12 yds", "Hot"); a zone shows it in the middle. */
   tag?: string;
   /** Print only: how much the tag grows so it stays readable on a small card. Never saved. */
@@ -118,7 +120,7 @@ export type Scene = {
   losY: number;
   /** Fixed rotation centre dropped by the Pivot Point tool. */
   pivot: Point | null;
-  /** Drawn as the defense sees it (the play turned half a circle about the ball). Unset means the offense's view. */
+  /** Drawn from the defense's end: the whole card turned half a circle about its middle, the defense at the bottom. Unset means the offense's end (offense at the bottom, attacking up). */
   pov?: "defense";
   nodes: SceneNode[];
   /** Film attached in Run play: a Hudl or YouTube link and where the snap is, in seconds. */

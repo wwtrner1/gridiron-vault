@@ -51,6 +51,7 @@ export function PlayThumb({
         weight={framed?.weight}
         ptPerUnit={framed?.ptPerUnit}
         frame={framed ? box : undefined}
+        turned={scene.pov === "defense"}
       />
       {ordered.map((n) => (
         <NodeLayer key={n.id} node={n} print={!!framed} />

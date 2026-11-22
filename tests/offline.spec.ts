@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { quiet, seedReady } from "./helpers";
+import { quiet, seedReady, wbSection } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -31,6 +31,7 @@ test("after the first visit, other screens still open with no signal", async ({ 
 
   // Printing wristbands at the field: the preview draws from the cached PDF libraries.
   await (await reachLink("Wristbands")).click();
+  await wbSection(page, "start");
   const source = page.locator('[data-tour="wb-source"] select');
   const book = source.locator('option[value^="book:"]').first();
   await expect(book).toBeAttached();

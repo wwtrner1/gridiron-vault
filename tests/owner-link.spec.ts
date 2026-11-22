@@ -13,7 +13,7 @@ test("the owner keeps the Admin link when the account first answers as if nobody
   await signIn(context, (route, path) => {
     if (path !== "me") return;
     asked += 1;
-    // The sign-in cookie ran out: the page's first questions (the phone check's and the side menu's) are answered
+    // The sign-in cookie ran out: the page's first questions (the account watcher's and the side menu's) are answered
     // "nobody". The side menu refreshes the sign-in and asks again instead of taking that as "not the owner".
     return route.fulfill({ json: asked <= 2 ? { user: null } : OWNER }).then(() => true);
   });

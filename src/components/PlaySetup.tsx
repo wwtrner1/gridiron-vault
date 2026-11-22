@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import { Modal } from "./Modal";
-import { canTurnAround } from "../lib/scene";
-import { FormationPreview } from "./FormationLibrary";
+import { PlayThumb } from "./PlayThumb";
 import { personnelGroups } from "../lib/personnel";
 import { FORMATION_NAMES } from "../lib/formations";
 import { FIELD_VIEWS } from "../lib/field";
-import { defaultFormation, defaultView, NEW_BOOK, planFor, setSetupWanted, setupPlayers, setupWanted, type SetupChoice } from "../lib/playSetup";
+import { defaultFormation, defaultView, NEW_BOOK, planFor, setSetupWanted, setupPlayers, setupScene, setupWanted, type SetupChoice } from "../lib/playSetup";
 import type { TokenPreset } from "../lib/presets";
 import type { FieldView } from "../lib/types";
 
@@ -29,6 +28,8 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
   const set = (patch: Partial<SetupChoice>) => setC((now) => ({ ...now, ...patch }));
   const plan = planFor(c.personnel);
   const placed = useMemo(() => setupPlayers(c.personnel, c.formation), [c.personnel, c.formation]);
+  // The field as it will open, so the coach sees which end the offense and the defense line up at before opening it.
+  const preview = useMemo(() => setupScene({ ...c, name: "" }, tokens).scene, [c.personnel, c.formation, c.view, c.pov, tokens]);
 
   const pickPersonnel = (personnel: string) =>
     set({
@@ -116,18 +117,21 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
           )}
         </div>
 
-        {plan.side === "offense" && placed.length > 0 && (
-          <FormationPreview placed={placed} tokens={tokens} label={`${c.formation}, ${c.personnel}`} />
+        {preview.nodes.length > 0 && (
+          <div className="ps-thumb">
+            <PlayThumb
+              scene={preview}
+              label={plan.side === "defense" ? `${plan.name} against a scout offense, drawn from ${c.pov === "defense" ? "the defense's" : "the offense's"} end` : `${c.formation}, ${c.personnel}`}
+            />
+          </div>
         )}
         <p className="hint ps-note">
           {plan.side === "offense"
             ? `${placed.length} players line up in ${c.formation}. Move any of them once the field opens.`
             : plan.side === "defense"
-              ? plan.front
-                ? plan.exact
-                  ? `Your ${c.personnel} lines up against a scout offense.`
-                  : `The closest front we draw (${plan.front}) lines up against a scout offense. Adjust it to match.`
-                : "A scout offense goes on the field so you can line your defenders up against it."
+              ? plan.exact
+                ? `Your ${c.personnel} (${plan.name}) lines up against a scout offense.`
+                : `The closest set we draw (${plan.name}) lines up against a scout offense. Adjust it to match.`
               : "Opens an empty field. Drop your unit from the player trays."}
         </p>
 
@@ -141,23 +145,24 @@ export function PlaySetup({ initial, books, tokens, onStart, onSkip }: Props) {
                   type="button"
                   className={c.pov === side ? "is-on" : ""}
                   aria-pressed={c.pov === side}
-                  disabled={side === "defense" && !canTurnAround(c.view)}
                   onClick={() => set({ pov: side })}
                 >
                   The {side}'s end
                 </button>
               ))}
             </div>
+            <small className="hint field-hint">
+              {c.pov === "defense"
+                ? "The offense reads from the top of the card and the defense lines up at the bottom."
+                : "The offense lines up at the bottom of the card and attacks up the field."}
+            </small>
           </div>
         </div>
 
         <div className="ps-row">
           <label className="field">
             <span>Field</span>
-            <select className="select" value={c.view} onChange={(e) => {
-                const view = e.target.value as FieldView;
-                set(canTurnAround(view) ? { view } : { view, pov: "offense" });
-              }}>
+            <select className="select" value={c.view} onChange={(e) => set({ view: e.target.value as FieldView })}>
               {FIELD_VIEWS.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}

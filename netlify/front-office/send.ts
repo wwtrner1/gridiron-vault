@@ -6,7 +6,8 @@ import { normalizePhone } from "../security/phone.js";
  * hands the coach their own email app and the numbers to text instead.
  *
  * Email: Resend (`RESEND_API_KEY`, `HUB_EMAIL_FROM`). Texts: Twilio's
- * Messaging API with the account already used for phone codes, switched on
+ * Messaging API with the site's Twilio account (`TWILIO_ACCOUNT_SID`,
+ * `TWILIO_AUTH_TOKEN`), switched on
  * with `TEAM_SMS=on` plus `TWILIO_MESSAGING_SID` (a Messaging Service, which
  * handles STOP replies) or `TWILIO_FROM` (a number).
  */

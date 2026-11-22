@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { accountActivity, profiles } from "../../db/schema.js";
 import { ACTIVITY_KINDS, traceCodeOf, type ActivityKind } from "../../src/lib/activity.js";
@@ -10,6 +10,8 @@ export const ACTIVITY_DAYS = 180;
 const DAILY_CAP = 400;
 /** An app open from the same device inside this window is the same visit. */
 const OPEN_GAP_MS = 30 * 60_000;
+/** A device last seen longer ago than this no longer counts as one the coach uses. */
+export const DEVICE_DAYS = 30;
 
 /** What Netlify tells a function about where a request came from. */
 export type Origin = { ip?: string; geo?: { city?: string; subdivision?: { code?: string }; country?: { code?: string } } };
@@ -129,6 +131,27 @@ export async function activityFeed(filter: "all" | "access" | "capture", days: n
     .where(and(inArray(accountActivity.kind, ACTIVITY_KINDS.filter((k) => !access.includes(k))), gte(accountActivity.at, since)))
     .groupBy(accountActivity.ownerId, profiles.email, accountActivity.kind);
   return { rows, totals };
+}
+
+/**
+ * Every device each account has signed in or opened the app from, read from the sign-in audit: when the account was
+ * first and last seen on it, and the browser it reports. The owner's user list, its device flags and a coach's detail
+ * count devices from this. (Until 2026-11-22 they counted devices confirmed with a texted code; those codes are gone,
+ * so nothing writes that table any more.) `uid` narrows it to one coach.
+ */
+export async function deviceUse(uid?: string) {
+  const rows = await db
+    .select({
+      id: accountActivity.ownerId,
+      hash: accountActivity.deviceHash,
+      browser: sql<string>`max(${accountActivity.browser})`,
+      first: sql<Date | string>`min(${accountActivity.at})`,
+      last: sql<Date | string>`max(${accountActivity.at})`,
+    })
+    .from(accountActivity)
+    .where(and(inArray(accountActivity.kind, ["sign_in", "open"]), ne(accountActivity.deviceHash, ""), uid ? eq(accountActivity.ownerId, uid) : undefined))
+    .groupBy(accountActivity.ownerId, accountActivity.deviceHash);
+  return rows.map((r) => ({ id: r.id, hash: r.hash, browser: r.browser, first: new Date(r.first), last: new Date(r.last) }));
 }
 
 /** Capture signals per coach in the last 7 days, for the user list and the watch flags. */

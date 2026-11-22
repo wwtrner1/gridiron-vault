@@ -11,7 +11,6 @@ import { before, describe, test } from "node:test";
 import { randomUUID } from "node:crypto";
 
 delete process.env.TRIAL_SIGNUPS;
-delete process.env.TWILIO_VERIFY_SID;
 
 const { migrate } = await import("./fake-db.ts");
 const { signInAs } = await import("./fake-identity.ts");

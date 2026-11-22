@@ -11,6 +11,7 @@ import { toWorld, unionBox, worldBox, type Box } from "../lib/geometry";
 import { buildQuiz, type Question, type RouteOption } from "../lib/quiz";
 import { ballAt, buildTimeline, positionsAt } from "../lib/runPlay";
 import type { SharedPlay } from "../lib/share";
+import { upright } from "../lib/pov";
 import { CANVAS_H, CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
 
@@ -200,6 +201,8 @@ function Brand() {
 /** One play running from the snap, with your player and route in color and everyone else greyed. */
 function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Scene; letter: string; onClose: () => void }) {
   const [lesson, setLesson] = useState(false);
+  // The lesson is taught from the offense's end, however the coach drew the play.
+  const taught = useMemo(() => upright(play.scene), [play.scene]);
   const tl = useMemo(() => buildTimeline(scene), [scene]);
   const [t, setT] = useState(0);
   const [on, setOn] = useState(true);
@@ -237,7 +240,7 @@ function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Sce
         <h2 id="tm-run-h">{play.name}</h2>
         <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} role="img" aria-label={`${play.name} running, ${letter} in color`}>
           <MarkerDefs colors={strokeColors(scene.nodes)} />
-          <FieldBackground view={scene.view} losY={scene.losY} />
+          <FieldBackground view={scene.view} losY={scene.losY} turned={scene.pov === "defense"} />
           {drawOrder(scene.nodes).map((n) => {
             if (n.kind !== "player") return <NodeLayer key={n.id} node={n} />;
             const p = at.get(n.id) ?? n;
@@ -267,7 +270,7 @@ function Runner({ play, scene, letter, onClose }: { play: SharedPlay; scene: Sce
       </div>
       {lesson && (
         <Suspense fallback={null}>
-          <FilmRoom scene={play.scene} name={play.name} forLetter={letter} closeLabel="Back to the play" onClose={() => setLesson(false)} />
+          <FilmRoom scene={taught} name={play.name} forLetter={letter} closeLabel="Back to the play" onClose={() => setLesson(false)} />
         </Suspense>
       )}
     </div>
@@ -290,7 +293,7 @@ function RouteCard({ option }: { option: RouteOption }) {
   return (
     <svg viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} aria-hidden="true">
       <MarkerDefs colors={strokeColors(scene.nodes)} />
-      <FieldBackground view={scene.view} losY={scene.losY} lite />
+      <FieldBackground view={scene.view} losY={scene.losY} turned={scene.pov === "defense"} lite />
       {drawOrder(scene.nodes).map((n) => (
         <NodeLayer key={n.id} node={n} />
       ))}

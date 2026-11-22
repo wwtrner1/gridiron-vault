@@ -46,6 +46,8 @@ const TEACH = MENU("teach");
 const GRIDDY_OPEN = ".gd-launch";
 /** On phones the tools panel is a sheet behind the thumb bar's Tools button, and the play panel is in the Edit menu. */
 const RAIL = { open: ['.dz-dock button[aria-controls="dz-tools"]'], close: ".dz-sheet-head .dz-top-btn" };
+/** A section of the Wristbands page's left panel: its body is the target, and the tour presses its head when it is closed. */
+const WB = (id: string) => ({ target: `[data-panel="${id}"] .panel-body`, open: [`[data-panel="${id}"] .panel-head`] });
 const SIDE = { open: [EDIT, tour("dz-details")], close: ".dz-side-head .dz-top-btn" };
 const GRIDDY_CLOSE = '.gd-head button[aria-label^="Close"]';
 
@@ -123,6 +125,11 @@ export const GUIDES: Guide[] = [
             target: tour("dz-preview"),
           },
           {
+            title: "Flip sides",
+            text: "The chip in the field's corner turns the whole play half a circle: the defense goes to the bottom of the card (or the offense does, flipped again). Routes, blocks, responsibilities and the line of scrimmage go with their players, and the one-click routes, formations and defenses you add after that run toward the other side of the ball. It works on every field.",
+            target: tour("dz-flip"),
+          },
+          {
             title: "Flat · 3D on the field",
             text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick: behind the offense, wide, All 22, the QB cam, follow a player, a player's eyes, sideline, the press box, overhead or free look, from either end. Tap a player to ride with him. Switch back to Flat to draw.",
             target: tour("dz-view"),
@@ -166,7 +173,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Field",
-            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. View from the defense turns the whole play half a circle about the ball (half, full and blank fields). Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
+            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. Flip sides puts the other side of the ball at the bottom of the card, on every field, and every route and block goes with its player. Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
             target: tour("dz-more-field"),
             open: [MENU("field")],
             close: MENU("field"),
@@ -219,7 +226,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Routes, Players, Sets, Plays",
-            text: "Routes: every route with its depth in yards; pick one, then click a player (or just click the player on the field, see below). Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5-on-5, 7-on-7, 11-man), Your sets drops the players of any formation you've saved a play with (labeled or plain, as drawn or flipped), Defense lines up a front and coverage, Layers lists everything, Saved play format copies one play's look to others. Playbooks: your playbook folders.",
+            text: "Routes: every route with its depth in yards; pick one, then click a player (or just click the player on the field, see below). Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5-on-5, 7-on-7, 11-man), Your sets drops the players of any formation you've saved a play with (labeled or plain, as drawn or flipped), Defense lines up a front (4-3, 4-2-5, 3-4 and more) and coverage, Blocking puts a whole line's blocks on in one click (inside zone, power, trap, slide protection…) to the left or right, Pressures puts one of the rush packages (SOB, Go, Mob, Missile, Sextra, Swing, Twist…) on the defense with the rover's Gold job, Layers lists everything, Saved play format copies one play's look to others. Playbooks: your playbook folders.",
             target: ".dz-acc", ...RAIL,
           },
           {
@@ -254,7 +261,12 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Click to block",
-            text: "Click a lineman (T, G or the center in 11-man), then the defender he blocks, and a T-block line is drawn to him. Block straight ahead draws one up the field instead; Esc puts it away.",
+            text: "Click a lineman (T, G or the center in 11-man), then either click the defender he blocks, or pick a block from the menu: Base, Reach, Down, Combo, Climb, Pull and kick out, Pull and lead, Trap, Fold, Scoop, Pass set, Hinge or Screen release. Every block ends in a T and is drawn in his color, aimed at the defender it fits when there is a defense on the field. The bar that follows has Flip side, Undo and Done. Block straight ahead draws one up the field instead; Esc puts it away. A back, tight end or receiver has Blocks beside his routes: Base, Stalk, Crack, Lead, Kick out, Arc, Slice or Pass pro.",
+            target: ".builder-stage",
+          },
+          {
+            title: "Click a defender",
+            text: "Click a defender to give him a job: Rush, A, B or C gap, Slant, Loop, Contain, Peel or Hit, or a coverage: Man (then click the receiver, or Nearest receiver), Flat, Curl, Hook, Hole, Robber, Deep 1/3, 1/2, 1/4, Deep middle or Spy. His line is drawn from him (solid for rushes, dashed for coverage, a zigzag for Hit) and the job's name goes under his token. Flip side, Undo and Done are on the bar that follows; Clear assignment takes it off.",
             target: ".builder-stage",
           },
           {
@@ -603,17 +615,19 @@ export const GUIDES: Guide[] = [
       {
         heading: "Set up the card",
         steps: [
-          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
-          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
-          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
-          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
-          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
-          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
-          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
-          { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
-          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
-          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet") },
+          { title: "Left panel", text: "Every group of settings is a drop-down, all closed to start. Open one to change it; opening another closes the first. A small dot on a heading means something in it needs a look, and the line under each heading says what it is set to.", target: ".wb-controls" },
+          { title: "Saved setups", text: "Gridiron-Vault is built in and is what you start on. Name your own settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). Whatever you change is kept on your account too. The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", ...WB("styles") },
+          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "Plays on the cards", text: "Every play on the cards, in print order. Add plays from your Vault, Draw a new play, open a play in the Designer with its pencil, or take one off with its X (a playbook or Call Sheet loses it, your Vault keeps it, and the toast's Undo puts it back). When a box will print with something cut off, Fix pulls the piece back onto the field and Fix all does every box.", ...WB("plays") },
+          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", ...WB("numbering") },
+          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", ...WB("size") },
+          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", ...WB("grid") },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", ...WB("look") },
+          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors"), open: ['[data-panel="colors"] .panel-head'] },
+          { title: "Each box shows", text: "Number, name, formation and the label style.", ...WB("shows") },
+          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest, and the GridIronVault G beside the words), paper size or one card per page, cut marks, and how many copies of each card.", ...WB("text") },
+          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet"), open: ['[data-panel="callsheet"] .panel-head'] },
         ],
       },
       {
@@ -621,7 +635,7 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Card layout",
-            text: "Shown at actual size. Drag a box to move a call, or use the arrows. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
+            text: "Shown at actual size. Drag a box to move a call, or use the arrows; hover a box for its pencil and X. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
             target: ".wb-body > :last-child",
           },
         ],

@@ -1,7 +1,7 @@
 import type { PathNode, PlayerNode, Scene, SceneNode, ShapeNode, TextNode } from "./types";
 import { depthLabel, routeDepths } from "./depth";
 import { FIRST_READ } from "./types";
-import { dashFor, motionPath, pathData, polygonPoints } from "./geometry";
+import { dashFor, motionPath, pathData, polygonPoints, zigzagPath } from "./geometry";
 
 /** The colour a line is drawn in: the first read always shows cyan. */
 export const lineColor = (node: PathNode) => (node.firstRead ? FIRST_READ : node.stroke);
@@ -160,7 +160,7 @@ function PlayerGlyph({ node, print = false }: { node: PlayerNode; print?: boolea
 const casingWidth = (width: number) => width * 2.2;
 
 function PathGlyph({ node, print = false }: { node: PathNode; print?: boolean }) {
-  const d = node.style === "motion" ? motionPath(node.points) : pathData(node);
+  const d = node.zigzag && !node.closed ? zigzagPath(node.points) : node.style === "motion" ? motionPath(node.points) : pathData(node);
   if (!d) return null;
   const stroke = lineColor(node);
   return (

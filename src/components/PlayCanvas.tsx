@@ -1130,8 +1130,8 @@ export function PlayCanvas({
         onContextMenu={onContext}
       >
         <MarkerDefs colors={markerColors} />
-        <FieldBackground view={scene.view} losY={scene.losY} />
-        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} midfield={ruleSet(rules.set).midfieldNoRun} />}
+        <FieldBackground view={scene.view} losY={scene.losY} turned={scene.pov === "defense"} />
+        {rules?.on && <RuleLinesLayer view={scene.view} losY={scene.losY} rush={rules.rush} noRun={rules.noRun} midfield={ruleSet(rules.set).midfieldNoRun} turned={scene.pov === "defense"} />}
 
         <rect
           x={0}
@@ -1205,6 +1205,7 @@ export function PlayCanvas({
                   // A fingertip covers about 44px, so touch screens get a wider reach than a mouse.
                   r={coarse ? Math.min(Math.max(half + 8, 22 / zoom), half + 20) : Math.min(Math.max(half + 6, 18 / zoom), half + 12)}
                   fill="transparent"
+                  data-grab="player"
                   style={{ cursor: node.locked ? "not-allowed" : "move" }}
                   onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(node.id)}
                   onPointerLeave={() => setHovered((h) => (h === node.id ? null : h))}

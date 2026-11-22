@@ -46,8 +46,8 @@ export function cloneNodes(nodes: SceneNode[], dx = 0, dy = 0): SceneNode[] {
  * player's routes and assignment lines ride along, and auto-connect lines
  * stay glued to their tokens.
  */
-export function moveNodes(scene: Scene, ids: string[], dx: number, dy: number): Scene {
-  const moving = new Set(scene.nodes.filter((n) => ids.includes(n.id) && !n.locked).map((n) => n.id));
+export function moveNodes(scene: Scene, ids: string[], dx: number, dy: number, ignoreLocks = false): Scene {
+  const moving = new Set(scene.nodes.filter((n) => ids.includes(n.id) && (ignoreLocks || !n.locked)).map((n) => n.id));
   const riders = scene.nodes.filter(
     (n) => n.kind === "path" && !n.toId && !moving.has(n.id) && ((n.fromId && moving.has(n.fromId)) || (n.assignOf && moving.has(n.assignOf))),
   );
@@ -223,14 +223,16 @@ export function flipNodes(scene: Scene, ids: string[], axis: "x" | "y"): Scene {
     ...scene,
     nodes: scene.nodes.map((n) => {
       if (!ids.includes(n.id)) return n;
-      if (axis === "x") return { ...n, x: cx - (n.x - cx), scaleX: -n.scaleX, rotation: -n.rotation };
-      return { ...n, y: cy - (n.y - cy), scaleY: -n.scaleY, rotation: -n.rotation };
+      // A token or a label moves to the mirrored spot but is never itself mirrored: its letter keeps reading the right way, and a play drawn from the defense's end (both scales negative) stays turned.
+      const keepsLook = n.kind === "player" || n.kind === "text";
+      if (axis === "x") return keepsLook ? { ...n, x: cx - (n.x - cx) } : { ...n, x: cx - (n.x - cx), scaleX: -n.scaleX, rotation: -n.rotation };
+      return keepsLook ? { ...n, y: cy - (n.y - cy) } : { ...n, y: cy - (n.y - cy), scaleY: -n.scaleY, rotation: -n.rotation };
     }),
   };
 }
 
-/** Field views where turning the play round keeps the field true (an end zone has a fixed side). */
-export { canTurnAround, turnAround } from "./pov";
+/** Drawing from the defense's end (see `pov.ts`). */
+export { downfield, framePoint, inUpright, isTurnedPlay, toFrame, turnAround, upright } from "./pov";
 
 export function anchorPoint(node: SceneNode, ax: number, ay: number): Point {
   const b = localBox(node);
@@ -326,7 +328,8 @@ export function addGhost(scene: Scene, playerId: string): { scene: Scene; ghostI
   if (!p || scene.nodes.some((n) => n.kind === "player" && n.ghostOf === p.id)) return { scene, ghostId: null };
   const z = nextZ(scene);
   const toward = p.x > CANVAS_W / 2 ? -1 : 1;
-  const ghost: PlayerNode = { ...p, ...baseNode({ x: p.x + toward * GHOST_STEP, y: p.y, z, name: `${p.label || "Player"} pre-snap` }), ghostOf: p.id, note: undefined, shade: undefined, groupId: null };
+  // The ghost keeps the player's own way up, so a play drawn from the defense's end gets a ghost that is turned too.
+  const ghost: PlayerNode = { ...p, ...baseNode({ x: p.x + toward * GHOST_STEP, y: p.y, z, name: `${p.label || "Player"} pre-snap` }), scaleX: p.scaleX, scaleY: p.scaleY, ghostOf: p.id, note: undefined, shade: undefined, groupId: null };
   const link: PathNode = {
     ...makePath("connect", { x: ghost.x, y: ghost.y }, [{ x: 0, y: 0 }, { x: 1, y: 0 }], "#8A9BA8", 2, z - 0.5),
     style: "dotted",

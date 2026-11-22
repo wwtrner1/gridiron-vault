@@ -9,7 +9,6 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { randomUUID } from "node:crypto";
 
 delete process.env.TRIAL_SIGNUPS;
-delete process.env.TWILIO_VERIFY_SID;
 delete process.env.STRIPE_SECRET_KEY;
 
 const { migrate, client } = await import("./fake-db.ts");

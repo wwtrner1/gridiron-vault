@@ -1,7 +1,9 @@
-import { canTurnAround, turnAround } from "./scene";
+import { turnAround } from "./pov";
 import { emptyScene, makePlayer, type TokenPreset } from "./presets";
 import { layoutFormation, tokenFor, type GameType, type Placed } from "./formations";
-import { defenseNodes, layoutDefense, type Front } from "./defense";
+import { defenseNodes, layoutDefense, layoutFlagDefense, layoutSeven, type DefenseLayout, type Front } from "./defense";
+import { unitsPerYard } from "./fieldUnits";
+import { loadRules } from "./rules";
 import { CANVAS_W, uid } from "./types";
 import { store } from "./store";
 import type { FieldView, PlayMeta, Scene, SceneNode } from "./types";
@@ -17,7 +19,7 @@ export type SetupChoice = {
   personnel: string;
   formation: string;
   view: FieldView;
-  /** Which end the play is drawn from: the offense's, or the defense's (the field turned round). */
+  /** Which end the play is drawn from: the offense's, or the defense's (the field turned round, the defense at the bottom of the card). */
   pov: "offense" | "defense";
   /** A playbook id, "" for none, or NEW_BOOK with `newBook` as its name. */
   book: string;
@@ -70,9 +72,21 @@ export function rememberBook(id: string) {
 /** How a personnel value turns into players on the field. */
 export type SetupPlan =
   | { side: "offense"; game: GameType; code: string; keep?: { count: number; tackles: boolean; guards: boolean } }
-  | { side: "defense"; front: Front | null; exact: boolean; scout: { game: GameType; code: string } }
+  | {
+      side: "defense";
+      /** The defense that lines up against the scout offense, so every defensive personnel opens with defenders on the field. */
+      look: DefenseLook;
+      /** What the coach sees it called: "4-3", "7-on-7 Cover 3", "1 rush · Cover 3". */
+      name: string;
+      /** False when it is only the closest set the library draws. */
+      exact: boolean;
+      scout: { game: GameType; code: string };
+    }
   | { side: "special" }
   | { side: "none" };
+
+/** How a defensive personnel is drawn: a library front, the 7-on-7 or 5-on-5 look, or a front trimmed to fewer players (8-man, 6-man). */
+export type DefenseLook = { kind: "front"; front: Front } | { kind: "seven" } | { kind: "flag" } | { kind: "trim"; front: Front; keep: string[] };
 
 /** Defensive personnel → the closest front the defense library draws. */
 const FRONT_FOR: Record<string, { front: Front; exact: boolean }> = {
@@ -80,7 +94,7 @@ const FRONT_FOR: Record<string, { front: Front; exact: boolean }> = {
   "Base 3-4": { front: "3-4", exact: true },
   "Nickel 3-3-5": { front: "3-3", exact: true },
   "Bear 46": { front: "4-4", exact: true },
-  "Nickel 4-2-5": { front: "3-3", exact: false },
+  "Nickel 4-2-5": { front: "4-2-5", exact: true },
   "Dime 4-1-6": { front: "3-3", exact: false },
   "Dime 3-2-6": { front: "3-3", exact: false },
   Quarter: { front: "3-3", exact: false },
@@ -96,10 +110,14 @@ export function planFor(personnel: string): SetupPlan {
   if (personnel === "8-man offense") return { side: "offense", game: "11", code: "11", keep: { count: 8, tackles: false, guards: true } };
   if (personnel === "6-man offense") return { side: "offense", game: "11", code: "11", keep: { count: 6, tackles: false, guards: false } };
   const front = FRONT_FOR[personnel];
-  if (front) return { side: "defense", ...front, scout: { game: "11", code: "11" } };
-  if (personnel === "7v7 defense") return { side: "defense", front: null, exact: false, scout: { game: "7v7", code: "11" } };
-  if (personnel === "5-on-5 defense") return { side: "defense", front: null, exact: false, scout: { game: "5v5", code: "11" } };
-  if (personnel === "8-man defense" || personnel === "6-man defense") return { side: "defense", front: null, exact: false, scout: { game: "11", code: "11" } };
+  if (front) return { side: "defense", look: { kind: "front", front: front.front }, name: front.front, exact: front.exact, scout: { game: "11", code: "11" } };
+  if (personnel === "7v7 defense") return { side: "defense", look: { kind: "seven" }, name: "7-on-7 Cover 3", exact: true, scout: { game: "7v7", code: "11" } };
+  if (personnel === "5-on-5 defense") return { side: "defense", look: { kind: "flag" }, name: "1 rush · Cover 3", exact: true, scout: { game: "5v5", code: "11" } };
+  // 8-man and 6-man: the 3-3 stack trimmed from the outside in, keeping the front, the backers and the deep help.
+  if (personnel === "8-man defense")
+    return { side: "defense", look: { kind: "trim", front: "3-3", keep: ["E", "N", "E", "W", "M", "S", "C", "C"] }, name: "3-3-2", exact: false, scout: { game: "11", code: "11" } };
+  if (personnel === "6-man defense")
+    return { side: "defense", look: { kind: "trim", front: "3-3", keep: ["E", "E", "M", "C", "C", "FS"] }, name: "2-1-3", exact: false, scout: { game: "11", code: "11" } };
   if (["Kickoff", "Kick return", "Punt", "Punt return", "Field goal / PAT", "Field goal block"].includes(personnel)) return { side: "special" };
   return { side: "none" };
 }
@@ -146,9 +164,26 @@ export function setupPlayers(personnel: string, formation: string): Placed[] {
 /** The starting field, play type and formation name for a setup. */
 export function setupScene(c: SetupChoice, tokens: TokenPreset[]): { scene: Scene; meta: Partial<PlayMeta>; status: string } {
   const made = buildSetup(c, tokens);
-  // Drawn from the defense's end: the field turns round, so the offense reads from the top.
-  if (c.pov === "defense" && canTurnAround(c.view)) return { ...made, scene: turnAround(made.scene) };
+  // Drawn from the defense's end: the whole card turns round, so the offense reads from the top and the defense lines up at the bottom (on every field).
+  if (c.pov === "defense") return { ...made, scene: turnAround(made.scene) };
   return made;
+}
+
+/** The defense a plan lines up, laid out around the scout offense's eligible receivers (offsets from the ball, negative dy toward the defense). */
+export function defenseLayoutFor(look: DefenseLook, receivers: { dx: number; dy: number }[], view: FieldView): DefenseLayout {
+  if (look.kind === "front") return layoutDefense(look.front, "Cover 3", receivers);
+  if (look.kind === "seven") return layoutSeven("Cover 3", receivers);
+  if (look.kind === "flag") return layoutFlagDefense("1 rush · Cover 3", (loadRules().rush || 7) * (unitsPerYard(view) || 14.4), receivers);
+  // A trimmed front: keep the named defenders in order (a label picks the first one not taken yet).
+  const full = layoutDefense(look.front, "Cover 3", receivers);
+  const taken = new Set<number>();
+  const keep = look.keep.flatMap((label) => {
+    const i = full.defenders.findIndex((d, k) => d.label === label && !taken.has(k));
+    if (i < 0) return [];
+    taken.add(i);
+    return [i];
+  });
+  return { defenders: keep.map((i) => full.defenders[i]), zones: [], lines: [] };
 }
 
 function buildSetup(c: SetupChoice, tokens: TokenPreset[]): { scene: Scene; meta: Partial<PlayMeta>; status: string } {
@@ -169,17 +204,15 @@ function buildSetup(c: SetupChoice, tokens: TokenPreset[]): { scene: Scene; meta
     const scout = layoutFormation(plan.scout.game, plan.scout.code, "Doubles");
     const offense = place(scout);
     scene.nodes = offense;
-    if (!plan.front)
-      return { scene, meta: { ...meta, playType: "defense" }, status: "A scout offense is on the field. Drop your defenders from the Defense tray." };
     const receivers = scout.filter((p) => p.role !== "line" && p.role !== "qb").map((p) => ({ dx: p.dx, dy: p.dy }));
-    const defense = defenseNodes(layoutDefense(plan.front, "Cover 3", receivers), { x: CANVAS_W / 2, y: scene.losY }, false, offense.length + 1);
+    const defense = defenseNodes(defenseLayoutFor(plan.look, receivers, c.view), { x: CANVAS_W / 2, y: scene.losY }, false, offense.length + 1);
     scene.nodes = [...offense, ...defense];
     return {
       scene,
       meta: { ...meta, playType: "defense" },
       status: plan.exact
         ? `${c.personnel} is lined up against a scout offense. Draw the drops and blitzes.`
-        : `A ${plan.front} front is the closest set to ${c.personnel}. Move or add defenders to match.`,
+        : `A ${plan.name} is the closest set to ${c.personnel}. Move or add defenders to match.`,
     };
   }
   if (plan.side === "special") return { scene, meta: { ...meta, playType: "special" }, status: "Drop your unit from the player trays, then draw the lanes." };

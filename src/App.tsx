@@ -11,7 +11,7 @@ import { BrandSync } from "./lib/brand";
 import { BandSetupSync } from "./lib/bandSetups";
 import { TermSync } from "./lib/terms";
 import { SheetSync } from "./lib/sheetSync";
-import { PhoneGate } from "./components/PhoneGate";
+import { AccountWatch } from "./components/AccountWatch";
 import { NewPassword } from "./components/NewPassword";
 import { Landing } from "./pages/Landing";
 import { NotFound } from "./pages/NotFound";
@@ -172,7 +172,7 @@ export function App() {
       <BandSetupSync />
       <TermSync />
       <SheetSync />
-      <PhoneGate />
+      <AccountWatch />
       <NewPassword />
       {/* One screen failing shows a way back instead of a blank page; Griddy and the rest stay up. */}
       <ErrorBoundary resetKey={pathname}>
