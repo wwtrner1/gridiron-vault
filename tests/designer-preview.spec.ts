@@ -67,8 +67,11 @@ test("Preview runs the play flat or in 3D with a camera, then hands on to Export
   expect(await brandView(page)).toBe("3d");
   const camera = pv.getByRole("combobox", { name: "Camera" });
   await expect(camera).toHaveValue("behind");
-  await expect(camera.locator("option")).toHaveText(["Behind the offense", "Sideline", "Overhead"]);
+  await expect(camera.locator("option")).toHaveText(["Behind the offense", "Wide", "All 22 (high end zone)", "QB cam", "Follow a player", "Player's eyes (helmet cam)", "Sideline (broadcast)", "Coach cam (press box)", "Overhead", "A camera for each moment", "Free look"]);
   await expect(canvas).toHaveAttribute("data-camera", "behind");
+  // A camera for each moment: wide before the snap (Preview opens lined up).
+  await camera.selectOption("modular");
+  await expect(canvas).toHaveAttribute("data-camera", "modular:pre");
   await camera.selectOption("sideline");
   await expect(canvas).toHaveAttribute("data-camera", "sideline");
   await expect(pv.locator(".pv-next .fr-hint")).toContainText("An export is your flat drawing");
@@ -144,7 +147,7 @@ test("The field's Flat · 3D chips show the play in 3D with a camera and give th
   await expect(page.locator(".dz-status [role=status]")).toHaveText("3D is a look at the play. Switch to Flat to draw.");
   await expect(players).toHaveCount(drawn);
   const camera = page.locator(".dz-view-cam select");
-  await expect(camera.locator("option")).toHaveText(["Behind the offense", "Sideline", "Overhead"]);
+  await expect(camera.locator("option")).toHaveText(["Behind the offense", "Wide", "All 22 (high end zone)", "QB cam", "Follow a player", "Player's eyes (helmet cam)", "Sideline (broadcast)", "Coach cam (press box)", "Overhead", "Free look"]);
   await camera.selectOption("overhead");
   await expect(canvas).toHaveAttribute("data-camera", "overhead");
   // The field's 3D look is a view for this visit: it never becomes the Film Room's saved pick.

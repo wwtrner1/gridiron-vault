@@ -27,13 +27,13 @@ import { FloatingToolbar, READS, type ReadId } from "../components/FloatingToolb
 import { RouteLibrary } from "../components/RouteLibrary";
 import { FormatPanel } from "../components/FormatPanel";
 import { RunPlay } from "../components/RunPlay";
-import { canDraw3d, FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
+import { cameraOn, canDraw3d, FIELD_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
 import type { FilmCamera } from "../lib/film3d";
 import { canTeach } from "../lib/teach";
 import { CoverageCheck } from "../components/CoverageCheck";
 import { PageHelp, useTour } from "../components/Tour";
 import { DesignerMenu, type MenuId } from "../components/DesignerMenu";
-import { useMedia } from "../lib/filmView";
+import { useFilmCamera, useMedia } from "../lib/filmView";
 import { blockLine, blocksOnTap, giveQuickRoute, leftSide, QUICK_ENDS, QUICK_ROUTES, quickPath, routeInk, routesOf, type QuickRoute } from "../lib/quickRoutes";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, ROUTE_TILES, type Tile } from "../lib/routeLibrary";
@@ -1965,7 +1965,7 @@ export function Builder() {
   // Preview, the field's own 3D look and Make a video: other ways to see the play, none of them a place to draw.
   const [previewing, setPreviewing] = useState(false);
   const [videoing, setVideoing] = useState(false);
-  const [camera, setCamera] = useState<FilmCamera>("behind");
+  const cam = useFilmCamera(true, "behind");
   const teachable = useMemo(() => canTeach(scene), [scene]);
   // Preview's hand-offs put it away first, so focus is back on the Designer's button before the next box opens and reads its opener.
   const closePreview = () => flushSync(() => setPreviewing(false));
@@ -2807,8 +2807,7 @@ export function Builder() {
             scene={coverScene}
             name={meta.name}
             rushYards={rules.rush || 7}
-            camera={camera}
-            onCamera={setCamera}
+            cam={cam}
             onExport={() => (closePreview(), setExporting(true))}
             onVideo={() => (closePreview(), setVideoing(true))}
             onFilmRoom={() => (closePreview(), setTeaching(true))}
@@ -3180,7 +3179,7 @@ export function Builder() {
             {view3d && (
               <div className="dz-3d" role="group" aria-label="The play in 3D">
                 <Suspense fallback={<span className="dz-3d-wait">Loading 3D…</span>}>
-                  <Field3D scene={coverScene} name={meta.name} rushYards={rules.rush || 7} camera={camera} onFail={() => (setView3d(false), setStatus("This browser can't draw 3D, so the field stays flat."))} />
+                  <Field3D scene={coverScene} name={meta.name} rushYards={rules.rush || 7} cam={cam} onFail={() => (setView3d(false), setStatus("This browser can't draw 3D, so the field stays flat."))} />
                 </Suspense>
                 <p className="dz-3d-note">A 3D look at the play. Switch to Flat to draw.</p>
               </div>
@@ -3223,8 +3222,8 @@ export function Builder() {
               {view3d && (
                 <label className="dz-view-cam">
                   <span>Camera</span>
-                  <select aria-label="Camera" value={camera === "auto" ? "behind" : camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
-                    {FILM_CAMERAS.filter((c) => c !== "auto").map((c) => (
+                  <select aria-label="Camera" value={cameraOn(FIELD_CAMERAS, cam.pick.camera)} onChange={(e) => cam.set({ camera: e.target.value as FilmCamera })}>
+                    {FIELD_CAMERAS.map((c) => (
                       <option key={c} value={c}>
                         {FILM_CAMERA_NAME[c]}
                       </option>

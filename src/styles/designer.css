@@ -1394,3 +1394,6 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .ys-set span { display: flex; flex-direction: column; min-width: 0; }
 .ys-set b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .ys-set small { font-size: 11px; color: var(--muted-2); }
+
+/* The 3D field's turn buttons keep clear of the Flat · 3D chips in the same corner. */
+.dz-3d .fr-3d-turn { right: auto; left: 10px; }
