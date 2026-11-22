@@ -3,7 +3,7 @@
  * and `cleanTerms`, which the browser and the API function both run, so a
  * coach's terms reach the account in the same shape they leave the browser.
  */
-export type TermType = "concept" | "formation" | "tag" | "gap";
+export type TermType = "concept" | "formation" | "tag" | "gap" | "block" | "defense";
 export type TermScope = "you" | "staff" | "shared";
 
 export type Term = {
@@ -70,11 +70,59 @@ export const GAP_GLOSSARY: Term[] = [
   seed("Hole numbers", "Offense's names for the gaps: even on the right (A 2, B 4, C 6, outside 8), odd on the left; some staffs flip it", "gap"),
 ];
 
-export const TYPE_LABEL: Record<TermType, string> = { concept: "Concept", formation: "Formation", tag: "Tag", gap: "Gap & technique" };
+/**
+ * Blocking, after Wes's blocks and schemes (the Designer's one-click blocks and
+ * block schemes draw every one of these; each term's diagram is drawn by that
+ * same code, see `termExamplesBlocking.ts`).
+ */
+export const BLOCK_GLOSSARY: Term[] = [
+  seed("Base block", "Block the defender lined up over you: stay square, get your hands inside and keep your body between him and the play", "block"),
+  seed("Reach block", "Step to the play side and get your head outside the defender over you, so he can't squeeze the run back inside. The block behind outside zone", "block"),
+  seed("Down block", "Block the defender on your inside gap instead of the man over you. It seals the inside of the hole while someone else, often a pulling guard, takes the man outside", "block"),
+  seed("Combo block", "Two linemen team up on one defender, then one comes off to climb to a backer while the other finishes the job. Built for a covered lineman beside an uncovered one", "block"),
+  seed("Climb", "Leave the line of scrimmage and block a linebacker: an uncovered lineman climbs, or a lineman climbs once a neighbor takes the defender he was on", "block"),
+  seed("Pull and kick out", "A lineman pulls behind the line and turns up to knock the end man on the line outside, so the run can go inside him. The backside guard's job on power", "block"),
+  seed("Pull and lead", "A lineman pulls behind the line and goes through the hole ahead of the ball carrier to block the first linebacker he meets", "block"),
+  seed("Trap", "A guard pulls across the formation and blocks a down lineman who was left unblocked, usually the 3 technique just past the center: he gets upfield, then gets hit from the side", "block"),
+  seed("Scoop", "Step inside and block the defender lined up over your inside neighbor, so that neighbor can go on to a linebacker. A way to pass a defender along the line", "block"),
+  seed("Hinge", "A backside lineman steps back and across rather than up, walling off the backside so nobody chases the play from behind", "block"),
+  seed("Covered and uncovered", "Covered: a defender is lined up over you, so you block him. Uncovered: nobody is, so you help a covered neighbor, then climb to a linebacker. It gives every lineman his job on a run", "block"),
+  seed("Inside zone", "The line steps to the play side together: covered linemen take the man over them, uncovered linemen double with a neighbor and climb, and the back reads the blocks and cuts up the best crease", "block"),
+  seed("Outside zone", "Every lineman reaches to the play side and gets his head outside his man, stretching the defense wide; the back runs toward the edge and cuts up the first crease. Also called the stretch", "block"),
+  seed("Power", "A run to one side: the play side blocks down, the backside guard pulls and kicks out the end man on the line, and the ball carrier follows his block", "block"),
+  seed("Counter", "Looks like power, but the back steps the other way first. The play side blocks down while two linemen pull: the first kicks out the end, the second leads through to a linebacker", "block"),
+];
+
+/**
+ * Defensive calls, after Wes's man-pressure sheets and Shark set (the Designer's
+ * pressures draw every one; "to" and "away" are measured from the side the 3
+ * technique lines up on). Gold is the rover's job behind the call.
+ */
+export const DEFENSE_GLOSSARY: Term[] = [
+  seed("SOB", "Five-man pressure: the backer away from the 3 technique blitzes his B gap, the down linemen rush, and everyone else covers a man", "defense"),
+  seed("Go", "Five-man pressure: the backer on the 3 technique's side blitzes the A gap, the down linemen rush, and everyone else covers a man", "defense"),
+  seed("Mob", "Five-man pressure: the backer on the 3 technique's side blitzes the B gap while the 3 technique slants inside into the A gap", "defense"),
+  seed("Pinch Mow", "Five-man pressure: the ends pinch down inside while the backer away from the 3 technique comes off the edge on a read", "defense"),
+  seed("Missile", "Six-man pressure: both backers blitz through the A gaps while the nose slants out", "defense"),
+  seed("Boom", "Six-man pressure: both backers blitz the B gaps while the 3 technique slants into the A gap", "defense"),
+  seed("Extra", "Six-man pressure: the backers cross, each blitzing the A gap on the other's side", "defense"),
+  seed("Backer", "Six-man pressure: both backers blitz straight through the gaps they line up in, and the ends peel to the back if he releases", "defense"),
+  seed("Sextra", "Six-man pressure: both backers go, one of them hitting the gap he reads, and the ends peel to the back if he releases", "defense"),
+  seed("Swing", "Five-man pressure: the backer away from the 3 technique rushes the B gap while the nickel swaps into his drop, with the rover free behind it", "defense"),
+  seed("Twist", "The 3 technique slants into the A gap and the nose loops around him into the B gap, while a backer reads the hole and the rover plays free", "defense"),
+  seed("Peel", "A rusher's second job: if the back releases into a route, he quits rushing and covers him. Drawn as a rush line with a PEEL tag", "defense"),
+  seed("Hit", "A read rush: the defender reads the blocker in front of him, then fills the gap the blocker gives up. Drawn as a zigzag line", "defense"),
+  seed("Gold Back", "The rover's job behind a pressure: he covers the back man-to-man", "defense"),
+  seed("Gold Free", "The rover's job behind a pressure: he covers no one and stays free, deep in the middle, as the last line of defense", "defense"),
+  seed("Man pressure", "A family of blitzes (SOB, Go, Mob, Pinch Mow, Missile, Boom, Extra) that send five or six and cover everyone else man-to-man: the deepest leftover defender plays free and the next one reads the hole", "defense"),
+  seed("4-2-5", "The base defense with four down linemen (W, N, T, B), two backers (M, S) and five defensive backs: two corners, a nickel ($), a free safety (F) and a rover (R)", "defense"),
+];
+
+export const TYPE_LABEL: Record<TermType, string> = { concept: "Concept", formation: "Formation", tag: "Tag", gap: "Gap & technique", block: "Blocking", defense: "Defensive call" };
 export const SCOPE_LABEL: Record<TermScope, string> = { you: "Just you", staff: "You + staff", shared: "Shared glossary" };
 
 /** Every starter term, by id: what each one said before a coach made it their own. */
-export const STARTER_BY_ID = new Map([...STARTER_GLOSSARY, ...GAP_GLOSSARY].map((t) => [t.id, t]));
+export const STARTER_BY_ID = new Map([...STARTER_GLOSSARY, ...GAP_GLOSSARY, ...BLOCK_GLOSSARY, ...DEFENSE_GLOSSARY].map((t) => [t.id, t]));
 
 export type TermsState = {
   terms: Term[];
@@ -96,7 +144,7 @@ export const sharedWithStaff = (s: TermsState): Term[] => (s.shareWithStaff === 
 
 export const TERM_LIMITS = { terms: 400, term: 60, means: 300, ignored: 400 } as const;
 
-const TYPES: TermType[] = ["concept", "formation", "tag", "gap"];
+const TYPES: TermType[] = ["concept", "formation", "tag", "gap", "block", "defense"];
 const SCOPES: TermScope[] = ["you", "staff", "shared"];
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 

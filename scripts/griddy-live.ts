@@ -14,8 +14,11 @@
  */
 import { griddy } from "../netlify/ai/griddy.ts";
 import { BOLD_PLAYER, BOLD_WIDTH, cleanOpenChange, editScene, planBulkEdit, restorePlayers, sameColor, vaultLooks, type BulkChange, type BulkEdit } from "../src/lib/bulkEdit.ts";
+import type { SetChange } from "../src/lib/bulkSets.ts";
+import { defenseNodes, layoutDefense, type Front, type LineSet } from "../src/lib/defense.ts";
+import { layoutFormation, tokenFor } from "../src/lib/formations.ts";
 import type { GriddyAction, GriddyContext, GriddyReply, GriddyRequest, GriddyTurn } from "../src/lib/griddy.ts";
-import { DEFENSE_TOKENS, OFFENSE_TOKENS } from "../src/lib/presets.ts";
+import { DEFENSE_TOKENS, makePlayer, OFFENSE_TOKENS } from "../src/lib/presets.ts";
 import { makeText } from "../src/lib/scene.ts";
 import { gridFromPlays } from "../src/lib/sheet.ts";
 import { buildDefense, defenseField } from "../src/lib/griddyDefense.ts";
@@ -195,6 +198,22 @@ const openField = () => {
   return { ...base, nodes: readToNodes({ formation: "Trips Right", game: "5v5", name: "Trips Right Flood", assignments: [], unsure: [] }, TOKENS, base.losY, 1) };
 };
 const GAP = /^[A-E] gap$/;
+
+/** An 11-man play open in the Designer: Doubles lined up as New play setup does it, with a front from the Defense library over it when asked. */
+function open11(front?: Front): { scene: Scene; play: NonNullable<GriddyContext["play"]> } {
+  const scene = emptyScene();
+  const placed = layoutFormation("11", "11", "Doubles");
+  const offense = placed.map((p, i): PlayerNode => ({ ...makePlayer(tokenFor(p, OFFENSE_TOKENS), CANVAS_W / 2 + p.dx, scene.losY + p.dy), z: i + 1 }));
+  scene.nodes = offense;
+  if (front) {
+    const line: LineSet = { ol: placed.filter((p) => p.role === "line").map((p) => p.dx), tes: placed.filter((p) => p.role === "te").map((p) => p.dx) };
+    const receivers = placed.filter((p) => p.role !== "line" && p.role !== "qb").map((p) => ({ dx: p.dx, dy: p.dy }));
+    scene.nodes = [...offense, ...defenseNodes(layoutDefense(front, "Cover 3", receivers, line), { x: CANVAS_W / 2, y: scene.losY }, false, offense.length + 1, true)];
+  }
+  const defenders = scene.nodes.filter((n) => n.kind === "player" && n.side === "defense").length;
+  return { scene, play: { name: "Doubles", formation: "Doubles", players: offense.map((p) => p.label), lines: 0, ...(defenders ? { defenders } : {}) } };
+}
+const setOf = (edit: BulkEdit) => edit.changes.find((c): c is SetChange => c.op === "apply_set");
 /** My team's roster on screen. */
 const ROSTER: NonNullable<GriddyContext["roster"]> = {
   team: "Hawks",
@@ -602,6 +621,53 @@ const CASES: Case[] = [
     ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "vault" }, filter: { playType: "defense" }, changes: [{ op: "pov", end: "defense" }] }] }],
   },
   {
+    key: "set-pressure",
+    ctx: () => ({ page: "Designer", game: "11", play: open11("4-2-5").play }),
+    say: ["run Boom on my 4-2-5"],
+    check: (reply) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (edit.scope.kind !== "open") return fail(`scope ${scopeText(edit)}, not the play on the field`);
+      const set = setOf(edit);
+      if (!set || set.kind !== "pressure" || set.id !== "boom") return fail(`changes ${JSON.stringify(edit.changes)}`);
+      const made = editScene(open11("4-2-5").scene, edit.changes, TOKENS);
+      if (made.skipped.length) return fail(`skipped: ${made.skipped.join(" ")}`);
+      return made.players ? pass(made.notes[0]) : fail("nothing drawn");
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "open" }, changes: [{ op: "apply_set", kind: "pressure", id: "boom" }] }] }],
+  },
+  {
+    key: "set-scheme",
+    ctx: () => ({ page: "Designer", game: "11", play: open11().play }),
+    say: ["block this inside zone to the right"],
+    check: (reply) => {
+      const [edit] = bulk(reply);
+      if (!edit) return fail(`no bulk_edit card: "${reply.text.slice(0, 120)}"`);
+      if (edit.scope.kind !== "open") return fail(`scope ${scopeText(edit)}, not the play on the field`);
+      const set = setOf(edit);
+      if (!set || set.kind !== "scheme" || set.id !== "inside-zone") return fail(`changes ${JSON.stringify(edit.changes)}`);
+      if (set.dir && set.dir !== "right") return fail(`goes ${set.dir}`);
+      const made = editScene(open11().scene, edit.changes, TOKENS);
+      if (made.skipped.length) return fail(`skipped: ${made.skipped.join(" ")}`);
+      return made.players >= 5 ? pass(made.notes[0]) : fail(`only ${made.players} blocks drawn`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "bulk_edit", scope: { kind: "open" }, changes: [{ op: "apply_set", kind: "scheme", id: "inside-zone", dir: "right" }] }] }],
+  },
+  {
+    key: "set-defense",
+    ctx: () => ({ page: "Designer", game: "11", play: open11().play }),
+    say: ["draw a 4-2-5 with Boom against this play"],
+    check: (reply) => {
+      const [d] = defenses(reply);
+      if (!d) return fail(`no defense card: "${reply.text.slice(0, 120)}"`);
+      if (d.call.pressure !== "boom") return fail(`pressure ${d.call.pressure ?? "none"}`);
+      if (d.call.front !== "4-2-5") return fail(`front ${d.call.front}`);
+      const built = buildDefense(d.call, open11().scene, TOKENS, 7 * 14.4);
+      return built.rush ? pass(built.rush) : fail(`no rush drawn: ${built.notes.join(" ")}`);
+    },
+    ideal: () => [{ text: "", actions: [{ id: "t1", tool: "draw_defense", call: { name: "4-2-5 Cover 3 Boom", game: "11", front: "4-2-5", coverage: "Cover 3", pressure: "boom" } }] }],
+  },
+  {
     key: "roster-remove",
     ctx: () => ({ page: "My team", roster: ROSTER }),
     say: ["Remove the following players: Casen Crawford, Harvey Diehl, and number 21"],
@@ -666,7 +732,7 @@ async function runCase(c: Case, fx: Fixture, dry: boolean): Promise<{ verdict: V
     if (dry)
       for (const a of bulk(reply))
         for (const c of a.changes)
-          if (["style", "wristband", "meta", "file", "gaps", "pov"].includes(c.op) && canon(cleanOpenChange(c as Record<string, unknown>)) !== canon(c))
+          if (["style", "wristband", "meta", "file", "gaps", "pov", "apply_set"].includes(c.op) && canon(cleanOpenChange(c as Record<string, unknown>)) !== canon(c))
             throw new Error(`the server would change ${JSON.stringify(c)} to ${JSON.stringify(cleanOpenChange(c as Record<string, unknown>))}`);
     turns.push({ role: "griddy", text: reply.text, actions: reply.actions });
   }

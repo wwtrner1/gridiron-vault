@@ -78,6 +78,8 @@ export type PathNode = NodeCommon & {
   firstRead?: boolean;
   /** The player this route or block belongs to, when a player preset drew it. */
   assignOf?: string;
+  /** Drawn as a zigzag along its points: a defender's read or "hit" (Wes's defense sheets). Everything else about the line stays as set, so a reader still sees a solid line. */
+  zigzag?: boolean;
   /** Short label that rides at the end of the route ("Post", "12 yds", "Hot"); a zone shows it in the middle. */
   tag?: string;
   /** Print only: how much the tag grows so it stays readable on a small card. Never saved. */

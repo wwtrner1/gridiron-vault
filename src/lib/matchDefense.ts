@@ -195,6 +195,7 @@ export function withoutDefense(scene: Scene): { scene: Scene; removed: number } 
   if (!defenders.length) return { scene, removed: 0 };
   const groups = new Set(defenders.map((d) => d.groupId).filter((g): g is string => !!g));
   const ids = new Set(defenders.map((d) => d.id));
-  const nodes = scene.nodes.filter((n) => !ids.has(n.id) && !(n.groupId && groups.has(n.groupId)));
+  // A line a one-click assignment or a pressure glued to a defender (`assignOf`) goes with him, grouped or not.
+  const nodes = scene.nodes.filter((n) => !ids.has(n.id) && !(n.groupId && groups.has(n.groupId)) && !(n.kind === "path" && n.assignOf && ids.has(n.assignOf)));
   return { scene: { ...scene, nodes }, removed: defenders.length };
 }

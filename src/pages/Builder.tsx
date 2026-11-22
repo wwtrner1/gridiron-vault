@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { FocusPopover } from "../components/FocusBoundary";
 import { YourSets } from "../components/YourSets";
+import { BlockingPanel, PressuresPanel } from "../components/SetPanels";
 import { Icon } from "../components/Icon";
 import { markChecked, TO_CHECK } from "../lib/scanJob";
 import { AddToPlaybook } from "../components/AddToPlaybook";
@@ -35,6 +36,11 @@ import { PageHelp, useTour } from "../components/Tour";
 import { DesignerMenu, type MenuId } from "../components/DesignerMenu";
 import { useFilmCamera, useMedia } from "../lib/filmView";
 import { blockLine, blocksOnTap, giveQuickRoute, leftSide, QUICK_ENDS, QUICK_ROUTES, quickPath, routeInk, routesOf, type QuickRoute } from "../lib/quickRoutes";
+import { LINE_BLOCKS, SKILL_BLOCKS, isQb } from "../lib/quickBlocks";
+import { DEFENDER_JOBS, defenderJob, hasDefense as fieldHasDefense } from "../lib/quickDefense";
+import { blockFromMenu, clearJob, clearSets, defaultDir, jobFromMenu, pressureFromPanel, schemeFromPanel, type Dir, type Made } from "../lib/quickSets";
+import type { Gold } from "../lib/pressures";
+import { JobMenu, LineBlockMenu, ManArmMenu, MadeBar, SkillBlockMenu } from "../components/QuickSetMenus";
 import { applyFormat, formatStore, usePlayFormat } from "../lib/playFormat";
 import { applyTile, exchangeLine, MORE_TILES, FIVE_SET, OUR_TREE, placeTile, playerAt, ROUTE_TILES, type Tile } from "../lib/routeLibrary";
 import { copyNodes, hasClipboard, pasteNodes } from "../lib/clipboard";
@@ -125,6 +131,15 @@ const blankMeta: PlayMeta = {
   isPublic: false,
 };
 
+/** The Sets section's lists: the button's words, the coach-mark's title and what it says. */
+const LIST_NAMES = {
+  formations: { button: "Formations", title: "Formation library", hint: "Pick 5-on-5, 7-on-7 or 11-man and a formation, and the whole offense drops in at once." },
+  yours: { button: "Your sets", title: "Your sets", hint: "Every formation you've saved a play in, players only. Drop one plain or labeled and colored, as drawn or flipped." },
+  defense: { button: "Defense", title: "Defense library", hint: "Pick a front and a coverage, and the defense lines up against the offense on the field." },
+  blocking: { button: "Blocking", title: "Blocking schemes", hint: "Inside zone, power, trap, slide protection and more: every lineman gets a block in one click, to the left or the right." },
+  pressures: { button: "Pressures", title: "Pressures", hint: "SOB, Go, Mob, Missile, Sextra, Swing, Twist and the rest: the rush and the coverage behind it on the defense on the field." },
+  layers: { button: "Layers", title: "Layers", hint: "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field." },
+} as const;
 const HANDOFF = MORE_TILES.find((t) => t.id === "handoff")!;
 const PITCH = MORE_TILES.find((t) => t.id === "pitch")!;
 
@@ -438,7 +453,7 @@ export function Builder() {
   const [filing, setFiling] = useState<boolean | null>(null);
   const [sideOpen, setSideOpen] = useState(() => wideScreen() && readPanels().side);
   const [tray, setTray] = useState<"offense" | "defense" | null>("offense");
-  const [lists, setLists] = useState<"formations" | "yours" | "defense" | "layers" | null>(null);
+  const [lists, setLists] = useState<"formations" | "yours" | "defense" | "blocking" | "pressures" | "layers" | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   /** The docked tools panel tucked against the left edge (tablets and up; phones use the sheet). */
   const [railShown, setRailShown] = useState(() => readPanels().rail);
@@ -466,10 +481,18 @@ export function Builder() {
   const compactBar = useMedia("(max-width: 760px)");
   /** The tools panel's slot for the drawing tools (tablets and up, while the panel shows). */
   const [dockSlot, setDockSlot] = useState<HTMLDivElement | null>(null);
-  /** The one-click route menu over a tapped player, then its quick bar once a route is drawn. */
-  const [quick, setQuick] = useState<{ playerId: string; at: { x: number; y: number }; drawn?: { pathId: string; route: QuickRoute; mirror: boolean } } | null>(null);
+  /** The menu over a tapped player: his routes, his blocks (`mode`), a defender's assignments, or the bar after a pick (`drawn` a route, `made` a block or an assignment). */
+  const [quick, setQuick] = useState<{
+    playerId: string;
+    at: { x: number; y: number };
+    mode?: "blocks";
+    drawn?: { pathId: string; route: QuickRoute; mirror: boolean };
+    made?: { pathId: string; id: string; kind: "block" | "job"; label: string; dir: Dir; flips: boolean; targetId?: string };
+  } | null>(null);
   /** A lineman tapped: the next defender tapped is the one he blocks. */
   const [blockArm, setBlockArm] = useState<string | null>(null);
+  /** The defender waiting for a click on the receiver he covers man to man. */
+  const [jobArm, setJobArm] = useState<string | null>(null);
   const sheetNow = useMedia("(max-width: 900px)");
   const [draftPoints, setDraftPoints] = useState(0);
   const canvasControl = useRef<CanvasControl | null>(null);
@@ -1596,6 +1619,10 @@ export function Builder() {
           setBlockArm(null);
           setStatus("Block put away.");
         }
+        if (jobArm) {
+          setJobArm(null);
+          setStatus("Assignment put away.");
+        }
         setTool("select");
         setMode(null);
         return;
@@ -1634,7 +1661,7 @@ export function Builder() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, blockArm, railShown, sideOpen, view3d]);
+  }, [scene, selection, undo, redo, tier, tool, drawingTool, armed, blockArm, jobArm, railShown, sideOpen, view3d]);
 
   /* ------------------------------------------------------------------- save */
 
@@ -1998,15 +2025,33 @@ export function Builder() {
         return;
       }
     }
-    if (p.side !== "offense" || tool !== "select" || armed) return;
+    if (jobArm) {
+      const d = playerById(jobArm);
+      setJobArm(null);
+      if (d && p.side === "offense") {
+        runJob(d, "man", p, { x: at.clientX, y: at.clientY });
+        return;
+      }
+      if (p.id === d?.id) {
+        setStatus("Assignment put away.");
+        return;
+      }
+    }
+    if (tool !== "select" || armed || p.ghostOf) return;
+    if (p.side === "defense") {
+      // A defender's tap opens his assignments, the way an offensive player's opens his routes.
+      setBlockArm(null);
+      setQuick({ playerId: p.id, at: { x: at.clientX, y: at.clientY } });
+      return;
+    }
+    if (p.side !== "offense") return;
     if (blocksOnTap(scene, p)) {
       setQuick(null);
       setBlockArm(p.id);
-      const hasDefense = scene.nodes.some((n) => n.kind === "player" && n.side === "defense" && !n.hidden);
       setStatus(
-        hasDefense
-          ? `Click the defender ${p.label || "he"} blocks. Esc cancels.`
-          : `No defenders on the field yet. Add a defense, or press Block straight ahead.`,
+        fieldHasDefense(scene)
+          ? `Click the defender ${p.label || "he"} blocks, or pick a block. Esc cancels.`
+          : `No defenders on the field yet. Pick a block, add a defense, or press Block straight ahead.`,
       );
       setQuick({ playerId: p.id, at: { x: at.clientX, y: at.clientY } });
       return;
@@ -2062,6 +2107,104 @@ export function Builder() {
     closeQuick();
     if (p && tile) giveTile({ ...tile }, [p.id]);
   };
+  /** The pen for a block or an assignment: the player's color, this line weight, on top. */
+  const setInk = (p: PlayerNode) => ({ ink: routeInk(p, color), width, z: nextZ(scene) });
+  /** Puts a finished block or assignment on the field and swaps the menu for its bar. */
+  const landMade = (made: Made & { path: PathNode }, p: PlayerNode, pick: { id: string; kind: "block" | "job"; dir: Dir; flips: boolean; targetId?: string }, at: { x: number; y: number }) => {
+    applyScene(made.scene, made.label);
+    setSelection(made.select);
+    setStatus(made.status);
+    setBlockArm(null);
+    setJobArm(null);
+    setQuick({ playerId: p.id, at, made: { pathId: made.path.id, label: made.label, ...pick } });
+  };
+  const blockTile = (id: string) => {
+    const p = quick && playerById(quick.playerId);
+    if (!p || !quick) return;
+    const dir = defaultDir(scene, p);
+    const made = blockFromMenu(scene, p, id, dir, setInk(p));
+    if (!made) {
+      setStatus(`${p.label || "He"} has nothing to aim that block at yet. Add a defense, or pick another block.`);
+      return;
+    }
+    landMade(made, p, { id, kind: "block", dir, flips: true }, quick.at);
+  };
+  const runJob = (d: PlayerNode, id: string, target: PlayerNode | null, at: { x: number; y: number }) => {
+    const job = defenderJob(id);
+    if (!job) return;
+    const dir = defaultDir(scene, d);
+    const made = jobFromMenu(scene, d, id, dir, setInk(d), target);
+    if (!made) {
+      setStatus(`${d.label || "The defender"} has nobody to cover yet. Add receivers to the offense, or pick a zone.`);
+      return;
+    }
+    landMade(made, d, { id, kind: "job", dir, flips: !!job.flips, targetId: target?.id }, at);
+  };
+  const jobTile = (id: string) => {
+    const d = quick && playerById(quick.playerId);
+    const job = defenderJob(id);
+    if (!d || !quick || !job) return;
+    if (job.needsTarget) {
+      setJobArm(d.id);
+      setStatus(`Click the receiver ${d.label || "he"} covers, or press Nearest receiver. Esc cancels.`);
+      return;
+    }
+    runJob(d, id, null, quick.at);
+  };
+  const flipMade = () => {
+    const p = quick && playerById(quick.playerId);
+    const m = quick?.made;
+    if (!p || !quick || !m) return;
+    const dir = (m.dir * -1) as Dir;
+    const target = m.targetId ? playerById(m.targetId) : null;
+    const made = m.kind === "block" ? blockFromMenu(scene, p, m.id, dir, setInk(p)) : jobFromMenu(scene, p, m.id, dir, setInk(p), target);
+    if (!made) return;
+    applyScene(made.scene, "Flip side");
+    setSelection(made.select);
+    setStatus(`${made.status.split(" Flip changes")[0]} Switched to the ${dir > 0 ? "right" : "left"}.`);
+    setQuick({ ...quick, made: { ...m, dir, pathId: made.path.id } });
+  };
+  const clearAssignment = () => {
+    const d = quick && playerById(quick.playerId);
+    if (!d) return;
+    const made = clearJob(scene, d);
+    applyScene(made.scene, made.label);
+    setSelection([]);
+    setStatus(made.status);
+    closeQuick();
+  };
+  /** A whole-line block scheme from the Sets → Blocking list, on the field as the coach sees it. */
+  const applyBlockScheme = (id: string, dir: Dir) => {
+    const done = schemeFromPanel(scene, id, dir, { ink: color, width, z: nextZ(scene) });
+    if ("error" in done) {
+      setStatus(done.error);
+      return;
+    }
+    applyScene(done.scene, done.label);
+    setSelection(done.select);
+    setStatus(done.status);
+  };
+  /** One of the Sets → Pressures packages on the defense on the field. */
+  const applyPressureSet = (id: string, gold: Gold | null) => {
+    const done = pressureFromPanel(scene, id, gold, { width, z: nextZ(scene) });
+    if ("error" in done) {
+      setStatus(done.error);
+      return;
+    }
+    applyScene(done.scene, done.label);
+    setSelection(done.select);
+    setStatus(done.status);
+  };
+  const clearSetLines = (which: "blocks" | "defense") => {
+    const done = clearSets(scene, which);
+    if (!done.removed) {
+      setStatus(which === "blocks" ? "No blocks to clear." : "No defender assignments to clear.");
+      return;
+    }
+    applyScene(done.scene, which === "blocks" ? "Clear blocks" : "Clear assignments");
+    setSelection([]);
+    setStatus(which === "blocks" ? "Blocks cleared. Routes stay." : "Defender assignments cleared.");
+  };
   // A press anywhere outside the menu puts it away (a tap on another player opens his).
   useEffect(() => {
     if (!quick) return;
@@ -2075,11 +2218,13 @@ export function Builder() {
   useEffect(() => {
     if (quick && !playerById(quick.playerId)) setQuick(null);
     if (blockArm && !playerById(blockArm)) setBlockArm(null);
+    if (jobArm && !playerById(jobArm)) setJobArm(null);
   });
   useEffect(() => {
     if (tool !== "select") {
       setQuick(null);
       setBlockArm(null);
+      setJobArm(null);
     }
   }, [tool]);
 
@@ -2305,19 +2450,11 @@ export function Builder() {
               <>
                 <RailGroup id="sets" title="Libraries · Layers">
                   <div className="dz-grid dz-grid-2">
-                    {(["formations", "yours", "defense", "layers"] as const).map((list) => (
+                    {(["formations", "yours", "defense", "blocking", "pressures", "layers"] as const).map((list) => (
                       <Tooltip
                         key={list}
-                        title={list === "formations" ? "Formation library" : list === "yours" ? "Your sets" : list === "defense" ? "Defense library" : "Layers"}
-                        hint={
-                          list === "formations"
-                            ? "Pick 5-on-5, 7-on-7 or 11-man and a formation, and the whole offense drops in at once."
-                            : list === "yours"
-                              ? "Every formation you've saved a play in, players only. Drop one plain or labeled and colored, as drawn or flipped."
-                              : list === "defense"
-                              ? "Pick a front and a coverage, and the defense lines up against the offense on the field."
-                              : "Everything on the field as a list. Pick locked or hidden items here, since they can't be picked on the field."
-                        }
+                        title={LIST_NAMES[list].title}
+                        hint={LIST_NAMES[list].hint}
                       >
                         <button
                           type="button"
@@ -2326,7 +2463,7 @@ export function Builder() {
                           aria-expanded={lists === list}
                           aria-controls="dz-list-tray"
                         >
-                          {list === "formations" ? "Formations" : list === "yours" ? "Your sets" : list === "defense" ? "Defense" : "Layers"}
+                          {LIST_NAMES[list].button}
                           {list === "layers" && scene.nodes.length > 0 && <b className="dz-count">{scene.nodes.length}</b>}
                         </button>
                       </Tooltip>
@@ -2335,6 +2472,8 @@ export function Builder() {
                   {lists === "formations" && <FormationLibrary tokens={offense} onDrop={applyFormation} />}
                   {lists === "yours" && <YourSets losY={scene.losY} onDrop={dropYourSet} />}
                   {lists === "defense" && <DefenseLibrary onDrop={applyDefense} onMatch={matchOffense} />}
+                  {lists === "blocking" && <BlockingPanel onApply={applyBlockScheme} onClear={() => clearSetLines("blocks")} hasBlocks={scene.nodes.some((n) => n.kind === "path" && n.endCap === "tee" && !!n.assignOf)} />}
+                  {lists === "pressures" && <PressuresPanel onApply={applyPressureSet} onClear={() => clearSetLines("defense")} hasDefense={fieldHasDefense(scene)} />}
                   {lists === "layers" && (
                     <div className="dz-list" id="dz-list-tray">
                       {scene.nodes.length === 0 && <p className="dz-note">Nothing on the field yet.</p>}
@@ -3213,25 +3352,47 @@ export function Builder() {
               const p = playerById(quick.playerId);
               if (!p) return null;
               const name = p.label || p.name || "Player";
-              const left = Math.max(8, Math.min(quick.at.x + 14, window.innerWidth - 396));
-              const top = Math.max(64, Math.min(quick.at.y - 20, window.innerHeight - (quick.drawn ? 70 : blockArm ? 120 : 380)));
+              const defending = p.side === "defense";
+              const manArm = jobArm === p.id;
+              const showJobs = defending && !quick.made && !manArm;
+              const tall = quick.drawn || quick.made ? 70 : manArm ? 120 : blockArm === p.id ? 440 : defending ? 440 : quick.mode === "blocks" ? 330 : 380;
+              const wide = showJobs ? 520 : 396;
+              const left = Math.max(8, Math.min(quick.at.x + 14, window.innerWidth - wide));
+              // A man-coverage ask sits above the defender, so the receivers below him stay in reach of a click.
+              const top = manArm ? Math.max(64, quick.at.y - 140) : Math.max(64, Math.min(quick.at.y - 20, window.innerHeight - tall));
+              // Never taller than the room below it: the menu scrolls inside itself instead of running off the screen.
+              const pos = { left, top, maxHeight: Math.max(160, window.innerHeight - top - 8) };
               const mirrored = leftSide(p);
+              const tileInk = routeInk(p, "#E8F1F8");
+              const tileMirror = defaultDir(scene, p) < 0;
               const path = quickPathNode();
               const endLabel = QUICK_ENDS.find((e) => e.cap === path?.endCap)?.label ?? "Arrow";
+              const dropBlock = () => (setBlockArm(null), closeQuick(), setStatus("Block put away."));
+              const dropJob = () => (setJobArm(null), closeQuick(), setStatus("Assignment put away."));
+              if (quick.made) {
+                return (
+                  <FocusPopover onClose={closeQuick} className="dz-quick is-bar" role="dialog" aria-label={`Adjust ${name}'s ${quick.made.label.toLowerCase()}`} style={pos}>
+                    <MadeBar title={`${name} · ${quick.made.label}`} flips={quick.made.flips} onFlip={flipMade} onUndo={() => (undo(), closeQuick())} onDone={closeQuick} />
+                  </FocusPopover>
+                );
+              }
+              if (manArm) {
+                return (
+                  <FocusPopover onClose={dropJob} className="dz-quick is-arm" role="dialog" aria-label={`Man coverage for ${name}`} style={pos}>
+                    <ManArmMenu name={name} onNearest={() => runJob(p, "man", null, quick.at)} onCancel={dropJob} />
+                  </FocusPopover>
+                );
+              }
               if (blockArm === p.id) {
                 return (
-                  <FocusPopover onClose={() => (setBlockArm(null), closeQuick(), setStatus("Block put away."))} className="dz-quick is-block" role="dialog" aria-label={`Block for ${name}`} style={{ left, top }}>
-                    <p className="dz-quick-note">Now click the defender {name} blocks.</p>
-                    <div className="dz-quick-row">
-                      <button type="button" onClick={baseBlock}>Block straight ahead</button>
-                      <button type="button" onClick={() => (setBlockArm(null), closeQuick(), setStatus("Block put away."))}>Cancel</button>
-                    </div>
+                  <FocusPopover onClose={dropBlock} className="dz-quick is-block" role="dialog" aria-label={`Block for ${name}`} style={pos}>
+                    <LineBlockMenu name={name} tiles={LINE_BLOCKS} ink={tileInk} mirrored={tileMirror} hasDefense={fieldHasDefense(scene)} onPick={blockTile} onStraight={baseBlock} onCancel={dropBlock} />
                   </FocusPopover>
                 );
               }
               if (quick.drawn) {
                 return (
-                  <FocusPopover onClose={closeQuick} className="dz-quick is-bar" role="dialog" aria-label={`Adjust ${name}'s ${quick.drawn.route.label.toLowerCase()}`} style={{ left, top }}>
+                  <FocusPopover onClose={closeQuick} className="dz-quick is-bar" role="dialog" aria-label={`Adjust ${name}'s ${quick.drawn.route.label.toLowerCase()}`} style={pos}>
                     <span className="dz-quick-title">{name} · {quick.drawn.route.label}</span>
                     <button type="button" onClick={flipQuick}>Flip break</button>
                     <button type="button" onClick={cycleQuickEnd} aria-label={`Line end: ${endLabel}. Press for the next end.`}>End: {endLabel}</button>
@@ -3240,9 +3401,42 @@ export function Builder() {
                   </FocusPopover>
                 );
               }
+              if (defending) {
+                return (
+                  <FocusPopover onClose={closeQuick} className="dz-quick is-jobs" role="dialog" aria-label={`Assignments for ${name}`} style={pos}>
+                    <JobMenu
+                      name={name}
+                      rush={DEFENDER_JOBS.filter((j) => j.group === "rush")}
+                      coverage={DEFENDER_JOBS.filter((j) => j.group === "coverage")}
+                      ink={tileInk}
+                      mirrored={tileMirror}
+                      hasJob={!!p.job || scene.nodes.some((n) => n.kind === "path" && n.assignOf === p.id)}
+                      onPick={jobTile}
+                      onClear={clearAssignment}
+                      onClose={closeQuick}
+                    />
+                  </FocusPopover>
+                );
+              }
+              if (quick.mode === "blocks") {
+                return (
+                  <FocusPopover onClose={closeQuick} className="dz-quick" role="dialog" aria-label={`Blocks for ${name}`} style={pos}>
+                    <SkillBlockMenu
+                      name={name}
+                      tiles={SKILL_BLOCKS}
+                      ink={tileInk}
+                      mirrored={tileMirror}
+                      hasDefense={fieldHasDefense(scene)}
+                      onPick={blockTile}
+                      onRoutes={() => setQuick({ playerId: quick.playerId, at: quick.at })}
+                      onClose={closeQuick}
+                    />
+                  </FocusPopover>
+                );
+              }
               const has = routesOf(scene, p.id).length > 0;
               return (
-                <FocusPopover onClose={closeQuick} className="dz-quick" role="dialog" aria-label={`Routes for ${name}`} style={{ left, top }}>
+                <FocusPopover onClose={closeQuick} className="dz-quick" role="dialog" aria-label={`Routes for ${name}`} style={pos}>
                   <div className="dz-quick-head">
                     <span className="dz-quick-title">Routes for {name}</span>
                     <button type="button" className="dz-quick-x" onClick={closeQuick} aria-label="Close the route menu">
@@ -3277,6 +3471,11 @@ export function Builder() {
                         {t.label}
                       </button>
                     ))}
+                    {!isQb(p) && (
+                      <button type="button" onClick={() => setQuick({ playerId: quick.playerId, at: quick.at, mode: "blocks" })}>
+                        Blocks
+                      </button>
+                    )}
                     {has && (
                       <button type="button" onClick={removeQuickRoutes}>
                         Remove route

@@ -2,6 +2,7 @@ import { seat } from "./formations";
 import { makePlayer, OFFENSE_TOKENS, DEFENSE_TOKENS } from "./presets";
 import { makeShape, makeText } from "./scene";
 import { baseNode, CANVAS_W, DEFAULT_STROKE, FIRST_READ, type EndCap, type LineStyle, type PathNode, type PlayerNode, type Scene, type SceneNode, type StoredPlay } from "./types";
+import { blockingScene } from "./termExamplesBlocking";
 import type { Term } from "./termsData";
 
 /**
@@ -371,7 +372,7 @@ function gapDiagram(id: string): Draw | null {
 export function glossaryScene(id: string): Scene | null {
   const build = OFFENSE[id];
   const d = build ? build() : gapDiagram(id);
-  return d ? scene(d) : null;
+  return d ? scene(d) : blockingScene(id);
 }
 
 /** Every starter term id that has a diagram (all of them; the test holds the list to it). */

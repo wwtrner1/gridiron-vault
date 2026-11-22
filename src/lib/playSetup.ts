@@ -80,7 +80,7 @@ const FRONT_FOR: Record<string, { front: Front; exact: boolean }> = {
   "Base 3-4": { front: "3-4", exact: true },
   "Nickel 3-3-5": { front: "3-3", exact: true },
   "Bear 46": { front: "4-4", exact: true },
-  "Nickel 4-2-5": { front: "3-3", exact: false },
+  "Nickel 4-2-5": { front: "4-2-5", exact: true },
   "Dime 4-1-6": { front: "3-3", exact: false },
   "Dime 3-2-6": { front: "3-3", exact: false },
   Quarter: { front: "3-3", exact: false },

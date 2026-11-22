@@ -51,7 +51,7 @@ test("a picked player is tagged with a gap, a typed technique and Clear takes it
   expect(errors).toEqual([]);
 });
 
-test("terms saved before the gap glossary get it once, and a deleted one stays deleted", async ({ page }) => {
+test("terms saved before the gap, blocking and defense glossaries get them once, and a deleted one stays deleted", async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem("grid1ronvault.terms.v1")) return;
     const old = [{ id: "glossary-flood", term: "Flood", means: "Three levels to one side", type: "concept", source: "Starter glossary", added: "2026-09-01", scope: "shared" }];
@@ -59,10 +59,26 @@ test("terms saved before the gap glossary get it once, and a deleted one stays d
   });
   await page.goto("/language");
   const rows = page.locator(".lang-table tbody tr");
-  await expect(rows).toHaveCount(22);
+  // Flood, the 21 gap terms, the 15 blocks and the 17 defensive calls.
+  await expect(rows).toHaveCount(54);
   await page.getByRole("button", { name: "Delete A gap" }).click();
-  await expect(rows).toHaveCount(21);
+  await expect(rows).toHaveCount(53);
   await page.reload();
-  await expect(rows).toHaveCount(21);
+  await expect(rows).toHaveCount(53);
   await expect(page.getByRole("button", { name: "Delete A gap" })).toHaveCount(0);
+});
+
+test("a word the coach already uses keeps their meaning: the starter of the same name is not added beside it", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (localStorage.getItem("grid1ronvault.terms.v1")) return;
+    const own = [{ id: "mine-power", term: "Power", means: "Our G-pull run to the right", type: "concept", source: "You", added: "2026-10-01", scope: "you" }];
+    localStorage.setItem("grid1ronvault.terms.v1", JSON.stringify({ terms: own, ignored: [] }));
+  });
+  await page.goto("/language");
+  const rows = page.locator(".lang-table tbody tr");
+  // Their Power, the 21 gap terms, 14 blocks (the starter Power is theirs already) and the 17 defensive calls.
+  await expect(rows).toHaveCount(53);
+  const power = rows.filter({ has: page.locator("th", { hasText: /^Power$/ }) });
+  await expect(power).toHaveCount(1);
+  await expect(power).toContainText("Our G-pull run to the right");
 });

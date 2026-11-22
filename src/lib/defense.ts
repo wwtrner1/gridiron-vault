@@ -9,7 +9,7 @@ import type { Point, SceneNode } from "./types";
  * on, zone drops show as shaded areas and man coverage as lines to each
  * receiver. Offsets are from the ball; negative dy is the defense's side.
  */
-export const FRONTS = ["4-3", "4-4", "3-4", "5-2", "3-3"] as const;
+export const FRONTS = ["4-3", "4-4", "3-4", "5-2", "3-3", "4-2-5"] as const;
 export const COVERAGES = ["Cover 3", "Cover 1", "Cover 2", "Cover 4", "Man"] as const;
 export type Front = (typeof FRONTS)[number];
 export type Coverage = (typeof COVERAGES)[number];
@@ -92,6 +92,10 @@ function frontSpots(front: Front, line: LineSet): FrontSpot[] {
     case "3-3":
       // Stack: the backers sit behind the three down men and fill what the nose leaves.
       return [fiveW, zero, fiveS, lb(bW, "W", "B gap", LB_DEPTH - 2), lb(0, "M", "A gap", LB_DEPTH - 2), lb(bS, "S", "B gap", LB_DEPTH - 2)];
+    case "4-2-5":
+      // Nickel over front (Wes's Shark set): the four down men of the 4-3, two backers (M weak in the B gap, S strong in the A gap) and five defensive backs, the nickel ($) walked up on the slot.
+      // His letters on the down four: B the strong end, T the 3 technique, N the nose, W the weak end.
+      return [{ ...fiveW, label: "W" }, dl(-SHOULDER, "N", "1 technique"), dl(gS + SHOULDER, "T", "3 technique"), { ...endS, label: "B" }, lb(bW, "M", "B gap"), lb(gS / 2, "S", "A gap")];
   }
 }
 
@@ -105,6 +109,8 @@ const SHELL: Record<Coverage, Record<string, [number, number]>> = {
 };
 
 const DBS: Record<number, string[]> = { 3: ["CL", "CR", "FS"], 4: ["CL", "CR", "S", "FS"], 5: ["CL", "CR", "S", "FS", "R"] };
+/** The 4-2-5's defensive backs by Wes's letters: $ the nickel, R the rover, F the free safety (the corners stay C). */
+const NICKEL_LABEL: Record<string, string> = { S: "$", FS: "F" };
 
 export type Zone = { dx: number; dy: number; rx: number; ry: number };
 const z = (dx: number, dy: number, rx: number, ry: number): Zone => ({ dx, dy, rx, ry });
@@ -167,7 +173,7 @@ export function layoutDefense(
     ...lb.map(({ dx, dy, label, tag }): Defender => ({ dx, dy, label, tag, job: "zone" })),
     ...dbKeys.map((k): Defender => {
       const [dx, dy] = shell[k];
-      return { dx, dy, label: k === "CL" || k === "CR" ? "C" : k, job: "zone" };
+      return { dx, dy, label: k === "CL" || k === "CR" ? "C" : front === "4-2-5" ? NICKEL_LABEL[k] ?? k : k, job: "zone" };
     }),
   ];
   const keyOf = (i: number) => (i >= dl.length + lb.length ? dbKeys[i - dl.length - lb.length] : null);

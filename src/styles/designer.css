@@ -417,6 +417,13 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .fl-preview { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--white); }
 .fl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fl-row-label { font-size: 13px; font-weight: 600; color: var(--white); }
+/* The Blocking and Pressures lists reuse the quick menus' tiles, three across in the narrow tools panel. */
+.fl-group { display: flex; flex-direction: column; gap: 6px; }
+/* A switch with three choices stacks under its label so none runs off the narrow panel. */
+.fl-row.is-stacked { flex-direction: column; align-items: stretch; }
+.fl .fl-row.is-stacked .seg-onoff { flex: 1; }
+.fl .fl-row.is-stacked .seg-onoff button { flex: 1; padding: 0 6px; }
+.fl .dz-quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fl .seg-onoff { flex: none; }
 .fl .seg-onoff button { height: 26px; padding: 0 12px; }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1360,11 +1367,14 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-quick-x:hover { background: var(--ink-3); color: var(--white); }
 .dz-quick-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 @media (max-width: 480px) { .dz-quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.dz-quick-tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px 5px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink-2); color: var(--white); }
-.dz-quick-tile:hover, .dz-quick-tile:focus-visible { border-color: var(--cyan); background: var(--ink-3); }
-.dz-quick-tile svg { width: 44px; height: 34px; }
-.dz-quick-tile b { font-size: 12.5px; font-weight: 700; }
-.dz-quick-tile small { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+.dz-quick-tile, .dz-set-tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px 5px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink-2); color: var(--white); }
+.dz-quick-tile:hover, .dz-quick-tile:focus-visible, .dz-set-tile:hover, .dz-set-tile:focus-visible { border-color: var(--cyan); background: var(--ink-3); }
+.dz-quick-tile svg, .dz-set-tile svg { width: 44px; height: 34px; }
+.dz-quick-tile b, .dz-set-tile b { font-size: 12.5px; font-weight: 700; }
+.dz-quick-tile small, .dz-set-tile small { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+/* Block and assignment tiles carry a longer hint than a route's depth, so it wraps under the name. */
+.dz-set-tile small { text-align: center; line-height: 1.15; }
+.dz-quick-sub { margin: 0; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-2); }
 .dz-quick-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .dz-quick-row button, .dz-quick.is-bar button { min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
 .dz-quick-row button:hover, .dz-quick.is-bar button:hover { background: var(--ink-4); }
@@ -1372,10 +1382,18 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-quick.is-bar .is-done { background: var(--cyan); color: var(--on-cyan); }
 .dz-quick-note { margin: 0; font-size: 13.5px; }
 @media (pointer: coarse) {
-  .dz-quick-tile { padding: 8px 2px; }
+  .dz-quick-tile, .dz-set-tile { padding: 8px 2px; }
   .dz-quick-row button, .dz-quick.is-bar button { min-height: 44px; }
 }
-.dz-quick.is-block { width: 300px; }
+.dz-quick.is-block { width: 388px; }
+.dz-quick.is-arm { width: 280px; }
+/* A defender's menu holds twenty jobs, so it is wider and six tiles across to stay short enough for the screen. */
+.dz-quick.is-jobs { width: 520px; }
+.dz-quick.is-jobs .dz-quick-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 560px) { .dz-quick.is-jobs .dz-quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dz-quick-head-end { display: flex; align-items: center; gap: 6px; }
+.dz-quick-clear { min-height: 28px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--ink-3); color: var(--white); font-size: 12.5px; font-weight: 600; }
+.dz-quick-clear:hover { background: var(--ink-4); }
 .rl-tile span small { display: block; font-family: var(--mono); font-size: 9px; font-weight: 400; color: var(--muted-2); }
 /* The LOS slider sits at the field's bottom-left corner: the line and the play slide together. */
 .dz-los { position: absolute; z-index: 19; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
