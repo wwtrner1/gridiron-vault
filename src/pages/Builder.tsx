@@ -941,7 +941,7 @@ export function Builder() {
   const copySelection = () => {
     const source = scene.nodes.filter((n) => selection.includes(n.id));
     if (!source.length) return;
-    copyNodes(source);
+    copyNodes(source, scene.pov);
     setStatus(`Copied ${source.length === 1 ? describe(source[0]) : `${source.length} elements`}. Paste here or on another play with Ctrl+V.`);
   };
 

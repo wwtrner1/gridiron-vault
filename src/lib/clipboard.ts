@@ -7,44 +7,56 @@ import type { Point, Scene, SceneNode } from "./types";
  * storage is blocked it still works for this visit.
  */
 const KEY = "grid1ronvault.clipboard.v1";
-let memory: SceneNode[] | null = null;
+/** Which end the copied play was drawn from: the defense's, the offense's, or unknown (a copy kept before this was recorded). */
+type CopiedFrom = "defense" | "offense" | "unknown";
+type Clip = { from: CopiedFrom; nodes: SceneNode[] };
+let memory: Clip | null = null;
 /** Pastes in a row step down and right, so copies don't stack exactly. */
 let pasteCount = 0;
 
-export function copyNodes(nodes: SceneNode[]) {
-  memory = nodes;
+export function copyNodes(nodes: SceneNode[], pov?: Scene["pov"]) {
+  const clip: Clip = { from: pov === "defense" ? "defense" : "offense", nodes };
+  memory = clip;
   pasteCount = 0;
   try {
-    localStorage.setItem(KEY, JSON.stringify(nodes));
+    localStorage.setItem(KEY, JSON.stringify(clip));
   } catch {
     /* storage blocked or full — the in-memory copy still pastes this visit */
   }
 }
 
-export function clipboardNodes(): SceneNode[] {
+function readClip(): Clip | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const nodes = JSON.parse(raw);
-      if (Array.isArray(nodes)) return nodes as SceneNode[];
+      const saved = JSON.parse(raw);
+      // Older copies are a bare list of elements with no record of the end they came from.
+      if (Array.isArray(saved)) return { from: "unknown", nodes: saved as SceneNode[] };
+      if (saved && Array.isArray(saved.nodes)) return { from: saved.from === "defense" || saved.from === "offense" ? saved.from : "unknown", nodes: saved.nodes as SceneNode[] };
     }
   } catch {
     /* fall back to this visit's copy */
   }
-  return memory ?? [];
+  return memory;
+}
+
+export function clipboardNodes(): SceneNode[] {
+  return readClip()?.nodes ?? [];
 }
 
 export const hasClipboard = () => clipboardNodes().length > 0;
 
 /**
- * A play drawn from the defense's end holds every element turned half a circle
- * (both scales negative). Copies taken from the other way up are turned about
- * their own centre before they land, so a route concept copied from an upright
- * play still runs toward the defense on a flipped play, and the reverse.
+ * A play drawn from the defense's end holds every element turned half a circle.
+ * Copies taken from the other end are turned about their own centre before they
+ * land, so a route concept copied from an upright play still runs toward the
+ * defense on a flipped play, and the reverse. The end is recorded when the copy
+ * is taken (the elements' own scales can't say: a line drawn by hand on a turned
+ * play is stored unscaled), and a copy with no record is pasted as it is.
  */
-function sameWayUp(scene: Scene, nodes: SceneNode[]): SceneNode[] {
-  const copiedTurned = nodes.some((n) => n.scaleX < 0 && n.scaleY < 0);
-  if (copiedTurned === (scene.pov === "defense")) return nodes;
+function sameWayUp(scene: Scene, clip: Clip): SceneNode[] {
+  const { nodes } = clip;
+  if (clip.from === "unknown" || (clip.from === "defense") === (scene.pov === "defense")) return nodes;
   const box = selectionBox({ ...scene, nodes }, nodes.map((n) => n.id));
   if (!box) return nodes;
   const cx = box.x + box.w / 2;
@@ -58,9 +70,9 @@ function sameWayUp(scene: Scene, nodes: SceneNode[]): SceneNode[] {
  * left behind is dropped, so the copy doesn't jump back to the original.
  */
 export function pasteNodes(scene: Scene, at?: Point): { scene: Scene; ids: string[] } | null {
-  const copied = clipboardNodes();
-  if (!copied.length) return null;
-  const source = sameWayUp(scene, copied);
+  const clip = readClip();
+  if (!clip || !clip.nodes.length) return null;
+  const source = sameWayUp(scene, clip);
   const box = selectionBox({ ...scene, nodes: source }, source.map((n) => n.id));
   let dx: number;
   let dy: number;

@@ -10,7 +10,9 @@ import { checkRules } from "../../src/lib/ruleCheck";
 import { RULE_PRESETS } from "../../src/lib/rules";
 import { giveQuickRoute, leftSide, quickPoints, QUICK_ROUTES } from "../../src/lib/quickRoutes";
 import { applyFormat, captureFormat } from "../../src/lib/playFormat";
-import type { FieldView, PlayerNode, Scene } from "../../src/lib/types";
+import { copyNodes, pasteNodes } from "../../src/lib/clipboard";
+import { toWorld } from "../../src/lib/geometry";
+import { baseNode, type FieldView, type PathNode, type PlayerNode, type Scene } from "../../src/lib/types";
 
 /**
  * Drawing from the defense's end (`lib/pov.ts`): the play turns half a circle about the middle of the card on every field,
@@ -136,4 +138,73 @@ test("a play turned by one coach turns for the others drawing it live", () => {
   const back = applyPatch(there, diffScene(t, s));
   assert.equal(back.pov, undefined);
   near(back.losY, s.losY, "line back");
+});
+
+/** A route drawn by hand: stored unscaled in whichever frame the field is in, 80 units up the card from where it starts. */
+const handRoute = (): PathNode => ({
+  ...baseNode({ x: 300, y: 300 }),
+  kind: "path",
+  points: [
+    { x: 0, y: 0 },
+    { x: 0, y: -80 },
+  ],
+  handles: {},
+  style: "solid",
+  curve: "straight",
+  startCap: "none",
+  endCap: "arrow",
+  stroke: "#000",
+  width: 3,
+  closed: false,
+  fill: "none",
+  fillOpacity: 0,
+  fromId: null,
+  toId: null,
+});
+
+/** Which way the pasted route runs on the card: -1 up, 1 down. */
+const runs = (n: PathNode) => Math.sign(toWorld(n, n.points[1]).y - toWorld(n, n.points[0]).y);
+
+test("a copied route pastes running the way its own play ran, then turns to the way the other play runs", () => {
+  const upScene = setupScene(choice("11 personnel", "half", "offense"), TOKENS).scene;
+  const turnedScene = setupScene(choice("11 personnel", "half", "defense"), TOKENS).scene;
+  assert.equal(turnedScene.pov, "defense");
+
+  // Drawn by hand on the turned play (up the card is toward the offense's end of it, so the route is a retreat): the elements carry no
+  // scale of their own, so nothing about them says which end they came from. Copy and paste on the same play must leave it alone.
+  const mine = handRoute();
+  copyNodes([mine], turnedScene.pov);
+  const same = pasteNodes(turnedScene, { x: 500, y: 300 })!;
+  const sameCopy = same.scene.nodes.find((n) => n.id === same.ids[0]) as PathNode;
+  assert.equal(runs(sameCopy), runs(mine), "pasted on the play it came from");
+  assert.equal(sameCopy.scaleX, 1);
+  assert.equal(sameCopy.scaleY, 1);
+
+  // The same copy lands turned on the play drawn from the other end, and turned again on the way back.
+  const across = pasteNodes(upScene, { x: 500, y: 300 })!;
+  const acrossCopy = across.scene.nodes.find((n) => n.id === across.ids[0]) as PathNode;
+  assert.equal(runs(acrossCopy), -runs(mine), "pasted on the play drawn from the other end");
+
+  copyNodes([mine], upScene.pov);
+  const back = pasteNodes(turnedScene)!;
+  assert.equal(runs(back.scene.nodes.find((n) => n.id === back.ids[0]) as PathNode), -runs(mine), "copied upright, pasted turned");
+  const plain = pasteNodes(upScene)!;
+  assert.equal(runs(plain.scene.nodes.find((n) => n.id === plain.ids[0]) as PathNode), runs(mine), "copied upright, pasted upright");
+});
+
+test("a route copied from a one-click quick route keeps pointing toward the defense on either play", () => {
+  const post = QUICK_ROUTES.find((r) => r.label === "Post")!;
+  for (const from of ["offense", "defense"] as const) {
+    for (const to of ["offense", "defense"] as const) {
+      const src = setupScene(choice("11 personnel", "half", from), TOKENS).scene;
+      const dst = setupScene(choice("11 personnel", "half", to), TOKENS).scene;
+      const x = players(src).find((p) => p.side === "offense" && p.label === "X")!;
+      const route = giveQuickRoute(src, post, x, { mirror: leftSide(x), ink: "#000", width: 3, z: 1 }).path;
+      copyNodes([route], src.pov);
+      const pasted = pasteNodes(dst)!;
+      const copy = pasted.scene.nodes.find((n) => n.id === pasted.ids[0]) as PathNode;
+      const toward = dst.pov === "defense" ? 1 : -1;
+      assert.equal(runs(copy), toward, `${from} to ${to}: the post still runs toward the defense`);
+    }
+  }
 });
