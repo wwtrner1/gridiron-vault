@@ -16,7 +16,10 @@ export const profiles = pgTable("profiles", {
   email: text().notNull(),
   displayName: text("display_name").notNull().default(""),
   team: text().notNull().default(""),
-  /** Verified mobile number (E.164). One account per phone, one phone per account. */
+  /**
+   * A mobile number (E.164) the coach confirmed while sign-in phone codes were in use. The codes were taken out on
+   * 2026-11-22, so nothing writes this or `phoneVerifiedAt` any more; numbers already here stay for the owner's user list.
+   */
   phone: text().unique(),
   phoneVerifiedAt: timestamp("phone_verified_at"),
   /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
@@ -38,19 +41,20 @@ export const profiles = pgTable("profiles", {
   /** Switched off by the owner from /admin: every signed-in API call is refused until the owner switches it back on. */
   suspendedAt: timestamp("suspended_at"),
   suspendedReason: text("suspended_reason").notNull().default(""),
-  /** Set by the owner from /admin: this coach uses the app with no phone number or texted device code, while codes stay on for everyone else. */
+  /** Retired with the phone codes (2026-11-22): the owner's per-coach "skip the phone code" switch. No longer read or written. */
   phoneSkipAt: timestamp("phone_skip_at"),
 });
 
 /**
  * One row per person who has been given a trial: a fingerprint of their email
- * (variants folded together) and, once verified, of their phone. Kept after the
- * account is deleted, so deleting and signing up again doesn't start another.
- * Fingerprints only: never the address or number.
+ * (variants folded together). Kept after the account is deleted, so deleting
+ * and signing up again doesn't start another. Fingerprints only: never the
+ * address. Rows of kind "phone" are from when sign-in phone codes were in use
+ * (until 2026-11-22) and are no longer read.
  */
 export const trialClaims = pgTable("trial_claims", {
   keyHash: text("key_hash").primaryKey(),
-  kind: text().notNull(), // "email" | "phone"
+  kind: text().notNull(), // "email" (and "phone" on rows from before 2026-11-22)
   userId: text("user_id").notNull(),
   claimedAt: timestamp("claimed_at").defaultNow(),
 });
@@ -64,7 +68,7 @@ export const accountLedger = pgTable("account_ledger", {
   userId: text("user_id").primaryKey(),
   email: text().notNull(),
   name: text().notNull().default(""),
-  /** SHA-256 of the verified phone number, or "" when there was none. */
+  /** SHA-256 of the phone number the account had on file, or "" when there was none (always "" for accounts made since 2026-11-22). */
   phoneHash: text("phone_hash").notNull().default(""),
   lastPlan: text("last_plan").notNull().default(""),
   playCount: integer("play_count").notNull().default(0),
@@ -110,8 +114,10 @@ export const accountActivity = pgTable(
 );
 
 /**
- * Devices a coach has confirmed with a code to his phone. A sign-in from
- * any other device needs a code; at most three are kept per account.
+ * Devices a coach confirmed with a code to his phone, while sign-in phone
+ * codes were in use. Retired on 2026-11-22: nothing reads or adds rows, and a
+ * deleted account still takes its rows with it. The owner's device counts come
+ * from account_activity instead (netlify/admin/activity.ts, `deviceUse`).
  */
 export const trustedDevices = pgTable(
   "trusted_devices",
@@ -220,7 +226,8 @@ export const callSheets = pgTable(
  * AI calls per coach per day, so one account can't run up the Claude bill.
  * `kind` is "assistant" (a Griddy message or single play read), "import" (one
  * play of a Griddy bulk import), "photo" (whiteboard photo review or one play read
- * from a scanned page), "scan" (a scanned page looked over for plays) or "texts".
+ * from a scanned page) or "scan" (a scanned page looked over for plays). Rows of
+ * kind "texts" counted sign-in codes sent, until those were taken out on 2026-11-22.
  */
 export const aiUsage = pgTable(
   "ai_usage",

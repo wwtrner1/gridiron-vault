@@ -21,8 +21,14 @@ nobody can use it to message people who aren't on a team.
 
 ## Texts (Twilio), about 30 minutes plus carrier review
 
-The Twilio account used for phone codes is reused (`TWILIO_ACCOUNT_SID`,
-`TWILIO_AUTH_TOKEN` are already set).
+The Twilio account that used to send sign-in phone codes is reused
+(`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` are already set). Sign-in no longer
+sends codes (taken out 2026-11-22), so team texts are all this account does now.
+If a send fails: Twilio 20003 / 401 "invalid username" means the Account SID and
+Auth Token in Netlify don't match the Twilio account (usually a rotated token);
+21608 means the Twilio account is still a trial and can only text verified numbers.
+Fix the keys in Netlify and redeploy (environment changes only reach the function
+on a new deploy).
 
 1. Twilio console → Phone Numbers → Buy a local number with SMS (about $1.15
    a month; texts about $0.008 each plus carrier fees).

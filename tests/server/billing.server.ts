@@ -15,7 +15,6 @@ process.env.STRIPE_SECRET_KEY = "sk_test_server_tests";
 process.env.STRIPE_PRICES = JSON.stringify((await import("./stripe-fake.ts")).PRICES);
 process.env.STRIPE_WEBHOOK_SECRET = (await import("./stripe-fake.ts")).WEBHOOK_SECRET;
 delete process.env.TRIAL_SIGNUPS;
-delete process.env.TWILIO_VERIFY_SID;
 
 const stripe = await import("./stripe-fake.ts");
 stripe.installStripeFake();
