@@ -1,0 +1,527 @@
+{
+ "07-precision-drawing": [
+  {
+   "text": "Clean plays read faster. Here's how to draw them clean.",
+   "start": 0.08,
+   "end": 3.68
+  },
+  {
+   "text": "Open Field controls. Snap to the grid, and every player lines up.",
+   "start": 3.92,
+   "end": 8.48
+  },
+  {
+   "text": "Pick your hash marks, and turn the yard lines up or down.",
+   "start": 8.56,
+   "end": 12.0
+  },
+  {
+   "text": "Right click any route to change the line, the weight, the color, or the end.",
+   "start": 12.12,
+   "end": 16.64
+  },
+  {
+   "text": "Turn on route depths, and every break shows its yards.",
+   "start": 16.76,
+   "end": 20.0
+  },
+  {
+   "text": "Sharp on the screen. Sharp on the wristband.",
+   "start": 20.08,
+   "end": 22.88
+  }
+ ],
+ "08-upload-any-play": [
+  {
+   "text": "Got plays on a whiteboard, or in a binder? Bring them with you.",
+   "start": 0.08,
+   "end": 3.6
+  },
+  {
+   "text": "Open Upload, and drop in a photo, a scan, or a PDF.",
+   "start": 3.76,
+   "end": 7.52
+  },
+  {
+   "text": "Grid Iron Vault reads the players, the routes, and the blocks.",
+   "start": 7.6,
+   "end": 11.2
+  },
+  {
+   "text": "Check the read, and fix anything with a click.",
+   "start": 11.28,
+   "end": 13.84
+  },
+  {
+   "text": "Save it, and it's a real play you can edit, teach, and print.",
+   "start": 13.96,
+   "end": 17.6
+  },
+  {
+   "text": "Your old playbook, in your new Vault.",
+   "start": 17.68,
+   "end": 20.08
+  }
+ ],
+ "09-griddy": [
+  {
+   "text": "Meet Griddy, your coaching assistant. He's on every page.",
+   "start": 0.16,
+   "end": 3.92
+  },
+  {
+   "text": "Ask for a play in plain words, and he draws it.",
+   "start": 4.0,
+   "end": 6.8
+  },
+  {
+   "text": "Like it? Save it straight to your Vault.",
+   "start": 6.92,
+   "end": 9.12
+  },
+  {
+   "text": "Tell him to recolor a whole playbook, and it's done. Undo is one click.",
+   "start": 9.2,
+   "end": 14.16
+  },
+  {
+   "text": "He'll even build a call sheet from the plays you already have.",
+   "start": 14.2,
+   "end": 16.96
+  },
+  {
+   "text": "Got a question? Just ask Griddy.",
+   "start": 17.04,
+   "end": 19.2
+  }
+ ],
+ "10-sets-and-defense": [
+  {
+   "text": "Line up faster. Formations and defenses are one click away.",
+   "start": 0.16,
+   "end": 4.24
+  },
+  {
+   "text": "Open Sets, pick a formation, and drop it on the ball.",
+   "start": 4.36,
+   "end": 7.68
+  },
+  {
+   "text": "Flip it left or right with one switch.",
+   "start": 7.76,
+   "end": 10.08
+  },
+  {
+   "text": "Need a look to beat? Pick a front and a coverage, and every defender gets a job.",
+   "start": 10.16,
+   "end": 14.88
+  },
+  {
+   "text": "Or turn your offense into a defense, matched to the formation.",
+   "start": 15.04,
+   "end": 18.68
+  },
+  {
+   "text": "Set it. Flip it. Coach it.",
+   "start": 18.8,
+   "end": 20.96
+  }
+ ],
+ "11-call-sheet": [
+  {
+   "text": "Game day runs on your call sheet. Build it right here.",
+   "start": 0.16,
+   "end": 3.52
+  },
+  {
+   "text": "Type a play name, and it links to the play in your Vault.",
+   "start": 3.6,
+   "end": 6.4
+  },
+  {
+   "text": "Paint your calls by situation, and add any column you need.",
+   "start": 6.52,
+   "end": 10.0
+  },
+  {
+   "text": "Find a call in a second, or fold away what you don't need.",
+   "start": 10.08,
+   "end": 13.44
+  },
+  {
+   "text": "Then print the sheet, and send the same calls to your wristbands.",
+   "start": 13.56,
+   "end": 16.72
+  },
+  {
+   "text": "One sheet. Every call.",
+   "start": 16.8,
+   "end": 18.72
+  }
+ ],
+ "12-practice-drills": [
+  {
+   "text": "A good practice is planned to the minute.",
+   "start": 0.14,
+   "end": 2.72
+  },
+  {
+   "text": "Build your script in timed periods, and watch the clock add up.",
+   "start": 2.84,
+   "end": 6.4
+  },
+  {
+   "text": "Drop in plays from your Vault, one at a time, or a whole playbook.",
+   "start": 6.48,
+   "end": 10.56
+  },
+  {
+   "text": "Open the Drill Vault for animated drills with coaching points.",
+   "start": 10.64,
+   "end": 13.92
+  },
+  {
+   "text": "Add a drill to tonight's practice, right from the Drill Vault.",
+   "start": 14.0,
+   "end": 17.2
+  },
+  {
+   "text": "Then print the script, and the scout cards.",
+   "start": 17.28,
+   "end": 19.76
+  }
+ ],
+ "13-my-team": [
+  {
+   "text": "Your roster, your depth chart, and your colors, all in one place.",
+   "start": 0.16,
+   "end": 4.52
+  },
+  {
+   "text": "Import your roster from a spreadsheet, parents and all.",
+   "start": 4.72,
+   "end": 7.76
+  },
+  {
+   "text": "Set your depth chart right on the field.",
+   "start": 7.84,
+   "end": 9.96
+  },
+  {
+   "text": "Add your logo and colors, and they show up on the field, the wristbands, and the PDFs.",
+   "start": 10.0,
+   "end": 14.92
+  },
+  {
+   "text": "Then text the whole team from your own phone.",
+   "start": 14.96,
+   "end": 17.48
+  },
+  {
+   "text": "Your team. Your Vault.",
+   "start": 17.6,
+   "end": 19.52
+  }
+ ],
+ "14-playbooks-players": [
+  {
+   "text": "A playbook only works if your players know it.",
+   "start": 0.14,
+   "end": 2.92
+  },
+  {
+   "text": "Group your plays into a playbook, in the order you install them.",
+   "start": 2.96,
+   "end": 6.52
+  },
+  {
+   "text": "Share it with one link. No account, and no app to download.",
+   "start": 6.56,
+   "end": 10.6
+  },
+  {
+   "text": "Each player picks a letter, and sees their own job on every play.",
+   "start": 10.64,
+   "end": 14.36
+  },
+  {
+   "text": "Then the Griddy Quiz shows you who really knows it.",
+   "start": 14.4,
+   "end": 16.97
+  },
+  {
+   "text": "Teach it once. Let them study all week.",
+   "start": 17.04,
+   "end": 19.76
+  }
+ ],
+ "01-designer-tools": [
+  {
+   "text": "This is the Grid Iron Vault play designer. Let me show you around.",
+   "start": 0.08,
+   "end": 3.68
+  },
+  {
+   "text": "Every tool sits in one panel. Draw, routes, players, sets, playbooks, and style.",
+   "start": 3.92,
+   "end": 10.2
+  },
+  {
+   "text": "Open one section, and the rest fold away. No clutter.",
+   "start": 10.4,
+   "end": 13.8
+  },
+  {
+   "text": "Drop a formation from your own sets, right on the ball.",
+   "start": 14.0,
+   "end": 17.08
+  },
+  {
+   "text": "Click a receiver, pick a route, and it draws at real depth, in his color.",
+   "start": 17.28,
+   "end": 21.88
+  },
+  {
+   "text": "Tap a lineman, tap the defender, and the block is drawn.",
+   "start": 22.08,
+   "end": 25.6
+  },
+  {
+   "text": "Slide the line of scrimmage, and the whole play moves with it.",
+   "start": 25.68,
+   "end": 28.88
+  },
+  {
+   "text": "Edit, Field, Teach, and Go to, right up top. Undo is always one click away.",
+   "start": 28.96,
+   "end": 34.88
+  },
+  {
+   "text": "Draw it fast. Draw it right. Grid Iron Vault dot com.",
+   "start": 35.24,
+   "end": 39.12
+  }
+ ],
+ "02-film-room-3d": [
+  {
+   "text": "Your players learn it faster when they can see it. That's the Film Room.",
+   "start": 0.08,
+   "end": 4.0
+  },
+  {
+   "text": "Open any play, and press Teach.",
+   "start": 4.16,
+   "end": 6.44
+  },
+  {
+   "text": "Six steps. The look. The zones. The call.",
+   "start": 6.72,
+   "end": 10.48
+  },
+  {
+   "text": "The snap. The read. Your job.",
+   "start": 10.52,
+   "end": 13.28
+  },
+  {
+   "text": "Flip it to 3D, and the play runs on a real field.",
+   "start": 13.52,
+   "end": 16.88
+  },
+  {
+   "text": "Pick your camera. Behind the offense, the sideline, or straight overhead.",
+   "start": 16.96,
+   "end": 21.2
+  },
+  {
+   "text": "Record your voice for each step, or let it read for you.",
+   "start": 21.4,
+   "end": 24.56
+  },
+  {
+   "text": "Then turn it into a video for the meeting room.",
+   "start": 24.64,
+   "end": 27.12
+  }
+ ],
+ "03-wristbands": [
+  {
+   "text": "Draw the routes once. Wear them on game day.",
+   "start": 0.08,
+   "end": 2.84
+  },
+  {
+   "text": "Click a receiver, pick a route. One click, real depth.",
+   "start": 3.04,
+   "end": 7.12
+  },
+  {
+   "text": "Save it, and the play lands in your playbook.",
+   "start": 7.24,
+   "end": 9.28
+  },
+  {
+   "text": "Open Wristbands, pick the playbook, and the cards build themselves.",
+   "start": 9.68,
+   "end": 13.48
+  },
+  {
+   "text": "Same size in every box, numbered the way you call them.",
+   "start": 13.68,
+   "end": 17.04
+  },
+  {
+   "text": "Preview exactly what prints, then download the PDF.",
+   "start": 17.24,
+   "end": 20.4
+  },
+  {
+   "text": "From the designer to the wrist. Grid Iron Vault dot com.",
+   "start": 20.693,
+   "end": 24.16
+  }
+ ],
+ "04-every-tool": [
+  {
+   "text": "One Vault. Every tool a coach needs.",
+   "start": 0.16,
+   "end": 2.84
+  },
+  {
+   "text": "Draw plays in seconds.",
+   "start": 2.96,
+   "end": 4.52
+  },
+  {
+   "text": "Teach them in the Film Room, even in 3D.",
+   "start": 4.64,
+   "end": 7.2
+  },
+  {
+   "text": "Check them against any coverage.",
+   "start": 7.32,
+   "end": 9.12
+  },
+  {
+   "text": "Print wristbands and call sheets.",
+   "start": 9.24,
+   "end": 10.96
+  },
+  {
+   "text": "Plan practice from the Drill Vault.",
+   "start": 11.12,
+   "end": 13.12
+  },
+  {
+   "text": "Run your roster and your depth chart.",
+   "start": 13.2,
+   "end": 15.413
+  },
+  {
+   "text": "And ask Griddy, your coaching assistant.",
+   "start": 15.467,
+   "end": 17.68
+  },
+  {
+   "text": "Grid Iron Vault. Your whole playbook, in one place.",
+   "start": 17.76,
+   "end": 21.2
+  }
+ ],
+ "05-one-click-routes": [
+  {
+   "text": "Routes in one click. Here's how.",
+   "start": 0.16,
+   "end": 2.52
+  },
+  {
+   "text": "Click the receiver. Pick the route. Slant, three yards. Done.",
+   "start": 2.72,
+   "end": 7.36
+  },
+  {
+   "text": "Flip the break, or change the line end, right there.",
+   "start": 7.6,
+   "end": 10.68
+  },
+  {
+   "text": "Linemen? Tap him, tap the defender, and he blocks.",
+   "start": 10.88,
+   "end": 14.32
+  },
+  {
+   "text": "In five on five and seven on seven, your center runs routes too.",
+   "start": 14.48,
+   "end": 18.36
+  },
+  {
+   "text": "Less clicking. More coaching.",
+   "start": 18.64,
+   "end": 20.64
+  }
+ ],
+ "06-coverage-check": [
+  {
+   "text": "Will it beat Cover 3? Find out before Saturday.",
+   "start": 0.08,
+   "end": 3.08
+  },
+  {
+   "text": "Open Teach, and run the Coverage check.",
+   "start": 3.28,
+   "end": 5.68
+  },
+  {
+   "text": "Every look gets a grade. Green means it wins.",
+   "start": 5.76,
+   "end": 9.04
+  },
+  {
+   "text": "See who's open, who's tight, and who's covered.",
+   "start": 9.12,
+   "end": 11.84
+  },
+  {
+   "text": "Then build your call sheet from the plays that win.",
+   "start": 11.96,
+   "end": 14.491
+  },
+  {
+   "text": "Know it works, before you call it.",
+   "start": 14.56,
+   "end": 16.72
+  }
+ ],
+ "15-film-room-cameras": [
+  {
+   "text": "Teach any play in the Film Room, now from twelve different cameras.",
+   "start": 0.08,
+   "end": 4.04
+  },
+  {
+   "text": "Start behind the offense, and watch the whole play unfold.",
+   "start": 4.08,
+   "end": 7.49
+  },
+  {
+   "text": "Jump to the quarterback cam, and ride with him to the throw.",
+   "start": 7.55,
+   "end": 10.44
+  },
+  {
+   "text": "Go wide, high above the end zone, to the sideline, or straight overhead.",
+   "start": 10.48,
+   "end": 14.84
+  },
+  {
+   "text": "Follow any one player, or look through his helmet.",
+   "start": 14.88,
+   "end": 17.61
+  },
+  {
+   "text": "One play. Twelve ways to teach it.",
+   "start": 17.68,
+   "end": 20.0
+  }
+ ]
+}

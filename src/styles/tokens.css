@@ -22,8 +22,8 @@
   /* ---- Color: light grounds and lines ---- */
   --paper: #f5f8fa;
   --white: #fff;
-  --border: #dde5ec;
-  --border-2: #eef3f6;
+  --border: #c3d0dc; /* was #dde5ec: lines and cards read a step stronger (2026-11-22, Wes: make items pop) */
+  --border-2: #e3ebf1; /* was #eef3f6 */
 
   /* ---- Color: secondary text ---- */
   --muted: #0e5b9c; /* secondary text on white (7.0:1) / paper (6.6:1) */
@@ -116,8 +116,8 @@
   --radius-round: 50%; /* player tokens, avatars */
 
   /* ---- Shadows ---- */
-  --shadow-s: 0 1px 2px rgba(11, 21, 36, 0.06);
-  --shadow-m: 0 6px 18px rgba(11, 21, 36, 0.09);
+  --shadow-s: 0 1px 2px rgba(11, 21, 36, 0.12), 0 1px 1px rgba(11, 21, 36, 0.05); /* was 0.06 alone */
+  --shadow-m: 0 6px 18px rgba(11, 21, 36, 0.15), 0 1px 3px rgba(11, 21, 36, 0.08); /* was 0.09 alone */
   --shadow-l: 0 24px 60px rgba(11, 21, 36, 0.22);
   --shadow-press: 0 2px 0 var(--cyan-2);
   --shadow-focus-halo: 0 0 0 3px var(--cyan-soft);

@@ -1,0 +1,611 @@
+{
+ "01-designer-tools": {
+  "title": "The Play Designer",
+  "seconds": 39.6,
+  "kb": 1802,
+  "src": "/clips/home/01-designer-tools.mp4",
+  "poster": "/clips/home/01-designer-tools.jpg",
+  "steps": [
+   {
+    "title": "The play designer",
+    "text": "This is the GridIronVault play designer. Let me show you around.",
+    "at": 0.08,
+    "still": "/clips/home/01-designer-tools-s1.webp"
+   },
+   {
+    "title": "Every tool, one panel",
+    "text": "Every tool sits in one panel. Draw, routes, players, sets, playbooks, and style.",
+    "at": 3.92,
+    "still": "/clips/home/01-designer-tools-s2.webp"
+   },
+   {
+    "title": "Open one. The rest fold.",
+    "text": "Open one section, and the rest fold away. No clutter.",
+    "at": 10.4,
+    "still": "/clips/home/01-designer-tools-s3.webp"
+   },
+   {
+    "title": "Drop your own sets",
+    "text": "Drop a formation from your own sets, right on the ball.",
+    "at": 14,
+    "still": "/clips/home/01-designer-tools-s4.webp"
+   },
+   {
+    "title": "Routes in one click",
+    "text": "Click a receiver, pick a route, and it draws at real depth, in his color.",
+    "at": 17.28,
+    "still": "/clips/home/01-designer-tools-s5.webp"
+   },
+   {
+    "title": "Tap to block",
+    "text": "Tap a lineman, tap the defender, and the block is drawn.",
+    "at": 22.08,
+    "still": "/clips/home/01-designer-tools-s6.webp"
+   },
+   {
+    "title": "Slide the line",
+    "text": "Slide the line of scrimmage, and the whole play moves with it.",
+    "at": 25.68,
+    "still": "/clips/home/01-designer-tools-s7.webp"
+   },
+   {
+    "title": "Menus up top",
+    "text": "Edit, Field, Teach, and Go to, right up top. Undo is always one click away.",
+    "at": 28.96,
+    "still": "/clips/home/01-designer-tools-s8.webp"
+   },
+   {
+    "title": "Draw it fast. Draw it right.",
+    "text": "Draw it fast. Draw it right.",
+    "at": 35.24,
+    "still": "/clips/home/01-designer-tools-s9.webp"
+   }
+  ]
+ },
+ "03-wristbands": {
+  "title": "Designer to Wristband",
+  "seconds": 24.7,
+  "kb": 2074,
+  "src": "/clips/home/03-wristbands.mp4",
+  "poster": "/clips/home/03-wristbands.jpg",
+  "steps": [
+   {
+    "title": "Draw once. Wear it.",
+    "text": "Draw the routes once. Wear them on game day.",
+    "at": 0.08,
+    "still": "/clips/home/03-wristbands-s1.webp"
+   },
+   {
+    "title": "One click, real depth",
+    "text": "Click a receiver, pick a route. One click, real depth.",
+    "at": 3.04,
+    "still": "/clips/home/03-wristbands-s2.webp"
+   },
+   {
+    "title": "Into the playbook",
+    "text": "Save it, and the play lands in your playbook.",
+    "at": 7.24,
+    "still": "/clips/home/03-wristbands-s3.webp"
+   },
+   {
+    "title": "Cards build themselves",
+    "text": "Open Wristbands, pick the playbook, and the cards build themselves.",
+    "at": 9.68,
+    "still": "/clips/home/03-wristbands-s4.webp"
+   },
+   {
+    "title": "Same size, every box",
+    "text": "Same size in every box, numbered the way you call them.",
+    "at": 13.68,
+    "still": "/clips/home/03-wristbands-s5.webp"
+   },
+   {
+    "title": "Preview what prints",
+    "text": "Preview exactly what prints, then download the PDF.",
+    "at": 17.24,
+    "still": "/clips/home/03-wristbands-s6.webp"
+   },
+   {
+    "title": "Designer to wrist",
+    "text": "From the designer to the wrist.",
+    "at": 20.69,
+    "still": "/clips/home/03-wristbands-s7.webp"
+   }
+  ]
+ },
+ "05-one-click-routes": {
+  "title": "Routes in One Click",
+  "seconds": 21.1,
+  "kb": 961,
+  "src": "/clips/home/05-one-click-routes.mp4",
+  "poster": "/clips/home/05-one-click-routes.jpg",
+  "steps": [
+   {
+    "title": "Routes in one click",
+    "text": "Routes in one click. Here's how.",
+    "at": 0.16,
+    "still": "/clips/home/05-one-click-routes-s1.webp"
+   },
+   {
+    "title": "Click. Pick. Done.",
+    "text": "Click the receiver. Pick the route. Slant, three yards. Done.",
+    "at": 2.72,
+    "still": "/clips/home/05-one-click-routes-s2.webp"
+   },
+   {
+    "title": "Flip the break",
+    "text": "Flip the break, or change the line end, right there.",
+    "at": 7.6,
+    "still": "/clips/home/05-one-click-routes-s3.webp"
+   },
+   {
+    "title": "Tap to block",
+    "text": "Linemen? Tap him, tap the defender, and he blocks.",
+    "at": 10.88,
+    "still": "/clips/home/05-one-click-routes-s4.webp"
+   },
+   {
+    "title": "Centers run routes",
+    "text": "In 5-on-5 and 7-on-7, your center runs routes too.",
+    "at": 14.48,
+    "still": "/clips/home/05-one-click-routes-s5.webp"
+   },
+   {
+    "title": "Less clicking. More coaching.",
+    "text": "Less clicking. More coaching.",
+    "at": 18.64,
+    "still": "/clips/home/05-one-click-routes-s6.webp"
+   }
+  ]
+ },
+ "06-coverage-check": {
+  "title": "Will It Beat Cover 3?",
+  "seconds": 17.2,
+  "kb": 1388,
+  "src": "/clips/home/06-coverage-check.mp4",
+  "poster": "/clips/home/06-coverage-check.jpg",
+  "steps": [
+   {
+    "title": "Will it beat Cover 3?",
+    "text": "Will it beat Cover 3? Find out before Saturday.",
+    "at": 0.08,
+    "still": "/clips/home/06-coverage-check-s1.webp"
+   },
+   {
+    "title": "Run the Coverage check",
+    "text": "Open Teach, and run the Coverage check.",
+    "at": 3.28,
+    "still": "/clips/home/06-coverage-check-s2.webp"
+   },
+   {
+    "title": "Green means it wins",
+    "text": "Every look gets a grade. Green means it wins.",
+    "at": 5.76,
+    "still": "/clips/home/06-coverage-check-s3.webp"
+   },
+   {
+    "title": "Open. Tight. Covered.",
+    "text": "See who's open, who's tight, and who's covered.",
+    "at": 9.12,
+    "still": "/clips/home/06-coverage-check-s4.webp"
+   },
+   {
+    "title": "Build the call sheet",
+    "text": "Then build your call sheet from the plays that win.",
+    "at": 11.96,
+    "still": "/clips/home/06-coverage-check-s5.webp"
+   },
+   {
+    "title": "Know it works. Then call it.",
+    "text": "Know it works, before you call it.",
+    "at": 14.56,
+    "still": "/clips/home/06-coverage-check-s6.webp"
+   }
+  ]
+ },
+ "07-precision-drawing": {
+  "title": "Precision Drawing",
+  "seconds": 23.4,
+  "kb": 1870,
+  "src": "/clips/home/07-precision-drawing.mp4",
+  "poster": "/clips/home/07-precision-drawing.jpg",
+  "steps": [
+   {
+    "title": "Draw it clean",
+    "text": "Clean plays read faster. Here's how to draw them clean.",
+    "at": 0.08,
+    "still": "/clips/home/07-precision-drawing-s1.webp"
+   },
+   {
+    "title": "Snap to the grid",
+    "text": "Open Field controls. Snap to the grid, and every player lines up.",
+    "at": 3.92,
+    "still": "/clips/home/07-precision-drawing-s2.webp"
+   },
+   {
+    "title": "Hash marks & yard lines",
+    "text": "Pick your hash marks, and turn the yard lines up or down.",
+    "at": 8.56,
+    "still": "/clips/home/07-precision-drawing-s3.webp"
+   },
+   {
+    "title": "Right click any route",
+    "text": "Right click any route to change the line, the weight, the color, or the end.",
+    "at": 12.12,
+    "still": "/clips/home/07-precision-drawing-s4.webp"
+   },
+   {
+    "title": "Route depths",
+    "text": "Turn on route depths, and every break shows its yards.",
+    "at": 16.76,
+    "still": "/clips/home/07-precision-drawing-s5.webp"
+   },
+   {
+    "title": "Sharp on the wristband",
+    "text": "Sharp on the screen. Sharp on the wristband.",
+    "at": 20.08,
+    "still": "/clips/home/07-precision-drawing-s6.webp"
+   }
+  ]
+ },
+ "08-upload-any-play": {
+  "title": "Upload Any Play",
+  "seconds": 20.6,
+  "kb": 1899,
+  "src": "/clips/home/08-upload-any-play.mp4",
+  "poster": "/clips/home/08-upload-any-play.jpg",
+  "steps": [
+   {
+    "title": "Bring your plays",
+    "text": "Got plays on a whiteboard, or in a binder? Bring them with you.",
+    "at": 0.08,
+    "still": "/clips/home/08-upload-any-play-s1.webp"
+   },
+   {
+    "title": "Photo, scan or PDF",
+    "text": "Open Upload, and drop in a photo, a scan, or a PDF.",
+    "at": 3.76,
+    "still": "/clips/home/08-upload-any-play-s2.webp"
+   },
+   {
+    "title": "It reads the play",
+    "text": "GridIronVault reads the players, the routes, and the blocks.",
+    "at": 7.6,
+    "still": "/clips/home/08-upload-any-play-s3.webp"
+   },
+   {
+    "title": "Check the read",
+    "text": "Check the read, and fix anything with a click.",
+    "at": 11.28,
+    "still": "/clips/home/08-upload-any-play-s4.webp"
+   },
+   {
+    "title": "A real play",
+    "text": "Save it, and it's a real play you can edit, teach, and print.",
+    "at": 13.96,
+    "still": "/clips/home/08-upload-any-play-s5.webp"
+   },
+   {
+    "title": "Old playbook. New Vault.",
+    "text": "Your old playbook, in your new Vault.",
+    "at": 17.68,
+    "still": "/clips/home/08-upload-any-play-s6.webp"
+   }
+  ]
+ },
+ "09-griddy": {
+  "title": "Ask Griddy",
+  "seconds": 19.7,
+  "kb": 2529,
+  "src": "/clips/home/09-griddy.mp4",
+  "poster": "/clips/home/09-griddy.jpg",
+  "steps": [
+   {
+    "title": "Meet Griddy",
+    "text": "Meet Griddy, your coaching assistant. He's on every page.",
+    "at": 0.16,
+    "still": "/clips/home/09-griddy-s1.webp"
+   },
+   {
+    "title": "Ask, and he draws",
+    "text": "Ask for a play in plain words, and he draws it.",
+    "at": 4,
+    "still": "/clips/home/09-griddy-s2.webp"
+   },
+   {
+    "title": "Save to the Vault",
+    "text": "Like it? Save it straight to your Vault.",
+    "at": 6.92,
+    "still": "/clips/home/09-griddy-s3.webp"
+   },
+   {
+    "title": "Recolor a playbook",
+    "text": "Tell him to recolor a whole playbook, and it's done. Undo is one click.",
+    "at": 9.2,
+    "still": "/clips/home/09-griddy-s4.webp"
+   },
+   {
+    "title": "Build a call sheet",
+    "text": "He'll even build a call sheet from the plays you already have.",
+    "at": 14.2,
+    "still": "/clips/home/09-griddy-s5.webp"
+   },
+   {
+    "title": "Just ask Griddy",
+    "text": "Got a question? Just ask Griddy.",
+    "at": 17.04,
+    "still": "/clips/home/09-griddy-s6.webp"
+   }
+  ]
+ },
+ "10-sets-and-defense": {
+  "title": "Formations & Defenses",
+  "seconds": 21.5,
+  "kb": 2147,
+  "src": "/clips/home/10-sets-and-defense.mp4",
+  "poster": "/clips/home/10-sets-and-defense.jpg",
+  "steps": [
+   {
+    "title": "Line up faster",
+    "text": "Line up faster. Formations and defenses are one click away.",
+    "at": 0.16,
+    "still": "/clips/home/10-sets-and-defense-s1.webp"
+   },
+   {
+    "title": "Drop a formation",
+    "text": "Open Sets, pick a formation, and drop it on the ball.",
+    "at": 4.36,
+    "still": "/clips/home/10-sets-and-defense-s2.webp"
+   },
+   {
+    "title": "Flip it",
+    "text": "Flip it left or right with one switch.",
+    "at": 7.76,
+    "still": "/clips/home/10-sets-and-defense-s3.webp"
+   },
+   {
+    "title": "Front & coverage",
+    "text": "Need a look to beat? Pick a front and a coverage, and every defender gets a job.",
+    "at": 10.16,
+    "still": "/clips/home/10-sets-and-defense-s4.webp"
+   },
+   {
+    "title": "Offense to defense",
+    "text": "Or turn your offense into a defense, matched to the formation.",
+    "at": 15.04,
+    "still": "/clips/home/10-sets-and-defense-s5.webp"
+   },
+   {
+    "title": "Set it. Flip it. Coach it.",
+    "text": "Set it. Flip it. Coach it.",
+    "at": 18.8,
+    "still": "/clips/home/10-sets-and-defense-s6.webp"
+   }
+  ]
+ },
+ "11-call-sheet": {
+  "title": "The Call Sheet",
+  "seconds": 19.2,
+  "kb": 1778,
+  "src": "/clips/home/11-call-sheet.mp4",
+  "poster": "/clips/home/11-call-sheet.jpg",
+  "steps": [
+   {
+    "title": "Your call sheet",
+    "text": "Game day runs on your call sheet. Build it right here.",
+    "at": 0.16,
+    "still": "/clips/home/11-call-sheet-s1.webp"
+   },
+   {
+    "title": "Type. It links.",
+    "text": "Type a play name, and it links to the play in your Vault.",
+    "at": 3.6,
+    "still": "/clips/home/11-call-sheet-s2.webp"
+   },
+   {
+    "title": "Paint & add columns",
+    "text": "Paint your calls by situation, and add any column you need.",
+    "at": 6.52,
+    "still": "/clips/home/11-call-sheet-s3.webp"
+   },
+   {
+    "title": "Find & fold",
+    "text": "Find a call in a second, or fold away what you don't need.",
+    "at": 10.08,
+    "still": "/clips/home/11-call-sheet-s4.webp"
+   },
+   {
+    "title": "Print & wristbands",
+    "text": "Then print the sheet, and send the same calls to your wristbands.",
+    "at": 13.56,
+    "still": "/clips/home/11-call-sheet-s5.webp"
+   },
+   {
+    "title": "One sheet. Every call.",
+    "text": "One sheet. Every call.",
+    "at": 16.8,
+    "still": "/clips/home/11-call-sheet-s6.webp"
+   }
+  ]
+ },
+ "12-practice-drills": {
+  "title": "Practice & Drill Vault",
+  "seconds": 20.3,
+  "kb": 1859,
+  "src": "/clips/home/12-practice-drills.mp4",
+  "poster": "/clips/home/12-practice-drills.jpg",
+  "steps": [
+   {
+    "title": "Planned to the minute",
+    "text": "A good practice is planned to the minute.",
+    "at": 0.14,
+    "still": "/clips/home/12-practice-drills-s1.webp"
+   },
+   {
+    "title": "Timed periods",
+    "text": "Build your script in timed periods, and watch the clock add up.",
+    "at": 2.84,
+    "still": "/clips/home/12-practice-drills-s2.webp"
+   },
+   {
+    "title": "Plays from your Vault",
+    "text": "Drop in plays from your Vault, one at a time, or a whole playbook.",
+    "at": 6.48,
+    "still": "/clips/home/12-practice-drills-s3.webp"
+   },
+   {
+    "title": "The Drill Vault",
+    "text": "Open the Drill Vault for animated drills with coaching points.",
+    "at": 10.64,
+    "still": "/clips/home/12-practice-drills-s4.webp"
+   },
+   {
+    "title": "Drill to practice",
+    "text": "Add a drill to tonight's practice, right from the Drill Vault.",
+    "at": 14,
+    "still": "/clips/home/12-practice-drills-s5.webp"
+   },
+   {
+    "title": "Print the script",
+    "text": "Then print the script, and the scout cards.",
+    "at": 17.28,
+    "still": "/clips/home/12-practice-drills-s6.webp"
+   }
+  ]
+ },
+ "13-my-team": {
+  "title": "My Team",
+  "seconds": 20,
+  "kb": 1600,
+  "src": "/clips/home/13-my-team.mp4",
+  "poster": "/clips/home/13-my-team.jpg",
+  "steps": [
+   {
+    "title": "Your team",
+    "text": "Your roster, your depth chart, and your colors, all in one place.",
+    "at": 0.16,
+    "still": "/clips/home/13-my-team-s1.webp"
+   },
+   {
+    "title": "Import the roster",
+    "text": "Import your roster from a spreadsheet, parents and all.",
+    "at": 4.72,
+    "still": "/clips/home/13-my-team-s2.webp"
+   },
+   {
+    "title": "Depth chart on the field",
+    "text": "Set your depth chart right on the field.",
+    "at": 7.84,
+    "still": "/clips/home/13-my-team-s3.webp"
+   },
+   {
+    "title": "Logo & colors",
+    "text": "Add your logo and colors, and they show up on the field, the wristbands, and the PDFs.",
+    "at": 10,
+    "still": "/clips/home/13-my-team-s4.webp"
+   },
+   {
+    "title": "Text the team",
+    "text": "Then text the whole team from your own phone.",
+    "at": 14.96,
+    "still": "/clips/home/13-my-team-s5.webp"
+   },
+   {
+    "title": "Your team. Your Vault.",
+    "text": "Your team. Your Vault.",
+    "at": 17.6,
+    "still": "/clips/home/13-my-team-s6.webp"
+   }
+  ]
+ },
+ "14-playbooks-players": {
+  "title": "Playbooks & Player Links",
+  "seconds": 20.3,
+  "kb": 2266,
+  "src": "/clips/home/14-playbooks-players.mp4",
+  "poster": "/clips/home/14-playbooks-players.jpg",
+  "steps": [
+   {
+    "title": "Players know it",
+    "text": "A playbook only works if your players know it.",
+    "at": 0.14,
+    "still": "/clips/home/14-playbooks-players-s1.webp"
+   },
+   {
+    "title": "Build the playbook",
+    "text": "Group your plays into a playbook, in the order you install them.",
+    "at": 2.96,
+    "still": "/clips/home/14-playbooks-players-s2.webp"
+   },
+   {
+    "title": "Share one link",
+    "text": "Share it with one link. No account, and no app to download.",
+    "at": 6.56,
+    "still": "/clips/home/14-playbooks-players-s3.webp"
+   },
+   {
+    "title": "Their own job",
+    "text": "Each player picks a letter, and sees their own job on every play.",
+    "at": 10.64,
+    "still": "/clips/home/14-playbooks-players-s4.webp"
+   },
+   {
+    "title": "The Griddy Quiz",
+    "text": "Then the Griddy Quiz shows you who really knows it.",
+    "at": 14.4,
+    "still": "/clips/home/14-playbooks-players-s5.webp"
+   },
+   {
+    "title": "Teach it once",
+    "text": "Teach it once. Let them study all week.",
+    "at": 17.04,
+    "still": "/clips/home/14-playbooks-players-s6.webp"
+   }
+  ]
+ },
+ "15-film-room-cameras": {
+  "title": "Film Room: Twelve Cameras",
+  "seconds": 20.5,
+  "kb": 2612,
+  "src": "/clips/home/15-film-room-cameras.mp4",
+  "poster": "/clips/home/15-film-room-cameras.jpg",
+  "steps": [
+   {
+    "title": "Twelve cameras",
+    "text": "Teach any play in the Film Room, now from twelve different cameras.",
+    "at": 0.08,
+    "still": "/clips/home/15-film-room-cameras-s1.webp"
+   },
+   {
+    "title": "Behind the offense",
+    "text": "Start behind the offense, and watch the whole play unfold.",
+    "at": 4.08,
+    "still": "/clips/home/15-film-room-cameras-s2.webp"
+   },
+   {
+    "title": "Quarterback cam",
+    "text": "Jump to the quarterback cam, and ride with him to the throw.",
+    "at": 7.55,
+    "still": "/clips/home/15-film-room-cameras-s3.webp"
+   },
+   {
+    "title": "Wide. Sideline. Overhead.",
+    "text": "Go wide, high above the end zone, to the sideline, or straight overhead.",
+    "at": 10.48,
+    "still": "/clips/home/15-film-room-cameras-s4.webp"
+   },
+   {
+    "title": "Follow a player",
+    "text": "Follow any one player, or look through his helmet.",
+    "at": 14.88,
+    "still": "/clips/home/15-film-room-cameras-s5.webp"
+   },
+   {
+    "title": "One play. Twelve ways.",
+    "text": "One play. Twelve ways to teach it.",
+    "at": 17.68,
+    "still": "/clips/home/15-film-room-cameras-s6.webp"
+   }
+  ]
+ }
+}
