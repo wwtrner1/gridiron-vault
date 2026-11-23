@@ -9,7 +9,7 @@ test.beforeEach(async ({ context }) => quiet(context));
 
 test("signed out, Sideline is the only plan the browser picks; a bigger one asks for a sign-in", async ({ page }) => {
   await page.goto("/pricing");
-  await expect(page.getByRole("note")).toContainText("Start on Sideline for free, no card.");
+  await expect(page.getByRole("note")).toContainText("Every new coach gets 14 days of Head Coach with every tool on, no card. After that you keep Sideline, free.");
   const cards = page.locator(".home-plan");
   expect(await cards.count()).toBeGreaterThan(2);
 
@@ -21,8 +21,36 @@ test("signed out, Sideline is the only plan the browser picks; a bigger one asks
   expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("free");
 
   await page.getByRole("button", { name: "Choose Head Coach" }).click();
-  await expect(page).toHaveURL(/\/signin$/);
+  await expect(page).toHaveURL(/\/signin\?tab=up$/);
   expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("free");
+});
+
+test("signed out, pricing opens on four prices and the trial; yearly and the Season Pass are behind one closed row, founding only for beta", async ({ page, context }) => {
+  await page.goto("/pricing");
+  await expect(page.locator(".home-plan")).toHaveCount(4);
+  const trial = page.locator(".price-trial");
+  await expect(trial).toContainText("Head Coach is yours for 14 days. Nothing is charged");
+  await expect(trial.getByRole("link", { name: "Start your 14-day trial" })).toHaveAttribute("href", "/signin?tab=up");
+
+  // The other prices wait behind a row that starts closed.
+  const more = page.locator("details[name='pricing-offers']");
+  await expect(more).not.toHaveAttribute("open", "");
+  await expect(page.locator(".price-offer").first()).toBeHidden();
+  await more.locator("summary").click();
+  await expect(page.locator(".price-offer h3")).toHaveText(["Season Pass", "Head Coach yearly", "Staff yearly", "Program yearly"]);
+
+  // A beta coach is the one who can take the founding rate, so only then is it listed (and the trial strip is for visitors with no account).
+  await onBeta(context);
+  await signIn(context, async (route, path, method) => {
+    if (path === "me" && method === "GET") {
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta" } });
+      return true;
+    }
+  });
+  await page.goto("/pricing");
+  await expect(page.locator(".price-trial")).toHaveCount(0);
+  await page.locator("details[name='pricing-offers'] summary").click();
+  await expect(page.locator(".price-offer h3")).toHaveText(["Season Pass", "Head Coach yearly", "Staff yearly", "Program yearly", "Founding coaches"]);
 });
 
 test("signed in, the account keeps the plan, and its refusal shows in coach words", async ({ page, context }) => {
@@ -70,6 +98,7 @@ test("with billing open, a plan button goes to Stripe Checkout and the offers sh
     }
   });
   await page.goto("/pricing");
+  await page.locator("details[name='pricing-offers'] summary").click();
   await expect(page.getByRole("button", { name: "Buy the Season Pass" })).toBeVisible();
   // Prices are tax-exclusive: every paid price says "+ tax", Sideline ($0) doesn't, and the note says where tax comes in.
   const headCoach = page.locator(".home-plan").filter({ has: page.getByRole("heading", { name: "Head Coach" }) });
