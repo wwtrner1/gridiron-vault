@@ -258,6 +258,22 @@ export const TIERS: Record<TierId, Tier> = {
 /** Days of full Head Coach a new coach gets, once per person. */
 export const TRIAL_DAYS = 14;
 
+/**
+ * The trial in the words every public screen shares (home, pricing, sign-in, the first-save note), so the offer never reads two ways.
+ * It describes what `TRIAL_SIGNUPS=on` does on the server (netlify/security/trial.ts): if that is ever switched off, take these out.
+ */
+export const TRIAL_WORDS = {
+  /** After "Free to start ·" on the home hero. */
+  short: `${TRIAL_DAYS}-day Head Coach trial · no card`,
+  /** One sentence for a note or a lede. */
+  long: `Every new coach gets ${TRIAL_DAYS} days of Head Coach with every tool on, no card. After that you keep Sideline, free.`,
+  /** The button that takes a coach to the Create account tab. */
+  cta: `Start your ${TRIAL_DAYS}-day trial`,
+};
+
+/** Where the trial buttons go: the sign-in screen on its Create account tab. */
+export const CREATE_ACCOUNT_PATH = "/signin?tab=up";
+
 export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
 
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */

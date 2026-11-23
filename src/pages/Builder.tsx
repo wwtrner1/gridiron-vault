@@ -101,7 +101,8 @@ import { clearDraft, draftFor, saveDraft, type DesignerDraft } from "../lib/desi
 import { SavePrompt } from "../components/SavePrompt";
 import { useAuth } from "../lib/auth";
 import { useTier } from "../lib/tier";
-import { gateSave, gateTool } from "../lib/plan";
+import { CREATE_ACCOUNT_PATH, TRIAL_DAYS, gateSave, gateTool } from "../lib/plan";
+import { takeAccountAsk } from "../lib/saveAsk";
 import { useToast } from "../lib/toast";
 import { copyStyle, pasteStyle, styleClip } from "../lib/styleCopy";
 import { useCaptureGuard } from "../lib/guard";
@@ -1775,7 +1776,14 @@ export function Builder() {
       } else {
         fileIn.current = null;
         setDirty(false);
-        toast(`Saved in this browser${filed ? ` in ${filed.name}` : ""}. Sign in to keep it across devices.`);
+        const where = `Saved in this browser${filed ? ` in ${filed.name}` : ""}.`;
+        // The first save with no account offers one: it carries the plays to every device and starts the trial.
+        if (takeAccountAsk()) {
+          toast(`${where} Create an account to keep it on every device and start your ${TRIAL_DAYS}-day Head Coach trial. No card.`, false, {
+            label: "Create account",
+            run: () => go(CREATE_ACCOUNT_PATH),
+          });
+        } else toast(`${where} Sign in to keep it across devices.`);
         if (!existing && !opts.leaving) go(`/build/${record.id}${bookQuery}`, { replace: true });
       }
       track("play_created", { formation: record.formation, type: record.playType });

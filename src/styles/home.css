@@ -307,6 +307,12 @@
   .home-rv-kids.is-waiting > :nth-child(n + 7) { transition-delay: 0.36s; }
 }
 
+/* ---- Hero: the account ask, and the closing call's two buttons ---- */
+.home-hero-trial { margin: 0; font-size: 15px; line-height: 1.5; color: var(--rail-text); }
+.home-hero-trial a { color: var(--cyan); font-weight: 700; }
+.home-hero-trial a:hover { color: var(--white); }
+.home-cta-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+
 /* ---- Hero: a way to the tour ---- */
 .home-hero-watch { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 0; color: var(--cyan); font-size: 15px; font-weight: 700; text-decoration: none; }
 .home-hero-watch:hover { color: var(--white); }

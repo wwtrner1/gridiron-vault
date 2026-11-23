@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { Icon } from "../components/Icon";
-import { PUBLIC_TIERS, plusTax } from "../lib/plan";
+import { CREATE_ACCOUNT_PATH, PUBLIC_TIERS, TRIAL_WORDS, plusTax } from "../lib/plan";
 import { useTier } from "../lib/tier";
 import { lazyPage } from "../lib/lazyPage";
 import type { Watch } from "./home/tools";
@@ -222,7 +222,7 @@ export function Landing() {
               alt="GridIronVault — Your playbook. Anywhere."
               fetchPriority="high"
             />
-            <p className="home-eyebrow">Free to start · no card · just create and draw</p>
+            <p className="home-eyebrow">Free to start · {TRIAL_WORDS.short}</p>
             <h1 id="hero-h">
               Draw the play
               <br />
@@ -244,6 +244,9 @@ export function Landing() {
                 Browse the starter plays
               </Link>
             </div>
+            <p className="home-hero-trial">
+              <Link to={CREATE_ACCOUNT_PATH}>{TRIAL_WORDS.cta}</Link> and your plays follow you to every device.
+            </p>
             <Link to="/#reel" className="home-hero-watch">
               <Icon name="play" size={16} />
               Watch the 20-second tour
@@ -369,10 +372,15 @@ export function Landing() {
           <h2 id="cta-h">
             Your first play is about <span>ninety seconds away.</span>
           </h2>
-          <p>No card, no trial clock. Draw something, print it, bring it to practice tonight.</p>
-          <Link to="/build" className="btn btn-primary btn-lg">
-            Open the designer
-          </Link>
+          <p>{TRIAL_WORDS.long} Draw something, print it, bring it to practice tonight.</p>
+          <div className="home-cta-actions">
+            <Link to="/build" className="btn btn-primary btn-lg">
+              Open the designer
+            </Link>
+            <Link to={CREATE_ACCOUNT_PATH} className="btn btn-outline-dark btn-lg">
+              {TRIAL_WORDS.cta}
+            </Link>
+          </div>
         </section>
       </main>
 

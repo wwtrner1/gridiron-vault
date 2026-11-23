@@ -33,6 +33,8 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   await expect(hero.getByRole("link", { name: "Start drawing — it is free" })).toHaveAttribute("href", "/build");
   await expect(hero.getByRole("link", { name: "Browse the starter plays" })).toHaveAttribute("href", "/starters");
   await expect(hero.getByRole("link", { name: "Watch the 20-second tour" })).toHaveAttribute("href", "/#reel");
+  // The first screen says what a new account gets, and its link opens the Create account tab (tests/signup-path.spec.ts).
+  await expect(hero.getByRole("link", { name: "Start your 14-day trial" })).toHaveAttribute("href", "/signin?tab=up");
   await expect(page.getByRole("heading", { name: "Start free, upgrade when it earns it" })).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#plans-h") }).locator('a[href="/pricing"]').first()).toBeVisible();
   await expect(page.locator("section").filter({ has: page.locator("#cta-h") }).locator('a[href="/build"]')).toHaveCount(1);

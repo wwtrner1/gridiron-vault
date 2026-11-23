@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { PlayThumb } from "../components/PlayThumb";
 import { authMessage, useAuth } from "../lib/auth";
+import { TRIAL_DAYS } from "../lib/plan";
 import { STARTERS, starterScene } from "../lib/starters";
 import { useStore } from "../lib/store";
 
@@ -15,7 +16,9 @@ export function SignIn() {
   const navigate = useNavigate();
   const localPlays = useStore((s) => s.plays.length);
 
-  const [tab, setTab] = useState<Tab>("in");
+  // The home and pricing trial buttons open the Create account tab (/signin?tab=up).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "up" ? "up" : "in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -76,7 +79,7 @@ export function SignIn() {
         </div>
         <ul className="auth-points">
           <li>
-            <Icon name="check" size={14} /> Free to start, no card
+            <Icon name="check" size={14} /> {TRIAL_DAYS} days of Head Coach to start, then free Sideline. No card
           </li>
           <li>
             <Icon name="check" size={14} /> Five sample starter plays free, all 56 with Head Coach
@@ -125,8 +128,8 @@ export function SignIn() {
                 ? "Pick up where you left off."
                 : tab === "up"
                   ? localPlays > 0
-                    ? `The ${localPlays} ${localPlays === 1 ? "play" : "plays"} you drew in this browser move into your account.`
-                    : "Free to start, no card needed."
+                    ? `The ${localPlays} ${localPlays === 1 ? "play" : "plays"} you drew in this browser move into your account, and your ${TRIAL_DAYS}-day Head Coach trial starts. No card.`
+                    : `Your ${TRIAL_DAYS}-day Head Coach trial starts when you finish. Every tool on, no card.`
                   : "Enter the email you signed up with and we will send a link."}
             </p>
 
