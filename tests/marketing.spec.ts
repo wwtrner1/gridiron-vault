@@ -110,6 +110,7 @@ test("the home page's nav, hero, plans and footer link where they say, every gui
   const socials = connect.getByRole("listitem").getByRole("link");
   await expect(socials).toHaveCount(4);
   for (const a of await socials.all()) await expect(a).toHaveAttribute("target", "_blank");
+  await expect(connect.getByRole("link", { name: /YouTube/ })).toHaveAttribute("href", "https://www.youtube.com/@grid1ron-vault");
   expect((await page.request.get("/partners/")).status()).toBe(200);
   expect(errors).toEqual([]);
 
