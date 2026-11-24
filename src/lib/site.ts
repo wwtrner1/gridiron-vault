@@ -16,6 +16,6 @@ export const SOCIAL_HANDLE = "@grid1ronvault";
 export const SOCIALS: ReadonlyArray<readonly [label: string, url: string]> = [
   ["Instagram", "https://www.instagram.com/grid1ronvault"],
   ["Facebook", "https://www.facebook.com/grid1ronvault"],
-  ["YouTube", "https://www.youtube.com/@grid1ronvault"],
+  ["YouTube", "https://www.youtube.com/@grid1ron-vault"],
   ["X", "https://x.com/grid1ronvault"],
 ];
