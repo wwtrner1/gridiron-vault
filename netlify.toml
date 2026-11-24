@@ -86,6 +86,12 @@
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
 
+# The home page's pictures of each tool (and of the Film Room cameras) keep their file names too.
+[[headers]]
+  for = "/shots/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
 [[headers]]
   for = "/*"
   [headers.values]

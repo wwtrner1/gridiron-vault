@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { OFFENSE_TOKENS, type TokenPreset } from "./presets";
+import { brandStore } from "./brand";
 import { colorName, letterColor, normalizeHex } from "./colors";
 
 /**
@@ -7,6 +8,11 @@ import { colorName, letterColor, normalizeHex } from "./colors";
  * The canvas defaults live in presets.ts; a coach's changes are kept in this
  * browser and apply to every player dropped in the Designer (tray and
  * formations). Starter plays keep the canvas colors.
+ *
+ * Player look history (Wes, 2026-11-21): recoloring a lettered offense
+ * player in the Designer saves that letter's color here, and the fills ride
+ * to the account in the team brand (`TeamBrand.letterColors`), so the next
+ * player of that letter comes out the same on every device.
  */
 export type PositionOverride = { fill?: string; shape?: "circle" | "square" };
 
@@ -66,6 +72,32 @@ function commit(next: State) {
   listeners.forEach((l) => l());
 }
 
+/** The fills the coach chose, letter → hex, as the account keeps them. */
+function fills(s: State): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(s)) if (v.fill) out[k] = v.fill.toUpperCase();
+  return out;
+}
+const same = (a: Record<string, string>, b: Record<string, string>) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+
+function toAccount(next: State) {
+  try {
+    brandStore.set({ letterColors: fills(next) });
+  } catch {
+    /* storage full — the colors still apply in this browser */
+  }
+}
+
+// Another device's colors arriving through the brand replace this browser's (shapes stay).
+brandStore.subscribe(() => {
+  const remote = brandStore.get().letterColors;
+  if (!remote || same(remote, fills(state))) return;
+  const next: State = {};
+  for (const [k, v] of Object.entries(state)) if (v.shape) next[k] = { shape: v.shape };
+  for (const [k, fill] of Object.entries(remote)) next[k] = { ...next[k], fill };
+  commit(next);
+});
+
 export const positionStore = {
   get: () => tokens,
   subscribe(listener: () => void) {
@@ -75,10 +107,14 @@ export const positionStore = {
   set(label: string, patch: PositionOverride) {
     const fill = patch.fill ? normalizeHex(patch.fill) ?? undefined : undefined;
     commit({ ...state, [label]: { ...state[label], ...patch, ...(fill ? { fill } : {}) } });
+    if (fill) toAccount(state);
   },
   reset() {
     commit({});
+    toAccount(state);
   },
+  /** The color a letter was last given in the Designer, if the coach changed it. */
+  fillOf: (label: string) => state[label]?.fill,
   isCustom: () => Object.keys(state).length > 0,
 };
 

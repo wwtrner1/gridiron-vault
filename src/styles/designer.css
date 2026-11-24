@@ -417,9 +417,17 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .fl-preview { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--white); }
 .fl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fl-row-label { font-size: 13px; font-weight: 600; color: var(--white); }
+/* The Blocking and Pressures lists reuse the quick menus' tiles, three across in the narrow tools panel. */
+.fl-group { display: flex; flex-direction: column; gap: 6px; }
+/* A switch with three choices stacks under its label so none runs off the narrow panel. */
+.fl-row.is-stacked { flex-direction: column; align-items: stretch; }
+.fl .fl-row.is-stacked .seg-onoff { flex: 1; }
+.fl .fl-row.is-stacked .seg-onoff button { flex: 1; padding: 0 6px; }
+.fl .dz-quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fl .seg-onoff { flex: none; }
 .fl .seg-onoff button { height: 26px; padding: 0 12px; }
 .dz-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dz-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 
 /* ---- Rail tabs: Draw · Routes · Players · Sets · Plays (folder icon) ---- */
@@ -447,23 +455,50 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .dz-modes, .dz-tabs, .dz-rail-foot { flex: none; }
 .dz-anchor { display: flex; flex-direction: column; gap: 8px; }
 
-/* ---- Style card: pinned to the foot of the rail ---- */
+/* ---- Tools panel: one section open at a time, all closed to start (Wes, 2026-11-21) ---- */
+.dz-acc { display: flex; flex: none; flex-direction: column; gap: 4px; }
+.dz-acc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--rail-text);
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.dz-acc-head:hover { color: var(--white); }
+.dz-acc-head.is-on { background: var(--ink-3); color: var(--white); box-shadow: inset 3px 0 0 var(--cyan); }
+.dz-acc-caret { margin-left: auto; transition: transform 0.15s ease; }
+.dz-acc-head.is-on .dz-acc-caret { transform: rotate(180deg); }
+.dz-acc .dz-tabpanel { padding: 10px 2px 14px; }
+.dz-acc .dz-tabpanel[hidden] { display: none; }
+.dz-group h4 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--fs-panel-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--panel-head);
+}
+/* The docked drawing tools sit at the top of the panel. */
+.dz-dock-slot:empty { display: none; }
+.dz-dock-slot { flex: none; }
+
+/* ---- Style card: one of the panel's sections ---- */
 .dz-style {
-  position: sticky;
-  bottom: calc(-1 * var(--space-4));
-  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: none;
-  max-height: 62%;
-  margin: auto calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  overflow-y: auto;
-  border-top: 1px solid var(--ink-4);
-  background: var(--ink);
-  box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.28);
-  scrollbar-width: thin;
 }
 .dz-style-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .dz-style-head h3 { color: var(--white); }
@@ -882,7 +917,6 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
   .dz-wide-h { display: none; }
   /* In the sheet the header is what stays pinned, so the modes just lead the list and the Style card ends it. */
   .dz-modes { position: static; margin: 0 -16px; padding: 12px 16px; }
-  .dz-style { position: static; max-height: none; margin: 0 -16px calc(-16px - env(safe-area-inset-bottom)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .dz-zoom-btns { display: none; }
   /* The white stage hugs the field instead of filling the column (the floating-tools wrap
      below sets flex: 1 0 auto on both, so these need to outrank it). The top padding leaves
@@ -1205,9 +1239,10 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 /* New Play setup (components/PlaySetup.tsx) */
 .ps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ps .fl-preview { max-height: 220px; object-fit: contain; border: 1px solid var(--border); }
+.ps-thumb svg { display: block; width: 100%; height: auto; max-height: 220px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--white); }
 .ps-note { margin: 6px 0 12px; }
 .ps-skip { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
-@media (max-width: 520px) { .ps-row { grid-template-columns: 1fr; gap: 0; } .ps .fl-preview { display: none; } }
+@media (max-width: 520px) { .ps-row { grid-template-columns: 1fr; gap: 0; } .ps .fl-preview, .ps-thumb { display: none; } }
 
 /* ---- Unsaved changes from a closed tab: offered back over the field ---- */
 .dz-draftbar {
@@ -1229,3 +1264,154 @@ button.pp-key-token:hover { border-color: var(--ink-4); }
 .rp-reps ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--rail-text); }
 .rp-reps li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .rp-rep-teach { padding: 2px 0; background: none; color: #5fd6ea; font-size: 12.5px; font-weight: 600; text-decoration: underline; }
+
+/* On the field: Flat or 3D, the 3D camera and Preview. A sibling of the stage, so it never swallows drawing. */
+.dz-view { position: absolute; z-index: 19; right: 10px; bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; max-width: calc(100% - 20px); pointer-events: none; }
+.dz-view > * { pointer-events: auto; }
+.dz-view-pick { display: flex; overflow: hidden; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); }
+.dz-view-pick button { min-width: 48px; min-height: 32px; padding: 0 12px; background: transparent; color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-view-pick button[aria-pressed="true"] { background: var(--cyan); color: var(--on-cyan); }
+/* The pill clips a ring drawn outside the chip, so the focus ring sits inside it, in the chip's own ink. */
+.dz-view-pick button:focus-visible { outline: 2px solid var(--white); outline-offset: -4px; }
+.dz-view-pick button[aria-pressed="true"]:focus-visible { outline-color: var(--on-cyan); }
+.dz-view-cam { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 4px 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-size: 12.5px; }
+.dz-view-cam select { min-height: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-pill, 999px); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-view-flip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-view-flip:disabled { opacity: 0.5; }
+.dz-view-preview { display: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--cyan); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--white); font-size: 13px; font-weight: 600; }
+/* The top bar's Preview button is in Extras on a narrow screen, so the field carries one. */
+@media (max-width: 760px) {
+  .dz-view-preview { display: inline-flex; }
+}
+@media (pointer: coarse) {
+  .dz-view-pick button, .dz-view-cam, .dz-view-preview, .dz-view-flip { min-height: 44px; }
+  /* 16px, so an iPhone doesn't zoom the page into the box. */
+  .dz-view-cam select { min-height: 36px; font-size: 16px; }
+}
+.dz-3d { position: absolute; z-index: 18; inset: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--ink); }
+.dz-3d-field, .dz-3d .fr-3d { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; background: var(--ink); }
+.dz-3d-wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--rail-text); font-size: 14px; font-weight: 600; }
+.dz-3d .fr-3d-wait { color: var(--rail-text); }
+.dz-3d-note { position: absolute; top: 10px; left: 10px; margin: 0; padding: 6px 10px; border-radius: var(--radius-md); background: rgba(1, 22, 40, 0.86); color: var(--white); font-size: 12.5px; font-weight: 600; pointer-events: none; }
+.insp-share { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.insp-share .btn:disabled { opacity: 0.45; }
+
+/* The top bar on a laptop: everything on it stays on the screen. The wordmark gives way first, then the
+   gaps tighten, then the zoom slider becomes the − Fit + buttons (as it already is under 1180px), then
+   Undo and redo go (also on the floating tools and in Extras); below 1240px Details and Run play are in
+   Extras (Preview and the Film Room stay), and below 1100px the work tabs are. The gaps are bounded so
+   the phone bar keeps its own. */
+.dz-more-menu .is-wider-dup { display: none; }
+@media (max-width: 1620px) {
+  .dz-brand b { display: none; }
+}
+@media (min-width: 1181px) and (max-width: 1620px) {
+  .dz-top { gap: 10px; }
+}
+@media (min-width: 1181px) and (max-width: 1440px) {
+  .dz-top-actions { gap: 6px; }
+}
+@media (min-width: 1181px) and (max-width: 1365px) {
+  .dz-zoom, .dz-fit { display: none; }
+  .dz-zoom-btns { display: inline-flex; }
+}
+@media (max-width: 1240px) {
+  .dz-wider { display: none; }
+  .dz-more-menu .is-wider-dup { display: flex; }
+}
+@media (max-width: 1100px) {
+  .dz-top .worktabs { display: none; }
+  .dz-more-menu .is-tabs-dup { display: flex; }
+}
+/* A phone's field is all drawing room, so the chips sit in their own row under it, never over a tap. */
+@media (max-width: 900px), (max-height: 500px) and (pointer: coarse) {
+  .dz-view { position: relative; right: auto; bottom: auto; flex: none; max-width: none; margin-top: 8px; }
+  .dz-view { flex-wrap: nowrap; }
+  .dz-view-cam { min-width: 0; padding-left: 4px; }
+  .dz-view-cam span { display: none; }
+  .dz-view-cam select { min-width: 0; max-width: 100%; }
+}
+
+/* ---- Top-bar menus: Edit · Field · Teach · Go to · ? ---- */
+.dz-menus { display: inline-flex; flex: none; align-items: center; gap: 2px; }
+.dz-menu-btn { gap: 4px; }
+.dz-menu-btn svg { opacity: 0.7; }
+.dz-help .dz-menu-btn { min-width: 34px; justify-content: center; font-weight: 800; }
+/* Inside the panel the section heading already says Style; the card keeps its own heading for screen readers. */
+.dz-acc .dz-style-head h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dz-acc .dz-style-head { justify-content: flex-end; }
+/* Docked in the tools panel (the default on tablets and up): part of the panel, not over the field. */
+.dz-float.is-docked { position: static; width: auto; box-shadow: none; }
+.dz-float.is-docked .dz-float-head { cursor: default; padding-left: 8px; }
+.dz-float.is-docked .dz-float-colors { flex-wrap: wrap; }
+
+/* ---- One-click routes: the menu over a tapped player, then its quick bar ---- */
+.dz-quick {
+  position: fixed;
+  z-index: 320;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 388px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 72px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  box-shadow: var(--shadow-l);
+  color: var(--white);
+}
+.dz-quick:focus { outline: none; }
+.dz-quick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dz-quick-title { font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--panel-head); }
+.dz-quick-x { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: transparent; color: var(--tool-icon); }
+.dz-quick-x:hover { background: var(--ink-3); color: var(--white); }
+.dz-quick-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 480px) { .dz-quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dz-quick-tile, .dz-set-tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px 5px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink-2); color: var(--white); }
+.dz-quick-tile:hover, .dz-quick-tile:focus-visible, .dz-set-tile:hover, .dz-set-tile:focus-visible { border-color: var(--cyan); background: var(--ink-3); }
+.dz-quick-tile svg, .dz-set-tile svg { width: 44px; height: 34px; }
+.dz-quick-tile b, .dz-set-tile b { font-size: 12.5px; font-weight: 700; }
+.dz-quick-tile small, .dz-set-tile small { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+/* Block and assignment tiles carry a longer hint than a route's depth, so it wraps under the name. */
+.dz-set-tile small { text-align: center; line-height: 1.15; }
+.dz-quick-sub { margin: 0; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-2); }
+.dz-quick-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.dz-quick-row button, .dz-quick.is-bar button { min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--ink-3); color: var(--white); font-size: 13px; font-weight: 600; }
+.dz-quick-row button:hover, .dz-quick.is-bar button:hover { background: var(--ink-4); }
+.dz-quick.is-bar { flex-direction: row; flex-wrap: wrap; align-items: center; width: auto; }
+.dz-quick.is-bar .is-done { background: var(--cyan); color: var(--on-cyan); }
+.dz-quick-note { margin: 0; font-size: 13.5px; }
+@media (pointer: coarse) {
+  .dz-quick-tile, .dz-set-tile { padding: 8px 2px; }
+  .dz-quick-row button, .dz-quick.is-bar button { min-height: 44px; }
+}
+.dz-quick.is-block { width: 388px; }
+.dz-quick.is-arm { width: 280px; }
+/* A defender's menu holds twenty jobs, so it is wider and six tiles across to stay short enough for the screen. */
+.dz-quick.is-jobs { width: 520px; }
+.dz-quick.is-jobs .dz-quick-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 560px) { .dz-quick.is-jobs .dz-quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dz-quick-head-end { display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
+.dz-quick-clear { min-height: 28px; padding: 0 10px; border-radius: var(--radius-sm); background: var(--ink-3); color: var(--white); font-size: 12.5px; font-weight: 600; }
+.dz-quick-clear:hover { background: var(--ink-4); }
+.rl-tile span small { display: block; font-family: var(--mono); font-size: 9px; font-weight: 400; color: var(--muted-2); }
+/* The LOS slider sits at the field's bottom-left corner: the line and the play slide together. */
+.dz-los { position: absolute; z-index: 19; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border: 1px solid var(--ink-4); border-radius: var(--radius-pill, 999px); background: var(--ink); box-shadow: var(--shadow-m); color: var(--rail-text); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
+.dz-los input { width: 120px; accent-color: var(--cyan); }
+@media (max-width: 900px), (max-height: 500px) and (pointer: coarse) {
+  .dz-los { position: relative; left: auto; bottom: auto; align-self: flex-start; margin-top: 8px; }
+}
+/* Your sets: the coach's own formations, from the Vault. */
+.ys { display: flex; flex-direction: column; gap: 6px; }
+.ys-set { display: flex; align-items: center; gap: 8px; padding: 4px; border: 1px solid var(--ink-3); border-radius: var(--radius-md); background: var(--ink); color: var(--white); text-align: left; }
+.ys-set:hover, .ys-set:focus-visible { border-color: var(--cyan); }
+.ys-set svg { flex: none; width: 84px; height: 42px; border-radius: 3px; background: var(--white); }
+.ys-set span { display: flex; flex-direction: column; min-width: 0; }
+.ys-set b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.ys-set small { font-size: 11px; color: var(--muted-2); }
+
+/* The 3D field's turn buttons keep clear of the Flat · 3D chips in the same corner. */
+.dz-3d .fr-3d-turn { right: auto; left: 10px; }

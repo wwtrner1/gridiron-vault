@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, menuButton, quiet, seedReady, workspace } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -13,8 +13,7 @@ test("Coverage check runs a pass play against every look, shows one on the field
   await page.locator(".stage-frame svg").first().waitFor();
 
   // Extras → Coverage check: one chip per look, a verdict, and the read table.
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator('[data-tour="dz-coverage"]').click();
+  await (await designerMenu(page, "teach")).locator('[data-tour="dz-coverage"]').click();
   const dialog = page.getByRole("dialog", { name: /Coverage check/ });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("h2")).toContainText(name);
@@ -36,7 +35,7 @@ test("Coverage check runs a pass play against every look, shows one on the field
   if (await show.count()) {
     await show.click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.locator('button[aria-controls="dz-more-menu"]')).toHaveClass(/has-dot/);
+    await expect(menuButton(page, "field")).toHaveClass(/has-dot/);
   } else {
     await dialog.getByRole("button", { name: "Back to drawing" }).click();
     await expect(dialog).toHaveCount(0);

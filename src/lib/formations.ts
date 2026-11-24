@@ -9,8 +9,8 @@ import type { TokenPreset } from "./presets";
 export type GameType = "5v5" | "7v7" | "11";
 
 export const GAME_TYPES: { id: GameType; label: string }[] = [
-  { id: "5v5", label: "5v5 flag" },
-  { id: "7v7", label: "7v7" },
+  { id: "5v5", label: "5-on-5" },
+  { id: "7v7", label: "7-on-7" },
   { id: "11", label: "11-man" },
 ];
 

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
+import { errorsOf, menuButton, quiet, seedReady, signIn, workspace } from "./helpers";
 
 /**
  * A coach's own voice on a Film Room lesson. Signed out, the lesson asks for a
@@ -27,7 +27,7 @@ async function openRoom(page: import("@playwright/test").Page) {
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   return page.getByRole("dialog", { name: /Film Room/ });
 }
@@ -145,7 +145,7 @@ test("a coach records a step, hears it in the lesson and in the video, replaces 
     .toMatchObject({ look: { id: IDS[1], ms: expect.any(Number) } });
 
   // Remove: the step goes quiet and the clip leaves the account.
-  await page.getByRole("button", { name: /^Extras/ }).click();
+  await menuButton(page, "teach").click();
   await page.getByRole("button", { name: "Film Room: teach this play" }).click();
   await expect(voice.getByText(/^Recorded · /)).toBeVisible();
   await voice.getByRole("button", { name: "Remove" }).click();

@@ -14,6 +14,7 @@ import {
 } from "../lib/playerPresets";
 import { BLOCKS, PRESET_BLOCKS, PRESET_ROUTES, ROUTES } from "../lib/routes";
 import { makePlayer, OFFENSE_TOKENS } from "../lib/presets";
+import { upright } from "../lib/pov";
 import { CANVAS_W } from "../lib/types";
 import type { Scene } from "../lib/types";
 import type { TokenPreset } from "../lib/presets";
@@ -94,7 +95,8 @@ export function PlayerPresets({ scene, selection, onScene, onSelection }: Props)
             onScene(applyPreset(scene, selection, p), `${p.name} applied`);
           }}
           onDrop={(p) => {
-            const at = { x: CANVAS_W / 2 + ((scene.nodes.length % 5) - 2) * 60, y: scene.losY + (p.side === "defense" ? -90 : 8) };
+            // In the offense-up frame, where the defense stands above the line; dropPreset turns it with a play drawn from the defense's end.
+            const at = { x: CANVAS_W / 2 + ((scene.nodes.length % 5) - 2) * 60, y: upright(scene).losY + (p.side === "defense" ? -90 : 8) };
             const out = dropPreset(scene, p, at, () => makePlayer(OFFENSE_TOKENS[0], at.x, at.y));
             onScene(out.scene, `${p.name} dropped`);
             onSelection([out.playerId]);

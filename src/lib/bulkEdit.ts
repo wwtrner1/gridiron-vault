@@ -1,8 +1,10 @@
 import { BRAND_COLORS, letterColor, normalizeHex, TEAM_COLORS } from "./colors";
-import { convertField } from "./fieldConvert";
+import { applySet, cleanSet, describeSet } from "./bulkSets";
+import type { SetChange } from "./bulkSets";
+import { convertField, type FieldMove } from "./fieldConvert";
 import { swapSides } from "./formations";
 import { BOX_DEPTH, fitGaps, gapsFrom } from "./gapFits";
-import { canTurnAround, turnAround } from "./pov";
+import { inUpright, turnAround } from "./pov";
 import type { TokenPreset } from "./presets";
 import type { LocalPlaybook } from "./store";
 import { CANVAS_W, STROKE_WEIGHTS } from "./types";
@@ -109,8 +111,10 @@ export type BulkChange =
   | { op: "rename"; names: { id: string; name: string; formation?: string }[] }
   /** Tags every defender in the box with the gap he owns, from where he lines up; `replace` overwrites tags the coach set. */
   | { op: "gaps"; replace?: boolean }
-  /** Draws plays from the defense's end, or back from the offense's (only fields without a fixed side). */
-  | { op: "pov"; end: "defense" | "offense" };
+  /** Draws plays from the defense's end, or back from the offense's (the defense at the bottom of the card, on every field). */
+  | { op: "pov"; end: "defense" | "offense" }
+  /** One of Wes's blocking schemes or pressures, or a one-click block or assignment, put on the play (`lib/bulkSets.ts`). A play that can't take it is skipped with the reason. */
+  | SetChange;
 
 /** `open` is the play on the Designer's field, saved or not (the card works on the field itself). */
 export type BulkScope = { kind: "vault" } | { kind: "playbook"; name: string } | { kind: "plays"; ids: string[] } | { kind: "open" };
@@ -270,10 +274,19 @@ function mirrorNode(n: SceneNode): SceneNode {
  * H yellow" works), and how many players, lines or text boxes changed. Node ids are kept, so
  * routes stay attached to their runners. A first read always draws in
  * FIRST_READ, so a route recolor leaves it alone and counts it instead.
+ * `apply_set` adds and replaces lines: the nodes it adds, changes or removes
+ * all count, `notes` says what each set did in the coach's words, and
+ * `skipped` says why a set couldn't go on this play (nothing is half drawn).
  */
-export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPreset[]): { scene: Scene; players: number; firstReads: number } {
+export function editScene(
+  scene: Scene,
+  changes: BulkChange[],
+  tokens: TokenPreset[],
+): { scene: Scene; players: number; firstReads: number; notes: string[]; skipped: string[] } {
   const touched = new Set<string>();
   const firstReads = new Set<string>();
+  const notes: string[] = [];
+  const skipped: string[] = [];
   let nodes = scene.nodes;
   let view = scene.view;
   /** Line of scrimmage, pivot and end a field change or a turn left the play with. */
@@ -287,10 +300,11 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
     }
     if (change.op === "pov") {
       const at = now();
-      if ((at.pov === "defense") === (change.end === "defense") || !canTurnAround(view)) continue;
+      if ((at.pov === "defense") === (change.end === "defense")) continue;
+      // Every field turns: the card goes half a circle, so the line of scrimmage moves with it.
       const next = turnAround(at);
       nodes = next.nodes;
-      frame = { ...(frame ?? {}), pov: next.pov, pivot: next.pivot };
+      frame = { ...(frame ?? {}), pov: next.pov, pivot: next.pivot, losY: next.losY };
       nodes.forEach((n) => touched.add(n.id));
       continue;
     }
@@ -305,18 +319,24 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
       });
       continue;
     }
-    if (change.op === "field") {
-      // An end zone has a fixed side, so a play drawn from the defense's end turns back first, as in the Designer.
-      if (now().pov === "defense" && !canTurnAround(change.view)) {
-        const back = turnAround(now());
-        nodes = back.nodes;
-        frame = { ...(frame ?? {}), pov: back.pov, pivot: back.pivot };
-        nodes.forEach((n) => touched.add(n.id));
+    if (change.op === "apply_set") {
+      const made = applySet(now(), change);
+      if ("skip" in made) {
+        skipped.push(made.skip);
+        continue;
       }
+      nodes = made.scene.nodes;
+      made.changed.forEach((id) => touched.add(id));
+      notes.push(made.status);
+      continue;
+    }
+    if (change.op === "field") {
       // Routes keep their depth in yards on the new field, as when the coach changes it in the Designer.
-      const move = convertField(now(), change.view);
+      // The conversion is written for the offense-up frame, so a play drawn from the defense's end is converted turned back and put back.
+      let move!: FieldMove;
+      const converted = inUpright(now(), (u) => ((move = convertField(u, change.view)), move.scene));
       view = change.view;
-      if (move.moved) (nodes = move.scene.nodes), (frame = { ...(frame ?? {}), losY: move.scene.losY, pivot: move.scene.pivot });
+      if (move.moved) (nodes = converted.nodes), (frame = { ...(frame ?? {}), losY: converted.losY, pivot: converted.pivot });
       continue;
     }
     if (change.op === "meta" || change.op === "file" || change.op === "rename") continue;
@@ -406,10 +426,14 @@ export function editScene(scene: Scene, changes: BulkChange[], tokens: TokenPres
   const out: Scene = changed || view !== scene.view ? { ...scene, ...frame, ...(changed ? { nodes } : {}), view } : scene;
   // Turned back to the offense's end: the play carries no pov at all, as the Designer leaves it.
   if (out !== scene && frame && "pov" in frame && !frame.pov) delete out.pov;
-  return { scene: out, players: touched.size, firstReads: firstReads.size };
+  return { scene: out, players: touched.size, firstReads: firstReads.size, notes, skipped };
 }
 
-export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[] };
+/** `notes` is what a block, scheme or pressure did to this play, in the coach's words. */
+export type BulkTarget = { before: StoredPlay; after: StoredPlay; players: number; doubled: string[]; notes: string[] };
+
+/** A play that couldn't take a set, and why. */
+export type BulkSkip = { id: string; name: string; reason: string };
 
 /** A playbook a bulk edit files plays in (or takes them out of): its play ids before and after. */
 export type BulkFiling = { book: LocalPlaybook; before: string[]; after: string[]; created: boolean };
@@ -424,6 +448,8 @@ export type BulkPlan = {
   missingBook: string | null;
   /** First-read routes a route recolor left as they are. */
   firstReads: number;
+  /** Plays that couldn't take a block scheme, pressure, block or assignment, with the reason. */
+  skips: BulkSkip[];
 };
 
 export { swapSides };
@@ -515,9 +541,11 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
   }
   const now = new Date().toISOString();
   let firstReads = 0;
+  const skips: BulkSkip[] = [];
   const targets = scoped.flatMap((p): BulkTarget[] => {
-    const { scene, players, firstReads: reads } = editScene(p.scene, edit.changes, tokens);
+    const { scene, players, firstReads: reads, notes, skipped } = editScene(p.scene, edit.changes, tokens);
     firstReads += reads;
+    for (const reason of skipped) skips.push({ id: p.id, name: p.name, reason });
     const meta = metaOf(p, edit.changes);
     const renamed = renamedAs(p, edit.changes);
     const fieldChanged = scene.view !== p.scene.view;
@@ -529,9 +557,9 @@ export function planBulkEdit(edit: BulkEdit, plays: StoredPlay[], books: LocalPl
     );
     // A flipped play's name and formation follow it to the other side.
     const sides = flips(edit.changes) ? { name: swapSides(p.name), formation: swapSides(p.formation) } : {};
-    return [{ before: p, after: { ...p, ...meta, ...sides, ...renamed, fieldView: scene.view, scene, updatedAt: now }, players, doubled }];
+    return [{ before: p, after: { ...p, ...meta, ...sides, ...renamed, fieldView: scene.view, scene, updatedAt: now }, players, doubled, notes }];
   });
-  return { targets, filings: fileBooks(edit.changes, scoped, books), inScope: scoped.length, missingBook, firstReads };
+  return { targets, filings: fileBooks(edit.changes, scoped, books), inScope: scoped.length, missingBook, firstReads, skips };
 }
 
 /** "Y → yellow", "Green X → Z (royal blue)", "Clear letters", for the card and for Griddy. */
@@ -539,6 +567,7 @@ export function describeChange(c: BulkChange, colorLabel: (hex: string) => strin
   const name = (hex: string) => colorLabel(bulkColor(hex) ?? hex);
   const who = (letter: string, only?: string) => (only ? `${name(only).replace(/^./, (ch) => ch.toUpperCase())} ${up(letter)}` : up(letter));
   if (c.op === "mirror") return "Flip left ↔ right";
+  if (c.op === "apply_set") return describeSet(c);
   if (c.op === "gaps") return c.replace ? "Tag every gap (replacing tags)" : "Tag the gaps";
   if (c.op === "pov") return c.end === "defense" ? "Draw from the defense's end" : "Draw from the offense's end";
   if (c.op === "field") return `Field → ${FIELD_LABELS[c.view]}`;
@@ -603,8 +632,9 @@ const sameLook = (a: Look, b: Look) => (Object.keys(a) as (keyof Look)[]).every(
  * Undo on a field that may have changed since. A player whose only change
  * was its letter or colors gets those back and keeps any later moves; any
  * other node the bulk edit changed (a flipped line, a recolored route) goes
- * back as it was, and text boxes it removed come back. Nodes the edit didn't
- * touch stay as they are now.
+ * back as it was, and text boxes it removed come back. Lines a block scheme or
+ * pressure added go away and the lines it replaced come back. Nodes the edit
+ * didn't touch stay as they are now.
  */
 export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene {
   const was = new Map(before.nodes.map((n) => [n.id, n] as const));
@@ -620,17 +650,19 @@ export function restorePlayers(field: Scene, before: Scene, after: Scene): Scene
   const kept = new Set(after.nodes.map((n) => n.id));
   const onField = new Set(field.nodes.map((n) => n.id));
   const removed = before.nodes.filter((n) => !kept.has(n.id) && !onField.has(n.id));
+  // Nodes the edit added (the lines of a block scheme or a pressure) go again, wherever they are on the field now.
+  const added = new Set(after.nodes.filter((n) => !was.has(n.id) && onField.has(n.id)).map((n) => n.id));
   // A field change comes back whole (field, line of scrimmage, pivot) while the play is still on the field it was moved to.
   const unmove = before.view !== after.view && field.view === after.view ? { view: before.view, losY: before.losY, pivot: before.pivot } : {};
   // A turn to the other end comes back too, while the field is still turned the way the edit left it.
-  const unturn = (before.pov ?? null) !== (after.pov ?? null) && (field.pov ?? null) === (after.pov ?? null) ? { pov: before.pov, pivot: before.pivot } : null;
-  if (!changed.size && !removed.length && !("view" in unmove) && !unturn) return field;
+  const unturn = (before.pov ?? null) !== (after.pov ?? null) && (field.pov ?? null) === (after.pov ?? null) ? { pov: before.pov, pivot: before.pivot, losY: before.losY } : null;
+  if (!changed.size && !removed.length && !added.size && !("view" in unmove) && !unturn) return field;
   const back: Scene = {
     ...field,
     ...unmove,
     ...unturn,
     nodes: [
-      ...field.nodes.map((n) => {
+      ...field.nodes.filter((n) => !added.has(n.id)).map((n) => {
         const how = changed.get(n.id);
         const old = was.get(n.id);
         if (!how || !old) return n;
@@ -687,11 +719,12 @@ const limit = (v: unknown, range: readonly [number, number]) => {
 const text = (v: unknown, max: number) => (v == null ? "" : String(v).slice(0, max).trim());
 
 /**
- * One of the open-ended changes (style, wristband, field, meta, file, gaps, pov) as Griddy sent
+ * One of the open-ended changes (style, wristband, field, meta, file, gaps, pov, apply_set) as Griddy sent
  * it, checked: unknown values are dropped, and a filter that doesn't parse
  * drops the change rather than widening it. Null when nothing usable is left.
  */
 export function cleanOpenChange(c: Record<string, unknown>): BulkChange | null {
+  if (c.op === "apply_set") return cleanSet(c);
   if (c.op === "wristband") {
     const format = pick(c.format, WRISTBAND_FORMATS);
     return format ? { op: "wristband", format } : null;

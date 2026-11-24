@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
 
 /**
  * Draw together (live plays), with `/api/live` mocked: a blank live play
  * started from the Front Office opens in the Designer with the staff who are
  * there, another coach's change lands on the field within a poll, this
  * coach's move goes up as one patch, "Save a copy to my Vault" makes a normal
- * play, a Vault play goes live from Extras, and an organisation without the
+ * play, a Vault play goes live from the Edit menu, and an organisation without the
  * plan sees "Can't open live".
  */
 test.beforeEach(async ({ context }) => quiet(context));
@@ -111,8 +111,7 @@ test("a live play started from the Front Office is drawn with the staff, and a c
   await expect(badge).toHaveText(/Live with Coach Dee/);
 
   // Save a copy: a normal play in the Vault, and the Designer moves to it.
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Save a copy to my Vault" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Save a copy to my Vault" }).click();
   await expect(page.getByText("Saved to your Vault and your account.")).toBeVisible();
   await expect(page).toHaveURL(/\/build\/11111111-1111-4111-8111-111111111111/);
   const ws = await workspace(page);
@@ -123,7 +122,7 @@ test("a live play started from the Front Office is drawn with the staff, and a c
   expect(errors).toEqual([]);
 });
 
-test("a Vault play goes live from Extras with its drawing", async ({ page, context }) => {
+test("a Vault play goes live from the Edit menu with its drawing", async ({ page, context }) => {
   const errors = errorsOf(page);
   const started: { name: string; nodes: number }[] = [];
   await signIn(context, async (route, path, method) => {
@@ -138,8 +137,7 @@ test("a Vault play goes live from Extras with its drawing", async ({ page, conte
   await page.locator('.play-card button[aria-label^="Open"]').nth(2).click();
   await page.locator(".stage-frame svg").first().waitFor();
   const name = await page.locator(".dz-name").textContent();
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Draw this live with my staff" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Draw this live with my staff" }).click();
   await expect(page).toHaveURL(/\/build\?live=live2/);
   expect(started).toHaveLength(1);
   expect(started[0].name).toBe(name);

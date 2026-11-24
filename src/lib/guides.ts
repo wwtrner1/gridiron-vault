@@ -39,11 +39,16 @@ export type Guide = {
 /** Selector for an element marked `data-tour="id"`. */
 export const tour = (id: string) => `[data-tour="${id}"]`;
 
-const EXTRAS = '[aria-controls="dz-more-menu"]';
+/** The Designer's top-bar menus (Edit · Field · Teach · Go to). */
+const MENU = (id: "edit" | "field" | "teach" | "goto") => `[aria-controls="dz-menu-${id}"]`;
+const EDIT = MENU("edit");
+const TEACH = MENU("teach");
 const GRIDDY_OPEN = ".gd-launch";
-/** On phones the tools panel is a sheet behind the thumb bar's Tools button, and the play panel is in Extras. */
+/** On phones the tools panel is a sheet behind the thumb bar's Tools button, and the play panel is in the Edit menu. */
 const RAIL = { open: ['.dz-dock button[aria-controls="dz-tools"]'], close: ".dz-sheet-head .dz-top-btn" };
-const SIDE = { open: [EXTRAS, tour("dz-details")], close: ".dz-side-head .dz-top-btn" };
+/** A section of the Wristbands page's left panel: its body is the target, and the tour presses its head when it is closed. */
+const WB = (id: string) => ({ target: `[data-panel="${id}"] .panel-body`, open: [`[data-panel="${id}"] .panel-head`] });
+const SIDE = { open: [EDIT, tour("dz-details")], close: ".dz-side-head .dz-top-btn" };
 const GRIDDY_CLOSE = '.gd-head button[aria-label^="Close"]';
 
 /** Steps every signed-in screen shares: the side menu, the help button and Griddy. */
@@ -115,19 +120,19 @@ export const GUIDES: Guide[] = [
             target: ".dz-top .dz-zoom, .dz-top .dz-fit",
           },
           {
-            title: "Details",
-            text: "Opens the play panel on the right: name, formation, type, tags, notes, the opponent front and the rules check.",
-            target: '.dz-top .dz-wide[aria-controls="play-details"]',
+            title: "Preview",
+            text: "Runs the play once from the snap, flat or in 3D with the camera you pick, before it goes anywhere. Export, Make a video and the Film Room are right under the field. On a narrow screen the button is on the field.",
+            target: tour("dz-preview"),
           },
           {
-            title: "Run play",
-            text: "Animates every route from the snap so you can check timing. You can set it beside game film, and run it against a defense from there.",
-            target: tour("dz-run"),
+            title: "Flip sides",
+            text: "The chip in the field's corner turns the whole play half a circle: the defense goes to the bottom of the card (or the offense does, flipped again). Routes, blocks, responsibilities and the line of scrimmage go with their players, and the one-click routes, formations and defenses you add after that run toward the other side of the ball. It works on every field.",
+            target: tour("dz-flip"),
           },
           {
-            title: "Film Room",
-            text: "Turns this play into a step-by-step lesson for your players, flat or in 3D, and can save it as a video. The same button is in Extras on a narrow screen.",
-            target: tour("dz-film"),
+            title: "Flat · 3D on the field",
+            text: "The chips in the field's corner. Flat is the drawing. 3D is a look at the play on a real field against the defense its lesson uses, with a Camera pick: behind the offense, wide, All 22, the QB cam, follow a player, a player's eyes, sideline, the press box, overhead or free look, from either end. Tap a player to ride with him. Switch back to Flat to draw.",
+            target: tour("dz-view"),
           },
           {
             title: "Export",
@@ -136,7 +141,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Undo and redo",
-            text: "Takes back the last change, a whole drag at a time, and puts it back again (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z; ⌘ on a Mac). The floating tools and Extras have them too.",
+            text: "At the far left of the top bar. Takes back the last change, a whole drag at a time, and puts it back again (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z; ⌘ on a Mac). The quick tools and the right-click menu have them too.",
             target: tour("dz-undo"),
           },
           {
@@ -145,82 +150,54 @@ export const GUIDES: Guide[] = [
             target: tour("dz-save"),
           },
           {
-            title: "Extras",
-            text: "Everything else, in one drop-down: Edit, Field, Play, Go to and Help. A dot shows on it while route depths or a Vs defense overlay is on.",
-            target: EXTRAS,
+            title: "Edit · Field · Teach · Go to",
+            text: "The four menus beside Undo. Only one is open at a time, and a click outside or Escape closes it. Edit holds select all, clean up, route depths, the play's details, filing in a playbook, flips and new plays. Field holds the field layout, the defense's end, Vs defense and Field controls. Teach holds the Film Room, Run play, Make a video, Coverage check, the players' team link and assignment sheets. Go to holds the other screens. A dot on Edit shows while route depths are on, and on Field while a Vs defense is under the play. On a narrow screen the four fold into one Menu button.",
+            target: EDIT,
           },
           {
             title: "Help on this screen",
-            text: "This list, any time. Show me around walks the buttons one at a time, and the 6 quick moves are short animated lessons.",
+            text: "The ? at the right: this list, any time. Show me around walks the buttons one at a time, and the 6 quick moves are short animated lessons. Your tools and Coach tips are in it too.",
             target: tour("page-help"),
           },
         ],
       },
       {
-        heading: "Extras menu",
+        heading: "The menus",
         steps: [
           {
-            title: "Undo, redo, clean up",
-            text: "Undo and Redo (Ctrl+Z, Ctrl+Shift+Z). Clean up lines straightens wobbly routes into clean legs. Route depths prints each route's depth in yards on the field. Select all picks everything.",
+            title: "Edit",
+            text: "Select all picks everything. Clean up lines straightens wobbly routes into clean legs. Route depths prints each route's depth in yards on the field. Play details opens the play panel. Add to playbook… and Add to a new playbook… file this play. Flip and save as a new play makes the mirror image. Turn this offense into a defense drops a front and coverage that fit the offense on the field. New play… starts another and asks to save this one first. Draw this live with my staff opens the play for your Front Office.",
             target: tour("dz-more-edit"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [EDIT],
+            close: EDIT,
           },
           {
             title: "Field",
-            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. View from the defense turns the whole play half a circle about the ball so you can draw it from the other end (half, full and blank fields). Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
+            text: "Field picks half, full, red zone, flag 30×70 or blank; routes keep their depth in yards when you switch. Flip sides puts the other side of the ball at the bottom of the card, on every field, and every route and block goes with its player. Vs defense lays a defense under the play. Field controls sets snap to grid, hash marks, yard-line contrast and the league rule lines.",
             target: tour("dz-more-field"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [MENU("field")],
+            close: MENU("field"),
           },
           {
-            title: "Coverage check",
-            text: "Runs this play against Cover 1, 2, 3, 4 and man and shows who gets open, read by read.",
+            title: "Teach: Run play and Coverage check",
+            text: "Run play animates every route from the snap so you can check timing, beside game film if you like. Coverage check runs this play against Cover 1, 2, 3, 4 and man and shows who gets open, read by read.",
             target: tour("dz-coverage"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [TEACH],
+            close: TEACH,
           },
           {
-            title: "Film Room",
-            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Flat draws the play from above; 3D puts the players on a real field, with a Camera to follow the lesson or hold behind the offense, on the sideline or overhead (your pick follows you to every device; videos stay flat). Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Those picks save with the play. Hide the steps puts the side panel away so the field fills the screen, which helps on a phone or a tablet. Make a video saves the whole lesson as an MP4, wide for the meeting room or tall for phones, made in your browser. Record this step adds your own voice to the step in view (up to 45 seconds; sign in first): it plays when the lesson reaches that step, on your players' team link once you update the link, and inside the video. Read it for me has the Film Room voice (a stock voice, made in your browser; the first time it fetches about 92 MB) read the step instead, and Read the steps with no voice does the rest of the lesson in one press. Hear it, Record again and Remove sit beside it, and Voice on or off mutes it. The first time it opens, tips walk you round the controls one at a time; Skip the tips or Escape puts them away, and Tips in the top bar brings them back. Also in Run play as Teach it in the Film Room.",
+            title: "Teach: Film Room",
+            text: "Turns this play into a six-step lesson for your players: the look, the zones, the call, the snap, the read and each player's job, each with one caption. Flat draws the play from above; 3D puts the players on a real field, with a Camera to follow the lesson or hold one spot: behind the offense, wide, All 22, the QB cam with its snap-to-pass clock, follow a player, a player's eyes (tap any player to ride in his helmet, drag to turn his head), sideline, the press box, overhead, a camera for each moment of the play, or free look. From picks the offense's or the defense's end, and Follow the ball swings the camera to the throw (your picks follow you to every device; videos stay flat). Pick Dark, Light or Match my device, the defense to teach it against, and whether it wears your team colors. Make a video saves the lesson as an MP4, wide or tall, made in your browser. Record this step adds your own voice (up to 45 seconds; sign in first), and Read it for me has the Film Room voice read it instead. Tips walk you round the controls the first time.",
             target: tour("dz-film-room"),
-            open: [EXTRAS],
-            close: EXTRAS,
-          },
-          {
-            title: "Turn this offense into a defense",
-            text: "Reads the offense on the field (personnel, trips or 2x2, where the strength is) and drops a front and coverage that fit it, lined up on the real blockers by technique, with every defender's gap, technique or coverage job written under him. A defense already on the field is replaced; Undo brings it back. Also on the Sets tab's Defense list.",
-            target: tour("dz-match-defense"),
-            open: [EXTRAS],
-            close: EXTRAS,
-          },
-          {
-            title: "New play, setup, live, flip",
-            text: "New play… starts another play, and asks to save this one first if it has changes. New play setup turns the name-personnel-formation questions on or off. Draw this live with my staff opens the play for your Front Office to edit at the same time. Flip and save as a new play makes the mirror image.",
-            target: tour("dz-play"),
-            open: [EXTRAS],
-            close: EXTRAS,
-          },
-          {
-            title: "Add to playbook",
-            text: "Add to playbook… files this play in a playbook you have. Add to a new playbook… lets you type a name, makes the playbook and puts the play in it in one step. A play with unsaved changes is saved first.",
-            target: tour("dz-add-book"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [TEACH],
+            close: TEACH,
           },
           {
             title: "Go to",
             text: "Upload a whiteboard photo, More tools and Back to the Vault. On narrow screens the work tabs live here too.",
             target: tour("dz-more-goto"),
-            open: [EXTRAS],
-            close: EXTRAS,
-          },
-          {
-            title: "Help",
-            text: "Your tools: show or hide trims the tools panel to what you use. How the designer works plays the 6 quick moves. Coach tips turns the small hint bubbles on or off.",
-            target: tour("dz-more-help"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [MENU("goto")],
+            close: MENU("goto"),
           },
         ],
       },
@@ -233,19 +210,24 @@ export const GUIDES: Guide[] = [
             target: ".dz-modes", ...RAIL,
           },
           {
-            title: "Tool sets",
-            text: "Draw (lines and shapes), Routes (the route library), Players (offense and defense), Sets (formations, defenses, layers, saved format) and the folder icon for your playbooks. Arrow keys move between them.",
-            target: ".dz-tabs", ...RAIL,
+            title: "Sections",
+            text: "Draw, Routes, Players, Sets, Playbooks and Style, one under the other. All start closed and opening one closes the one before, so the panel never gets long.",
+            target: ".dz-acc", ...RAIL,
+          },
+          {
+            title: "Quick tools in the panel",
+            text: "Select, Route, Dashed, Block and Text, the read colors and the line weights sit at the top of the panel. Float over the field pulls them out as a bar you can drag anywhere; Dock in the tools panel puts them back.",
+            target: ".dz-float", ...RAIL,
           },
           {
             title: "Draw: lines and shapes",
             text: "Route arrow (solid, for runs and routes), Dashed (ball flight, motion, man coverage), Block (T-line), Motion (wavy), 3-point arc (wheels, fades), Freehand, Auto-connect (glued between two players), Bezier pen and Pivot point. Shapes: Polygon, Coverage zone, Rectangle, Ellipse and Text. Number keys 1–9 and 0 pick them.",
-            target: "#dz-tabpanel", ...RAIL,
+            target: "#dz-tabpanel-draw", open: [...RAIL.open, "#dz-tab-draw"], close: RAIL.close,
           },
           {
             title: "Routes, Players, Sets, Plays",
-            text: "Routes: pick a route from the tree, then click a player and it's drawn from him. Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5v5, 7v7, 11-man), Defense lines up a front and coverage, Layers lists everything (including locked and hidden items), Saved play format copies one play's look to others. Plays: your playbook folders.",
-            target: ".dz-tabs", ...RAIL,
+            text: "Routes: every route with its depth in yards; pick one, then click a player (or just click the player on the field, see below). Players: Offense or Defense, then tap a position to drop it or drag it to a spot. Sets: Formations drops a whole offense (5-on-5, 7-on-7, 11-man), Your sets drops the players of any formation you've saved a play with (labeled or plain, as drawn or flipped), Defense lines up a front (4-3, 4-2-5, 3-4 and more) and coverage, Blocking puts a whole line's blocks on in one click (inside zone, power, trap, slide protection…) to the left or right, Pressures puts one of the rush packages (SOB, Go, Mob, Missile, Sextra, Swing, Twist…) on the defense with the rover's Gold job, Layers lists everything, Saved play format copies one play's look to others. Playbooks: your playbook folders.",
+            target: ".dz-acc", ...RAIL,
           },
           {
             title: "Show or hide tools",
@@ -254,8 +236,8 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Style card",
-            text: "Color, weight, dash, curve and line ends for whatever is selected, or for the next line you draw. Wristband bold makes lines and players heavy enough to read on a 4-inch card. Ctrl+Alt+C copies a style and Ctrl+Alt+V pastes it.",
-            target: ".dz-style", ...RAIL,
+            text: "The last section. Color, weight, dash, curve and line ends for whatever is selected, or for the next line you draw. Wristband bold makes lines and players heavy enough to read on a 4-inch card. Recolor one player and every new player with his letter comes out that color, on every device you sign in on. Ctrl+Alt+C copies a style and Ctrl+Alt+V pastes it.",
+            target: "#dz-tab-style", ...RAIL,
           },
         ],
       },
@@ -269,12 +251,32 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Field",
-            text: "Click a player to pick him (his routes light up), drag to move him and his routes follow. Right-click (or press and hold) for Duplicate, Delete, Lock, Send to back and more. Double-click or Enter finishes a line; Esc stops drawing.",
+            text: "Click a player to pick him and open his routes (his routes light up), drag to move him and his routes follow. Right-click (or press and hold) for Duplicate, Delete, Lock, Send to back and more; on empty field it also has Undo, Redo, route depths, Add to playbook and Field layout. Double-click or Enter finishes a line; Esc stops drawing.",
             target: ".builder-stage",
           },
           {
+            title: "One-click routes",
+            text: "Click a receiver and pick a route from the menu by his side: Flat, Slant, Hitch, Bubble, Drag, Wheel, Out, Deep out, Dig, Curl, Comeback, Corner, Post or Go. It's drawn in his color at real depths in yards, breaking the right way for his side of the ball. The small bar that follows has Flip break, End (arrow, T, dot, none), Undo and Done. Handoff, Pitch and Motion are in the same menu. In 5-on-5 and 7-on-7 the center runs routes too.",
+            target: ".builder-stage",
+          },
+          {
+            title: "Click to block",
+            text: "Click a lineman (T, G or the center in 11-man), then either click the defender he blocks, or pick a block from the menu: Base, Reach, Down, Combo, Climb, Pull and kick out, Pull and lead, Trap, Fold, Scoop, Pass set, Hinge or Screen release. Every block ends in a T and is drawn in his color, aimed at the defender it fits when there is a defense on the field. The bar that follows has Flip side, Undo and Done. Block straight ahead draws one up the field instead; Esc puts it away. A back, tight end or receiver has Blocks beside his routes: Base, Stalk, Crack, Lead, Kick out, Arc, Slice or Pass pro.",
+            target: ".builder-stage",
+          },
+          {
+            title: "Click a defender",
+            text: "Click a defender to give him a job: Rush, A, B or C gap, Slant, Loop, Contain, Peel or Hit, or a coverage: Man (then click the receiver, or Nearest receiver), Flat, Curl, Hook, Hole, Robber, Deep 1/3, 1/2, 1/4, Deep middle or Spy. His line is drawn from him (solid for rushes, dashed for coverage, a zigzag for Hit) and the job's name goes under his token. Flip side, Undo and Done are on the bar that follows; Clear assignment takes it off.",
+            target: ".builder-stage",
+          },
+          {
+            title: "Line of scrimmage",
+            text: "The slider in the field's corner moves the line up or down the field, and the whole play moves with it.",
+            target: tour("dz-los"),
+          },
+          {
             title: "Floating tools",
-            text: "A small bar over the field: Select, Route, Dashed, Block and Text; 1st read, 2nd read, Checkdown and Defense colors; every color; line weights; Undo and Redo. Drag the grip to move it, collapse it, or dock it in the corner.",
+            text: "The quick tools pulled off the panel: a small bar over the field you can drag by its grip, collapse, or dock back in the tools panel.",
             target: ".dz-float",
           },
           {
@@ -314,12 +316,17 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Opponent front and Rules check",
-            text: "Opponent front shows a stock 11-man front and coverage, a 5-on-5 flag look or one of your saved defenses under the play. Rules check reads the drawing against your league's rules (players a side, blocking, QB runs, no-run zones, rushers, motion); Show me on the field picks what to fix.",
+            text: "Every section starts closed and one opens at a time. Opponent front asks first whether this play is your offense or your defense: for an offense it shows a stock 11-man front and coverage, a 5-on-5 flag look or one of your saved defenses under the play; for a defense it shows the offense you expect. Rules check reads the drawing against your league's rules (players a side, blocking, QB runs, no-run zones, rushers, motion); Show me on the field picks what to fix.",
             target: "#play-details", ...SIDE,
           },
           {
+            title: "Teach and share",
+            text: "Make a video saves this play's Film Room lesson as an MP4 without opening the Film Room first (Head Coach plans and up). Preview runs the play flat or in 3D, and Film Room opens the full lesson.",
+            target: tour("dz-share"), ...SIDE,
+          },
+          {
             title: "Selection, presets, notes, arrange",
-            text: "With something picked, its own settings show here (label, size, color, first read, route tag). Player presets save a look for a letter, Player notes write one player's job, and Arrange aligns, distributes, flips, groups and layers.",
+            text: "With something picked, its own settings show here (label, size, color, first read, route tag). Responsibility tags offer offense jobs (Hot, Read 1, Block, Decoy…) or defense jobs (A gap, Contain, Deep 1/3…) for the side you picked, or type your own. Player presets save a look for a letter, Player notes write one player's job, and Arrange aligns, distributes, flips, groups and layers.",
             target: "#play-details", ...SIDE,
           },
         ],
@@ -345,11 +352,11 @@ export const GUIDES: Guide[] = [
         heading: "Open it",
         steps: [
           {
-            title: "Extras → Coverage check",
-            text: "In the Designer, open Extras and pick Coverage check: who gets open. Run play also has Run it against a defense.",
+            title: "Teach → Coverage check",
+            text: "In the Designer, open the Teach menu and pick Coverage check: who gets open. Run play also has Run it against a defense.",
             target: tour("dz-coverage"),
-            open: [EXTRAS],
-            close: EXTRAS,
+            open: [TEACH],
+            close: TEACH,
           },
         ],
       },
@@ -360,28 +367,28 @@ export const GUIDES: Guide[] = [
             title: "Looks",
             text: "One chip per defense (Cover 1, 2, 3, 4, man, and the flag looks for 5v5 or 7v7), colored by how the play does: green beats it, amber is close, red is covered.",
             target: ".cov .cov-looks",
-            open: [EXTRAS, tour("dz-coverage")],
+            open: [TEACH, tour("dz-coverage")],
             close: ".cov .rp-top button",
           },
           {
             title: "Run it",
             text: "Play runs the snap: receivers follow your routes, zone defenders drop and squeeze, man defenders trail, rushers chase the QB. Speed slows it down. Ball out at sets the throw at 1.6 s, the default for your format, or 3.0 s.",
             target: ".cov .rp-bar",
-            open: [EXTRAS, tour("dz-coverage")],
+            open: [TEACH, tour("dz-coverage")],
             close: ".cov .rp-top button",
           },
           {
             title: "The table",
             text: "Read order, player, route, space to the nearest defender at the throw, and open, tight or covered. The QB's best throw is highlighted.",
             target: ".cov .rp-right",
-            open: [EXTRAS, tour("dz-coverage")],
+            open: [TEACH, tour("dz-coverage")],
             close: ".cov .rp-top button",
           },
           {
             title: "Show it on the field",
             text: "The Show … on the field button lays this defense under your play (Vs defense) so you can adjust a route against it. Back to drawing closes the check.",
             target: ".cov .rp-top",
-            open: [EXTRAS, tour("dz-coverage")],
+            open: [TEACH, tour("dz-coverage")],
             close: ".cov .rp-top button",
           },
           {
@@ -608,17 +615,19 @@ export const GUIDES: Guide[] = [
       {
         heading: "Set up the card",
         steps: [
-          { title: "Saved setups", text: "Name these settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups") },
-          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", target: '[aria-labelledby="wb-presets"]' },
-          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source") },
-          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", target: '[aria-labelledby="wb-numbering"]' },
-          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", target: '[aria-labelledby="wb-card-size"]' },
-          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", target: '[aria-labelledby="wb-grid"]' },
-          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", target: '[aria-labelledby="wb-look"]' },
-          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors") },
-          { title: "Each box shows", text: "Number, name, formation and the label style.", target: '[aria-labelledby="wb-shows"]' },
-          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest), paper size or one card per page, cut marks, and how many copies of each card.", target: '[aria-labelledby="wb-text"]' },
-          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet") },
+          { title: "Left panel", text: "Every group of settings is a drop-down, all closed to start. Open one to change it; opening another closes the first. A small dot on a heading means something in it needs a look, and the line under each heading says what it is set to.", target: ".wb-controls" },
+          { title: "Saved setups", text: "Gridiron-Vault is built in and is what you start on. Name your own settings (card, look, numbering, call sheet) and Save setup; pick one and Load it next week, or Delete it. Saved to your account, so they load on any device you sign in on (signed out, they wait in this browser until you sign in). Whatever you change is kept on your account too. The plays aren't part of a setup, so it works with any playbook.", target: tour("wb-setups"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "One-click styles", text: "Play card (the print-shop look: gray number strip, a color per card, bold edge, every play at one scale with the line of scrimmage lined up), Sideline 2×4, Wristband bold and Best for this card set many options at once. Your card size stays; fine-tune anything below.", ...WB("styles") },
+          { title: "Pull plays from", text: "A Call Sheet, a playbook, or Pick plays by hand.", target: tour("wb-source"), open: ['[data-panel="start"] .panel-head'] },
+          { title: "Plays on the cards", text: "Every play on the cards, in print order. Add plays from your Vault, Draw a new play, open a play in the Designer with its pencil, or take one off with its X (a playbook or Call Sheet loses it, your Vault keeps it, and the toast's Undo puts it back). When a box will print with something cut off, Fix pulls the piece back onto the field and Fix all does every box.", ...WB("plays") },
+          { title: "Numbering", text: "Use the Call Sheet's numbers, 1, 2, 3 in print order, by card, or card spots like A1, A2. A warning shows when two boxes share a number.", ...WB("numbering") },
+          { title: "Card size", text: "Real wristband windows by maker, or Custom to type your own size.", ...WB("size") },
+          { title: "Plays per card", text: "Any count from 1 to 10, or 12. Columns × rows; 5 prints 3 over 2 and 7 prints 4 over 3, the short row centred so every box stays one size. A note warns when a box is too short to read and offers the densest grid that still reads.", ...WB("grid") },
+          { title: "Diagram", text: "Fit (crop to the players or the whole field), line weight, field markings and rule lines. Same size in every box makes players, routes and yard lines match across the card, and Line up the line of scrimmage puts the LOS at one height in every box; Field size, Player icons and Route lines change every box at once.", ...WB("look") },
+          { title: "Card colors", text: "Pick a color set (Team colors, Black and white, Navy and gold and more), then change the header, its words, the number tab, the numbers or the lines. The preview and the print match.", target: tour("wb-colors"), open: ['[data-panel="colors"] .panel-head'] },
+          { title: "Each box shows", text: "Number, name, formation and the label style.", ...WB("shows") },
+          { title: "Header, paper and copies", text: "Header and border text (with {team}, {card} and the rest, and the GridIronVault G beside the words), paper size or one card per page, cut marks, and how many copies of each card.", ...WB("text") },
+          { title: "Coach's call sheet", text: "What the coach copy prints (call list, diagrams, both, or one page with every diagram), its title, the columns (#, play, formation, personnel, type, card spot, notes), today's date, player notes under the diagrams and blank lines for game-day notes.", target: tour("wb-callsheet"), open: ['[data-panel="callsheet"] .panel-head'] },
         ],
       },
       {
@@ -626,7 +635,7 @@ export const GUIDES: Guide[] = [
         steps: [
           {
             title: "Card layout",
-            text: "Shown at actual size. Drag a box to move a call, or use the arrows. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
+            text: "Shown at actual size. Drag a box to move a call, or use the arrows; hover a box for its pencil and X. Click a header to edit its text. Print preview shows every printed page. Every sheet carries a 1-inch scale bar; if it doesn't measure an inch, your printer is set to Fit to page.",
             target: ".wb-body > :last-child",
           },
         ],
@@ -835,9 +844,9 @@ export const GUIDES: Guide[] = [
         heading: "Live plays",
         steps: [
           { title: "Sign in first", text: "The Front Office lives on your account, so it opens once you sign in. Joining one a director invited you to is free on every plan.", target: '.empty a[href="/signin"]' },
-          { title: "Start a live play", text: "Name it and start a blank play, or open a play in the Designer and pick Extras → Draw this live with my staff.", target: '[aria-labelledby="fo-live"] form' },
+          { title: "Start a live play", text: "Name it and start a blank play, or open a play in the Designer and pick Edit → Draw this live with my staff.", target: '[aria-labelledby="fo-live"] form' },
           { title: "Open and delete", text: "Open a live play to draw; everyone in it sees changes a moment later and the top bar says who's there. The director or the coach who started it can delete it.", target: '[aria-labelledby="fo-live"]' },
-          { title: "Keep a copy", text: "Inside a live play, Extras → Save a copy to my Vault keeps your own copy. It comes with the Staff plan; the director's plan decides and coaches join free." },
+          { title: "Keep a copy", text: "Inside a live play, Edit → Save a copy to my Vault keeps your own copy. It comes with the Staff plan; the director's plan decides and coaches join free." },
         ],
       },
     ],

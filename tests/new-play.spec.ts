@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, workspace } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -46,7 +46,7 @@ test("New play setup lines the personnel up, files the play in a new playbook on
   await expect(field(setup, "Personnel")).toHaveValue("5-on-5 offense");
   await expect(field(setup, "Playbook")).toHaveValue(book!.id);
 
-  // "Skip this next time" opens a blank field from then on, and Extras turns it back on.
+  // "Skip this next time" opens a blank field from then on, and the Edit menu turns it back on.
   await setup.getByLabel(/Skip this next time/).check();
   await setup.getByRole("button", { name: "Blank field" }).click();
   await expect(setup).toBeHidden();
@@ -54,8 +54,7 @@ test("New play setup lines the personnel up, files the play in a new playbook on
   await page.locator(".stage-frame svg").first().waitFor();
   await expect(setup).toBeHidden();
   await expect(page.locator(".stage-frame svg g[data-kind=player]")).toHaveCount(0);
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.getByRole("button", { name: /New play setup: off/ }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: /New play setup: off/ }).click();
   await page.goto("/build");
   await expect(setup).toBeVisible();
 

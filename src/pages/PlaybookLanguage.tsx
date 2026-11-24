@@ -32,6 +32,8 @@ const FILTERS: { id: "all" | TermType; label: string }[] = [
   { id: "formation", label: "Formations" },
   { id: "tag", label: "Tags" },
   { id: "gap", label: "Gaps & techniques" },
+  { id: "block", label: "Blocking" },
+  { id: "defense", label: "Defensive calls" },
 ];
 
 /**
@@ -203,6 +205,8 @@ export function PlaybookLanguage() {
                   <option value="formation">Formation</option>
                   <option value="tag">Tag</option>
                   <option value="gap">Gap & technique</option>
+                  <option value="block">Blocking</option>
+                  <option value="defense">Defensive call</option>
                 </select>
               </label>
               <label className="field">

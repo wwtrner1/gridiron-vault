@@ -149,7 +149,7 @@ export function RunPlay({
           <div className="rp-field">
             <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} role="img" aria-label={`${name || "Play"} running, ${t.toFixed(1)} seconds after the snap`}>
               <MarkerDefs colors={strokeColors(scene.nodes)} />
-              <FieldBackground view={scene.view} losY={scene.losY} />
+              <FieldBackground view={scene.view} losY={scene.losY} turned={scene.pov === "defense"} />
               {ordered.map((n) => {
                 if (n.kind !== "player") return <NodeLayer key={n.id} node={n} opacity={0.35} />;
                 const p = at.get(n.id) ?? n;

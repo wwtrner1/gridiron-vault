@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * Getting around the Designer: Prev and Next step through the play's playbook
@@ -116,7 +116,7 @@ test("the zoom slider and Fit size the field; the keyboard picks tools, selects 
   await expect(fit).toHaveAttribute("aria-pressed", "false");
 
   // Tool shortcuts: 2 is Dashed, 1 the route arrow, X text; Escape (via Select, key S... ) back to Select.
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   const rail = (name: string) => page.getByRole("button", { name, exact: true });
   await page.keyboard.press("2");
   await expect(rail("Dashed line with arrow")).toHaveAttribute("aria-pressed", "true");
@@ -129,6 +129,7 @@ test("the zoom slider and Fit size the field; the keyboard picks tools, selects 
   await expect(rail("Text label")).toHaveAttribute("aria-pressed", "false");
 
   // Ctrl+A selects everything; Ctrl+D doubles a picked player; Delete takes the copy off.
+  await railSection(page, "style");
   const target = page.locator(".dz-style-target");
   await page.keyboard.press("Control+a");
   await expect(target).toHaveText("3 lines · 5 players · 3 labels");

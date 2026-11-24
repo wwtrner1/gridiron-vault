@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady } from "./helpers";
 
 /**
  * The Designer's right-click menus. On empty field the Tools menu offers the
@@ -70,7 +70,12 @@ test("the field's right-click menu picks a tool, selects all and closes on the s
     "Clean up all lines",
     "Smooth all lines",
     "Straighten all lines",
+    "Show route depths",
+    "Add to playbook…",
+    "Add to a new playbook…",
     "Flip and save as a new play",
+    "Flip sides: defense to the bottom",
+    "Field layout…",
     "Fit the field to the screen",
     "Hide the side panels",
   ]);
@@ -78,14 +83,15 @@ test("the field's right-click menu picks a tool, selects all and closes on the s
   // A tool picked here is the rail's tool; the next open shows it checked.
   await menu.getByRole("menuitemradio", { name: "Dashed" }).click();
   await expect(menu).toBeHidden();
-  await page.getByRole("tab", { name: "Draw" }).click();
+  await railSection(page, "draw");
   await expect(page.getByRole("button", { name: "Dashed line with arrow" })).toHaveAttribute("aria-pressed", "true");
   await page.mouse.click(empty.x, empty.y, { button: "right" });
   await expect(menu.getByRole("menuitemradio", { name: "Dashed" })).toHaveAttribute("aria-checked", "true");
   await menu.getByRole("menuitemradio", { name: "Select" }).click();
   await expect(page.getByRole("button", { name: "Dashed line with arrow" })).toHaveAttribute("aria-pressed", "false");
 
-  // Select all picks every element on the field.
+  // Select all picks every element on the field (the Style card names what is picked).
+  await railSection(page, "style");
   const total = await svg.locator("g[data-kind]").count();
   expect(total).toBeGreaterThan(5);
   await page.mouse.click(empty.x, empty.y, { button: "right" });
@@ -135,7 +141,8 @@ test("a route's right-click menu restyles it in place, copies it to where the fi
     await expect(menu).toBeVisible();
   };
 
-  // The sections, the current look ticked, and the first item focused.
+  // The sections, the current look ticked, and the first item focused; the Style card (the panel's last section) follows the pick.
+  await railSection(page, "style");
   await open();
   await expect(menu.locator(".stage-menu-head")).toHaveText(["Line style", "Weight", "Color", "Ends", "Clean up", "Snap", "Edit"]);
   await expect(menu.getByRole("menuitemcheckbox", { name: "Solid" })).toHaveAttribute("aria-checked", "true");

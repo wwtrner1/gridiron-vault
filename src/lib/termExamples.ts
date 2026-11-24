@@ -2,6 +2,7 @@ import { seat } from "./formations";
 import { makePlayer, OFFENSE_TOKENS, DEFENSE_TOKENS } from "./presets";
 import { makeShape, makeText } from "./scene";
 import { baseNode, CANVAS_W, DEFAULT_STROKE, FIRST_READ, type EndCap, type LineStyle, type PathNode, type PlayerNode, type Scene, type SceneNode, type StoredPlay } from "./types";
+import { blockingScene } from "./termExamplesBlocking";
 import type { Term } from "./termsData";
 
 /**
@@ -250,6 +251,9 @@ function line11(d: Draw, wing = false) {
   off(d, "QB", CX, 40);
 }
 
+/** The tight end `line11` put on the field. */
+const tightEnd = (d: Draw) => d.nodes.find((n): n is PlayerNode => n.kind === "player" && n.label === "Y")!;
+
 /** Gap middles, ball out: A, B, C each side, D and E to the tight end's side. */
 const GAP_X: Record<string, number[]> = {
   A: [CX - S / 2, CX + S / 2],
@@ -321,22 +325,28 @@ function gapDiagram(id: string): Draw | null {
       return d;
     }
     case "glossary-contain": {
+      // A toss to the tight end's side. Y reaches for the end's outside shoulder; the end keeps that shoulder free and stays outside the block, so the ball carrier has to turn back up inside him.
       line11(d);
-      const h = off(d, "RB", CX, 90, "H");
-      const e = def(d, CX + 4.4 * S, -50, "E", "Contain");
-      line(d, h, [[3.6 * S, -40], [-40, -70]], { color: RUN });
-      line(d, e, [[-20, 50]], { color: DEF, end: "tee" });
-      label(d, CX + 2.6 * S, LOS - 130, "Turned back inside", MUTED, 14);
+      const h = off(d, "RB", CX, 112, "H");
+      const y = tightEnd(d);
+      const e = def(d, CX + 4.3 * S, -40, "E", "Contain");
+      line(d, y, [[68, -46]], { end: "tee" });
+      line(d, e, [[0, 58]], { color: DEF, end: "tee" });
+      line(d, h, [[5.15 * S, -30], [-2.66 * S, -12], [0, -114]], { color: RUN });
+      label(d, CX + 2.5 * S, LOS - 100, "Turned back inside", MUTED, 14);
       return d;
     }
     case "glossary-spill": {
+      // Power to the tight end's side. The second back kicks out the backer; he takes the block on inside, the hole closes and the ball carrier has to bounce wide.
       line11(d);
-      gapLetters(d, "B");
-      const h = off(d, "RB", CX, 90, "H");
-      const lb = def(d, GAP_X.B[1], -96, "M", "Spill");
-      line(d, lb, [[0, 80]], { color: DEF, end: "tee" });
-      line(d, h, [[1.5 * S, -50], [2.4 * S, -20], [30, -80]], { color: RUN });
-      label(d, CX + 4.4 * S, LOS - 130, "Bounced wide", MUTED, 14);
+      gapLetters(d, "D");
+      const s = off(d, "H", CX + 1.1 * S, 66, "S");
+      const h = off(d, "RB", CX, 120, "H");
+      const lb = def(d, CX + 4.2 * S, -42, "L", "Spill");
+      line(d, s, [[175.6, -32]], { end: "tee" });
+      line(d, lb, [[-26, 62]], { color: DEF, end: "tee" });
+      line(d, h, [[2.9 * S, -40], [1.9 * S, -14], [0.5 * S, -130]], { color: RUN });
+      label(d, CX + 5.3 * S, LOS - 100, "Bounced wide", MUTED, 14);
       return d;
     }
     case "glossary-hole-numbers": {
@@ -362,7 +372,7 @@ function gapDiagram(id: string): Draw | null {
 export function glossaryScene(id: string): Scene | null {
   const build = OFFENSE[id];
   const d = build ? build() : gapDiagram(id);
-  return d ? scene(d) : null;
+  return d ? scene(d) : blockingScene(id);
 }
 
 /** Every starter term id that has a diagram (all of them; the test holds the list to it). */

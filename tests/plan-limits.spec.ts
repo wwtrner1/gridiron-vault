@@ -80,7 +80,7 @@ test("a signed-out browser starts on Sideline and a bigger plan asks for a sign-
   await expect(sideline.getByRole("button", { name: "Your current plan" })).toBeDisabled();
 
   await page.getByRole("button", { name: "Choose Head Coach" }).click();
-  await expect(page).toHaveURL(/\/signin$/);
-  await expect(page.getByText("Sign in first. Plans live on your account")).toBeVisible();
+  await expect(page).toHaveURL(/\/signin\?tab=up$/);
+  await expect(page.getByText("Create your account first. Your 14-day Head Coach trial starts when you do, no card.")).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBeNull();
 });

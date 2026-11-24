@@ -41,19 +41,24 @@ test("every screen opens with its title and no errors @phone", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-// The parts below the fold (the Designer tour, the feature rows) load as they scroll
-// into view, so the loop above never sees them; and a Pixel 7 is 412px wide while
-// the smallest phones are 360px. One pass to the bottom at 360px.
+// The parts below the fold (Featured tools, the camera gallery, the every-tool grid)
+// load as they scroll into view, so the loop above never sees them; and a Pixel 7 is
+// 412px wide while the smallest phones are 360px. One pass to the bottom at 360px.
 test("the home page fits a 360px phone to the bottom @phone", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto("/");
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  const next = page.getByRole("button", { name: "Next feature" });
-  await expect(next).toBeVisible();
-  await expect(page.locator(".home-feature-row")).toHaveCount(4);
-  // The tour's Next button used to run past the right edge and widen the page.
-  const box = await next.boundingBox();
-  expect(box && box.x + box.width, "Next feature runs off the screen").toBeLessThanOrEqual(360);
+  for (const id of ["featured", "cameras", "everything"]) {
+    await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+    await expect(page.locator(`#${id}`), `${id} section`).toBeVisible();
+  }
+  // A featured tool's tab and its Watch button must sit inside the screen: a control that
+  // runs past the right edge is what used to widen the page.
+  await page.locator("#featured").scrollIntoViewIfNeeded();
+  const tab = page.locator("#featured").getByRole("tab").first();
+  await expect(tab).toBeVisible();
+  const box = await tab.boundingBox();
+  expect(box && box.x, "a Featured tools tab starts off the screen").toBeGreaterThanOrEqual(0);
+  expect(box && box.x + box.width, "a Featured tools tab runs off the screen").toBeLessThanOrEqual(360);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow, "the home page scrolls sideways").toBeLessThanOrEqual(0);

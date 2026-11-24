@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, signIn, workspace } from "./helpers";
 
 /**
  * Griddy's coaching skills past drawing one play: a bulk edit narrowed to one
  * category, a defense laid out against the play on the field with every job
  * tagged, the gap tags on the open play (and Undo), a defense saved from the
- * Vault, and "these plays" (the plays picked in the Vault) reaching him.
+ * Vault, "these plays" (the plays picked in the Vault) reaching him, and
+ * Wes's block schemes and pressures on the open play (and Undo).
  */
 test.beforeEach(async ({ context }) => {
   await quiet(context);
@@ -140,5 +141,119 @@ test("A defense saved from the Vault opens in the Designer, and the picked plays
   expect(saved.tags).toContain("scout");
   expect(saved.scene.nodes.filter((n) => n.kind === "player" && n.side === "defense")).toHaveLength(5);
   expect(saved.scene.nodes.filter((n) => n.kind === "player" && n.side === "offense").length).toBeGreaterThan(3);
+  expect(errors).toEqual([]);
+});
+
+/** The lines on the field (a picked player's highlight is drawn a second time with no pointer events), as their path data. */
+const fieldLines = (page: Page) =>
+  page
+    .locator(".stage-frame svg")
+    .first()
+    .locator("g[data-kind=path]:not([pointer-events=none])")
+    .evaluateAll((els) => els.map((e) => e.querySelector("path")?.getAttribute("d") ?? "").sort());
+
+/** The blank 11-man field, opened from New play setup (the file's default skips the setup, so this puts it back). */
+async function openField(page: Page) {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("grid1ronvault.newplay.v1");
+    localStorage.setItem("grid1ronvault.tips.v1", JSON.stringify({ off: true }));
+  });
+  await page.goto("/build");
+  await page.getByRole("button", { name: "Open the field" }).click();
+  await page.locator(".stage-frame svg").first().waitFor();
+  await page.locator(".pa-bar").getByLabel("Message Griddy").waitFor();
+}
+
+const setEdit = (id: string, change: Record<string, unknown>) => ({ id, tool: "bulk_edit", scope: { kind: "open" }, changes: [{ op: "apply_set", ...change }] });
+
+test("Griddy puts a block scheme and a pressure on the play on the field, each one Undo from gone, and says why when it can't", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  await griddyReplies(context, [
+    { text: "Boom it is.", actions: [setEdit("s1", { kind: "pressure", id: "boom" })] },
+    { text: "Inside zone, to the right.", actions: [setEdit("s2", { kind: "scheme", id: "inside-zone", dir: "right" })] },
+    { text: "Power, the other way.", actions: [setEdit("s3", { kind: "scheme", id: "power", dir: "left" })] },
+    { text: "Boom on the 4-3.", actions: [setEdit("s4", { kind: "pressure", id: "boom", gold: "free" })] },
+  ]);
+  await openField(page);
+  const bare = await fieldLines(page);
+  expect(bare).toHaveLength(0);
+
+  // No defense on the field: the card says so in the coach's words and offers nothing to apply.
+  await askBar(page, "run Boom on this");
+  const refused = page.locator(".gd-bulk").first();
+  await expect(refused).toContainText("Boom pressure");
+  await expect(refused).toContainText("There's no defense on the field");
+  await expect(refused).toContainText("Ask me to draw a defense first");
+  await expect(refused.getByRole("button", { name: /Apply/ })).toHaveCount(0);
+  expect(await fieldLines(page)).toEqual(bare);
+
+  // A block scheme on the offense: every blocker's block, its own lines, said in the coach's words.
+  await askBar(page, "block this inside zone to the right");
+  const zone = page.locator(".gd-bulk").nth(1);
+  await expect(zone).toContainText("Inside zone to the right");
+  await expect(zone).toContainText("T ");
+  await zone.getByRole("button", { name: "Apply to 1 play" }).click();
+  await expect(page.locator(".toast", { hasText: "Save the play to keep it" })).toBeVisible();
+  const inside = await fieldLines(page);
+  expect(inside.length).toBeGreaterThanOrEqual(5);
+  await expect(zone).toContainText("Applied to 1 play");
+
+  // A second scheme replaces the first one's lines; Undo brings the first one's back, exactly.
+  await askBar(page, "now power to the left");
+  const power = page.locator(".gd-bulk").nth(2);
+  await expect(power).toContainText("Power to the left");
+  await power.getByRole("button", { name: "Apply to 1 play" }).click();
+  await expect(power).toContainText("Applied to 1 play");
+  const powered = await fieldLines(page);
+  expect(powered).not.toEqual(inside);
+  await power.getByRole("button", { name: "Undo this change" }).click();
+  await expect(power).toContainText("Undone");
+  expect(await fieldLines(page)).toEqual(inside);
+  await zone.getByRole("button", { name: "Undo this change" }).click();
+  expect(await fieldLines(page)).toEqual(bare);
+
+  // With a defense on the field the pressure draws; Undo leaves the defense as it was.
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Turn this offense into a defense" }).click();
+  await page.waitForTimeout(200);
+  const lined = await fieldLines(page);
+  await askBar(page, "run Boom, gold free");
+  const boom = page.locator(".gd-bulk").nth(3);
+  await expect(boom).toContainText("Boom pressure, rover is free");
+  await expect(boom).toContainText("rush");
+  await boom.getByRole("button", { name: "Apply to 1 play" }).click();
+  await expect(boom).toContainText("Applied to 1 play");
+  expect(await fieldLines(page)).not.toEqual(lined);
+  await expect(page.locator(".builder-stage text[data-job]").first()).toBeVisible();
+  await boom.getByRole("button", { name: "Undo this change" }).click();
+  await expect(boom).toContainText("Undone");
+  expect(await fieldLines(page)).toEqual(lined);
+  expect(errors).toEqual([]);
+});
+
+test("A defense Griddy calls with a pressure draws the rushers, and the card lets the coach change or drop the pressure", async ({ page, context }) => {
+  const errors = errorsOf(page);
+  await griddyReplies(context, [
+    { text: "Here's Boom out of a 4-2-5.", actions: [{ id: "d1", tool: "draw_defense", call: { name: "4-2-5 Cover 1 Boom", game: "11", front: "4-2-5", coverage: "Cover 1", pressure: "boom" } }] },
+  ]);
+  await openField(page);
+  await askBar(page, "draw a 4-2-5 with Boom against this play");
+  const card = page.locator(".gd-defense");
+  await expect(card.getByLabel("Pressure")).toHaveValue("boom");
+  await expect(card.getByLabel("Front")).toHaveValue("4-2-5");
+  await expect(card).toContainText("Boom:");
+  await expect(card).toContainText("rush");
+  await expect(card.getByLabel("Rover's Gold job")).toBeVisible();
+
+  // The same call with the pressure taken off has no rushers to name.
+  await card.getByLabel("Pressure").selectOption("");
+  await expect(card).not.toContainText("Boom:");
+  await expect(card.getByLabel("Rover's Gold job")).toHaveCount(0);
+  await card.getByLabel("Pressure").selectOption("sob");
+  await expect(card).toContainText("SOB:");
+
+  await card.getByRole("button", { name: "Put it on the field" }).click();
+  await expect(card).toContainText("You put 4-2-5 Cover 1 Boom");
+  await expect(card).toContainText("SOB:");
+  await expect(page.locator(".builder-stage text[data-job]").first()).toBeVisible();
   expect(errors).toEqual([]);
 });

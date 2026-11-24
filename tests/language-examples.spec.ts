@@ -16,9 +16,9 @@ const rows = (page: import("@playwright/test").Page) => page.locator(".lang-tabl
 
 test("every starter term shows what it looks like, on hover and in its example", async ({ page }) => {
   await page.goto("/language");
-  await expect(rows(page)).toHaveCount(33);
+  await expect(rows(page)).toHaveCount(65);
   // A diagram beside every starter term, none waiting for a pick.
-  await expect(page.locator("button.lang-thumb:not(.is-empty)")).toHaveCount(33);
+  await expect(page.locator("button.lang-thumb:not(.is-empty)")).toHaveCount(65);
   await expect(page.locator("button.lang-thumb.is-empty")).toHaveCount(0);
 
   // Hover peeks at it large, with the meaning.
@@ -47,6 +47,21 @@ test("every starter term shows what it looks like, on hover and in its example",
   const tech = page.getByRole("dialog", { name: "3 technique" });
   await expect(tech.locator("svg text", { hasText: /^3$/ }).first()).toBeAttached();
   await tech.getByRole("button", { name: "Done" }).click();
+
+  // A block and a pressure are drawn by the same code the Designer's one-click sets use: lines glued to real players.
+  await page.getByRole("button", { name: "Show the Pull and kick out example" }).click();
+  const pull = page.getByRole("dialog", { name: "Pull and kick out" });
+  await expect(pull.locator("figcaption")).toHaveText("Starter glossary diagram");
+  await expect(pull.getByRole("img", { name: "Pull and kick out example diagram" })).toBeVisible();
+  await expect(pull.locator("svg path").first()).toBeAttached();
+  const pullAxe = await new AxeBuilder({ page }).include(".modal").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(pullAxe.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  await pull.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Show the Twist example" }).click();
+  const twist = page.getByRole("dialog", { name: "Twist" });
+  await expect(twist.getByRole("img", { name: "Twist example diagram" })).toBeVisible();
+  await expect(twist.locator("svg text", { hasText: "READ HOLE" })).toBeAttached();
+  await twist.getByRole("button", { name: "Done" }).click();
 
   // Keyboard focus peeks too.
   await page.getByRole("button", { name: "Show the Mesh example" }).focus();
@@ -85,9 +100,9 @@ test("a coach renames a starter term, puts it back, deletes one with Undo and br
 
   // Delete with Undo puts it back where it was.
   await page.getByRole("button", { name: "Delete Mesh" }).click();
-  await expect(rows(page)).toHaveCount(32);
+  await expect(rows(page)).toHaveCount(64);
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(rows(page)).toHaveCount(33);
+  await expect(rows(page)).toHaveCount(65);
   await expect(rows(page).nth(1)).toContainText("Mesh");
 
   // Deleted for good, it can be brought back with the other starters.
@@ -95,9 +110,9 @@ test("a coach renames a starter term, puts it back, deletes one with Undo and br
   await page.getByRole("button", { name: "Delete Bubble" }).click();
   await expect(page.locator(".lang-restore")).toContainText("2 starter terms are off your list.");
   await page.reload();
-  await expect(rows(page)).toHaveCount(31);
+  await expect(rows(page)).toHaveCount(63);
   await page.getByRole("button", { name: "Bring back the starter terms" }).click();
-  await expect(rows(page)).toHaveCount(33);
+  await expect(rows(page)).toHaveCount(65);
   await expect(page.locator(".lang-restore")).toHaveCount(0);
 });
 

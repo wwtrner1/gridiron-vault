@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady } from "./helpers";
 
 /**
  * Field controls (Extras → "Field controls: grid, hashes, rule lines"): the
@@ -17,8 +17,7 @@ test("Field controls change the grid, hashes, yard lines and rule lines on the f
   await field.waitFor();
   const lines = field.locator("line");
   const open = async () => {
-    await page.locator('button[aria-controls="dz-more-menu"]').click();
-    await page.getByRole("button", { name: "Field controls: grid, hashes, rule lines" }).click();
+    await (await designerMenu(page, "field")).getByRole("button", { name: "Field controls: grid, hashes, rule lines" }).click();
     await expect(dialog).toBeVisible();
   };
   const dialog = page.getByRole("dialog", { name: "Field controls" });

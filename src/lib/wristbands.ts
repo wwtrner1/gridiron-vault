@@ -6,6 +6,7 @@ import { playerNoteLines } from "./notes";
 import { CARD_LOOK, FULL_LOOK, cutOffs, lettersFit, type PrintLook } from "./printLook";
 import type { Scene, StoredPlay } from "./types";
 import { traceCode } from "./activity";
+import { BAND_MARK } from "./bandMark";
 
 /**
  * Wristband cards from the Grid1ron Design canvas (Wristbands · print
@@ -22,6 +23,10 @@ export type BandEntry = {
   personnel?: string;
   /** The play's coaching notes (Play intel), for the call sheet's Notes column. */
   notes?: string;
+  /** The Vault play behind the box, so the Wristbands page can open, swap or take it off the cards. */
+  playId?: string;
+  /** The Call Sheet row behind the box (Call Sheet sources only). */
+  rowId?: string;
 };
 export type CellShows = { diagram: boolean; name: boolean; numberOnly: boolean };
 export type BandCopies = { qb: number; center: number; coach: number };
@@ -254,7 +259,8 @@ export type BandOptions = {
   look: PrintLook;
   numberSize: NumberSize;
   numberStyle: NumberStyle;
-  header: { show: boolean; left: string; right: string };
+  /** `mark` puts the GridIronVault G in the header when no team logo is on it. */
+  header: { show: boolean; left: string; right: string; mark?: boolean };
   /** Text printed along the bottom border, e.g. the team name. Empty for none. */
   footer: string;
   paper: BandPaperId;
@@ -321,10 +327,10 @@ const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{
  * preview, so the screen shows the colors the printer gets.
  */
 export function bandPalette(
-  o: Pick<BandOptions, "colors" | "numberStyle">,
+  o: Pick<BandOptions, "colors" | "numberStyle"> & { header?: { mark?: boolean } },
   brand: TeamBrand = brandStore.get(),
 ): BandColors & { strip: string; grid: string; logo: string | null } {
-  const head = bandHead(brand);
+  const head = bandHead(brand, !!o.header?.mark);
   const c = o.colors ?? {};
   const tab = isHex(c.tab) ? c.tab : o.numberStyle === "band" ? "#D9DEE3" : "#0B1524";
   return {
@@ -361,6 +367,7 @@ export function entriesFromPlays(plays: StoredPlay[], numbers?: string[]): BandE
 export function entryFromPlay(p: StoredPlay, number = ""): BandEntry {
   return {
     number,
+    playId: p.id,
     name: p.name || "Untitled play",
     scene: p.scene,
     formation: p.formation,
@@ -380,9 +387,13 @@ export function fillBandText(text: string, vars: { role: string; card: string; s
     .replace(/\{count\}/gi, String(vars.count));
 }
 
-/** The card header's fill, text color and logo: team branding when it is on for prints. Shared with the preview. */
-export function bandHead(brand: TeamBrand = brandStore.get()): { fill: string; ink: string; logo: string | null } {
-  if (!brand.prints || !hasBrand(brand)) return { fill: "#0B1524", ink: "#16C8E8", logo: null };
+/**
+ * The card header's fill, text color and logo: team branding when it is on for
+ * prints, else the GridIronVault look (with the G when the header asks for it).
+ * Shared with the preview.
+ */
+export function bandHead(brand: TeamBrand = brandStore.get(), mark = false): { fill: string; ink: string; logo: string | null } {
+  if (!brand.prints || !hasBrand(brand)) return { fill: "#0B1524", ink: "#16C8E8", logo: mark ? BAND_MARK : null };
   const ink = inkOn(brand.primary);
   // The secondary color for the words when it reads on the primary, else plain white or ink.
   const words = Math.abs(luminance(brand.secondary) - luminance(brand.primary)) > 0.35 ? brand.secondary : ink;
@@ -575,7 +586,7 @@ export function tightBoxes(entries: BandEntry[], o: Pick<BandOptions, "card" | "
 }
 
 /** A box whose play loses something on paper: its number, name and what gets cut. */
-export type BandCut = { number: string; name: string; parts: string[] };
+export type BandCut = { number: string; name: string; parts: string[]; /** Position in the entries passed in. */ index: number; /** The Vault play behind the box, when it has one. */ playId?: string };
 
 /**
  * Boxes whose diagram runs past its printed frame (a player or route dragged
@@ -585,9 +596,9 @@ export type BandCut = { number: string; name: string; parts: string[] };
 export function bandCutOffs(entries: BandEntry[], o: Pick<BandOptions, "card" | "grid" | "header" | "footer" | "numberSize" | "look" | "shows">): BandCut[] {
   if (!o.shows.diagram || o.shows.numberOnly) return [];
   const art = diagramBox(o);
-  return entries.flatMap((e) => {
+  return entries.flatMap((e, index) => {
     const parts = e.scene ? cutOffs(e.scene, o.look, art.w, art.h) : [];
-    return parts.length ? [{ number: e.number, name: e.name, parts }] : [];
+    return parts.length ? [{ number: e.number, name: e.name, parts, index, playId: e.playId }] : [];
   });
 }
 
@@ -1087,23 +1098,5 @@ export function bestLayout(card: { w: number; h: number }): { grid: string; pref
   return { grid: gridKey(biggest), prefs: { ...side, grid: gridKey(biggest) }, why: "this card is small; one play to a box is as big as it gets" };
 }
 
-/** Where the Wristbands page keeps its card settings in this browser. */
-export const BAND_PREFS_KEY = "grid1ronvault.wristbands.v1";
-
-/** Fired when something other than the Wristbands page changes its saved settings. */
-export const BAND_PREFS_EVENT = "grid1ronvault:wristband-prefs";
-
-/** Sets the Wristbands page to a one-click card layout (Griddy's wristband change); false if storage is blocked. */
-export function chooseBandPreset(id: string): boolean {
-  const preset = BAND_PRESETS.find((p) => p.id === id);
-  if (!preset) return false;
-  try {
-    const saved = JSON.parse(localStorage.getItem(BAND_PREFS_KEY) ?? "null") ?? {};
-    localStorage.setItem(BAND_PREFS_KEY, JSON.stringify({ ...saved, ...preset.prefs }));
-    // The Wristbands page, if it's open behind Griddy's panel, picks the new layout up.
-    window.dispatchEvent(new Event(BAND_PREFS_EVENT));
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** Where the Wristbands page keeps its card settings in this browser (the constants live with the account sync). */
+export { BAND_PREFS_KEY, BAND_PREFS_EVENT } from "./bandSetupsData";

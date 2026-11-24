@@ -11,7 +11,6 @@ import { before, describe, test } from "node:test";
 import { randomUUID } from "node:crypto";
 
 delete process.env.TRIAL_SIGNUPS;
-delete process.env.TWILIO_VERIFY_SID;
 
 const { migrate } = await import("./fake-db.ts");
 const { signInAs } = await import("./fake-identity.ts");
@@ -122,5 +121,31 @@ describe("A lesson's voice recording", () => {
     const heard = await call("GET", `voice/${made.data.id}`);
     assert.equal(heard.headers.get("content-type"), "audio/wav");
     assert.equal((await record(4100, { "content-type": "text/html" })).status, 400);
+  });
+  test("answers the byte ranges an iPhone asks for before it plays a clip", async () => {
+    await newCoach();
+    const made = await record(4100, { "content-type": "audio/wav" });
+    signInAs(null);
+    // Safari's first ask: the first two bytes.
+    const probe = await call("GET", `voice/${made.data.id}`, undefined, { range: "bytes=0-1" });
+    assert.equal(probe.status, 206);
+    assert.equal(probe.headers.get("content-range"), `bytes 0-1/${clip.length}`);
+    assert.equal(probe.headers.get("content-length"), "2");
+    assert.equal(probe.headers.get("accept-ranges"), "bytes");
+    assert.deepEqual([...probe.bytes], [...clip.slice(0, 2)]);
+    // Then the rest, open-ended.
+    const rest = await call("GET", `voice/${made.data.id}`, undefined, { range: "bytes=2-" });
+    assert.equal(rest.status, 206);
+    assert.deepEqual([...rest.bytes], [...clip.slice(2)]);
+    // The last few bytes, and an end past the clip held to its length.
+    assert.deepEqual([...(await call("GET", `voice/${made.data.id}`, undefined, { range: "bytes=-4" })).bytes], [...clip.slice(-4)]);
+    assert.equal((await call("GET", `voice/${made.data.id}`, undefined, { range: "bytes=0-99999" })).bytes.length, clip.length);
+    // A range past the end is refused; one that doesn't parse sends the whole clip.
+    const past = await call("GET", `voice/${made.data.id}`, undefined, { range: `bytes=${clip.length}-` });
+    assert.equal(past.status, 416);
+    assert.equal(past.headers.get("content-range"), `bytes */${clip.length}`);
+    const odd = await call("GET", `voice/${made.data.id}`, undefined, { range: "lines=0-1" });
+    assert.equal(odd.status, 200);
+    assert.equal(odd.bytes.length, clip.length);
   });
 });

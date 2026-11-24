@@ -1,3 +1,6 @@
+import { cleanCameraPick } from "./film3d";
+import type { CameraPick } from "./film3d";
+
 /**
  * Team branding data: the type, the checks and the color helpers, with no
  * React, so the API function checks a synced brand with the same cleanBrand
@@ -21,6 +24,10 @@ export type TeamBrand = {
   filmTips?: false;
   /** The Film Room view the coach last chose; only "3d" is stored, flat when unset. */
   filmView?: FilmView;
+  /** The 3D camera the coach last chose (which one, from which end, whether it goes with the ball), so 3D opens that way on every device. */
+  filmCam?: CameraPick;
+  /** The coach's own color for each offense letter (Q, X, H…), learned from the last recolor in the Designer, so new players come out that way on every device. */
+  letterColors?: Record<string, string>;
   /** When the coach last changed it (ISO); the newer copy wins when browsers and the account sync. */
   updatedAt: string;
 };
@@ -66,6 +73,16 @@ export const BRAND_PRESETS: { label: string; primary: string; secondary: string 
 const HEX = /^#[0-9a-f]{6}$/i;
 const PNG_DATA = /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/;
 
+/** Letter colors: up to 24 letters of one to three characters, each a hex color. */
+function cleanLetters(raw: unknown): { letterColors?: Record<string, string> } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>).slice(0, 24)) {
+    if (/^[A-Za-z0-9]{1,3}$/.test(k) && typeof v === "string" && HEX.test(v)) out[k] = v.toUpperCase();
+  }
+  return Object.keys(out).length ? { letterColors: out } : {};
+}
+
 export function cleanBrand(raw: unknown): TeamBrand {
   const r = (raw && typeof raw === "object" ? raw : {}) as Partial<TeamBrand>;
   const d = DEFAULT_BRAND;
@@ -75,6 +92,8 @@ export function cleanBrand(raw: unknown): TeamBrand {
     ...(filmLook ? { filmLook } : {}),
     ...(r.filmTips === false ? { filmTips: false as const } : {}),
     ...(r.filmView === "3d" ? { filmView: "3d" as const } : {}),
+    ...(cleanCameraPick(r.filmCam) ? { filmCam: cleanCameraPick(r.filmCam) } : {}),
+    ...cleanLetters(r.letterColors),
     name: typeof r.name === "string" ? r.name.slice(0, BRAND_NAME_MAX) : d.name,
     logo,
     primary: typeof r.primary === "string" && HEX.test(r.primary) ? r.primary.toUpperCase() : d.primary,

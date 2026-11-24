@@ -4,9 +4,9 @@ import { brandStore, hasBrand, inkOn, useBrand } from "../lib/brand";
 import { yards } from "../lib/coverage";
 import { useDialogFocus } from "../lib/dialogFocus";
 import { LessonField } from "./LessonField";
-import { canDraw3d, FILM_CAMERAS, FILM_CAMERA_NAME } from "../lib/film3d";
-import type { FilmCamera } from "../lib/film3d";
-import type { FilmView } from "../lib/brandData";
+import { CameraControls } from "./CameraControls";
+import { FILM_CAMERAS } from "../lib/film3d";
+import { cameraPlayers, useFilmCamera, useFilmView, useLook, useMedia } from "../lib/filmView";
 import { FilmTips, filmTips, filmTipsSeen, markFilmTipsSeen } from "./FilmTips";
 import { repText } from "../lib/breakdown";
 import type { FilmRep } from "../lib/breakdown";
@@ -20,33 +20,6 @@ import "../styles/filmroom.css";
 
 const LessonVideo = lazyPage(() => import("./LessonVideo"), "LessonVideo");
 const LessonField3D = lazyPage(() => import("./LessonField3D"), "LessonField3D");
-
-/** Dark, light, or whatever the device is set to. */
-function useLook(look: TeachLook): "dark" | "light" {
-  const [deviceDark, setDeviceDark] = useState(() => (typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)").matches : true));
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const mq = matchMedia("(prefers-color-scheme: dark)");
-    const on = () => setDeviceDark(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return look === "device" ? (deviceDark ? "dark" : "light") : look;
-}
-
-/** Whether the screen matches a media query, kept in step as it turns or resizes. */
-function useMedia(query: string): boolean {
-  const [hit, setHit] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const mq = matchMedia(query);
-    const on = () => setHit(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [query]);
-  return hit;
-}
 
 /**
  * Film Room: the coach's own play as a short lesson. Six steps (the look, the
@@ -99,26 +72,9 @@ export function FilmRoom({
   const [stepsUp, setStepsUp] = useState(true);
   // Flat or 3D: a coach's pick is kept with the team brand on the account, so it follows him to every device;
   // a player's pick on a team link lasts the visit. Flat stays the default.
-  const [viewPick, setViewPick] = useState<FilmView | undefined>();
-  const [noGl, setNoGl] = useState(false);
-  const wants3d = (viewPick ?? (coach ? brand.filmView : undefined) ?? "flat") === "3d";
-  const in3d = wants3d && !noGl;
-  const [camera, setCamera] = useState<FilmCamera>("auto");
-  const pickView = (v: FilmView) => {
-    if (v === "3d" && !canDraw3d()) {
-      setNoGl(true);
-      return;
-    }
-    setNoGl(false);
-    setViewPick(v);
-    if (coach && (brand.filmView ?? "flat") !== v) {
-      try {
-        brandStore.set({ filmView: v === "3d" ? "3d" : undefined });
-      } catch {
-        /* storage full: the pick lasts this visit */
-      }
-    }
-  };
+  const { in3d, noGl, pickView, fail } = useFilmView(coach);
+  // The 3D camera is kept the same way (which one, from which end, whether it goes with the ball).
+  const cam = useFilmCamera(coach);
 
   const teachable = canTeach(scene);
   const looks = useMemo(() => teachLooks(scene), [scene]);
@@ -317,7 +273,7 @@ export function FilmRoom({
             <div className={in3d ? "fr-field is-3d" : "fr-field"}>
               {(() => {
                 const label = `${title} against ${look.name}${in3d ? ", in 3D" : ""}. Step ${i + 1} of ${steps.length}: ${step.title}. ${t.toFixed(1)} seconds after the snap.`;
-                const flat = <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} label={label} />;
+                const flat = <LessonField scene={scene} lesson={lesson} step={step} t={t} who={who} dark={dark} logo={teamOn ? (brand.logo ?? undefined) : undefined} grow={big ? 1.5 : 1} crop={big} spread={narrow && !sideways} label={label} />;
                 if (!in3d) return flat;
                 return (
                   <Suspense fallback={<div className="fr-3d"><span className="fr-3d-wait">Loading 3D…</span></div>}>
@@ -330,10 +286,14 @@ export function FilmRoom({
                       dark={dark}
                       logo={teamOn ? (brand.logo ?? undefined) : undefined}
                       team={teamOn ? { primary: brand.primary, secondary: brand.secondary } : undefined}
-                      camera={camera}
+                      camera={cam.pick.camera}
+                      side={cam.pick.side}
+                      pass={cam.pick.pass}
+                      follow={cam.follow}
+                      onPick={cam.tap}
                       light={big}
                       label={label}
-                      onFail={() => setNoGl(true)}
+                      onFail={fail}
                     />
                   </Suspense>
                 );
@@ -387,18 +347,7 @@ export function FilmRoom({
                 </select>
               </label>
               )}
-              {in3d && (
-                <label className="fr-against" data-fr-tip="camera">
-                  <span>Camera</span>
-                  <select value={camera} onChange={(e) => setCamera(e.target.value as FilmCamera)}>
-                    {FILM_CAMERAS.map((c) => (
-                      <option key={c} value={c}>
-                        {FILM_CAMERA_NAME[c]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              {in3d && <CameraControls cam={cam} cameras={FILM_CAMERAS} players={cameraPlayers(scene, lesson)} className="fr-against" tip="camera" />}
               {spoken && (
                 <button type="button" className="btn btn-outline-dark btn-sm" data-fr-tip="sound" aria-pressed={sound} onClick={() => setSound((v) => !v)}>
                   {sound ? "Voice on" : "Voice off"}

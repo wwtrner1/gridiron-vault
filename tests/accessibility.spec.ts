@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { quiet, seedReady, signIn } from "./helpers";
+import { designerMenu, quiet, seedReady, signIn } from "./helpers";
 
 /**
  * An axe sweep (WCAG 2.0/2.1 A and AA rules) over every screen with plays in
@@ -47,7 +47,7 @@ test("every screen passes axe's WCAG A and AA rules, signed out @phone", async (
   }
 });
 
-test("the open states pass: the playbook tree, the Designer with a play and Extras, and Griddy", async ({ page }) => {
+test("the open states pass: the playbook tree, the Designer with a play and its Edit menu, and Griddy", async ({ page }) => {
   test.setTimeout(120_000);
   await seedReady(page);
 
@@ -62,9 +62,8 @@ test("the open states pass: the playbook tree, the Designer with a play and Extr
   await expect(page).toHaveURL(/\/build\//);
   await page.locator(".stage-frame svg").first().waitFor();
   await sweep(page, "/build with a play");
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await expect(page.locator("#dz-more-menu")).toBeVisible();
-  await sweep(page, "/build with Extras open");
+  await designerMenu(page, "edit");
+  await sweep(page, "/build with the Edit menu open");
   await page.goto("/vault");
   await page.locator("button.gd-launch").click();
   await expect(page.locator("#griddy-panel")).toBeVisible();

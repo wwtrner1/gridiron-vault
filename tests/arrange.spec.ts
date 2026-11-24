@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady } from "./helpers";
 
 /**
- * Extras → Select all and the Selection drawer's Arrange panel: Flip sides
+ * Extras → Select all and the Selection drawer's Arrange panel: Mirror left/right
  * mirrors the whole play, an align edge lines the players up, Undo takes each
  * back, Group, Hide, Lock (the arrows refuse a locked element and move an
  * unlocked one), Space across and Delete, with the panel gone once nothing
@@ -34,8 +34,7 @@ test("Select all and the Arrange panel flip, align, space, lock and delete the w
   expect(await spots()).toEqual(start);
 
   // Extras → Select all picks all 11 elements; Arrange is folded until the coach opens it.
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.locator("#dz-more-menu").getByRole("button", { name: "Select all" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Select all" }).click();
   await expect(page.locator("#insp-tab-selection")).toHaveText("Selection11");
   await expect(page.locator("#insp-pane .panel-head").first()).toHaveText("11 elements");
   const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Arrange" }) });
@@ -43,8 +42,8 @@ test("Select all and the Arrange panel flip, align, space, lock and delete the w
   await panel.locator(".panel-head").click();
   const chip = (name: string) => panel.getByRole("button", { name, exact: true });
 
-  // Flip sides mirrors every player; "top" lines them up on one line; Undo takes each back.
-  await chip("Flip sides").click();
+  // Mirror left/right moves every player to the mirrored spot; "top" lines them up on one line; Undo takes each back.
+  await chip("Mirror left/right").click();
   await expect(status).toHaveText("Flip");
   expect(await spots()).toEqual([
     [624, 430],

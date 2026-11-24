@@ -59,7 +59,8 @@ export function Playbooks() {
   };
   const [adding, setAdding] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [linking, setLinking] = useState<string | null>(null);
+  // The Designer's Teach → Send to players opens the playbook's player link straight away (?book=…&players=1).
+  const [linking, setLinking] = useState<string | null>(() => (params.get("players") && openBook ? openBook : null));
   const [query, setQuery] = useState("");
   const [filingUnfiled, setFilingUnfiled] = useState(false);
 

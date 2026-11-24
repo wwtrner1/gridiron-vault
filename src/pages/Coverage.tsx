@@ -6,7 +6,7 @@ import { AddToPlaybook } from "../components/AddToPlaybook";
 import { checkAll, FORMAT_NAME, grade, LOOKS, STATUS_COLOR, wins, yards } from "../lib/coverage";
 import type { Format, Report } from "../lib/coverage";
 import { loadRules } from "../lib/rules";
-import { reconcileConnections } from "../lib/scene";
+import { reconcileConnections, upright } from "../lib/scene";
 import { useStore } from "../lib/store";
 import type { StoredPlay } from "../lib/types";
 import "../styles/coverage.css";
@@ -34,7 +34,7 @@ export function Coverage() {
     const out: Row[] = [];
     for (const play of pool) {
       if (play.playType !== "pass") continue;
-      const report = checkAll(reconcileConnections(play.scene), { rushYards: rush });
+      const report = checkAll(upright(reconcileConnections(play.scene)), { rushYards: rush });
       if (!report.results.some((r) => r.rows.length)) continue;
       out.push({ play, report, score: report.results.reduce((a, r) => a + r.score, 0) / report.results.length });
     }
@@ -180,7 +180,7 @@ export function Coverage() {
       {groups.length > 0 && (
         <p className="cvr-note">
           Each cell is the throw: the first open receiver in the read order (first read, then deep to short) and his yards of space when the ball comes out. Open a play
-          and choose Extras, then Coverage check, to watch it run. A teaching model for comparing plays: real kids, real leverage and real rush lanes will vary.
+          and choose Teach, then Coverage check, to watch it run. A teaching model for comparing plays: real kids, real leverage and real rush lanes will vary.
         </p>
       )}
       {filing && (

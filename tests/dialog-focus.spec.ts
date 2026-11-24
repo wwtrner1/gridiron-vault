@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady } from "./helpers";
+import { errorsOf, menuButton, quiet, seedReady } from "./helpers";
 
 /**
  * Keyboard focus in dialogs: opening one moves focus inside (an autofocused
@@ -59,11 +59,14 @@ test("Run play, Coverage check and Field controls take focus, keep it inside and
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  const extras = page.locator('button[aria-controls="dz-more-menu"]');
-  const menu = page.getByRole("group", { name: "Extras" });
+  const extras = menuButton(page, "teach");
+  const menu = page.getByRole("group", { name: "Teach", exact: true });
+  const fieldButton = menuButton(page, "field");
+  const fieldMenu = page.getByRole("group", { name: "Field", exact: true });
 
-  // Run play: focus lands inside, Tab stays, Escape goes back to the Run play button.
-  const run = page.locator('[data-tour="dz-run"]');
+  // Run play (Teach menu): focus lands inside, Tab stays, Escape goes back to the Teach button.
+  await extras.click();
+  const run = menu.locator('[data-tour="dz-run"]');
   await run.click();
   const running = page.getByRole("dialog", { name: /^Run play/ });
   await expect(running).toBeVisible();
@@ -72,9 +75,9 @@ test("Run play, Coverage check and Field controls take focus, keep it inside and
   await stays(page);
   await page.keyboard.press("Escape");
   await expect(running).toHaveCount(0);
-  await expect(run).toBeFocused();
+  await expect(extras).toBeFocused();
 
-  // Coverage check from Extras: the menu item is gone on close, so focus returns to the Extras button.
+  // Coverage check from Teach: the menu item is gone on close, so focus returns to the Teach button.
   await extras.click();
   await menu.locator('[data-tour="dz-coverage"]').click();
   const cov = page.getByRole("dialog", { name: /^Coverage check/ });
@@ -84,12 +87,12 @@ test("Run play, Coverage check and Field controls take focus, keep it inside and
   await page.keyboard.press("Escape");
   await expect(cov).toHaveCount(0);
   await expect(extras).toBeFocused();
-  // Escape closed the dialog only: the Extras menu did not open and the Designer's own Escape did not run.
+  // Escape closed the dialog only: the Teach menu did not open and the Designer's own Escape did not run.
   await expect(menu).toHaveCount(0);
 
-  // Field controls: focus moves to the panel, typing a distance keeps focus in the box, Escape returns to Extras.
-  await extras.click();
-  await menu.getByRole("button", { name: "Field controls: grid, hashes, rule lines" }).click();
+  // Field controls: focus moves to the panel, typing a distance keeps focus in the box, Escape returns to Field.
+  await fieldButton.click();
+  await fieldMenu.getByRole("button", { name: "Field controls: grid, hashes, rule lines" }).click();
   const fc = page.getByRole("dialog", { name: "Field controls" });
   await expect(fc).toBeVisible();
   await expect(fc.getByRole("button", { name: "Close field controls" })).toBeFocused();
@@ -104,6 +107,6 @@ test("Run play, Coverage check and Field controls take focus, keep it inside and
   await stays(page, 6);
   await page.keyboard.press("Escape");
   await expect(fc).toHaveCount(0);
-  await expect(extras).toBeFocused();
+  await expect(fieldButton).toBeFocused();
   expect(errors).toEqual([]);
 });

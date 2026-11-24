@@ -1,0 +1,200 @@
+{
+ "07-precision-drawing": {
+  "title": "Precision Drawing",
+  "end": "Sharp on screen. *Sharp on the wrist.*",
+  "bed": "12-snap-count",
+  "lines": [
+   "Draw it *clean*",
+   "Snap to *the grid*",
+   "Hash marks & *yard lines*",
+   "Right click *any route*",
+   "Route *depths*",
+   "Sharp on *the wristband*"
+  ]
+ },
+ "08-upload-any-play": {
+  "title": "Upload Any Play",
+  "end": "Old playbook. *New Vault.*",
+  "bed": "06-game-plan",
+  "lines": [
+   "Bring your *plays*",
+   "Photo, scan *or PDF*",
+   "It reads *the play*",
+   "Check *the read*",
+   "A real *play*",
+   "Old playbook. *New Vault.*"
+  ]
+ },
+ "09-griddy": {
+  "title": "Ask Griddy",
+  "end": "Just ask *Griddy*",
+  "bed": "02-two-minute-drill",
+  "lines": [
+   "Meet *Griddy*",
+   "Ask, and *he draws*",
+   "Save to *the Vault*",
+   "Recolor *a playbook*",
+   "Build a *call sheet*",
+   "Just ask *Griddy*"
+  ]
+ },
+ "10-sets-and-defense": {
+  "title": "Formations & Defenses",
+  "end": "Set it. Flip it. *Coach it.*",
+  "bed": "01-friday-night-lights",
+  "lines": [
+   "Line up *faster*",
+   "Drop *a formation*",
+   "Flip *it*",
+   "Front & *coverage*",
+   "Offense to *defense*",
+   "Set it. Flip it. *Coach it.*"
+  ]
+ },
+ "11-call-sheet": {
+  "title": "The Call Sheet",
+  "end": "One sheet. *Every call.*",
+  "bed": "03-drumline",
+  "lines": [
+   "Your *call sheet*",
+   "Type. *It links.*",
+   "Paint & *add columns*",
+   "Find & *fold*",
+   "Print & *wristbands*",
+   "One sheet. *Every call.*"
+  ]
+ },
+ "12-practice-drills": {
+  "title": "Practice & Drill Vault",
+  "end": "Planned *to the minute*",
+  "bed": "08-southern-sideline",
+  "lines": [
+   "Planned *to the minute*",
+   "Timed *periods*",
+   "Plays from *your Vault*",
+   "The *Drill Vault*",
+   "Drill to *practice*",
+   "Print *the script*"
+  ]
+ },
+ "13-my-team": {
+  "title": "My Team",
+  "end": "Your team. *Your Vault.*",
+  "bed": "07-under-the-lights",
+  "lines": [
+   "Your *team*",
+   "Import *the roster*",
+   "Depth chart *on the field*",
+   "Logo & *colors*",
+   "Text *the team*",
+   "Your team. *Your Vault.*"
+  ]
+ },
+ "14-playbooks-players": {
+  "title": "Playbooks & Player Links",
+  "end": "Teach it *once*",
+  "bed": "09-hype-tunnel",
+  "lines": [
+   "Players *know it*",
+   "Build *the playbook*",
+   "Share *one link*",
+   "Their *own job*",
+   "The *Griddy Quiz*",
+   "Teach it *once*"
+  ]
+ },
+ "01-designer-tools": {
+  "title": "The Play Designer",
+  "end": "Draw it fast. *Draw it right.*",
+  "lines": [
+   "The *play designer*",
+   "Every tool, *one panel*",
+   "Open one. *The rest fold.*",
+   "Drop *your own sets*",
+   "Routes in *one click*",
+   "Tap to *block*",
+   "Slide *the line*",
+   "Menus *up top*",
+   "Draw it fast. *Draw it right.*"
+  ]
+ },
+ "02-film-room-3d": {
+  "title": "The Film Room, in 3D",
+  "end": "Teach it *in 3D*",
+  "lines": [
+   "The *Film Room*",
+   "Press *Teach*",
+   "Six *steps*",
+   "The snap. *The read.*",
+   "Now in *3D*",
+   "Pick your *camera*",
+   "Your *voice*",
+   "Make a *video*"
+  ]
+ },
+ "03-wristbands": {
+  "title": "Designer to Wristband",
+  "end": "Designer *to wrist*",
+  "lines": [
+   "Draw once. *Wear it.*",
+   "One click, *real depth*",
+   "Into the *playbook*",
+   "Cards build *themselves*",
+   "Same size, *every box*",
+   "Preview *what prints*",
+   "Designer *to wrist*"
+  ]
+ },
+ "04-every-tool": {
+  "title": "Every Tool, One Vault",
+  "end": "Your whole playbook. *One place.*",
+  "lines": [
+   "One Vault. *Every tool.*",
+   "Draw *plays*",
+   "Teach it *in 3D*",
+   "Check *the coverage*",
+   "Wristbands & *call sheets*",
+   "Plan *practice*",
+   "Roster & *depth chart*",
+   "Ask *Griddy*",
+   "Your whole playbook. *One place.*"
+  ]
+ },
+ "05-one-click-routes": {
+  "title": "Routes in One Click",
+  "end": "Less clicking. *More coaching.*",
+  "lines": [
+   "Routes in *one click*",
+   "Click. Pick. *Done.*",
+   "Flip *the break*",
+   "Tap to *block*",
+   "Centers *run routes*",
+   "Less clicking. *More coaching.*"
+  ]
+ },
+ "06-coverage-check": {
+  "title": "Will It Beat Cover 3?",
+  "end": "Know it works. *Then call it.*",
+  "lines": [
+   "Will it beat *Cover 3?*",
+   "Run the *Coverage check*",
+   "Green *means it wins*",
+   "Open. Tight. *Covered.*",
+   "Build *the call sheet*",
+   "Know it works. *Then call it.*"
+  ]
+ },
+ "15-film-room-cameras": {
+  "title": "Film Room: Twelve Cameras",
+  "end": "One play. *Twelve ways* to teach it",
+  "bed": "07-under-the-lights",
+  "lines": [
+   "Twelve *cameras*",
+   "Behind *the offense*",
+   "Quarterback *cam*",
+   "Wide. *Sideline. Overhead.*",
+   "Follow *a player*",
+   "One play. *Twelve ways.*"
+  ]
+ }
+}

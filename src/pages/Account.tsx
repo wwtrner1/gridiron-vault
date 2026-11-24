@@ -4,7 +4,6 @@ import { Shell } from "../components/Shell";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { Tooltip } from "../components/Tooltip";
-import { DevicesCard } from "../components/DevicesCard";
 import { InstallCard } from "../components/InstallCard";
 import { PausePlan } from "../components/PausePlan";
 import { useAuth } from "../lib/auth";
@@ -164,7 +163,6 @@ export function Account() {
           )}
         </section>
 
-        {account && <DevicesCard />}
         <InstallCard />
 
         <section className="card" data-tour="acct-plan">
@@ -408,8 +406,8 @@ export function Account() {
           }
         >
           <p>
-            This permanently deletes your sign-in, your phone number and devices, and every play, playbook and
-            Call Sheet saved to your account — on every device. It cannot be undone.
+            This permanently deletes your sign-in and every play, playbook and Call Sheet saved to your
+            account — on every device. It cannot be undone.
           </p>
           <p className="hint">Want a copy first? Close this and use Download a backup under Your data.</p>
           <label className="field">

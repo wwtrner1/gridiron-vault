@@ -328,7 +328,8 @@ export function frameScene(scene: Scene, look: PrintLook, wIn: number, hIn: numb
   if (box.w < across) box = toAspect({ ...box, x: box.x + box.w / 2 - across / 2, w: across }, aspect);
   box = zoomBox(box, look.zoom);
   // A lined-up set puts the line of scrimmage at the same height in every box.
-  if (look.losAt !== undefined) box = { ...box, y: scene.losY - look.losAt * box.h };
+  // (Downfield is up the card, or down it on a play drawn from the defense's end, so the line sits low in the box there.)
+  if (look.losAt !== undefined) box = { ...box, y: scene.losY - (scene.pov === "defense" ? 1 - look.losAt : look.losAt) * box.h };
   box = keepPlay(box, play, aspect);
   return { scene: boosted, box, weight: w.line, ptPerUnit: ppu(box) };
 }
@@ -371,8 +372,11 @@ export function matchLook(scenes: Scene[], look: PrintLook, wIn: number, hIn: nu
     const b = playBox(f.scene);
     if (!b) continue;
     const p = PAD * Math.min(f.weight, 2);
-    above = Math.max(above, s.losY - (b.y - p));
-    below = Math.max(below, b.y + b.h + p - s.losY);
+    // "Above" is downfield: up the card, or down it on a play drawn from the defense's end.
+    const up = s.losY - (b.y - p);
+    const down = b.y + b.h + p - s.losY;
+    above = Math.max(above, s.pov === "defense" ? down : up);
+    below = Math.max(below, s.pov === "defense" ? up : down);
   }
   above = Math.max(above, 1);
   below = Math.max(below, 1);

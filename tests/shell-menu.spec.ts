@@ -26,20 +26,26 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   const playbook = rail.getByRole("navigation", { name: "Playbook" });
   const account = rail.getByRole("navigation", { name: "Account" });
 
-  // Draft a play, then five groups: Plays open on a first visit, the rest closed with their counts.
+  // Draft a play, then five groups: the Vault's group (Plays) open, the rest closed with their counts.
   await expect(rail.getByRole("link", { name: "Draft a play" })).toHaveAttribute("href", "/build");
   const head = (g: string) => playbook.getByRole("button", { name: new RegExp(`^${g}`) });
   for (const [g] of GROUPS) await expect(head(g)).toHaveAttribute("aria-expanded", g === "Plays" ? "true" : "false");
   await expect(head("Game plan")).toContainText("3");
   await expect(playbook.getByRole("link")).toHaveText(["The Vault24", "Playbooks", "Upload plays", "Starter plays"]);
-  // Opening every group shows all sixteen tools, and the open groups are kept after a reload.
-  for (const [g] of GROUPS.slice(1)) await head(g).click();
-  await expect(playbook.getByRole("link")).toHaveText(TOOLS.map((t) => (t === "The Vault" ? `${t}24` : t)));
+  // One group open at a time: opening each shows its tools and closes the one before.
+  for (const [g, tools] of GROUPS.slice(1)) {
+    await head(g).click();
+    await expect(head(g)).toHaveAttribute("aria-expanded", "true");
+    await expect(playbook.getByRole("link")).toHaveText(tools);
+  }
+  await expect(head("Plays")).toHaveAttribute("aria-expanded", "false");
   await head("Tools").click();
   await expect(head("Tools")).toHaveAttribute("aria-expanded", "false");
+  await expect(playbook.getByRole("link")).toHaveCount(0);
+  // A reload starts again from the screen's own group.
   await page.reload();
-  await expect(head("Team")).toHaveAttribute("aria-expanded", "true");
-  await expect(head("Tools")).toHaveAttribute("aria-expanded", "false");
+  await expect(head("Plays")).toHaveAttribute("aria-expanded", "true");
+  await expect(head("Team")).toHaveAttribute("aria-expanded", "false");
   // The group holding the screen opens itself: Playbook language lives under Tools.
   await page.goto("/language");
   await expect(head("Tools")).toHaveAttribute("aria-expanded", "true");
@@ -47,6 +53,7 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   await page.goto("/vault");
   await page.locator(".play-card").first().waitFor();
   await expect(playbook.getByRole("link", { name: /^The Vault/ })).toHaveAttribute("aria-current", "page");
+  await head("Game plan").click();
   await expect(playbook.getByRole("link", { name: "Call Sheet" })).not.toHaveAttribute("aria-current", "page");
   await expect(account.getByRole("link")).toHaveText(["Plans", "Your account", "Tutorials", "Help & feedback"]);
   // The tests' browser is on Head Coach, which needs no plan card.
@@ -59,6 +66,9 @@ test("the side menu lists every tool, marks the screen, opens from the phone but
   await playbook.getByRole("link", { name: "Call Sheet" }).click();
   await expect(page.locator("h1")).toHaveText("Call Sheet");
   await expect(playbook.getByRole("link", { name: "Call Sheet" })).toHaveAttribute("aria-current", "page");
+  // The Call Sheet's own group opened with it; Plays (holding the Vault) closed.
+  await expect(head("Game plan")).toHaveAttribute("aria-expanded", "true");
+  await head("Plays").click();
   await expect(playbook.getByRole("link", { name: /^The Vault/ })).not.toHaveAttribute("aria-current", "page");
   await playbook.getByRole("link", { name: "Starter plays" }).click();
   await expect(page).toHaveURL(/\/starters$/);

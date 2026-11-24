@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, seedReady, workspace, wbSection } from "./helpers";
 
 /**
  * The work tabs (Designer · Playbook · Wristbands · Call Sheet) carry one
@@ -61,6 +61,7 @@ test("the work tabs keep the play, playbook and Call Sheet between the Designer,
   await page.getByRole("dialog", { name: BOOK }).getByRole("button", { name: "Close", exact: true }).click();
   await shellTabs.getByRole("link", { name: "Wristbands" }).click();
   await expect(page).toHaveURL(bandsHref);
+  await wbSection(page, "start");
   await expect(page.locator('[data-tour="wb-source"] select')).toHaveValue(`book:${book.id}`);
   await expect(page.locator('[data-tour="wb-source"] select option:checked')).toHaveText(`Playbook · ${BOOK}`);
 

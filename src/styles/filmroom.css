@@ -242,3 +242,32 @@ p.fr-against span { color: var(--rail-text); }
 @media (max-height: 520px) and (orientation: landscape) {
   .fr-3d { width: 64vw; height: calc(100vh - 66px); height: calc(100dvh - 66px); max-height: none; aspect-ratio: auto; }
 }
+
+/* Preview (the Designer): the play run once, then where it goes next. */
+/* Centred with margins, not justify-content: on a phone the body is a column that scrolls, and a centred column that overflows can't be scrolled back to its top. */
+.pv-body .fr-main { flex: none; width: min(100%, 1180px); margin-inline: auto; }
+.pv-time { flex: 1; min-width: 160px; margin-left: 0; }
+.pv-time input { flex: 1; min-width: 0; accent-color: var(--cyan); }
+.pv-next { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); background: #122036; color: #fff; }
+.pv-next .fr-k { color: var(--cyan); }
+.pv-next-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-next .fr-hint { margin: 0; max-width: 70ch; line-height: 1.45; color: var(--rail-text); }
+.fr-none .btn { margin-top: 12px; }
+@media (pointer: coarse) {
+  .pv-next .btn-sm { min-height: 44px; }
+}
+
+/* 3D cameras the coach turns by hand, and the QB cam's clock. */
+.fr-3d canvas[data-drag] { touch-action: none; cursor: grab; }
+.fr-3d canvas[data-drag]:active { cursor: grabbing; }
+.fr-3d-snap { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 4px; background: #011628; color: #c9d6e2; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.fr-3d-snap b { color: #5fd6ea; font-size: 16px; font-weight: 700; }
+.fr-3d-turn { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 4px; padding: 4px; border-radius: var(--radius-md); background: rgba(1, 22, 40, 0.86); }
+.fr-3d-turn button { min-width: 32px; min-height: 32px; border: 1px solid var(--ink-4); border-radius: var(--radius-sm, 4px); background: var(--ink); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
+.fr-3d-turn button:hover { border-color: #5fd6ea; }
+@media (pointer: coarse) {
+  .fr-3d-turn button { min-width: 40px; min-height: 40px; }
+}
+.fr-against select { max-width: 100%; }
+.fr-against.cam-check { gap: 6px; cursor: pointer; }
+.fr-against.cam-check input { width: 16px; height: 16px; accent-color: #16c8e8; }

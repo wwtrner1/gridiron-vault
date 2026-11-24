@@ -238,7 +238,7 @@ function toActions(uses: Anthropic.Beta.BetaToolUseBlock[], ctx: GriddyContext):
           });
           return names.length ? [{ op: "rename" as const, names }] : [];
         }
-        if (["style", "wristband", "field", "meta", "file", "gaps", "pov"].includes(c?.op)) {
+        if (["style", "wristband", "field", "meta", "file", "gaps", "pov", "apply_set"].includes(c?.op)) {
           const open = cleanOpenChange(c);
           return open ? [open] : [];
         }

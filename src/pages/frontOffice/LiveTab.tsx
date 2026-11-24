@@ -92,7 +92,7 @@ export function LiveTab({ orgId }: { orgId: string }) {
           <Icon name="plus" size={14} /> Start a blank live play
         </button>
       </form>
-      <p className="muted">Already have it in your Vault? Open it in the Designer, then Extras, then "Draw this live with my staff".</p>
+      <p className="muted">Already have it in your Vault? Open it in the Designer, then the Edit menu, then "Draw this live with my staff".</p>
       {plays.length === 0 ? (
         <p className="empty">Nothing live yet.</p>
       ) : (

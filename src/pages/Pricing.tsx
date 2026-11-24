@@ -1,10 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
-import { OFFERS, PUBLIC_TIERS, TIERS, plusTax } from "../lib/plan";
+import { CREATE_ACCOUNT_PATH, OFFERS, PUBLIC_TIERS, TIERS, TRIAL_DAYS, TRIAL_WORDS, plusTax } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
-import { choosePlan, goToBilling, SIGN_IN_FOR_PLAN, useBilling, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
 import { coachError } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
@@ -118,8 +118,8 @@ export function Pricing() {
 
   const choose = async (id: TierId) => {
     if (!account && id !== "free") {
-      toast(SIGN_IN_FOR_PLAN);
-      navigate("/signin");
+      toast(`Create your account first. Your ${TRIAL_DAYS}-day Head Coach trial starts when you do, no card.`);
+      navigate(CREATE_ACCOUNT_PATH);
       return;
     }
     if (billing && id !== "free") {
@@ -166,7 +166,7 @@ export function Pricing() {
             <span>
               {billing || !account ? (
                 <>
-                  Start on Sideline for free, no card. Prices are in US dollars, and sales tax is added at checkout where your state charges it. Payments are handled by
+                  {TRIAL_WORDS.long} Prices are in US dollars, and sales tax is added at checkout where your state charges it. Payments are handled by
                   Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid
                   for ends.
                 </>
@@ -185,6 +185,16 @@ export function Pricing() {
               )}
             </span>
           </p>
+          {!account && (
+            <div className="price-trial">
+              <p>
+                <b>New here?</b> Create an account and Head Coach is yours for {TRIAL_DAYS} days. Nothing is charged, and your plays stay yours when it ends.
+              </p>
+              <Link to={CREATE_ACCOUNT_PATH} className="btn btn-primary">
+                {TRIAL_WORDS.cta}
+              </Link>
+            </div>
+          )}
           <div className="home-plan-grid">
             {PUBLIC_TIERS.map((t) => (
               <article className={`home-plan${t.featured ? " is-featured" : ""}`} key={t.id}>
@@ -221,8 +231,12 @@ export function Pricing() {
               </article>
             ))}
           </div>
-          <div className="price-offers">
-            {OFFERS.map((o) => (
+          {/* Yearly rates and the Season Pass sit behind one closed row so the page opens on four prices, not nine. Founding is only for beta coaches, so nobody else sees a rate the server would refuse. */}
+          <div className="faq price-more">
+            <details name="pricing-offers">
+              <summary>Yearly rates, the Season Pass and other ways to pay</summary>
+              <div className="price-offers">
+            {OFFERS.filter((o) => o.id !== "founding" || tier.id === "beta").map((o) => (
               <article className={`price-offer${o.highlight ? " is-highlight" : ""}`} key={o.id}>
                 <h3>{o.name}</h3>
                 <div className="home-plan-price">
@@ -240,6 +254,8 @@ export function Pricing() {
                 )}
               </article>
             ))}
+              </div>
+            </details>
           </div>
         </section>
 
@@ -287,7 +303,7 @@ export function Pricing() {
           </div>
           <div className="faq">
             {FAQ.map((f) => (
-              <details key={f.q}>
+              <details key={f.q} name="pricing-faq">
                 <summary>{f.q}</summary>
                 <p>{f.a}</p>
               </details>
@@ -298,9 +314,16 @@ export function Pricing() {
         <section className="home-cta" aria-labelledby="price-cta-h">
           <h2 id="price-cta-h">Try it before you decide.</h2>
           <p>Draw one play, print one wristband. That is the whole evaluation.</p>
-          <Link to="/build" className="btn btn-primary btn-lg">
-            Open the designer
-          </Link>
+          <div className="home-cta-actions">
+            <Link to="/build" className="btn btn-primary btn-lg">
+              Open the designer
+            </Link>
+            {!account && (
+              <Link to={CREATE_ACCOUNT_PATH} className="btn btn-outline-dark btn-lg">
+                {TRIAL_WORDS.cta}
+              </Link>
+            )}
+          </div>
         </section>
       </main>
       <MarketingFooter />

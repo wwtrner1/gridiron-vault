@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, openPanel, quiet, seedReady, workspace } from "./helpers";
 
 /**
  * The Opponent front panel beyond the stock looks (those are in
@@ -18,7 +18,7 @@ test("a flag look toggles off, a saved play goes under the play, Take it off cle
   await seedReady(page);
   await page.getByRole("button", { name: "Open 17 · Stick in the designer" }).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  const front = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: "Opponent front" }) });
+  const front = await openPanel(page, "Opponent front");
   const overlay = page.locator('.stage-frame svg g[opacity="0.36"]');
   const save = page.locator('[data-tour="dz-save"]');
   const id = new URL(page.url()).pathname.split("/").pop()!;

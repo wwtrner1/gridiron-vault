@@ -1,4 +1,4 @@
-import type { BrowserContext, Page, Route } from "@playwright/test";
+import { expect, type BrowserContext, type Page, type Route } from "@playwright/test";
 
 /** Keeps the Designer's animated slides and first-visit tours out of the way. */
 export async function quiet(context: BrowserContext) {
@@ -79,4 +79,46 @@ export function errorsOf(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   return errors;
+}
+
+export type DesignerMenuId = "edit" | "field" | "teach" | "goto" | "help";
+
+/** The Designer's top-bar menu button (Edit, Field, Teach, Go to, ?). */
+export const menuButton = (page: Page, id: DesignerMenuId) => page.locator(`button[aria-controls="dz-menu-${id}"]`);
+
+/** Opens one of the Designer's top-bar menus (if it isn't open) and returns its list. */
+export async function designerMenu(page: Page, id: DesignerMenuId) {
+  const list = page.locator(`#dz-menu-${id}`);
+  if (!(await list.isVisible())) await menuButton(page, id).click();
+  await list.waitFor();
+  return list;
+}
+
+/** Opens a section of the Designer's tools panel (Draw, Routes, Players, Sets, Playbooks, Style) if it is closed. */
+export async function railSection(page: Page, id: "draw" | "routes" | "players" | "sets" | "plays" | "style") {
+  const head = page.locator(`#dz-tab-${id}`);
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  const panel = page.locator(`#dz-tabpanel-${id}`);
+  await panel.waitFor();
+  return panel;
+}
+
+export type WristbandSection =
+  | "start" | "plays" | "styles" | "numbering" | "size" | "grid" | "look" | "shows" | "colors" | "text" | "paper" | "copies" | "callsheet" | "format";
+
+/** Opens one section of the Wristbands page's left panel if it is closed (they all start closed and fold as one, so opening it closes the others). */
+export async function wbSection(page: Page, id: WristbandSection) {
+  const panel = page.locator(`.wb-controls [data-panel="${id}"]`);
+  const head = panel.locator(".panel-head");
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  return panel;
+}
+
+/** A foldable panel in the Designer's right-hand drawer (Play intel, Rules check…), opened if it is closed. They fold as one, so opening it closes the others. */
+export async function openPanel(page: Page, name: string) {
+  const panel = page.locator(".panel").filter({ has: page.locator(".panel-head", { hasText: name }) });
+  const head = panel.locator(".panel-head");
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  return panel;
 }

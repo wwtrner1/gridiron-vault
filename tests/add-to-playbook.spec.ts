@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { designerMenu, errorsOf, quiet, seedReady, workspace } from "./helpers";
 
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -30,11 +30,10 @@ test("Add to new playbook names a playbook and files the picked plays in one ste
   await expect.poll(async () => (await book(page, "Red Zone Packages"))?.playIds.length).toBe(3);
   expect(((await workspace(page)).playbooks ?? []).filter((b) => b.name.toLowerCase() === "red zone packages")).toHaveLength(1);
 
-  // Designer: Extras → Add to a new playbook…
+  // Designer: Edit → Add to a new playbook…
   await page.locator('.play-card button[aria-label^="Open"]').nth(3).click();
   await page.locator(".stage-frame svg").first().waitFor();
-  await page.locator('button[aria-controls="dz-more-menu"]').click();
-  await page.getByRole("button", { name: "Add to a new playbook…" }).click();
+  await (await designerMenu(page, "edit")).getByRole("button", { name: "Add to a new playbook…" }).click();
   await dialog.getByRole("textbox", { name: "New playbook" }).fill("Two-Minute");
   await dialog.getByRole("button", { name: "Create and add 1 play" }).click();
   await expect.poll(async () => (await book(page, "Two-Minute"))?.playIds.length).toBe(1);

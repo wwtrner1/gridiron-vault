@@ -1,3 +1,4 @@
+import { playSpan, spreadLesson, tokenGrow } from "../lib/fieldRoom";
 import { useMemo } from "react";
 import { luminance } from "../lib/brand";
 import { STATUS_COLOR } from "../lib/coverage";
@@ -65,7 +66,10 @@ export function lessonInk(scene: Scene, dark: boolean): SceneNode[] {
       const pl = scene.nodes.find((x) => x.id === tr.playerId);
       if (pl?.kind === "player" && pl.side !== "defense" && bright(pl.fill) && !owner.has(tr.pathId)) owner.set(tr.pathId, pl.fill);
     }
-  return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense"))).map((n) => {
+  // The defense in the lesson is the look's, so a defender's own line (rush, man or zone drop, drawn by a click on him) stays off the field with him.
+  const defenders = new Set(scene.nodes.filter((n) => n.kind === "player" && n.side === "defense").map((n) => n.id));
+  const theirs = (n: SceneNode) => n.kind === "path" && ((!!n.assignOf && defenders.has(n.assignOf)) || (!!n.fromId && defenders.has(n.fromId)));
+  return drawOrder(scene.nodes.filter((n) => !(n.kind === "player" && n.side === "defense") && !theirs(n))).map((n) => {
     if (!dark) return n;
     const fill = owner.get(n.id);
     return n.kind === "path" && fill && !n.firstRead && isDarkInk(n.stroke) ? { ...n, stroke: lift(fill) } : onDark(n);
@@ -84,8 +88,8 @@ const STANDALONE: Record<"dark" | "light", string> = {
  * export draws the same picture `standalone`, with its colors written in.
  */
 export function LessonField({
-  scene,
-  lesson,
+  scene: drawn,
+  lesson: modeled,
   step,
   t,
   who,
@@ -93,6 +97,8 @@ export function LessonField({
   logo,
   grow = 1,
   crop = false,
+  spread = false,
+  ball: showBall = false,
   label,
   standalone,
 }: {
@@ -110,25 +116,41 @@ export function LessonField({
   grow?: number;
   /** Cut the picture to just outside the sidelines, so a narrow screen spends its width on the field. */
   crop?: boolean;
+  /** On an upright phone (with `crop`): open the box up and draw the play deeper (`spreadLesson`), so players stand apart. */
+  spread?: boolean;
+  /** Draw the throw on any step, not only The read (the Designer's Preview runs the whole play as one). */
+  ball?: boolean;
   label?: string;
   standalone?: boolean;
 }) {
+  // A phone keeps to the play's own width, opens it up when held upright, and grows the tokens only as far as they stay apart.
+  const phone = crop && !standalone;
+  const view = useMemo(() => {
+    const inset0 = fieldInset(drawn.view === "blank" ? "half" : drawn.view);
+    const cut0 = Math.max(0, inset0 - 40);
+    const [x0, x1] = phone ? playSpan(drawn, modeled, cut0, CANVAS_W - cut0, grow) : [0, CANVAS_W];
+    const sp = phone && spread ? spreadLesson(drawn, modeled, x0, x1) : null;
+    const scene = sp?.scene ?? drawn;
+    const lesson = sp?.lesson ?? modeled;
+    return { scene, lesson, x0, x1, y: sp?.y ?? ((v: number) => v), size: phone ? tokenGrow(scene, lesson, grow) : grow };
+  }, [drawn, modeled, phone, spread, grow]);
+  const { scene, lesson, x0, x1, size } = view;
+  const fy = view.y;
   const { result, motion } = lesson;
   // Between the model's frames, so the picture moves at the screen's rate (and stays smooth at half speed).
   const now = Math.min(t, result.duration);
   const id = step.id;
-  const mine = useMemo(() => new Set(id === "job" ? linesFor(scene, who).map((l) => l.id) : []), [scene, who, id]);
+  const mine = useMemo(() => new Set(id === "job" ? linesFor(drawn, who).map((l) => l.id) : []), [drawn, who, id]);
   const nodes = useMemo(() => lessonInk(scene, dark), [scene, dark]);
   const inkOpacity = (n: SceneNode) => (id === "call" ? 1 : id === "job" ? (mine.has(n.id) ? 1 : 0.14) : id === "look" || id === "zones" ? 0.3 : 0.8);
   // Routes are drawn heavy once the lesson is about them, so they read from the back of the room.
   const heavy = (n: SceneNode): SceneNode => (n.kind === "path" && (id === "call" || id === "snap" || id === "read" || (id === "job" && mine.has(n.id))) ? { ...n, width: n.width * BOLD } : n);
-  const thrown = id === "read" && t >= result.throwAt;
+  const thrown = (id === "read" || showBall) && t >= result.throwAt;
   const statusOf = new Map(id === "read" ? result.rows.map((r) => [r.id, r.status]) : []);
   const showZones = id !== "job";
   const zoneTags = id === "zones";
   const inset = fieldInset(scene.view === "blank" ? "half" : scene.view);
   const lines = yardLines(scene.view, scene.losY);
-  const cut = crop && !standalone ? Math.max(0, inset - 40) : 0;
   const defInk = dark ? DARK_DEFENSE : DEFENSE_INK;
 
   let ball: { x: number; y: number } | null = null;
@@ -144,17 +166,17 @@ export function LessonField({
   }
 
   return (
-    <svg viewBox={`${cut} 0 ${CANVAS_W - cut * 2} ${CANVAS_H}`} role="img" aria-label={label} xmlns={standalone ? "http://www.w3.org/2000/svg" : undefined} width={standalone ? CANVAS_W : undefined} height={standalone ? CANVAS_H : undefined}>
+    <svg viewBox={`${x0} ${fy(0)} ${x1 - x0} ${fy(CANVAS_H) - fy(0)}`} role="img" aria-label={label} data-grow={size.toFixed(3)} xmlns={standalone ? "http://www.w3.org/2000/svg" : undefined} width={standalone ? CANVAS_W : undefined} height={standalone ? CANVAS_H : undefined}>
       {standalone && <style>{STANDALONE[dark ? "dark" : "light"]}</style>}
       <MarkerDefs colors={strokeColors(nodes)} />
-      <rect className="fr-turf" x={0} y={0} width={CANVAS_W} height={CANVAS_H} />
-      <line className="fr-side" x1={inset} y1={0} x2={inset} y2={CANVAS_H} />
-      <line className="fr-side" x1={CANVAS_W - inset} y1={0} x2={CANVAS_W - inset} y2={CANVAS_H} />
+      <rect className="fr-turf" x={0} y={fy(0)} width={CANVAS_W} height={fy(CANVAS_H) - fy(0)} />
+      <line className="fr-side" x1={inset} y1={fy(0)} x2={inset} y2={fy(CANVAS_H)} />
+      <line className="fr-side" x1={CANVAS_W - inset} y1={fy(0)} x2={CANVAS_W - inset} y2={fy(CANVAS_H)} />
       {lines.map((l) => (
         <g key={l.y}>
-          <line className="fr-yard" x1={inset} y1={l.y} x2={CANVAS_W - inset} y2={l.y} />
+          <line className="fr-yard" x1={inset} y1={fy(l.y)} x2={CANVAS_W - inset} y2={fy(l.y)} />
           {l.yards % 10 === 0 && l.y < scene.losY && (
-            <text className="fr-num" x={inset + 10} y={l.y - 5}>
+            <text className="fr-num" x={Math.max(inset, x0) + 10} y={fy(l.y) - 5}>
               {l.yards}
             </text>
           )}
@@ -184,9 +206,9 @@ export function LessonField({
         const dim = id === "job" && n.label.trim().toUpperCase() !== who;
         return (
           <g key={n.id} opacity={dim ? 0.3 : 1}>
-            {s && <circle cx={p.x} cy={p.y} r={n.size * 0.95 * grow} fill="none" stroke={STATUS_COLOR[s]} strokeWidth={6} />}
-            {dark && <circle className="fr-ring" cx={p.x} cy={p.y} r={n.size * 0.6 * grow} />}
-            <NodeLayer node={{ ...n, x: p.x, y: p.y, scaleX: n.scaleX * grow, scaleY: n.scaleY * grow }} />
+            {s && <circle cx={p.x} cy={p.y} r={n.size * 0.95 * size} fill="none" stroke={STATUS_COLOR[s]} strokeWidth={6} />}
+            {dark && <circle className="fr-ring" cx={p.x} cy={p.y} r={n.size * 0.6 * size} />}
+            <NodeLayer node={{ ...n, x: p.x, y: p.y, scaleX: n.scaleX * size, scaleY: n.scaleY * size }} />
           </g>
         );
       })}
@@ -205,8 +227,8 @@ export function LessonField({
         const p = pointAt(motion.defense[di] ?? [], now, FPS) ?? d.start;
         return (
           <g key={`d${di}`} aria-hidden="true" opacity={id === "job" ? 0.35 : 1} data-defender={d.label}>
-            <circle cx={p.x} cy={p.y} r={15 * grow} fill={dark ? "#2A1717" : "#fff"} stroke={defInk} strokeWidth={2.6} />
-            <text x={p.x} y={p.y + 4.5 * grow} textAnchor="middle" fontSize={13 * grow} fontWeight={700} fill={defInk} fontFamily="'Barlow', sans-serif">
+            <circle cx={p.x} cy={p.y} r={15 * size} fill={dark ? "#2A1717" : "#fff"} stroke={defInk} strokeWidth={2.6} />
+            <text x={p.x} y={p.y + 4.5 * size} textAnchor="middle" fontSize={13 * size} fontWeight={700} fill={defInk} fontFamily="'Barlow', sans-serif">
               {d.label}
             </text>
           </g>

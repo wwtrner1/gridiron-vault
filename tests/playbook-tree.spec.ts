@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { errorsOf, quiet, seedReady, workspace } from "./helpers";
+import { errorsOf, quiet, railSection, seedReady, workspace } from "./helpers";
 
 /**
  * The playbook tree (the side menu on every Shell screen, the Designer's
@@ -91,7 +91,7 @@ test("the playbook tree files, finds and opens plays from the side menu and the 
   await expect(page.locator(".dz-name")).toContainText("24 · Toss Sweep Left");
 
   // The Designer's Plays tab: the same tree, the open play marked, another play opened from it.
-  await page.getByRole("tab", { name: "Plays: your playbooks" }).click();
+  await railSection(page, "plays");
   const dzTree = page.locator("#dz-tree-title + * [role=tree], .pbt:has(#dz-tree-title) [role=tree]").first();
   await expect(dzTree).toBeVisible();
   const current = dzTree.locator("li.pbt-play[aria-current=page]");
