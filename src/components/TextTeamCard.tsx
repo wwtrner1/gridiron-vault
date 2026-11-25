@@ -57,7 +57,12 @@ export function TextTeamCard({ version }: { version: number | string }) {
       </p>
       {texts.length > 0 && (
         <div className="tt-card">
-          <div className="tt-recent-head">Last texts</div>
+          <div className="tt-recent-head">
+            Last texts
+            <Link to="/roster/text?view=history" className="tt-recent-all">
+              See all
+            </Link>
+          </div>
           <ul className="tt-recent">
             {texts.slice(0, 3).map((t) => (
               <li key={t.id}>

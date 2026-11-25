@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Shell } from "../components/Shell";
 import { api, coachError } from "../lib/api";
@@ -10,6 +10,7 @@ import {
   AUDIENCES,
   failReason,
   inGroups,
+  loadTexts,
   logText,
   openPlaceholders,
   outcome,
@@ -32,7 +33,7 @@ import { FamilyTexts } from "./frontOffice/FamilyTexts";
 import "../styles/frontOffice.css";
 import "../styles/textTeam.css";
 
-type Step = "write" | "send" | "done" | "result";
+type Step = "write" | "send" | "done" | "result" | "history";
 
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -61,7 +62,10 @@ export function TextTeam() {
   const server = useTeamTexts(team.id);
   const live = Boolean(server.texts?.sms);
 
-  const [step, setStep] = useState<Step>("write");
+  const [params] = useSearchParams();
+  const [step, setStep] = useState<Step>(params.get("view") === "history" ? "history" : "write");
+  /** The result screen was opened from Sent texts, so its back button goes there. */
+  const [fromHistory, setFromHistory] = useState(false);
   const [audience, setAudience] = useState<Audience>("all");
   const [template, setTemplate] = useState("");
   const [body, setBody] = useState("");
@@ -101,6 +105,7 @@ export function TextTeam() {
       .then(({ text, ...rest }) => {
         server.setTexts(rest);
         setResult(text);
+        setFromHistory(false);
         setStep("result");
       })
       .catch((e: unknown) => {
@@ -149,6 +154,14 @@ export function TextTeam() {
   };
 
   const list = server.texts;
+  // Texts opened in Messages from this browser; read again whenever the screen changes, so a new one shows.
+  const phoneLog = useMemo(() => loadTexts(), [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pastCount = (list?.texts.length ?? 0) + phoneLog.length;
+  const pastLink = pastCount > 0 && (
+    <button type="button" className="btn btn-ghost btn-block tt-past" onClick={() => setStep("history")}>
+      <Icon name="message" size={16} /> Sent texts · {pastCount}
+    </button>
+  );
   const signupPanel = account && list && (
     <div className="tt-card tt-signup">
       <FamilyTexts
@@ -173,7 +186,9 @@ export function TextTeam() {
             <span className="tt-hero-mark" aria-hidden="true">
               <Icon name={reached ? "check" : "close"} size={28} strokeWidth={2.5} />
             </span>
-            <p className="eyebrow">{teamName}</p>
+            <p className="eyebrow">
+              {teamName} · {stamp(result.at)}
+            </p>
             <h2>{reached === 0 ? "The text didn't go out." : reached === total ? `Sent to ${plural(total, "family", "families")}.` : `Sent to ${reached} of ${total}.`}</h2>
             <p className="tt-quote">“{result.body}”</p>
           </header>
@@ -215,9 +230,15 @@ export function TextTeam() {
           </ul>
           <p className="tt-fine">Sent turns to Delivered when the family's carrier confirms it. Some carriers never confirm, so Sent is as far as those go.</p>
           <div className="tt-foot">
-            <Link to="/roster" className="btn btn-dark btn-lg btn-block">
-              Back to My team
-            </Link>
+            {fromHistory ? (
+              <button type="button" className="btn btn-dark btn-lg btn-block" onClick={() => setStep("history")}>
+                Back to sent texts
+              </button>
+            ) : (
+              <Link to="/roster" className="btn btn-dark btn-lg btn-block">
+                Back to My team
+              </Link>
+            )}
             <button
               type="button"
               className="btn btn-ghost btn-lg btn-block"
@@ -235,6 +256,38 @@ export function TextTeam() {
       </Shell>
     );
   }
+
+  if (step === "history")
+    return (
+      <Shell title="Sent texts">
+        <div className="tt">
+          <div className="tt-top">
+            <button type="button" className="tt-back" aria-label="Back to message" onClick={() => setStep("write")}>
+              <Icon name="prev" size={18} />
+            </button>
+            <div>
+              <p className="eyebrow">{teamName}</p>
+              <h2>Sent texts</h2>
+            </div>
+          </div>
+          <SentTexts
+            texts={list?.texts ?? []}
+            phone={phoneLog}
+            loading={server.loading}
+            onOpen={(t) => {
+              setResult(t);
+              setFromHistory(true);
+              setStep("result");
+            }}
+          />
+          <div className="tt-foot">
+            <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => setStep("write")}>
+              Write a text
+            </button>
+          </div>
+        </div>
+      </Shell>
+    );
 
   if (step === "done")
     return (
@@ -436,8 +489,8 @@ export function TextTeam() {
               </button>
               <p className="tt-fine tt-center">From GridIronVault's team number, signed with your name. Families reply STOP to opt out.</p>
             </div>
+            {pastLink}
             {signupPanel}
-            <TextHistory texts={list?.texts ?? []} />
           </>
         ) : (
           <>
@@ -454,6 +507,7 @@ export function TextTeam() {
                 {plural(contacts.length, "contact")} in {plural(groups.length, "group")}
               </p>
             </div>
+            {pastLink}
             {signupPanel && (
               <>
                 <p className="tt-fine">
@@ -469,29 +523,55 @@ export function TextTeam() {
   );
 }
 
-/** The last texts sent from GridIronVault's number for this team, with how many reached families. */
-function TextHistory({ texts }: { texts: TeamText[] }) {
-  if (!texts.length) return null;
+/**
+ * Every text this team has sent, newest first: the ones from GridIronVault's number (on any device, each opens to
+ * its families and their status) and the ones opened in Messages from this browser (the site can't see further).
+ */
+function SentTexts({ texts, phone, loading, onOpen }: { texts: TeamText[]; phone: SentText[]; loading: boolean; onOpen: (t: TeamText) => void }) {
+  const rows = [
+    ...texts.map((t) => ({ at: t.at, key: t.id, server: t as TeamText | null, local: null as SentText | null })),
+    ...phone.map((t) => ({ at: t.at, key: t.id, server: null as TeamText | null, local: t as SentText | null })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  if (!rows.length)
+    return (
+      <p className="tt-fine" role="status">
+        {loading ? "Loading your texts…" : "No texts sent yet. The ones you send show up here with who got them."}
+      </p>
+    );
   return (
-    <div className="tt-card">
-      <div className="tt-recent-head">Last texts</div>
-      <ul className="tt-recent">
-        {texts.slice(0, 5).map((t) => {
-          const n = tally(t.recipients);
+    <ul className="tt-card tt-recent tt-sent" aria-label="Sent texts">
+      {rows.map(({ key, server, local }) => {
+        if (server) {
+          const n = tally(server.recipients);
           return (
-            <li key={t.id}>
-              <div className="tt-recent-top">
-                <span>{t.body}</span>
-                <span className="mono">{stamp(t.at)}</span>
-              </div>
-              <small>
-                {n.delivered} delivered{n.sent + n.sending ? ` · ${n.sent + n.sending} on its way` : ""}
-                {n.failed ? ` · ${n.failed} not delivered` : ""}
-              </small>
+            <li key={key}>
+              <button type="button" className="tt-sent-open" onClick={() => onOpen(server)} aria-label={`Open the text from ${stamp(server.at)}`}>
+                <span className="tt-recent-top">
+                  <span>{server.body}</span>
+                  <span className="mono">{stamp(server.at)}</span>
+                </span>
+                <small>
+                  {plural(server.recipients.length, "family", "families")} · {n.delivered} delivered
+                  {n.sent + n.sending ? ` · ${n.sent + n.sending} on its way` : ""}
+                  {n.failed ? ` · ${n.failed} not delivered` : ""}
+                </small>
+              </button>
             </li>
           );
-        })}
-      </ul>
-    </div>
+        }
+        const t = local!;
+        return (
+          <li key={key}>
+            <div className="tt-recent-top">
+              <span>{t.body}</span>
+              <span className="mono">{stamp(t.at)}</span>
+            </div>
+            <small>
+              {plural(t.contacts, "contact")} · opened in Messages from this device
+            </small>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

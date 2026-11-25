@@ -100,6 +100,10 @@ test("write a text, send it from the phone in groups of 8, and see it logged on 
   await expect(page.locator(".tt-recent li").first()).toContainText("10 contacts · opened in Messages");
   await page.reload();
   await expect(page.locator(".tt-stat").nth(2)).toContainText("1");
+  // See all opens the team's sent texts.
+  await page.getByRole("link", { name: "See all" }).click();
+  await expect(page.getByRole("heading", { name: "Sent texts" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Sent texts" })).toContainText("10 contacts · opened in Messages from this device");
   expect(errors).toEqual([]);
 });
 
@@ -180,4 +184,29 @@ test("signed in before texting is switched on: the phone flow stays, and familie
   await expect(page.getByLabel("Family texts sign-up link")).toHaveValue(/\/join\/tok_abcdefghijklmnop$/);
   await expect(page.getByRole("button", { name: "Next: send from my phone" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Send to/ })).toHaveCount(0);
+});
+
+test("sent texts: every text from GridIronVault stays reviewable with its date, families and status", async ({ context, page }) => {
+  const errors = errorsOf(page);
+  const older = { id: "22222222-2222-4222-8222-222222222222", at: "2026-11-20T18:00:00.000Z", body: "No practice Friday. — Coach", recipients: recips([["delivered", null], ["delivered", null], ["delivered", null]]) };
+  const newer = { id: "33333333-3333-4333-8333-333333333333", at: "2026-11-24T18:00:00.000Z", body: "Picture day Saturday. — Coach", recipients: recips([["delivered", null], ["failed", 30005], ["delivered", null]]) };
+  await signIn(context, (route, path, method) => {
+    if (path === "my-team/my-team/texts" && method === "GET")
+      return route.fulfill({ json: { token: "tok_abcdefghijklmnop", signups: SIGNUPS, texts: [newer, older], sms: true, sentToday: 0, perDay: 300 } }).then(() => true);
+    if (path.startsWith("my-team/my-team/texts/") && method === "GET") return route.fulfill({ json: { text: newer } }).then(() => true);
+  });
+  await page.goto("/roster/text");
+  await page.getByRole("button", { name: "Sent texts · 2" }).click();
+  const list = page.getByRole("list", { name: "Sent texts" });
+  await expect(list.locator("li")).toHaveCount(2);
+  await expect(list.locator("li").nth(0)).toContainText("Picture day Saturday.");
+  await expect(list.locator("li").nth(0)).toContainText("3 families · 2 delivered · 1 not delivered");
+  await expect(list.locator("li").nth(1)).toContainText("No practice Friday.");
+
+  await list.locator("li").nth(0).getByRole("button").click();
+  await expect(page.getByRole("heading", { name: "Sent to 2 of 3." })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Each family" }).locator("li").nth(1)).toContainText("Not a working mobile number");
+  await page.getByRole("button", { name: "Back to sent texts" }).click();
+  await expect(page.getByRole("heading", { name: "Sent texts" })).toBeVisible();
+  expect(errors).toEqual([]);
 });

@@ -40,7 +40,8 @@ const fail = (message: string, status = 400) => json({ error: message }, status)
 
 const TEAM_ID = /^[A-Za-z0-9-]{1,40}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const HISTORY = 20;
+/** Texts kept on the history screen, newest first. */
+const HISTORY = 50;
 /** Twilio is asked again only about texts this recent; older ones keep the last state it gave. */
 const REFRESH_DAYS = 7;
 /** The same words to the same team inside this window are a second tap, not a second text. */
