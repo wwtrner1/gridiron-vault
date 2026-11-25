@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { organizations, teams, textSignups } from "../../db/schema.js";
-import { CONSENT_VERSION, SIGNUP_TEXT, TEXT_LIMITS, type TextSignup } from "../../src/lib/teamHub.js";
+import { myTeamLinks, myTeams, myTeamSignups, organizations, teams, textSignups } from "../../db/schema.js";
+import { cleanMyTeams, CONSENT_VERSION, SIGNUP_TEXT, TEXT_LIMITS, type TextSignup } from "../../src/lib/teamHub.js";
 import { normalizePhone } from "../security/phone.js";
 import { sendTexts, smsOn } from "./send.js";
 
@@ -30,21 +30,71 @@ async function teamByToken(token: string) {
   return row ?? null;
 }
 
-/** `GET|POST /api/join/:token`, no sign-in. */
-export async function joinRoute(req: Request, token: string): Promise<Response> {
-  const team = await teamByToken(token);
-  if (!team) return fail(DEAD_LINK, 404);
-  if (req.method === "GET") return json({ team: team.name, org: team.org });
-  if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
+/** The coach's own team (My team) a sign-up link belongs to, with its name from the coach's saved teams. */
+export async function myTeamByToken(token: string) {
+  const [link] = await db.select().from(myTeamLinks).where(eq(myTeamLinks.token, token));
+  if (!link) return null;
+  const [row] = await db.select({ data: myTeams.data }).from(myTeams).where(eq(myTeams.ownerId, link.ownerId));
+  // A team the coach has since removed takes its link with it.
+  const team = row ? cleanMyTeams(row.data).teams.find((t) => t.id === link.teamId) : undefined;
+  return team ? { ownerId: link.ownerId, teamId: link.teamId, name: team.name } : null;
+}
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+type SignupForm = { phone: string; name: string; player: string };
+
+/** The sign-up form's fields, checked the same way for a Front Office team and a coach's own team. */
+function readSignup(body: Record<string, unknown>): SignupForm | Response {
   if (body.consent !== true) return fail("Tick the box to agree to team texts first.");
   const phone = normalizePhone(String(body.phone ?? ""));
   // Registered US texting only reaches US numbers.
   if (!phone || !/^\+1\d{10}$/.test(phone)) return fail("Enter a 10-digit US mobile number.");
   const name = clip(body.name);
   if (!name) return fail("Enter your name so the coaches know who signed up.");
-  const player = clip(body.player);
+  return { phone, name, player: clip(body.player) };
+}
+
+/** `GET|POST /api/join/:token` for a coach's own team (My team → Text the team's sign-up link). */
+async function joinMyTeam(req: Request, team: { ownerId: string; teamId: string; name: string }): Promise<Response> {
+  if (req.method === "GET") return json({ team: team.name, org: "" });
+  if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
+  const form = readSignup((await req.json().catch(() => ({}))) as Record<string, unknown>);
+  if (form instanceof Response) return form;
+  const { phone, name, player } = form;
+  const mine = and(eq(myTeamSignups.ownerId, team.ownerId), eq(myTeamSignups.teamId, team.teamId));
+
+  const [had] = await db.select({ id: myTeamSignups.id }).from(myTeamSignups).where(and(mine, eq(myTeamSignups.phone, phone)));
+  if (had) {
+    await db.update(myTeamSignups).set({ name, player, consent: CONSENT_VERSION }).where(eq(myTeamSignups.id, had.id));
+    return json({ ok: true, again: true });
+  }
+  const [counts] = await db
+    .select({
+      all: sql<number>`count(*)::int`,
+      today: sql<number>`count(*) filter (where ${myTeamSignups.createdAt} >= ${new Date(Date.now() - 86_400_000)})::int`,
+    })
+    .from(myTeamSignups)
+    .where(mine);
+  if ((counts?.all ?? 0) >= TEXT_LIMITS.perTeam) return fail("This team's text list is full. Ask your coach.", 403);
+  if ((counts?.today ?? 0) >= TEXT_LIMITS.perDay) return fail("A lot of families signed up today. Try again tomorrow.", 429);
+
+  await db.insert(myTeamSignups).values({ ownerId: team.ownerId, teamId: team.teamId, phone, name, player, consent: CONSENT_VERSION }).onConflictDoNothing();
+  const confirmed = smsOn() ? (await sendTexts([phone], SIGNUP_TEXT(team.name)).catch(() => 0)) > 0 : false;
+  return json({ ok: true, confirmed }, 201);
+}
+
+/** `GET|POST /api/join/:token`, no sign-in. */
+export async function joinRoute(req: Request, token: string): Promise<Response> {
+  const team = await teamByToken(token);
+  if (!team) {
+    const own = await myTeamByToken(token);
+    return own ? await joinMyTeam(req, own) : fail(DEAD_LINK, 404);
+  }
+  if (req.method === "GET") return json({ team: team.name, org: team.org });
+  if (req.method !== "POST") return fail("That address is not part of the playbook API.", 404);
+
+  const form = readSignup((await req.json().catch(() => ({}))) as Record<string, unknown>);
+  if (form instanceof Response) return form;
+  const { phone, name, player } = form;
 
   const [had] = await db.select({ id: textSignups.id }).from(textSignups).where(and(eq(textSignups.teamId, team.id), eq(textSignups.phone, phone)));
   if (had) {

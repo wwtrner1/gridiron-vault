@@ -652,6 +652,63 @@ export const myTeams = pgTable("my_teams", {
 });
 
 /**
+ * A My team team's family texts sign-up link (`/join/:token`), the solo
+ * coach's counterpart of `teams.joinToken`. `teamId` is the `MyTeamDoc` id
+ * inside that coach's `my_teams` row. Made the first time the coach opens
+ * Text the team signed in; a new link replaces the row.
+ */
+export const myTeamLinks = pgTable(
+  "my_team_links",
+  {
+    token: text().primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("my_team_links_team_idx").on(t.ownerId, t.teamId)],
+);
+
+/**
+ * A parent, guardian or player who signed themselves up on a My team team's
+ * `/join/:token` page. As with `text_signups`, only these numbers are ever
+ * texted by the server, never the roster's. A number that replied STOP is
+ * taken off the moment a send comes back refused for it.
+ */
+export const myTeamSignups = pgTable(
+  "my_team_signups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    phone: text().notNull(),
+    name: text().notNull().default(""),
+    player: text().notNull().default(""),
+    consent: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("my_team_signups_phone_idx").on(t.ownerId, t.teamId, t.phone)],
+);
+
+/**
+ * One Text the team send from GridIronVault's number: the coach's words and
+ * every recipient with Twilio's message id and its latest status
+ * (`TeamTextRecipient` in src/lib/textTeam.ts), so the coach sees who got it
+ * and who didn't, on any device. Owner only.
+ */
+export const teamTexts = pgTable(
+  "team_texts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    body: text().notNull(),
+    recipients: jsonb().$type<unknown[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("team_texts_owner_idx").on(t.ownerId, t.createdAt)],
+);
+
+/**
  * Team branding (name, logo as a small PNG data URL, two colors): one row per
  * coach holding the whole `TeamBrand` (src/lib/brandData.ts), cleaned by
  * `cleanBrand`, so it follows the coach to every device. Owner only.

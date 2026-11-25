@@ -47,12 +47,21 @@ on a new deploy).
    - `TWILIO_MESSAGING_SID` = the service's SID (starts `MG`), or
      `TWILIO_FROM` = the number in +1 format
    - `TEAM_SMS` = `on`
-5. Redeploy. "Text families who signed up" turns on. Only numbers that signed
-   up on the team's link (Messages → Players & families → Family texts
-   sign-up) get texts; a coach can take a number off but never add one. The
-   roster's "OK to text" only fills the coach's own Messages app links.
+5. Redeploy. "Text families who signed up" turns on in Front Office →
+   Messages, and My team → Text the team switches from the phone's Messages
+   app to one-tap sending from GridIronVault (with each family's Delivered /
+   Not delivered status). Only numbers that signed up on the team's link
+   (Messages → Players & families → Family texts sign-up, or the Family texts
+   sign-up panel on Text the team) get texts; a coach can take a number off
+   but never add one. The roster's "OK to text" only fills the coach's own
+   Messages app links.
+
+Leave `TEAM_SMS` off until Twilio approves the campaign: before that, carriers
+refuse the texts (Twilio 30034) and coaches would see every family as Not
+delivered. Families can sign up on the links while it is off.
 
 ## Limits
 
 Per Front Office per day: 1,000 emails and 300 texts (`MESSAGE_LIMITS` in
-`src/lib/teamHub.ts`). Every text starts "GridIronVault - Team name:" and ends "Reply STOP to opt out." A team's sign-up page takes at most 40 new numbers a day and 400 in all (`TEXT_LIMITS`).
+`src/lib/teamHub.ts`). Per coach per day from Text the team: 300 texts
+(`TEAM_TEXTS_PER_DAY` in `src/lib/textTeam.ts`). Every text starts "GridIronVault - Team name:" and ends "Reply STOP to opt out." A team's sign-up page takes at most 40 new numbers a day and 400 in all (`TEXT_LIMITS`).
