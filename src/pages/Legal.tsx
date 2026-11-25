@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 22, 2026";
+const UPDATED = "November 25, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -115,6 +115,13 @@ export function Privacy() {
           number used on several accounts.
         </li>
         <li>
+          <b>New-account notice:</b> the first time you sign in to a new account we email our own team your name, email
+          address, plan, how you signed up (email or Google), roughly where you were (city, state and country) and the time,
+          so we know someone new joined and can help. It goes to the people who run GridIronVault, once per account, and
+          nowhere else. That email stays in our team's inbox and in Resend's send log after you delete your account; ask us
+          and we'll remove it.
+        </li>
+        <li>
           <b>Your work:</b> plays, playbooks and Call Sheets you save to your account, and while you're signed in your own drills, starred drills and practice script.
         </li>
         <li>
@@ -152,6 +159,10 @@ export function Privacy() {
       <ul>
         <li>
           <b>Netlify</b> hosts the site and stores accounts, plays, team information and feedback.
+        </li>
+        <li>
+          <b>Resend</b> delivers the emails GridIronVault sends itself: the new-account notice to our team and, when a team's
+          coaches use it, team announcements to families.
         </li>
         <li>
           <b>Twilio</b> sends team texts.
