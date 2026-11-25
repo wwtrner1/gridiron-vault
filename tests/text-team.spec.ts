@@ -102,7 +102,7 @@ test("write a text, send it from the phone in groups of 8, and see it logged on 
   await expect(page.locator(".tt-stat").nth(2)).toContainText("1");
   // See all opens the team's sent texts.
   await page.getByRole("link", { name: "See all" }).click();
-  await expect(page.getByRole("heading", { name: "Sent texts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent texts", level: 2 })).toBeVisible();
   await expect(page.getByRole("list", { name: "Sent texts" })).toContainText("10 contacts · opened in Messages from this device");
   expect(errors).toEqual([]);
 });
@@ -207,6 +207,6 @@ test("sent texts: every text from GridIronVault stays reviewable with its date, 
   await expect(page.getByRole("heading", { name: "Sent to 2 of 3." })).toBeVisible();
   await expect(page.getByRole("list", { name: "Each family" }).locator("li").nth(1)).toContainText("Not a working mobile number");
   await page.getByRole("button", { name: "Back to sent texts" }).click();
-  await expect(page.getByRole("heading", { name: "Sent texts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent texts", level: 2 })).toBeVisible();
   expect(errors).toEqual([]);
 });
