@@ -19,6 +19,9 @@ nobody can use it to message people who aren't on a team.
 5. Redeploy. The "Email families" box turns on. Replies go to the coach who
    sent the announcement.
 
+The same two variables also switch on the email to the owner when a new account
+is created (`docs/signup-alerts.md`).
+
 ## Texts (Twilio), about 30 minutes plus carrier review
 
 The Twilio account that used to send sign-in phone codes is reused

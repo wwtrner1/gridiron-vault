@@ -37,7 +37,8 @@ import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, paus
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
-import { activityFeed, recordAccess, recordCapture, findTrace, type Origin } from "../admin/activity.js";
+import { activityFeed, placeOf, recordAccess, recordCapture, findTrace, type Origin } from "../admin/activity.js";
+import { notifySignup } from "../admin/signupAlert.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
@@ -78,7 +79,19 @@ const json = (body: unknown, status = 200) =>
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
 /** `owner` is the All-Access Master account: decided server-side by netlify/security/owner.ts, never by anything the browser sends. */
-type Session = { id: string; email: string; name: string; owner: boolean; /** Why an address on the owner list was not accepted (shown only to that signed-in person). */ ownerHint?: string };
+type Session = {
+  id: string;
+  email: string;
+  name: string;
+  owner: boolean;
+  /** Why an address on the owner list was not accepted (shown only to that signed-in person). */
+  ownerHint?: string;
+  /** How Identity says the account was made ("email", "google"…) and when: only for the owner's new-signup email. */
+  method?: string;
+  accountCreatedAt?: string;
+  /** Netlify's `context.waitUntil` for this request, when there is one: work that may finish after the answer goes out. */
+  defer?: (work: Promise<unknown>) => void;
+};
 
 async function session(): Promise<Session | null> {
   try {
@@ -112,9 +125,12 @@ async function session(): Promise<Session | null> {
     return {
       id: user.id,
       email,
-      name: user.name || meta.full_name || email.split("@")[0] || "Coach",
+      // Identity keeps whatever a sign-up put in its metadata, so only a real string can be a name.
+      name: user.name || (typeof meta.full_name === "string" ? meta.full_name : "") || email.split("@")[0] || "Coach",
       owner: isOwner({ email, confirmed }),
       ownerHint,
+      method: user.provider,
+      accountCreatedAt: user.createdAt,
     };
   } catch {
     return null;
@@ -132,14 +148,25 @@ async function isOwnersLogo(logo: string): Promise<boolean> {
   return !!row;
 }
 
-async function ensureProfile(user: Session) {
+async function ensureProfile(user: Session, origin?: Origin) {
   // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
   const created = await db
     .insert(profiles)
     .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : trialsOn() ? "free" : "beta" })
     .onConflictDoNothing()
     .returning({ id: profiles.id });
-  if (created.length && !user.owner && trialsOn()) await startTrial(user);
+  // `created` is true for exactly one request per account, so this is the one place a new coach is announced. The
+  // announcement runs even if the trial step throws (the profile is saved either way), and after the answer is sent
+  // when Netlify lets it (`defer`), so the coach's first call never waits on the email.
+  if (created.length && !user.owner) {
+    try {
+      if (trialsOn()) await startTrial(user);
+    } finally {
+      const announcing = announceSignup(user, origin);
+      if (user.defer) user.defer(announcing);
+      else await announcing;
+    }
+  }
   // The owner's row follows the owner list, so the plan on file matches what the server enforces.
   if (user.owner) await db.update(profiles).set({ plan: "master" }).where(and(eq(profiles.id, user.id), ne(profiles.plan, "master")));
   // "Last active" for the owner's user list: touched at most every five minutes.
@@ -147,6 +174,33 @@ async function ensureProfile(user: Session) {
     .update(profiles)
     .set({ lastActiveAt: new Date() })
     .where(and(eq(profiles.id, user.id), or(sql`${profiles.lastActiveAt} is null`, lt(profiles.lastActiveAt, new Date(Date.now() - 300_000)))));
+}
+
+/**
+ * Emails the owner that a coach just joined (netlify/admin/signupAlert.ts), after the trial decision so the email
+ * names the plan they got. It never rejects: the profile is already saved, so nothing here may fail the request.
+ */
+async function announceSignup(user: Session, origin?: Origin) {
+  try {
+    // A deleted account whose sign-in token is still valid gets its profile row made again by the next call. That
+    // is not a new coach: eraseAccount wrote this id to the ledger, so say nothing.
+    const [gone] = await db.select({ id: accountLedger.userId }).from(accountLedger).where(eq(accountLedger.userId, user.id));
+    if (gone) return;
+    const [row] = await db.select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt }).from(profiles).where(eq(profiles.id, user.id));
+    await notifySignup({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      method: user.method,
+      accountCreatedAt: user.accountCreatedAt,
+      plan: row?.plan ?? "free",
+      trialEndsAt: row?.trialEndsAt,
+      place: origin ? placeOf(origin) : "",
+      at: new Date(),
+    });
+  } catch (e) {
+    console.error("signup alert", e instanceof Error ? e.message : e);
+  }
 }
 
 /**
@@ -183,18 +237,19 @@ export default async (req: Request, context?: Context) => {
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
   const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";
-  const res = await route(req, deviceId, { ip: context?.ip, geo: context?.geo });
+  const res = await route(req, deviceId, { ip: context?.ip, geo: context?.geo }, context?.waitUntil ? (work) => context.waitUntil(work) : undefined);
   if (deviceId && deviceId !== fromCookie) {
     res.headers.append("Set-Cookie", `${DEVICE_COOKIE}=${deviceId}; Max-Age=${400 * 86400}; Path=/api; Secure; HttpOnly; SameSite=Lax`);
   }
   return res;
 };
 
-async function route(req: Request, deviceId: string, origin: Origin = {}): Promise<Response> {
+async function route(req: Request, deviceId: string, origin: Origin = {}, defer?: Session["defer"]): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
   const [resource, id, action] = parts;
   const me = await session();
+  if (me) me.defer = defer;
   // Where this request came from, for the owner's sign-in audit (netlify/admin/activity.ts).
   const where = { ua: req.headers.get("user-agent") ?? "", deviceId, origin };
 
@@ -205,7 +260,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         return await deleteAccount(me, await req.json().catch(() => ({})));
       }
       if (!me) return json({ user: null });
-      await ensureProfile(me);
+      await ensureProfile(me, origin);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
       // The browser reports a fresh sign-in; every other read of /me is an app open (one per device each half hour).
       if (id === "signin" && req.method === "POST") {
