@@ -64,7 +64,12 @@ export function TextTeam() {
   const live = Boolean(server.texts?.sms);
 
   const [params] = useSearchParams();
-  const [step, setStep] = useState<Step>(params.get("view") === "history" && !server.locked ? "history" : "write");
+  const [step, setStep] = useState<Step>("write");
+  // ?view=history (My team card's See all) opens Sent texts once the plan is known to allow it.
+  const wantHistory = params.get("view") === "history";
+  useEffect(() => {
+    if (wantHistory && !server.locked) setStep((s) => (s === "write" ? "history" : s));
+  }, [wantHistory, server.locked]);
   /** The result screen was opened from Sent texts, so its back button goes there. */
   const [fromHistory, setFromHistory] = useState(false);
   const [audience, setAudience] = useState<Audience>("all");
@@ -158,8 +163,7 @@ export function TextTeam() {
   // Texts opened in Messages from this browser; read again whenever the screen changes, so a new one shows.
   const phoneLog = useMemo(() => loadTexts(), [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const pastCount = (list?.texts.length ?? 0) + phoneLog.length;
-  // Sent texts is part of one-tap texting, so Sideline doesn't get it (Wes 2026-11-25).
-  const pastLink = pastCount > 0 && !server.locked && (
+  const pastLink = pastCount > 0 && (
     <button type="button" className="btn btn-ghost btn-block tt-past" onClick={() => setStep("history")}>
       <Icon name="message" size={16} /> Sent texts · {pastCount}
     </button>
@@ -176,6 +180,44 @@ export function TextTeam() {
       />
     </div>
   );
+
+  // Sideline and signed-out visitors get no texting at all (Wes 2026-11-25), only the way to a plan that has it.
+  if (server.locked)
+    return (
+      <Shell title="Text the team">
+        <div className="tt">
+          <div className="tt-top">
+            <Link to="/roster" className="tt-back" aria-label="Back to My team">
+              <Icon name="prev" size={18} />
+            </Link>
+            <div>
+              <p className="eyebrow">{teamName}</p>
+              <h2>Text the team</h2>
+            </div>
+          </div>
+          {!server.authReady ? (
+            <p className="tt-fine" role="status">
+              Checking your plan…
+            </p>
+          ) : (
+            <aside className="tt-card tt-upsell tt-locked">
+              <span className="pill pill-violet">HEAD COACH</span>
+              <h3>Text every family in one tap.</h3>
+              <p>{TEAM_TEXTS_LOCKED}</p>
+              <p>Families sign up once on your team's link, then each text goes out from GridIronVault and shows who got it.</p>
+              <Link to="/pricing" className="btn btn-primary btn-lg btn-block">
+                See plans
+              </Link>
+              {!account && (
+                <Link to="/signin" className="btn btn-ghost btn-lg btn-block">
+                  Sign in
+                </Link>
+              )}
+            </aside>
+          )}
+        </div>
+      </Shell>
+    );
 
   if (step === "result" && result) {
     const t = tally(result.recipients);
@@ -259,7 +301,7 @@ export function TextTeam() {
     );
   }
 
-  if (step === "history" && !server.locked)
+  if (step === "history")
     return (
       <Shell title="Sent texts">
         <div className="tt">
@@ -324,9 +366,7 @@ export function TextTeam() {
             <span className="pill pill-violet">ONE TAP</span>
             <h3>Skip the groups next time.</h3>
             <p>
-              {server.locked
-                ? TEAM_TEXTS_LOCKED
-                : account
+              {account
                 ? "Once texting from GridIronVault is switched on, families who signed up on your team's link get every text in one tap, from any computer or phone."
                 : "Sign in and share your team's sign-up link. Once texting from GridIronVault is switched on, every text is one tap from any computer or phone."}
             </p>
@@ -512,14 +552,6 @@ export function TextTeam() {
               </p>
             </div>
             {pastLink}
-            {server.locked && (
-              <aside className="tt-card tt-upsell">
-                <span className="pill pill-violet">HEAD COACH</span>
-                <h3>Text every family in one tap.</h3>
-                <p>{TEAM_TEXTS_LOCKED}</p>
-                <Link to="/pricing">See plans</Link>
-              </aside>
-            )}
             {signupPanel && (
               <>
                 <p className="tt-fine">

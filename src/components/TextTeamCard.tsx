@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "./Icon";
-import { loadTexts, tally, textContacts } from "../lib/textTeam";
+import { loadTexts, tally, TEAM_TEXTS_LOCKED, textContacts } from "../lib/textTeam";
 import { loadMyTeam } from "../lib/teamSource";
 import { useTeamTexts } from "../lib/useTeamTexts";
 import "../styles/textTeam.css";
@@ -32,6 +32,19 @@ export function TextTeamCard({ version }: { version: number | string }) {
       })
     : local.map((t) => ({ id: t.id, at: t.at, body: t.body, note: `${t.contacts} ${t.contacts === 1 ? "contact" : "contacts"} · opened in Messages` }));
 
+  // Sideline and signed-out visitors get no texting (Wes 2026-11-25): the card offers the upgrade instead.
+  if (teamTexts.locked)
+    return (
+      <section className="tt-entry" aria-label="Text the team" data-tour="text-team">
+        <div className="tt-card tt-upsell">
+          <span className="pill pill-violet">HEAD COACH</span>
+          <h3>Text every family in one tap.</h3>
+          <p>{TEAM_TEXTS_LOCKED}</p>
+          <Link to="/pricing">See plans</Link>
+        </div>
+      </section>
+    );
+
   return (
     <section className="tt-entry" aria-label="Text the team" data-tour="text-team">
       <div className="tt-stats">
@@ -60,11 +73,9 @@ export function TextTeamCard({ version }: { version: number | string }) {
         <div className="tt-card">
           <div className="tt-recent-head">
             Last texts
-            {!teamTexts.locked && (
-              <Link to="/roster/text?view=history" className="tt-recent-all">
-                See all
-              </Link>
-            )}
+            <Link to="/roster/text?view=history" className="tt-recent-all">
+              See all
+            </Link>
           </div>
           <ul className="tt-recent">
             {texts.slice(0, 3).map((t) => (

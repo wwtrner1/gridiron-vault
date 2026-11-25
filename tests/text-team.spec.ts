@@ -35,8 +35,16 @@ const player = (i: number) => ({
   guardians: [{ name: `Parent ${i}`, relation: "Mom", phone: `615555${String(1000 + i)}`, email: "", text: true }],
 });
 
-test("write a text, send it from the phone in groups of 8, and see it logged on My team", async ({ page }) => {
+const offState = { token: "tok_abcdefghijklmnop", signups: [], texts: [], sms: false, sentToday: 0, perDay: 300 };
+/** A Head Coach before one-tap sending is switched on: the phone groups are how they text. */
+const signedInPhone = (context: import("@playwright/test").BrowserContext) =>
+  signIn(context, (route, path, method) => {
+    if (path === "my-team/my-team/texts" && method === "GET") return route.fulfill({ json: offState }).then(() => true);
+  });
+
+test("write a text, send it from the phone in groups of 8, and see it logged on My team", async ({ context, page }) => {
   const errors = errorsOf(page);
+  await signedInPhone(context);
   const players = Array.from({ length: 10 }, (_, i) => player(i + 1));
   players.push({ ...player(11), status: "inactive" }); // never texted
   await page.addInitScript((list) => {
@@ -107,7 +115,8 @@ test("write a text, send it from the phone in groups of 8, and see it logged on 
   expect(errors).toEqual([]);
 });
 
-test("with no one marked OK to text, the screen says so and holds the send back", async ({ page }) => {
+test("with no one marked OK to text, the screen says so and holds the send back", async ({ context, page }) => {
+  await signedInPhone(context);
   await page.goto("/roster/text");
   await expect(page.getByText("No numbers to text yet.")).toBeVisible();
   await page.getByLabel("Message").fill("Practice is on.");
@@ -211,24 +220,33 @@ test("sent texts: every text from GridIronVault stays reviewable with its date, 
   expect(errors).toEqual([]);
 });
 
-test("on Sideline, one-tap texts, the sign-up link and Sent texts stay locked; the phone flow stays", async ({ context, page }) => {
+test("on Sideline there is no texting at all, only the way to a plan", async ({ context, page }) => {
   const asked: string[] = [];
   await signIn(context, (route, path) => {
     if (path === "me") return route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free" } }).then(() => true);
     if (path.startsWith("my-team/my-team/")) {
       asked.push(path);
-      return route.fulfill({ status: 403, json: { error: "One-tap team texts come with Head Coach and up.", code: "plan_required" } }).then(() => true);
+      return route.fulfill({ status: 403, json: { error: "Texting your team comes with Head Coach and up.", code: "plan_required" } }).then(() => true);
     }
   });
-  await page.addInitScript(() => {
-    localStorage.setItem("grid1ronvault.texts.v1", JSON.stringify([{ id: "t1", at: "2026-11-20T18:00:00.000Z", body: "Practice is on.", contacts: 4, groups: 1 }]));
-  });
+  await page.goto("/roster");
+  const card = page.getByRole("region", { name: "Text the team" });
+  await expect(card.getByText("Texting your team comes with Head Coach and up.")).toBeVisible();
+  await expect(card.getByRole("link", { name: "Text the team" })).toHaveCount(0);
+
   await page.goto("/roster/text?view=history");
-  await expect(page.getByRole("heading", { name: "Text the team", level: 2 })).toBeVisible();
-  await expect(page.getByText("One-tap team texts come with Head Coach and up.")).toBeVisible();
+  await expect(page.getByText("Texting your team comes with Head Coach and up.")).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Next: send from my phone" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Sent texts/ })).toHaveCount(0);
-  await expect(page.getByLabel("Family texts sign-up link")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next: send from my phone" })).toHaveCount(0);
+  await expect(page.getByLabel("Message")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sent texts", level: 2 })).toHaveCount(0);
+  await expect(page.locator('a[href^="sms:"]')).toHaveCount(0);
   expect(asked).toEqual([]);
+});
+
+test("signed out there is no texting either: sign in or see plans", async ({ page }) => {
+  await page.goto("/roster/text");
+  await expect(page.getByText("Texting your team comes with Head Coach and up.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in" }).last()).toBeVisible();
+  await expect(page.getByLabel("Message")).toHaveCount(0);
 });

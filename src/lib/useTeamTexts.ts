@@ -6,15 +6,16 @@ import { useTier } from "./tier";
 
 /**
  * A coach's own team's texts from GridIronVault's number (sign-up link, who signed up, last texts, whether sending
- * is on), for Text the team and its My team card. Signed out there is nothing to ask: `texts` stays null and the
- * page offers the coach's own phone instead.
+ * is on), for Text the team and its My team card. Signed out or on Sideline there is nothing to ask: `locked` is
+ * true and both show an upgrade prompt instead of any way to text.
  */
 export function useTeamTexts(teamId: string) {
-  const { account } = useAuth();
+  const { account, status } = useAuth();
   const tier = useTier().id;
   // Sideline doesn't text from GridIronVault (Wes 2026-11-25); the server says so too, with 403 plan_required.
   const [refused, setRefused] = useState(false);
-  const locked = Boolean(account) && (!teamTextsOn(tier) || refused);
+  // Signed out counts as Sideline: texting needs a plan, and a plan needs an account.
+  const locked = !account || !teamTextsOn(tier) || refused;
   const [texts, setTexts] = useState<MyTeamTexts | null>(null);
   const [loading, setLoading] = useState(Boolean(account) && teamTextsOn(tier));
   const [problem, setProblem] = useState("");
@@ -46,5 +47,5 @@ export function useTeamTexts(teamId: string) {
 
   useEffect(load, [load]);
 
-  return { texts: locked ? null : texts, setTexts, loading, problem, reload: load, signedIn: Boolean(account), locked };
+  return { texts: locked ? null : texts, setTexts, loading, problem, reload: load, signedIn: Boolean(account), locked, authReady: status === "ready" };
 }

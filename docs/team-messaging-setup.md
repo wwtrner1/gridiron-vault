@@ -56,9 +56,9 @@ on a new deploy).
    but never add one. The roster's "OK to text" only fills the coach's own
    Messages app links.
 
-One-tap sending from Text the team is for paid plans and the Head Coach
-trial; Sideline coaches keep sending from their own phone (`TEAM_TEXT_PLANS`
-in `src/lib/textTeam.ts`).
+Text the team, in either form, is for paid plans and the Head Coach trial;
+Sideline coaches and signed-out visitors see an upgrade prompt instead
+(`TEAM_TEXT_PLANS` in `src/lib/textTeam.ts`).
 
 Leave `TEAM_SMS` off until Twilio approves the campaign: before that, carriers
 refuse the texts (Twilio 30034) and coaches would see every family as Not
