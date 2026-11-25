@@ -192,8 +192,9 @@ export function Privacy() {
       <p>
         No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text
         messaging opt-in data and consent will not be shared with any third parties. Your number is used only for the
-        texts you signed up for: team updates from the coaches of a team you joined. Reply STOP to any
-        team text to stop them, or ask the team's coach to take you off.
+        texts you signed up for: team updates from the coaches of a team you joined. Message frequency varies, usually
+        1 to 4 a week during the season. Message and data rates may apply. Reply STOP to any team text to stop them,
+        HELP for help, or ask the team's coach to take you off.
       </p>
 
       <h2>Players, parents and kids</h2>
