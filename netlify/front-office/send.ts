@@ -77,27 +77,70 @@ export async function sendNotice(opts: { from: string; to: string[]; subject: st
   }
 }
 
-/** Texts one announcement to each number. Returns how many went out. */
-export async function sendTexts(numbers: string[], body: string): Promise<number> {
+const twilio = () => {
   const sid = env("TWILIO_ACCOUNT_SID");
-  const auth = `Basic ${Buffer.from(`${sid}:${env("TWILIO_AUTH_TOKEN")}`).toString("base64")}`;
+  return { sid, auth: `Basic ${Buffer.from(`${sid}:${env("TWILIO_AUTH_TOKEN")}`).toString("base64")}` };
+};
+
+/** What Twilio said about one number: its message id and state, or the error code it refused with (`sid` empty). */
+export type TextResult = { to: string; sid: string; status: string; code: number | null };
+
+/**
+ * Texts one message to each number and reports every number on its own, so a coach can see who it reached. A refusal
+ * keeps Twilio's error code (21610: the number replied STOP; 30034: the sender isn't registered yet); a number that
+ * never reached Twilio (network, timeout) comes back as status "error".
+ */
+export async function sendTextEach(numbers: string[], body: string): Promise<TextResult[]> {
+  const { sid, auth } = twilio();
   const sender: Record<string, string> = env("TWILIO_MESSAGING_SID") ? { MessagingServiceSid: env("TWILIO_MESSAGING_SID") } : { From: env("TWILIO_FROM") };
   const list = [...new Set(numbers.map(normalizePhone).filter((n): n is string => Boolean(n)))];
-  let sent = 0;
+  const out: TextResult[] = [];
   // Ten at a time, so a full roster goes out well inside the function's time limit.
   for (let i = 0; i < list.length; i += 10) {
     const done = await Promise.all(
-      list.slice(i, i + 10).map(async (To) => {
-        const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-          method: "POST",
-          headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ ...sender, To, Body: body }),
-        });
-        if (!res.ok) console.error("Twilio Messages", res.status, await res.text().catch(() => ""));
-        return res.ok;
+      list.slice(i, i + 10).map(async (To): Promise<TextResult> => {
+        try {
+          const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+            method: "POST",
+            headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ ...sender, To, Body: body }),
+            signal: AbortSignal.timeout(10_000),
+          });
+          const data = (await res.json().catch(() => ({}))) as { sid?: string; status?: string; code?: number; error_code?: number | null };
+          if (!res.ok) {
+            console.error("Twilio Messages", res.status, data.code ?? "");
+            return { to: To, sid: "", status: "failed", code: typeof data.code === "number" ? data.code : res.status };
+          }
+          return { to: To, sid: data.sid ?? "", status: data.status ?? "queued", code: data.error_code ?? null };
+        } catch (e) {
+          console.error("Twilio Messages", e instanceof Error ? e.message : e);
+          return { to: To, sid: "", status: "error", code: null };
+        }
       }),
     );
-    sent += done.filter(Boolean).length;
+    out.push(...done);
   }
-  return sent;
+  return out;
+}
+
+/** A sent message's latest state, read back from Twilio, or null when Twilio can't be asked just now. */
+export async function textStatus(messageSid: string): Promise<{ status: string; code: number | null } | null> {
+  if (!/^(SM|MM)[0-9a-f]{32}$/.test(messageSid)) return null;
+  const { sid, auth } = twilio();
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages/${messageSid}.json`, {
+      headers: { Authorization: auth },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { status?: string; error_code?: number | null };
+    return data.status ? { status: data.status, code: data.error_code ?? null } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Texts one announcement to each number. Returns how many Twilio took. */
+export async function sendTexts(numbers: string[], body: string): Promise<number> {
+  return (await sendTextEach(numbers, body)).filter((r) => r.sid).length;
 }
