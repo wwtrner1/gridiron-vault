@@ -10,6 +10,9 @@ import {
   callSheets,
   events,
   myTeams,
+  myTeamLinks,
+  myTeamSignups,
+  teamTexts,
   playerFiles,
   lessonVoices,
   teamBrands,
@@ -43,6 +46,7 @@ import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
+import { dropMyTeamSignup, myTeamTextsRoute } from "../front-office/myTeamTexts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
 import { dropVoiceBlobs, ownerVoiceKeys, playVoice, voiceRoute } from "../film-room/voice.js";
@@ -551,6 +555,16 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
     /* -------------------------------------------------------- my team --- */
     // The coach's own teams (minors' contacts): owner only, never cached.
     // `team` is the first team, for a tab still open from before a coach could keep more than one.
+    // Text the team from GridIronVault's number: the sign-up link, the list, one-tap sends and their statuses.
+    if (resource === "my-team" && id) {
+      if (!me) return fail("Sign in to text your team from GridIronVault.", 401);
+      await ensureProfile(me);
+      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3]);
+    }
+    if (resource === "my-team-signups" && id && req.method === "DELETE") {
+      if (!me) return fail("Sign in first.", 401);
+      return await dropMyTeamSignup(me, id);
+    }
     if (resource === "my-team") {
       const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
       if (!me) return req.method === "GET" ? mine({ teams: null, team: null }) : fail("Sign in to keep your roster on your account.", 401);
@@ -1425,6 +1439,9 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
+    await tx.delete(myTeamSignups).where(eq(myTeamSignups.ownerId, me.id));
+    await tx.delete(myTeamLinks).where(eq(myTeamLinks.ownerId, me.id));
+    await tx.delete(teamTexts).where(eq(teamTexts.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(lessonVoices).where(eq(lessonVoices.ownerId, me.id));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));

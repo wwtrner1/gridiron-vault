@@ -74,5 +74,24 @@
 .tt-recent small { font-size: 13px; color: var(--muted); }
 .tt-recent-head { padding: 12px 14px; border-bottom: 1px solid var(--border-2); font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: 0.07em; text-transform: uppercase; }
 
+/* One tap from GridIronVault: each family's status, the sign-up link panel */
+.tt-state.is-delivered { background: var(--green-bg); color: var(--green-fg); }
+.tt-state.is-sent, .tt-state.is-sending { background: var(--cyan-soft); color: var(--pass-fg); }
+.tt-state.is-failed { background: var(--red-bg); color: var(--red-fg); }
+.tt-recips { list-style: none; margin: 0; padding: 0; }
+.tt-recips li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 12px 14px; }
+.tt-recips li + li { border-top: 1px solid var(--border-2); }
+.tt-recips li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tt-recips b { font-size: 14px; }
+.tt-recips small { font-size: 12.5px; color: var(--muted); }
+.tt-recips .tt-why { color: var(--red-fg); }
+.tt-signup { overflow: hidden; }
+.tt-signup .panel { border-bottom: 0; }
+.tt-signup .panel-head { padding: 13px 14px; color: var(--ink); font-size: 14px; }
+.tt-signup .panel-head:hover { background: var(--special-bg); color: var(--ink); }
+.tt-signup .panel-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.tt-signup .hint { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.tt-signup .fo-actions .input { flex: 1 1 240px; min-width: 0; }
+
 .tt-back:focus-visible, .tt-chip:focus-visible, .tt-msg:focus-visible { outline: 2px solid var(--cyan-ink); outline-offset: 2px; }
 @media print { .tt-entry { display: none !important; } }
