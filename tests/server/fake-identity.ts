@@ -1,7 +1,7 @@
 export * from "@netlify/identity";
 
 /** Netlify Identity in the server tests: whoever `signInAs` names is the signed-in coach for the next requests. */
-type User = { id: string; email: string; name: string; confirmedAt: string; userMetadata: Record<string, string> };
+type User = { id: string; email: string; name: string; confirmedAt: string; userMetadata: Record<string, string>; provider?: string; createdAt?: string };
 
 let current: User | null = null;
 let adminDown = false;
@@ -12,8 +12,8 @@ export function identityAdmin(down: boolean) {
 }
 
 /** `confirmedAt: ""` is a token-only answer: getUser() fell back to the sign-in token's claims, which carry no stamp. */
-export function signInAs(user: { id: string; email: string; name?: string; confirmedAt?: string } | null) {
-  current = user ? { name: "Coach", confirmedAt: new Date().toISOString(), userMetadata: {}, ...user } : null;
+export function signInAs(user: { id: string; email: string; name?: string; confirmedAt?: string; provider?: string; createdAt?: string; userMetadata?: Record<string, unknown> } | null) {
+  current = user ? ({ name: "Coach", confirmedAt: new Date().toISOString(), userMetadata: {}, ...user } as User) : null;
 }
 
 export async function getUser() {

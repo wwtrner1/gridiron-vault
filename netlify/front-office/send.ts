@@ -40,6 +40,43 @@ export async function sendEmails(to: string[], subject: string, text: string, re
   return sent;
 }
 
+/**
+ * One plain-text email to the people who run the site (the new-signup notice). Unlike `sendEmails` the recipients
+ * are the `to` line, because the owner should see who else got it. It never throws and never waits long: it answers
+ * "off" when email isn't set up, "failed" when Resend refuses, can't be reached or is slow, so a notice can never
+ * break the request that caused it. `idempotencyKey` makes Resend itself drop a repeat of the same notice.
+ */
+export async function sendNotice(opts: { from: string; to: string[]; subject: string; text: string; idempotencyKey?: string; timeoutMs?: number }): Promise<"sent" | "off" | "failed"> {
+  const key = env("RESEND_API_KEY");
+  if (!key || !opts.from || !opts.to.length) return "off";
+  // A plain timer rather than AbortSignal.timeout: it is cleared the moment the answer comes, and it holds the function
+  // open until it fires, so a Resend that never answers is cut off here instead of hanging the request.
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(new Error("Resend took too long")), opts.timeoutMs ?? 4000);
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
+      },
+      body: JSON.stringify({ from: opts.from, to: opts.to, subject: opts.subject, text: opts.text }),
+      signal: stop.signal,
+    });
+    if (!res.ok) {
+      console.error("Resend notice", res.status, await res.text().catch(() => ""));
+      return "failed";
+    }
+    return "sent";
+  } catch (e) {
+    console.error("Resend notice", e instanceof Error ? e.message : e);
+    return "failed";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Texts one announcement to each number. Returns how many went out. */
 export async function sendTexts(numbers: string[], body: string): Promise<number> {
   const sid = env("TWILIO_ACCOUNT_SID");

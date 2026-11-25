@@ -30,7 +30,7 @@ export function ipPrefix(ip = "") {
   return "";
 }
 
-const placeOf = (o: Origin) => [o.geo?.city, o.geo?.subdivision?.code, o.geo?.country?.code].filter(Boolean).join(", ").slice(0, 80);
+export const placeOf = (o: Origin) => [o.geo?.city, o.geo?.subdivision?.code, o.geo?.country?.code].filter(Boolean).join(", ").slice(0, 80);
 
 type Where = { ua: string; deviceId: string; origin: Origin };
 const columns = ({ ua, deviceId, origin }: Where) => ({
