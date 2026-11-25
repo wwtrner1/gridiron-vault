@@ -210,3 +210,25 @@ test("sent texts: every text from GridIronVault stays reviewable with its date, 
   await expect(page.getByRole("heading", { name: "Sent texts", level: 2 })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("on Sideline, one-tap texts, the sign-up link and Sent texts stay locked; the phone flow stays", async ({ context, page }) => {
+  const asked: string[] = [];
+  await signIn(context, (route, path) => {
+    if (path === "me") return route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free" } }).then(() => true);
+    if (path.startsWith("my-team/my-team/")) {
+      asked.push(path);
+      return route.fulfill({ status: 403, json: { error: "One-tap team texts come with Head Coach and up.", code: "plan_required" } }).then(() => true);
+    }
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("grid1ronvault.texts.v1", JSON.stringify([{ id: "t1", at: "2026-11-20T18:00:00.000Z", body: "Practice is on.", contacts: 4, groups: 1 }]));
+  });
+  await page.goto("/roster/text?view=history");
+  await expect(page.getByRole("heading", { name: "Text the team", level: 2 })).toBeVisible();
+  await expect(page.getByText("One-tap team texts come with Head Coach and up.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next: send from my phone" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sent texts/ })).toHaveCount(0);
+  await expect(page.getByLabel("Family texts sign-up link")).toHaveCount(0);
+  expect(asked).toEqual([]);
+});

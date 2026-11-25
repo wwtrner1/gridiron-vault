@@ -19,6 +19,7 @@ import {
   signupsFor,
   smsHref,
   tally,
+  TEAM_TEXTS_LOCKED,
   TEMPLATES,
   TEXT_MAX,
   textContacts,
@@ -63,7 +64,7 @@ export function TextTeam() {
   const live = Boolean(server.texts?.sms);
 
   const [params] = useSearchParams();
-  const [step, setStep] = useState<Step>(params.get("view") === "history" ? "history" : "write");
+  const [step, setStep] = useState<Step>(params.get("view") === "history" && !server.locked ? "history" : "write");
   /** The result screen was opened from Sent texts, so its back button goes there. */
   const [fromHistory, setFromHistory] = useState(false);
   const [audience, setAudience] = useState<Audience>("all");
@@ -157,7 +158,8 @@ export function TextTeam() {
   // Texts opened in Messages from this browser; read again whenever the screen changes, so a new one shows.
   const phoneLog = useMemo(() => loadTexts(), [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const pastCount = (list?.texts.length ?? 0) + phoneLog.length;
-  const pastLink = pastCount > 0 && (
+  // Sent texts is part of one-tap texting, so Sideline doesn't get it (Wes 2026-11-25).
+  const pastLink = pastCount > 0 && !server.locked && (
     <button type="button" className="btn btn-ghost btn-block tt-past" onClick={() => setStep("history")}>
       <Icon name="message" size={16} /> Sent texts · {pastCount}
     </button>
@@ -257,7 +259,7 @@ export function TextTeam() {
     );
   }
 
-  if (step === "history")
+  if (step === "history" && !server.locked)
     return (
       <Shell title="Sent texts">
         <div className="tt">
@@ -322,7 +324,9 @@ export function TextTeam() {
             <span className="pill pill-violet">ONE TAP</span>
             <h3>Skip the groups next time.</h3>
             <p>
-              {account
+              {server.locked
+                ? TEAM_TEXTS_LOCKED
+                : account
                 ? "Once texting from GridIronVault is switched on, families who signed up on your team's link get every text in one tap, from any computer or phone."
                 : "Sign in and share your team's sign-up link. Once texting from GridIronVault is switched on, every text is one tap from any computer or phone."}
             </p>
@@ -508,6 +512,14 @@ export function TextTeam() {
               </p>
             </div>
             {pastLink}
+            {server.locked && (
+              <aside className="tt-card tt-upsell">
+                <span className="pill pill-violet">HEAD COACH</span>
+                <h3>Text every family in one tap.</h3>
+                <p>{TEAM_TEXTS_LOCKED}</p>
+                <Link to="/pricing">See plans</Link>
+              </aside>
+            )}
             {signupPanel && (
               <>
                 <p className="tt-fine">

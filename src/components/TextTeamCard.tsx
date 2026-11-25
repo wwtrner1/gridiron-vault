@@ -21,7 +21,8 @@ export function TextTeamCard({ version }: { version: number | string }) {
   const team = useMemo(() => loadMyTeam(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
   const players = team.players;
   const local = useMemo(() => loadTexts(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
-  const server = useTeamTexts(team.id).texts;
+  const teamTexts = useTeamTexts(team.id);
+  const server = teamTexts.texts;
   const live = Boolean(server?.sms);
   const contacts = live ? server!.signups.length : textContacts(players, "all").length;
   const texts = live
@@ -59,9 +60,11 @@ export function TextTeamCard({ version }: { version: number | string }) {
         <div className="tt-card">
           <div className="tt-recent-head">
             Last texts
-            <Link to="/roster/text?view=history" className="tt-recent-all">
-              See all
-            </Link>
+            {!teamTexts.locked && (
+              <Link to="/roster/text?view=history" className="tt-recent-all">
+                See all
+              </Link>
+            )}
           </div>
           <ul className="tt-recent">
             {texts.slice(0, 3).map((t) => (

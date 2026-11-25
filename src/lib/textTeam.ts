@@ -1,3 +1,4 @@
+import type { TierId } from "./plan";
 import type { HubPlayer, TextSignup } from "./teamHub";
 
 /**
@@ -157,6 +158,16 @@ export function tally(recipients: TeamTextRecipient[]): Record<Outcome, number> 
   for (const r of recipients) out[outcome(r.status)]++;
   return out;
 }
+
+/**
+ * The plans that text from GridIronVault's number (one tap, the sign-up link, Sent texts). Wes 2026-11-25: "Free
+ * sideline shouldn't benefit from this feature", so every plan but Sideline, the Head Coach trial included. A
+ * Sideline coach keeps texting from their own phone.
+ */
+export const TEAM_TEXT_PLANS: TierId[] = ["solo", "crew", "program", "trial", "beta", "master"];
+export const teamTextsOn = (tier: TierId) => TEAM_TEXT_PLANS.includes(tier);
+/** What a Sideline coach reads, from the server and on the page. */
+export const TEAM_TEXTS_LOCKED = "One-tap team texts come with Head Coach and up. On Sideline, Text the team sends from your phone.";
 
 /** Most texts a coach can send from GridIronVault's number in a day, counting every recipient. */
 export const TEAM_TEXTS_PER_DAY = 300;

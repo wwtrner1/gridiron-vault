@@ -559,7 +559,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
     if (resource === "my-team" && id) {
       if (!me) return fail("Sign in to text your team from GridIronVault.", 401);
       await ensureProfile(me);
-      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3]);
+      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3], (await planOf(me)).id);
     }
     if (resource === "my-team-signups" && id && req.method === "DELETE") {
       if (!me) return fail("Sign in first.", 401);
