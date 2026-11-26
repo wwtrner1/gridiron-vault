@@ -168,7 +168,7 @@ export function Account() {
         <section className="card" data-tour="acct-plan">
           <div className="card-head">
             <h3>Your plan</h3>
-            <span className={`pill${tier.id === "beta" || tier.id === "master" ? " pill-cyan" : ""}`}>{tier.name}</span>
+            <span className={`pill${tier.id === "master" ? " pill-cyan" : ""}`}>{tier.name}</span>
           </div>
           {landing === "asking" && (
             <p className="hint acct-landing" role="status">
@@ -245,10 +245,10 @@ export function Account() {
           ) : (
           <div className="field">
             <span id="switch-plan">
-              Switch plan <span className="pill pill-amber">Beta</span>
+              Switch plan <span className="pill pill-amber">Billing off</span>
             </span>
             <div className="chip-row" role="group" aria-labelledby="switch-plan">
-              {[TIERS.beta, ...PUBLIC_TIERS].map((t) => (
+              {PUBLIC_TIERS.map((t) => (
                 <Tooltip key={t.id} title={t.name} hint={t.blurb} side="top">
                   <button
                     type="button"
@@ -269,7 +269,7 @@ export function Account() {
               ))}
             </div>
             <small className="hint">
-              Beta plans are set by hand while we are testing. Billing takes over when beta ends.
+              Billing is off on this site, so plans are set by hand here. Once billing is on, paid plans come only from checkout.
             </small>
           </div>
           )}

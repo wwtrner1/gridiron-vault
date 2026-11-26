@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { quiet, seedReady } from "./helpers";
 
 /**
- * What Sideline and beta keep back so the library can't walk out the door:
+ * What Sideline keeps back so the library can't walk out the door:
  * five sample starters (the rest show their formation only), no Ready-to-Go
  * playbook, exports three plays at a time, and library plays already in a
  * Vault kept but never exported. A signed-out browser starts on Sideline and
@@ -48,10 +48,10 @@ test("Sideline opens five sample starters, previews the rest as a formation only
   await expect(dialog.getByRole("button", { name: "Preview and print" })).toBeEnabled();
 });
 
-test("beta has no Ready-to-Go playbook, and Ready-to-Go plays already in a Vault stay but don't export", async ({ page }) => {
+test("Sideline has no Ready-to-Go playbook, and Ready-to-Go plays already in a Vault stay but don't export", async ({ page }) => {
   // Added while the browser was on a bigger plan.
   await seedReady(page);
-  await onPlan(page, "beta");
+  await onPlan(page, "free");
   await page.reload();
   await expect(page.locator(".play-card")).toHaveCount(24);
 

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 /**
  * The 14-day Head Coach trial, once per person. TRIAL_SIGNUPS=on starts it for
- * new coaches (otherwise new coaches join as Beta Coach, as before). These
+ * new coaches (otherwise new coaches join on Sideline). These
  * helpers decide who is the same person: an email with its +tags and Gmail dots
  * removed. Fingerprints go in the trial_claims table. (A phone number was a
  * second key until the sign-in phone code was taken out on 2026-11-22; rows of

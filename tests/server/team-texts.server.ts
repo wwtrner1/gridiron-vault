@@ -2,7 +2,8 @@
  * Text the team from GridIronVault's number (netlify/front-office/myTeamTexts.ts): a coach's own team gets a sign-up
  * link, families sign up on `/join/:token` themselves, one send reaches only them and records every family's status
  * (a STOP reply takes that number off the list), a recheck asks Twilio again, and nothing goes out while TEAM_SMS is
- * off, a template fill-in is still open, or the same words were just sent. Twilio is answered at the fetch level.
+ * off, a template fill-in is still open, or the same words were just sent. Sideline gets none of it (403
+ * plan_required). Twilio is answered at the fetch level.
  *
  *   npm run test:server
  */
@@ -13,7 +14,7 @@ import { randomUUID } from "node:crypto";
 delete process.env.TRIAL_SIGNUPS;
 delete process.env.RESEND_API_KEY;
 
-const { migrate } = await import("./fake-db.ts");
+const { migrate, client } = await import("./fake-db.ts");
 const { signInAs } = await import("./fake-identity.ts");
 const signOut = () => signInAs(null);
 const { default: api } = await import("../../netlify/functions/api.ts");
@@ -59,10 +60,11 @@ beforeEach(() => {
   later = {};
 });
 
-async function coachWithTeam(name = "Coach Kim") {
+async function coachWithTeam(name = "Coach Kim", plan = "solo") {
   const coach = { id: randomUUID(), email: `${randomUUID().slice(0, 8)}@example.com`, name };
   signInAs(coach);
   await call("GET", "me");
+  await client.query("update profiles set plan = $1 where id = $2", [plan, coach.id]);
   const team = { id: "my-team", name: "Lady Vipers", level: "", season: "", players: [], charts: [], updatedAt: "2026-11-01T00:00:00.000Z" };
   assert.equal((await call("PUT", "my-team", { teams: { teams: [team], updatedAt: team.updatedAt } })).status, 200);
   return coach;
@@ -134,6 +136,37 @@ describe("Text the team from GridIronVault", () => {
     await call("POST", "my-team/my-team/texts", { body: "Parents only: bring the forms.", audience: "players" }).then((r) => assert.equal(r.status, 400));
     await call("POST", "my-team/my-team/texts", { body: "Parents only: bring the forms.", audience: "families" }).then((r) => assert.equal(r.status, 201));
     assert.equal(sent.length, 2);
+  });
+
+  test("a Sideline coach gets no link, list, send or history", async () => {
+    smsOn();
+    await coachWithTeam("Free Coach", "free");
+    for (const [method, path, body] of [
+      ["GET", "my-team/my-team/texts"],
+      ["POST", "my-team/my-team/texts", { body: "Practice is on." }],
+      ["POST", "my-team/my-team/link"],
+      ["GET", "my-team/my-team/texts/11111111-1111-4111-8111-111111111111"],
+    ] as [string, string, unknown?][]) {
+      const res = await call(method, path, body);
+      assert.equal(res.status, 403, `${method} ${path}`);
+      assert.equal(res.data.code, "plan_required");
+    }
+    assert.equal(sent.length, 0);
+  });
+
+  test("a Beta Coach gets no texting either", async () => {
+    smsOn();
+    await coachWithTeam("Beta Coach", "beta");
+    const res = await call("GET", "my-team/my-team/texts");
+    assert.equal(res.status, 403);
+    assert.equal(res.data.code, "plan_required");
+  });
+
+  test("the Head Coach trial can send", async () => {
+    smsOn();
+    const coach = await coachWithTeam("Trial Coach", "trial");
+    await client.query("update profiles set trial_ends_at = now() + interval '7 days' where id = $1", [coach.id]);
+    assert.equal((await call("GET", "my-team/my-team/texts")).status, 200);
   });
 
   test("with texting switched off the link and list still work, and nothing is sent", async () => {

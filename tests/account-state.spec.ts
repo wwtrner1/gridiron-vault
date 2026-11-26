@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { errorsOf, onBeta, quiet, signIn } from "./helpers";
+import { errorsOf, onSideline, quiet, signIn } from "./helpers";
 
 /**
  * What the account tells every page about itself: a trial's days left in the
@@ -73,10 +73,10 @@ test("a failed payment shows the banner on every page and Update card goes to St
 test("an account switched off mid-session shows the banner as soon as a call is refused", async ({ page, context }) => {
   const errors = errorsOf(page);
   let off = false;
-  await onBeta(context);
+  await onSideline(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
-      await route.fulfill({ json: me({ plan: "beta", suspended: off }) });
+      await route.fulfill({ json: me({ plan: "free", suspended: off }) });
       return true;
     }
     if (path === "me/plan" && method === "PUT") {
@@ -86,7 +86,7 @@ test("an account switched off mid-session shows the banner as soon as a call is 
     }
   });
   await page.goto("/account");
-  await expect(page.locator('[data-tour="acct-plan"] .card-head .pill')).toHaveText("Beta Coach");
+  await expect(page.locator('[data-tour="acct-plan"] .card-head .pill')).toHaveText("Sideline");
   await expect(page.locator(".pay-banner")).toHaveCount(0);
 
   await page.getByRole("group", { name: "Switch plan" }).getByRole("button", { name: "Head Coach", exact: true }).click();
@@ -96,7 +96,7 @@ test("an account switched off mid-session shows the banner as soon as a call is 
   await expect(banner).toContainText("Plays in this browser are still here.");
   await expect(banner.getByRole("link", { name: "support@gridiron-vault.com" })).toHaveAttribute("href", "mailto:support@gridiron-vault.com");
   // The plan didn't change.
-  await expect(page.locator('[data-tour="acct-plan"] .card-head .pill')).toHaveText("Beta Coach");
+  await expect(page.locator('[data-tour="acct-plan"] .card-head .pill')).toHaveText("Sideline");
   // It stays on every page.
   await page.goto("/vault");
   await expect(page.locator(".pay-banner")).toContainText("This account is switched off.");
