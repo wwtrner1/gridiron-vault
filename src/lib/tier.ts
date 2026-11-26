@@ -82,21 +82,6 @@ export function setPaymentFailed(on: boolean) {
   failedListeners.forEach((l) => l());
 }
 
-/** Joined while the Beta Coach plan was open, so the founding rate ($9 a month for life) is theirs to take. */
-let founding = false;
-const foundingListeners = new Set<() => void>();
-export const useFounding = () =>
-  useSyncExternalStore(
-    (l) => (foundingListeners.add(l), () => foundingListeners.delete(l)),
-    () => founding,
-    () => false,
-  );
-export function setFounding(on: boolean) {
-  if (on === founding) return;
-  founding = on;
-  foundingListeners.forEach((l) => l());
-}
-
 /** The owner switched this account off: the server refuses its calls and the Shell says why. */
 let suspended = false;
 const suspendedListeners = new Set<() => void>();

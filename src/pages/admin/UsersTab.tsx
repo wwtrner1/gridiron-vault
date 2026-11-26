@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
-import { TIERS, type TierId } from "../../lib/plan";
+import { FOUNDING_SEATS, TIERS, type TierId } from "../../lib/plan";
 import { useToast } from "../../lib/toast";
 
 export type AdminUser = {
@@ -10,7 +10,7 @@ export type AdminUser = {
   photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; flags: string[];
 };
 
-/** A plan's name as coaches see it ("Sideline", not "free"); an id no plan has any more (an old "beta") stays as it is. */
+/** A plan's name as coaches see it ("Sideline", not "free"); an id no plan has any more stays as it is. */
 const planName = (id: string) => TIERS[id as TierId]?.name ?? id;
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -46,7 +46,8 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
       .filter((u) => !needle || `${u.email} ${u.name} ${u.id} ${u.plan} ${planName(u.plan)} ${u.founding ? "founding" : ""} ${u.phoneNumber ?? ""}`.toLowerCase().includes(needle));
   }, [users, q, watch]);
 
-  // Live accounts on each plan, most first, and how many founding coaches can still take the $9 rate.
+  // Live accounts on each plan, most first, and how many of the founding spots are taken (deleted accounts' spots stay
+  // taken on the server, so the Pricing page's count can be a little lower than this one).
   const plans = useMemo(() => {
     const live = (users ?? []).filter((u) => !u.deleted);
     const counts = new Map<string, number>();
@@ -91,12 +92,9 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
               {planName(plan)} <b>{n}</b>
             </button>
           ))}
-          {plans.founding > 0 && (
-            <button type="button" className="chip" onClick={() => setQ("founding")} title="Joined during the Beta Coach plan, so the $9 founding rate is theirs">
-              Founding coaches <b>{plans.founding}</b>
-            </button>
-          )}
-          <small className="hint">The Beta Coach plan ended Nov 26, 2026: its coaches are on Sideline and keep the founding rate.</small>
+          <button type="button" className="chip" onClick={() => setQ("founding")} title="Head Coach at $9 a month for life, for the first coaches to take it">
+            Founding spots <b>{plans.founding} of {FOUNDING_SEATS}</b>
+          </button>
         </p>
       )}
       {!identity && (
@@ -123,7 +121,7 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 <td>{when(u.lastActiveAt ?? u.lastSignInAt)}</td>
                 <td>
                   <span className={`pill${u.plan === "master" ? " pill-cyan" : ""}`}>{planName(u.plan)}</span>
-                  {u.founding && <small>Founding coach</small>}
+                  {u.founding && <small>Founding spot</small>}
                 </td>
                 <td>
                   {u.phoneNumber ?? "None"}

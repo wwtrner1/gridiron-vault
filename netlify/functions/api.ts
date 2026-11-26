@@ -36,7 +36,7 @@ import {
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { SUPPORT_EMAIL } from "../../src/lib/site.js";
 import { emailKey, isDisposable, trialsOn } from "../security/trial.js";
-import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
+import { billingOn, cancelBilling, expireSeason, foundingState, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
@@ -285,7 +285,6 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
         pausedUntil: state.pausedUntil?.toISOString(),
         paymentFailed: state.paymentFailed,
         suspended: me.owner ? false : await isSuspended(me.id),
-        founding: !!state.founding,
       });
     }
 
@@ -326,6 +325,10 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
 
     // Stripe's webhook proves itself with a signature, not a sign-in.
     if (resource === "billing" && id === "webhook" && req.method === "POST") return await handleWebhook(req);
+
+    // How many founding spots ($9 Head Coach for life) are left, for the Pricing page, signed in or not.
+    if (resource === "billing" && id === "founding" && req.method === "GET")
+      return Response.json(await foundingState(), { headers: { "Cache-Control": "public, max-age=60" } });
 
     // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
     if (resource === "visit") {
@@ -1023,14 +1026,13 @@ async function planOf(me: Session): Promise<Tier> {
 /** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
 async function planState(
   me: Session,
-): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null; paymentFailed?: boolean; founding?: boolean }> {
+): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null; paymentFailed?: boolean }> {
   if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
   const [row] = await db
-    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil, failed: profiles.paymentFailedAt, founding: profiles.foundingCoach })
+    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil, failed: profiles.paymentFailedAt })
     .from(profiles)
     .where(eq(profiles.id, me.id));
-  // `founding`: joined in beta, so the $9 founding rate is open to them (the Beta plan itself ended 2026-11-26).
-  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed), founding: !!row?.founding };
+  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed) };
   // A one-time Season Pass that has run out, with no paying subscription behind it (none, paused, or a failed payment),
   // is Sideline from this request on.
   if (row?.plan === "solo" && row.planEndsAt && (!row.sub || row.pausedUntil || row.failed) && row.planEndsAt.getTime() <= Date.now()) {
@@ -1067,8 +1069,8 @@ async function monthlyAi(me: Session, kind: AiKind) {
 }
 
 /**
- * During beta a coach picks their own plan (Account and Pricing pages). Set
- * PLAN_SELF_SERVE=false when billing takes over, and only billing changes it.
+ * While billing is off a coach picks their own plan (Account and Pricing pages).
+ * Once billing is on, only Sideline can be picked here; PLAN_SELF_SERVE=false shuts it.
  */
 async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);

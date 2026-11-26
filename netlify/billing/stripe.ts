@@ -1,8 +1,8 @@
 import Stripe from "stripe";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { profiles } from "../../db/schema.js";
-import type { TierId } from "../../src/lib/plan.js";
+import { foundingSeats, profiles } from "../../db/schema.js";
+import { FOUNDING_SEATS, type TierId } from "../../src/lib/plan.js";
 
 /**
  * Billing through Stripe: Checkout to pay, a pause for the off-season, the customer portal to cancel or change a card, and a
@@ -39,17 +39,33 @@ const offerOfPrice = (priceId: string | undefined) => Object.entries(prices()).f
 
 type Who = { id: string; email: string };
 
+/** Founding spots taken (every coach whose founding subscription was paid, deleted accounts included). */
+export async function foundingTaken(): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(foundingSeats);
+  return row?.n ?? 0;
+}
+
+/** What the Pricing page shows: how many of the founding spots are still open. */
+export async function foundingState(): Promise<{ total: number; left: number }> {
+  return { total: FOUNDING_SEATS, left: Math.max(0, FOUNDING_SEATS - (await foundingTaken())) };
+}
+
 /** A Checkout page for one offer; the browser goes to the returned address. */
 export async function startCheckout(me: Who, offer: string): Promise<{ url: string } | { error: string }> {
   const price = prices()[offer as OfferKey];
   if (!billingOn() || !price) return { error: "Billing isn't open yet. Your trial and your plays are safe." };
   const [row] = await db
-    .select({ plan: profiles.plan, founding: profiles.foundingCoach, customer: profiles.stripeCustomerId, sub: profiles.stripeSubscriptionId })
+    .select({ plan: profiles.plan, customer: profiles.stripeCustomerId, sub: profiles.stripeSubscriptionId })
     .from(profiles)
     .where(eq(profiles.id, me.id));
-  // The founding rate is the beta coaches' promise: only an account that joined in beta can take it (the Beta plan
-  // ended 2026-11-26 and those coaches moved to Sideline, so the mark on the profile is what counts now).
-  if (offer === "founding" && !row?.founding) return { error: "The founding rate is for coaches who joined during the beta." };
+  // The founding rate goes to the first FOUNDING_SEATS coaches on Head Coach. A coach who already holds a spot (and
+  // stopped paying since) can take it again; nobody else once every spot is taken. Two coaches paying for the last spot
+  // at the same moment can both get it: one over is kinder than refusing someone mid-payment.
+  if (offer === "founding") {
+    const [held] = await db.select({ id: foundingSeats.userId }).from(foundingSeats).where(eq(foundingSeats.userId, me.id));
+    if (!held && (await foundingTaken()) >= FOUNDING_SEATS)
+      return { error: `All ${FOUNDING_SEATS} founding spots are taken. Head Coach is still open at the regular price.` };
+  }
   if (row?.sub && offer !== "season") return { error: "You already have a plan. Use Manage billing to change or cancel it." };
   const session = await stripe().checkout.sessions.create({
     mode: offer === "season" ? "payment" : "subscription",
@@ -96,10 +112,12 @@ async function applySubscription(sub: Stripe.Subscription) {
   // A failed payment: Sideline now, but the subscription is kept so the coach can fix the card and get the plan straight back.
   const failed = !live && !paused && (sub.status === "past_due" || sub.status === "unpaid");
   const [row] = await db
-    .select({ planEndsAt: profiles.planEndsAt, paymentFailedAt: profiles.paymentFailedAt })
+    .select({ id: profiles.id, planEndsAt: profiles.planEndsAt, paymentFailedAt: profiles.paymentFailedAt })
     .from(profiles)
     .where(eq(profiles.stripeCustomerId, customer));
   if (!row) return;
+  // A paid founding subscription takes one of the founding spots for good (a later cancel doesn't give it back).
+  if (live && offer === "founding") await db.insert(foundingSeats).values({ userId: row.id }).onConflictDoNothing();
   // A season pass paid earlier still counts after a subscription ends or while it is paused.
   const season = row.planEndsAt && row.planEndsAt.getTime() > Date.now();
   await db

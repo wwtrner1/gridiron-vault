@@ -2,9 +2,7 @@
  * GridIronVault plans and entitlements.
  *
  * One module owns every gate so the UI, the export pipeline and the API all
- * read the same rules. Plans are stored per-account on the server. The Beta
- * Coach plan ended on 2026-11-26: its coaches are on Sideline, and the ones who
- * joined in beta keep the founding rate (profiles.founding_coach).
+ * read the same rules. Plans are stored per-account on the server.
  */
 
 export type TierId = "master" | "trial" | "free" | "solo" | "crew" | "program";
@@ -249,12 +247,15 @@ export const CREATE_ACCOUNT_PATH = "/signin?tab=up";
 export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
 
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
+/** Coaches who can take the founding rate (Head Coach at $9 a month for life); the server counts them in founding_seats. */
+export const FOUNDING_SEATS = 50;
+
 export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
   { id: "season", name: "Season Pass", price: "$29", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
   { id: "yearly", name: "Head Coach yearly", price: "$99", cadence: "per year", blurb: "Every Head Coach feature for about $8 a month, billed once a year." },
   { id: "staff-yearly", name: "Staff yearly", price: "$249", cadence: "per year", blurb: "Staff seats for the whole coaching staff, billed once a year." },
   { id: "program-yearly", name: "Program yearly", price: "$699", cadence: "per year", blurb: "Program seats and Front Office for a league or club, billed once a year." },
-  { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "You coached with us during the beta, so Head Coach stays $9 a month for as long as you keep it.", highlight: true },
+  { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: `The first ${FOUNDING_SEATS} coaches on Head Coach keep $9 a month for as long as they stay.`, highlight: true },
 ];
 
 /** Prices are tax-exclusive (`stripe:setup` makes them so and Checkout adds sales tax where it applies), so every paid price says so. */
@@ -264,7 +265,7 @@ export const plusTax = (price: string): string => (price === "$0" ? "" : " + tax
 export const STARTER_SIZES = ["wristband", "wristband-lg", "letter-p"];
 
 export function tierFor(id: string | null | undefined): Tier {
-  // Anything unknown (an old browser's "beta", a typo) is Sideline: more than that comes from the account's plan.
+  // Anything unknown (a retired plan id, a typo) is Sideline: more than that comes from the account's plan.
   return TIERS[(id as TierId) ?? "free"] ?? TIERS.free;
 }
 

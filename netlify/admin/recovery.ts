@@ -10,6 +10,7 @@ import {
   plays,
   profiles,
   trash,
+  foundingSeats,
 } from "../../db/schema.js";
 import { TIERS, type TierId } from "../../src/lib/plan.js";
 import { audit, type Actor } from "./admin.js";
@@ -74,8 +75,9 @@ export async function userDetail(actor: Actor, uid: string) {
     activityOf(uid),
   ]);
   await audit(actor, "view_user", uid);
+  const [seat] = await db.select({ at: foundingSeats.claimedAt }).from(foundingSeats).where(eq(foundingSeats.userId, uid));
   return {
-    profile: prof ? { ...prof, phone: prof.phone ? `•••• ${prof.phone.slice(-4)}` : null } : null,
+    profile: prof ? { ...prof, phone: prof.phone ? `•••• ${prof.phone.slice(-4)}` : null, foundingSince: seat?.at ?? null } : null,
     identity: ident
       ? { email: ident.email, confirmedAt: ident.confirmedAt, createdAt: ident.createdAt, lastSignInAt: ident.lastSignInAt, provider: ident.provider }
       : null,

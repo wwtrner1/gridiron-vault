@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { useAuth } from "../lib/auth";
-import { useFounding, useTier, useTrialDays } from "../lib/tier";
+import { useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
 import { NAV_GROUPS, groupOf, type NavItem } from "../lib/nav";
@@ -33,7 +33,6 @@ export function Shell({ title, actions, tabs, children }: Props) {
   const { account, signOut } = useAuth();
   const tier = useTier();
   const trialDays = useTrialDays();
-  const founding = useFounding();
   const [open, setOpen] = useState(false);
   const rail = useRef<HTMLElement>(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 900px)").matches);
@@ -132,14 +131,11 @@ export function Shell({ title, actions, tabs, children }: Props) {
         <div className="rail-foot">
           {tier.id === "free" && (
             <div className="rail-plan">
-              {/* A coach who joined in beta (it ended 2026-11-26) hears about the founding rate here instead of the plain upgrade. */}
-              {founding && <span className="pill pill-cyan">Founding coach</span>}
-              <p style={founding ? { marginTop: 8 } : undefined}>
+              <p>
                 You are on Sideline — {plays.length} of {tier.playLimit} plays used.
-                {founding && " Beta has ended. You joined during it, so Head Coach is yours at $9 a month for life."}
               </p>
               <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
-                {founding ? "Take the founding rate" : "Unlock the full kit"}
+                Unlock the full kit
               </Link>
             </div>
           )}

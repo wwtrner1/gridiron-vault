@@ -125,21 +125,10 @@ describe("Checkout", () => {
     assert.equal(p.subscription_data, undefined);
   });
 
-  test("refuses an offer that isn't sold, a second plan, the founding rate outside beta, the owner and a signed-out visitor", async () => {
+  test("refuses an offer that isn't sold, a second plan, the owner and a signed-out visitor", async () => {
     const coach = await newCoach();
     assert.equal((await checkout(coach, "lifetime_free")).status, 400);
-
-    // The Beta Coach plan has ended: a coach who joins now is on Sideline, and the founding rate isn't theirs.
     assert.equal((await me(coach)).plan, "free");
-    assert.equal((await me(coach)).founding, false);
-    const late = await checkout(coach, "founding");
-    assert.equal(late.status, 400);
-    assert.match(late.data.error, /joined during the beta/);
-
-    // A coach who joined in beta (marked when the plan ended) is on Sideline with the founding rate still open.
-    await setProfile(coach, "founding_coach", true);
-    assert.equal((await me(coach)).founding, true);
-    assert.equal((await checkout(coach, "founding")).status, 200);
     await buy(coach, "solo_month");
     const again = await checkout(coach, "crew_month");
     assert.equal(again.status, 400);
@@ -155,6 +144,52 @@ describe("Checkout", () => {
 
     as(null);
     assert.equal((await call("POST", "billing/checkout", { offer: "solo_month" })).status, 401);
+  });
+
+  test("the founding rate goes to the first 50 coaches on Head Coach: a paid one takes a spot, and once all are taken it's refused", async () => {
+    await client.query("delete from founding_seats");
+    as(null);
+    assert.deepEqual((await call("GET", "billing/founding")).data, { total: 50, left: 50 });
+
+    // Anyone on Sideline can take it while spots are left; the spot is taken once Stripe says it's paid.
+    const first = await newCoach();
+    const opened = await checkout(first, "founding");
+    assert.equal(opened.status, 200);
+    assert.equal((await client.query("select 1 from founding_seats")).rows.length, 0, "opening Checkout takes no spot");
+    const paid = stripe.payCheckout(stripe.lastSession()!.id);
+    if (paid.subscription) await webhook(stripe.signedEvent("customer.subscription.created", paid.subscription));
+    await webhook(stripe.signedEvent("checkout.session.completed", paid.session));
+    assert.equal((await me(first)).plan, "solo");
+    assert.equal((await client.query("select 1 from founding_seats where user_id = $1", [first.id])).rows.length, 1);
+    as(null);
+    assert.deepEqual((await call("GET", "billing/founding")).data, { total: 50, left: 49 });
+    // A second copy of the same event takes no second spot.
+    await webhook(stripe.signedEvent("checkout.session.completed", paid.session));
+    as(null);
+    assert.equal((await call("GET", "billing/founding")).data.left, 49);
+
+    // A regular Head Coach purchase takes no spot.
+    const regular = await newCoach();
+    await buy(regular, "solo_month");
+    as(null);
+    assert.equal((await call("GET", "billing/founding")).data.left, 49);
+
+    // Every spot taken: a new coach is told so, and the regular price is still open to them.
+    for (let i = 0; i < 49; i++) await client.query("insert into founding_seats (user_id) values ($1)", [`filled-${i}`]);
+    as(null);
+    assert.deepEqual((await call("GET", "billing/founding")).data, { total: 50, left: 0 });
+    const late = await newCoach();
+    const refused = await checkout(late, "founding");
+    assert.equal(refused.status, 400);
+    assert.match(refused.data.error, /All 50 founding spots are taken/);
+    assert.equal((await checkout(late, "solo_month")).status, 200);
+
+    // A coach who holds a spot (and isn't paying now) can take it again even when the rest are gone.
+    const back = await newCoach();
+    await client.query("delete from founding_seats where user_id = 'filled-0'");
+    await client.query("insert into founding_seats (user_id) values ($1)", [back.id]);
+    assert.equal((await checkout(back, "founding")).status, 200);
+    await client.query("delete from founding_seats");
   });
 
   test("a returning customer is sent back to their own Stripe customer", async () => {
@@ -246,7 +281,6 @@ describe("Webhook → plan", () => {
   test("each offer opens its own plan", async () => {
     for (const [offer, plan] of [["solo_year", "solo"], ["crew_month", "crew"], ["crew_year", "crew"], ["program_month", "program"], ["program_year", "program"], ["founding", "solo"]] as const) {
       const coach = await newCoach();
-      if (offer === "founding") await setProfile(coach, "founding_coach", true);
       await buy(coach, offer);
       assert.equal((await me(coach)).plan, plan, offer);
     }

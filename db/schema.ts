@@ -24,11 +24,6 @@ export const profiles = pgTable("profiles", {
   phoneVerifiedAt: timestamp("phone_verified_at"),
   /** Plan id from src/lib/plan.ts. The server enforces its limits; billing is its writer for anyone who pays. */
   plan: text().notNull().default("free"),
-  /**
-   * Joined while the Beta Coach plan was open (ended 2026-11-26, when every Beta coach moved to Sideline). Only these
-   * accounts may take the founding rate, Head Coach at $9 a month for life, which the Beta plan promised them.
-   */
-  foundingCoach: boolean("founding_coach").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   /** Last time the app talked to the server as this coach (throttled to every few minutes). */
   lastActiveAt: timestamp("last_active_at"),
@@ -48,6 +43,16 @@ export const profiles = pgTable("profiles", {
   suspendedReason: text("suspended_reason").notNull().default(""),
   /** Retired with the phone codes (2026-11-22): the owner's per-coach "skip the phone code" switch. No longer read or written. */
   phoneSkipAt: timestamp("phone_skip_at"),
+});
+
+/**
+ * The founding rate, Head Coach at $9 a month for life, goes to the first FOUNDING_SEATS (50) coaches who subscribe to
+ * it: one row per coach who has, written when Stripe says their founding subscription is paid. Kept after the account
+ * is deleted (like trial claims), so a deleted account's spot is not handed out again.
+ */
+export const foundingSeats = pgTable("founding_seats", {
+  userId: text("user_id").primaryKey(),
+  claimedAt: timestamp("claimed_at").defaultNow(),
 });
 
 /**
