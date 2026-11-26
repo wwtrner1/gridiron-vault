@@ -129,15 +129,25 @@ describe("Checkout", () => {
     const coach = await newCoach();
     assert.equal((await checkout(coach, "lifetime_free")).status, 400);
 
-    // New coaches join as Beta Coach while trials are off, so the founding rate is theirs.
+    // The Beta Coach plan has ended: a coach who joins now is on Sideline, and the founding rate isn't theirs.
+    assert.equal((await me(coach)).plan, "free");
+    assert.equal((await me(coach)).founding, false);
+    const late = await checkout(coach, "founding");
+    assert.equal(late.status, 400);
+    assert.match(late.data.error, /joined during the beta/);
+
+    // A coach who joined in beta (marked when the plan ended) is on Sideline with the founding rate still open.
+    await setProfile(coach, "founding_coach", true);
+    assert.equal((await me(coach)).founding, true);
     assert.equal((await checkout(coach, "founding")).status, 200);
     await buy(coach, "solo_month");
     const again = await checkout(coach, "crew_month");
     assert.equal(again.status, 400);
     assert.match(again.data.error, /already have a plan/);
+    // Already paying: a founding coach changes plans in Stripe's portal, not by a second checkout.
     const founding = await checkout(coach, "founding");
     assert.equal(founding.status, 400);
-    assert.match(founding.data.error, /joined during the beta/);
+    assert.match(founding.data.error, /already have a plan/);
 
     as({ id: randomUUID(), email: "wwtrner1@gmail.com" });
     const owner = await call("POST", "billing/checkout", { offer: "solo_month" });
@@ -191,7 +201,7 @@ describe("Switching billing on", () => {
     const free = await call("PUT", "me/plan", { plan: "solo" });
     assert.equal(free.status, 403);
     assert.match(free.data.error, /checkout/);
-    assert.equal((await me(coach)).plan, "beta");
+    assert.equal((await me(coach)).plan, "free");
 
     await buy(coach, "solo_month");
     as(coach);
@@ -236,6 +246,7 @@ describe("Webhook → plan", () => {
   test("each offer opens its own plan", async () => {
     for (const [offer, plan] of [["solo_year", "solo"], ["crew_month", "crew"], ["crew_year", "crew"], ["program_month", "program"], ["program_year", "program"], ["founding", "solo"]] as const) {
       const coach = await newCoach();
+      if (offer === "founding") await setProfile(coach, "founding_coach", true);
       await buy(coach, offer);
       assert.equal((await me(coach)).plan, plan, offer);
     }
@@ -255,7 +266,7 @@ describe("Webhook → plan", () => {
     await checkout(coach, "season");
     const paid = stripe.payCheckout(stripe.lastSession()!.id, { paid: false });
     await webhook(stripe.signedEvent("checkout.session.completed", paid.session));
-    assert.equal((await me(coach)).plan, "beta");
+    assert.equal((await me(coach)).plan, "free");
     paid.session.payment_status = "paid";
     await webhook(stripe.signedEvent("checkout.session.async_payment_succeeded", paid.session));
     assert.equal((await me(coach)).plan, "solo");
@@ -282,7 +293,7 @@ describe("Webhook → plan", () => {
     assert.equal(forged.status, 400);
     const unsigned = await api(new Request("https://gridiron-vault.com/api/billing/webhook", { method: "POST", body: "{}" }));
     assert.equal(unsigned.status, 404);
-    assert.equal((await me(coach)).plan, "beta");
+    assert.equal((await me(coach)).plan, "free");
 
     const key = process.env.STRIPE_SECRET_KEY;
     delete process.env.STRIPE_SECRET_KEY;
@@ -301,7 +312,7 @@ describe("Webhook → plan", () => {
     const real = paid.session.subscription;
     paid.session.subscription = "sub_gone_missing";
     assert.equal((await webhook(stripe.signedEvent("checkout.session.completed", paid.session))).status, 500);
-    assert.equal((await me(coach)).plan, "beta");
+    assert.equal((await me(coach)).plan, "free");
     paid.session.subscription = real;
     assert.equal((await webhook(stripe.signedEvent("checkout.session.completed", paid.session))).status, 200);
     assert.equal((await me(coach)).plan, "solo");

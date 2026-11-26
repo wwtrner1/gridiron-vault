@@ -22,8 +22,13 @@ export const profiles = pgTable("profiles", {
    */
   phone: text().unique(),
   phoneVerifiedAt: timestamp("phone_verified_at"),
-  /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
-  plan: text().notNull().default("beta"),
+  /** Plan id from src/lib/plan.ts. The server enforces its limits; billing is its writer for anyone who pays. */
+  plan: text().notNull().default("free"),
+  /**
+   * Joined while the Beta Coach plan was open (ended 2026-11-26, when every Beta coach moved to Sideline). Only these
+   * accounts may take the founding rate, Head Coach at $9 a month for life, which the Beta plan promised them.
+   */
+  foundingCoach: boolean("founding_coach").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   /** Last time the app talked to the server as this coach (throttled to every few minutes). */
   lastActiveAt: timestamp("last_active_at"),

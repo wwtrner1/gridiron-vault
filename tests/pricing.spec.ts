@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { onBeta, quiet, signIn } from "./helpers";
+import { onSideline, quiet, signIn } from "./helpers";
 
 /**
- * Pricing: the beta plan switcher in this browser, the account's refusal in
- * coach words, and, once billing is open, plan buttons that go to Stripe.
+ * Pricing: the plan switcher while billing is off, the account's refusal in
+ * coach words, the founding rate only for coaches who joined in beta, and,
+ * once billing is open, plan buttons that go to Stripe.
  */
 test.beforeEach(async ({ context }) => quiet(context));
 
@@ -25,7 +26,7 @@ test("signed out, Sideline is the only plan the browser picks; a bigger one asks
   expect(await page.evaluate(() => localStorage.getItem("nextplay.tier.v1"))).toBe("free");
 });
 
-test("signed out, pricing opens on four prices and the trial; yearly and the Season Pass are behind one closed row, founding only for beta", async ({ page, context }) => {
+test("signed out, pricing opens on four prices and the trial; yearly and the Season Pass are behind one closed row, founding only for coaches who joined in beta", async ({ page, context }) => {
   await page.goto("/pricing");
   await expect(page.locator(".home-plan")).toHaveCount(4);
   const trial = page.locator(".price-trial");
@@ -39,26 +40,31 @@ test("signed out, pricing opens on four prices and the trial; yearly and the Sea
   await more.locator("summary").click();
   await expect(page.locator(".price-offer h3")).toHaveText(["Season Pass", "Head Coach yearly", "Staff yearly", "Program yearly"]);
 
-  // A beta coach is the one who can take the founding rate, so only then is it listed (and the trial strip is for visitors with no account).
-  await onBeta(context);
+  // A coach who joined in beta (now on Sideline) is the one who can take the founding rate, so only then is it listed,
+  // with the row already open (and the trial strip is for visitors with no account).
+  await onSideline(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
-      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta" } });
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free", founding: true } });
       return true;
     }
   });
   await page.goto("/pricing");
   await expect(page.locator(".price-trial")).toHaveCount(0);
-  await page.locator("details[name='pricing-offers'] summary").click();
+  await expect(page.locator("details[name='pricing-offers']")).toHaveAttribute("open", "");
   await expect(page.locator(".price-offer h3")).toHaveText(["Season Pass", "Head Coach yearly", "Staff yearly", "Program yearly", "Founding coaches"]);
+  // The side menu tells them Beta has ended and where the rate is.
+  await page.goto("/vault");
+  await expect(page.locator(".rail-plan")).toContainText("Beta has ended.");
+  await expect(page.locator(".rail-plan").getByRole("link", { name: "Take the founding rate" })).toHaveAttribute("href", "/pricing");
 });
 
 test("signed in, the account keeps the plan, and its refusal shows in coach words", async ({ page, context }) => {
   const sent: string[] = [];
-  await onBeta(context);
+  await onSideline(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
-      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta" } });
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free" } });
       return true;
     }
     if (path === "me/plan" && method === "PUT") {
@@ -85,10 +91,10 @@ test("signed in, the account keeps the plan, and its refusal shows in coach word
 
 test("with billing open, a plan button goes to Stripe Checkout and the offers show their buttons", async ({ page, context }) => {
   const offers: string[] = [];
-  await onBeta(context);
+  await onSideline(context);
   await signIn(context, async (route, path, method) => {
     if (path === "me" && method === "GET") {
-      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta", billing: true } });
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free", billing: true } });
       return true;
     }
     if (path === "billing/checkout" && method === "POST") {

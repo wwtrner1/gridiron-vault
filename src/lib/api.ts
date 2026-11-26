@@ -107,11 +107,11 @@ export const api = {
     request<{ lessons: { id: string; kind: string; from: string; to: string; times: number }[] }>("read-lessons"),
   forgetLesson: (id?: string) => request<{ ok: true }>(id ? `read-lessons/${id}` : "read-lessons", { method: "DELETE" }),
 
-  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean }>("me"),
+  me: () => request<{ user: { id: string; email: string; name: string } | null; owner?: boolean; ownerHint?: string; billing?: boolean; plan?: string; trialEndsAt?: string; subscribed?: boolean; pausedUntil?: string; paymentFailed?: boolean; suspended?: boolean; founding?: boolean }>("me"),
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
-  /** During beta a coach picks their own plan; the server enforces it. */
+  /** While billing is off a coach picks their own plan (Sideline only once billing is on); the server enforces it. */
   checkout: (offer: string) => request<{ url: string }>("billing/checkout", { method: "POST", body: JSON.stringify({ offer }) }),
   billingPortal: () => request<{ url: string }>("billing/portal", { method: "POST", body: "{}" }),
   pausePlan: (months: number) => request<{ pausedUntil: string }>("billing/pause", { method: "POST", body: JSON.stringify({ months }) }),

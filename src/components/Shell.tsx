@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 import { useAuth } from "../lib/auth";
-import { useTier, useTrialDays } from "../lib/tier";
+import { useFounding, useTier, useTrialDays } from "../lib/tier";
 import { useStore } from "../lib/store";
 import { useOwner } from "../lib/owner";
 import { NAV_GROUPS, groupOf, type NavItem } from "../lib/nav";
@@ -33,6 +33,7 @@ export function Shell({ title, actions, tabs, children }: Props) {
   const { account, signOut } = useAuth();
   const tier = useTier();
   const trialDays = useTrialDays();
+  const founding = useFounding();
   const [open, setOpen] = useState(false);
   const rail = useRef<HTMLElement>(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 900px)").matches);
@@ -150,12 +151,12 @@ export function Shell({ title, actions, tabs, children }: Props) {
               </Link>
             </div>
           )}
-          {tier.id === "beta" && (
+          {founding && tier.id === "free" && (
             <div className="rail-plan">
-              <span className="pill pill-cyan">Beta</span>
-              <p style={{ marginTop: 8 }}>Every drawing tool is open. The full starter library and clean prints come with Head Coach.</p>
+              <span className="pill pill-cyan">Founding coach</span>
+              <p style={{ marginTop: 8 }}>Beta has ended. You joined during it, so Head Coach is yours at $9 a month for life.</p>
               <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
-                See plans
+                Take the founding rate
               </Link>
             </div>
           )}

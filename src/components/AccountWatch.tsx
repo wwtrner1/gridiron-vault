@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { ACCOUNT_EVENT, api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { setBilling, setPaymentFailed, setSuspended, syncPlan } from "../lib/tier";
+import { setBilling, setFounding, setPaymentFailed, setSuspended, syncPlan } from "../lib/tier";
 
 /**
  * Asks the account how it stands once a coach is signed in: the plan, whether
@@ -14,7 +14,10 @@ export function AccountWatch() {
   const { account } = useAuth();
 
   const refresh = useCallback(async () => {
-    if (!account) return setSuspended(false);
+    if (!account) {
+      setFounding(false);
+      return setSuspended(false);
+    }
     try {
       const res = await api.me();
       // The one /me call after sign-in also brings the account's plan.
@@ -22,6 +25,7 @@ export function AccountWatch() {
       setBilling(Boolean(res.billing));
       setPaymentFailed(Boolean(res.paymentFailed));
       setSuspended(Boolean(res.suspended));
+      setFounding(Boolean(res.founding));
     } catch {
       /* the next API call will ask again */
     }

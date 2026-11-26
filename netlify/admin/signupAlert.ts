@@ -22,8 +22,10 @@ export type SignupInfo = {
   method?: string;
   /** When Identity made the account (it can be days before the first sign-in when the email needed confirming). */
   accountCreatedAt?: string;
-  /** The plan the profile row holds right now: trial, free (no trial) or beta (trials switched off). */
+  /** The plan the profile row holds right now: trial, or free (no trial, or trials switched off). */
   plan: string;
+  /** Whether free trials were switched on when they signed up (TRIAL_SIGNUPS), so a Sideline start reads right. */
+  trials?: boolean;
   trialEndsAt?: Date | null;
   /** City, state and country Netlify places the first request in. */
   place?: string;
@@ -53,8 +55,7 @@ const METHODS: Record<string, string> = { email: "email and password", google: "
 function planLine(info: SignupInfo) {
   const tier = TIERS[info.plan as TierId]?.name ?? info.plan;
   if (info.plan === "trial") return `${TRIAL_DAYS}-day ${tier.replace(/ trial$/i, "")} trial${info.trialEndsAt ? `, ends ${central(info.trialEndsAt)}` : ""}`;
-  if (info.plan === "free") return `${tier}, no trial (this email has had one before, or it is a throwaway address)`;
-  if (info.plan === "beta") return `${tier} (free trials are switched off)`;
+  if (info.plan === "free") return info.trials === false ? `${tier} (free trials are switched off)` : `${tier}, no trial (this email has had one before, or it is a throwaway address)`;
   return tier;
 }
 

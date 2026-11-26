@@ -44,11 +44,12 @@ export async function startCheckout(me: Who, offer: string): Promise<{ url: stri
   const price = prices()[offer as OfferKey];
   if (!billingOn() || !price) return { error: "Billing isn't open yet. Your trial and your plays are safe." };
   const [row] = await db
-    .select({ plan: profiles.plan, customer: profiles.stripeCustomerId, sub: profiles.stripeSubscriptionId })
+    .select({ plan: profiles.plan, founding: profiles.foundingCoach, customer: profiles.stripeCustomerId, sub: profiles.stripeSubscriptionId })
     .from(profiles)
     .where(eq(profiles.id, me.id));
-  // The founding rate is the beta coaches' promise: only an account that joined in beta can take it.
-  if (offer === "founding" && row?.plan !== "beta") return { error: "The founding rate is for coaches who joined during the beta." };
+  // The founding rate is the beta coaches' promise: only an account that joined in beta can take it (the Beta plan
+  // ended 2026-11-26 and those coaches moved to Sideline, so the mark on the profile is what counts now).
+  if (offer === "founding" && !row?.founding) return { error: "The founding rate is for coaches who joined during the beta." };
   if (row?.sub && offer !== "season") return { error: "You already have a plan. Use Manage billing to change or cancel it." };
   const session = await stripe().checkout.sessions.create({
     mode: offer === "season" ? "payment" : "subscription",

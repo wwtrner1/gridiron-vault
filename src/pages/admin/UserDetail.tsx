@@ -6,7 +6,7 @@ import { Modal } from "../../components/Modal";
 import { ActivityTable, type ActivityRow } from "./ActivityTab";
 
 type Detail = {
-  profile: { id: string; email: string; displayName: string; plan: string; phone: string | null; phoneVerifiedAt: string | null; createdAt: string | null; lastActiveAt: string | null; suspendedAt: string | null; suspendedReason: string; stripeSubscriptionId: string | null } | null;
+  profile: { id: string; email: string; displayName: string; plan: string; phone: string | null; phoneVerifiedAt: string | null; createdAt: string | null; lastActiveAt: string | null; suspendedAt: string | null; suspendedReason: string; stripeSubscriptionId: string | null; foundingCoach?: boolean } | null;
   identity: { email?: string; confirmedAt?: string; createdAt?: string; lastSignInAt?: string; provider?: string } | null;
   plays: { id: string; name: string; playType: string; formation: string; isPublic: boolean; updatedAt: string | null }[];
   playbooks: { id: string; name: string; plays: number; updatedAt: string | null }[];
@@ -141,12 +141,13 @@ export function UserDetail({ id, onBack, onGone }: { id: string; onBack: () => v
           <div><dt>Devices, last 30 days</dt><dd>{d.devices.length ? d.devices.map((v) => v.label || "Device").join(", ") : "None"}</dd></div>
           <div><dt>Status</dt><dd>{p?.suspendedAt ? `Switched off ${when(p.suspendedAt)}${p.suspendedReason ? ` · ${p.suspendedReason}` : ""}` : "Active"}</dd></div>
           <div><dt>Subscription</dt><dd>{p?.stripeSubscriptionId ? "Paying through Stripe" : "None"}</dd></div>
+          <div><dt>Founding coach</dt><dd>{p?.foundingCoach ? "Yes: joined during beta, can take the $9 founding rate" : "No"}</dd></div>
         </dl>
         {p && p.plan !== "master" && (
           <label className="field">
             <span>Plan</span>
             <select value={p.plan} disabled={busy === "plan"} onChange={(e) => changePlan(e.target.value)}>
-              {["beta", ...PUBLIC_TIERS.map((t) => t.id)].map((t) => <option key={t} value={t}>{t}</option>)}
+              {PUBLIC_TIERS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
         )}

@@ -156,7 +156,7 @@ describe("New-signup email to the owner", () => {
     assert.equal(sent.length, 0);
   });
 
-  test("the plan in the email is the one the coach got: no trial for an email that already had one, Beta with trials off", async () => {
+  test("the plan in the email is the one the coach got: no trial for an email that already had one, Sideline with trials off", async () => {
     // A throwaway inbox never gets the trial, so the email says Sideline and why.
     await newCoach({ email: `${randomUUID().slice(0, 8)}@mailinator.com` });
     await call("me");
@@ -166,7 +166,7 @@ describe("New-signup email to the owner", () => {
     delete process.env.TRIAL_SIGNUPS;
     await newCoach();
     await call("me");
-    assert.match(sent[0].body.text, /Plan:\s+Beta Coach \(free trials are switched off\)/);
+    assert.match(sent[0].body.text, /Plan:\s+Sideline \(free trials are switched off\)/);
   });
 
   test("goes to the owner list when SIGNUP_ALERT_TO is not set, and SIGNUP_ALERT_FROM overrides the sender", async () => {
@@ -315,7 +315,7 @@ describe("The email's words", () => {
   });
 
   test("a missing name, method and place read as not known, and times are shown in Central with the UTC time beside them", () => {
-    const { subject, text } = composeSignupAlert({ id: "u2", email: "x@example.com", name: "", plan: "beta", at });
+    const { subject, text } = composeSignupAlert({ id: "u2", email: "x@example.com", name: "", plan: "free", trials: false, at });
     assert.equal(subject, "New GridIronVault coach: x@example.com");
     assert.match(text, /Name:\s+\(none given\)/);
     assert.match(text, /Signed up:\s+not known/);

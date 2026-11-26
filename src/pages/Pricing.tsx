@@ -4,7 +4,7 @@ import { MarketingFooter, MarketingNav } from "../components/Marketing";
 import { CREATE_ACCOUNT_PATH, OFFERS, PUBLIC_TIERS, TIERS, TRIAL_DAYS, TRIAL_WORDS, plusTax } from "../lib/plan";
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
-import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
+import { choosePlan, goToBilling, useBilling, useFounding, useTier } from "../lib/tier";
 import { coachError } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
@@ -103,6 +103,8 @@ export function Pricing() {
   const toast = useToast();
   const { account } = useAuth();
   const billing = useBilling();
+  // A founding coach still on Sideline: the $9 rate is theirs, so it shows (and the server takes it).
+  const foundingOpen = useFounding() && Boolean(account) && tier.id === "free";
   const navigate = useNavigate();
 
   /** What a plan button buys when billing is open; Program is by quote. */
@@ -170,11 +172,6 @@ export function Pricing() {
                   Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid
                   for ends.
                 </>
-              ) : tier.id === "beta" ? (
-                <>
-                  You are on <b>Beta Coach</b> — every drawing tool is on and your own plays stay yours. Exports are watermarked, 3
-                  plays at a time, and the full starter library comes with Head Coach. Beta coaches keep founding rates.
-                </>
               ) : tier.id === "trial" ? (
                 <>
                   You are on the <b>Head Coach trial</b> — every tool is on and your plays stay when it ends. After that you keep
@@ -231,12 +228,12 @@ export function Pricing() {
               </article>
             ))}
           </div>
-          {/* Yearly rates and the Season Pass sit behind one closed row so the page opens on four prices, not nine. Founding is only for beta coaches, so nobody else sees a rate the server would refuse. */}
+          {/* Yearly rates and the Season Pass sit behind one closed row so the page opens on four prices, not nine. Founding is only for coaches who joined in beta (still on Sideline), so nobody else sees a rate the server would refuse, and it opens for them. */}
           <div className="faq price-more">
-            <details name="pricing-offers">
+            <details name="pricing-offers" open={foundingOpen || undefined}>
               <summary>Yearly rates, the Season Pass and other ways to pay</summary>
               <div className="price-offers">
-            {OFFERS.filter((o) => o.id !== "founding" || tier.id === "beta").map((o) => (
+            {OFFERS.filter((o) => o.id !== "founding" || foundingOpen).map((o) => (
               <article className={`price-offer${o.highlight ? " is-highlight" : ""}`} key={o.id}>
                 <h3>{o.name}</h3>
                 <div className="home-plan-price">

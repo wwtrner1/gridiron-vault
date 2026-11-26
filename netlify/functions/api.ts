@@ -153,10 +153,10 @@ async function isOwnersLogo(logo: string): Promise<boolean> {
 }
 
 async function ensureProfile(user: Session, origin?: Origin) {
-  // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
+  // A new coach joins on Sideline; with TRIAL_SIGNUPS=on startTrial upgrades them if they have not had a trial before.
   const created = await db
     .insert(profiles)
-    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : trialsOn() ? "free" : "beta" })
+    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : "free" })
     .onConflictDoNothing()
     .returning({ id: profiles.id });
   // `created` is true for exactly one request per account, so this is the one place a new coach is announced. The
@@ -198,6 +198,7 @@ async function announceSignup(user: Session, origin?: Origin) {
       method: user.method,
       accountCreatedAt: user.accountCreatedAt,
       plan: row?.plan ?? "free",
+      trials: trialsOn(),
       trialEndsAt: row?.trialEndsAt,
       place: origin ? placeOf(origin) : "",
       at: new Date(),
@@ -284,6 +285,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
         pausedUntil: state.pausedUntil?.toISOString(),
         paymentFailed: state.paymentFailed,
         suspended: me.owner ? false : await isSuspended(me.id),
+        founding: !!state.founding,
       });
     }
 
@@ -1021,13 +1023,14 @@ async function planOf(me: Session): Promise<Tier> {
 /** The plan plus, on a trial, when it ends. A trial past its end date is Sideline from this request on. */
 async function planState(
   me: Session,
-): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null; paymentFailed?: boolean }> {
+): Promise<{ tier: Tier; trialEndsAt: Date | null; subscribed?: boolean; pausedUntil?: Date | null; paymentFailed?: boolean; founding?: boolean }> {
   if (me.owner) return { tier: TIERS.master, trialEndsAt: null };
   const [row] = await db
-    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil, failed: profiles.paymentFailedAt })
+    .select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt, planEndsAt: profiles.planEndsAt, sub: profiles.stripeSubscriptionId, pausedUntil: profiles.pausedUntil, failed: profiles.paymentFailedAt, founding: profiles.foundingCoach })
     .from(profiles)
     .where(eq(profiles.id, me.id));
-  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed) };
+  // `founding`: joined in beta, so the $9 founding rate is open to them (the Beta plan itself ended 2026-11-26).
+  const billed = { subscribed: !!row?.sub, pausedUntil: row?.pausedUntil ?? null, paymentFailed: !!(row?.sub && row.failed), founding: !!row?.founding };
   // A one-time Season Pass that has run out, with no paying subscription behind it (none, paused, or a failed payment),
   // is Sideline from this request on.
   if (row?.plan === "solo" && row.planEndsAt && (!row.sub || row.pausedUntil || row.failed) && row.planEndsAt.getTime() <= Date.now()) {

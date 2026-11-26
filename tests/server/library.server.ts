@@ -1,5 +1,5 @@
 /**
- * The starter library on the server: Sideline and beta accounts can't take the Ready-to-Go playbook or the starters
+ * The starter library on the server: Sideline accounts (and a leftover "beta" plan id, which reads as Sideline) can't take the Ready-to-Go playbook or the starters
  * past the five samples into the account, by a save or by a copy from the public Vault; Head Coach can.
  *
  *   npm run test:server
@@ -53,6 +53,7 @@ after(async () => {
 });
 
 describe("Library plays by plan", () => {
+  // "beta" is a plan id no plan has any more (ended 2026-11-26): a row still holding it reads as Sideline.
   for (const plan of ["beta", "free"]) {
     test(`${plan}: a Ready-to-Go play and a held-back starter are refused, a sample starter and the coach's own play save`, async () => {
       await coach(plan);
@@ -72,12 +73,12 @@ describe("Library plays by plan", () => {
     });
   }
 
-  test("Head Coach saves Ready-to-Go; a beta coach can't copy it from the public Vault", async () => {
+  test("Head Coach saves Ready-to-Go; a Sideline coach can't copy it from the public Vault", async () => {
     await coach("solo");
     const ready = await call("POST", "plays", { ...play("01 · All Curls", ["ready-to-go"]), isPublic: true });
     assert.equal(ready.status, 201);
 
-    await coach("beta");
+    await coach("free");
     const copy = await call("POST", `plays/${ready.data.play.id}/copy`);
     assert.equal(copy.status, 403);
     assert.equal(copy.data.code, "plan_limit");

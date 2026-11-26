@@ -2,7 +2,7 @@
 
 When a coach's account is created, GridIronVault emails the owner: name, email,
 plan (the 14-day trial and when it ends, Sideline when the email isn't eligible
-for a trial, Beta when trials are off), how they signed up (email or Google),
+for a trial, Sideline when trials are off), how they signed up (email or Google),
 roughly where from, and when. One email per account. The owner's own first
 sign-in sends nothing.
 

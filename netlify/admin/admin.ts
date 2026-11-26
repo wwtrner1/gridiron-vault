@@ -52,6 +52,8 @@ export type UserRow = {
   lastSignInAt: string | null;
   lastActiveAt: string | null;
   plan: string;
+  /** Joined during the Beta Coach plan (ended 2026-11-26): may take the $9 founding rate. */
+  founding: boolean;
   phone: "verified" | "none";
   /** The mobile number on file (E.164), verified or not; null when there is none. */
   phoneNumber: string | null;
@@ -172,6 +174,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
       lastSignInAt: iso(u?.lastSignInAt),
       lastActiveAt: iso(p?.lastActiveAt),
       plan: p?.plan ?? "none yet",
+      founding: Boolean(p?.foundingCoach),
       phone,
       phoneNumber: p?.phone ?? null,
       deleted: false,
@@ -206,7 +209,7 @@ export async function userRows(): Promise<{ users: UserRow[]; identity: boolean 
   for (const l of ledger) {
     users.push({
       id: l.userId, email: l.email, name: l.name, signedUpAt: iso(l.signedUpAt), confirmed: true, provider: "", lastSignInAt: null,
-      lastActiveAt: null, plan: l.lastPlan, phone: "none", phoneNumber: null, deleted: true, deletedAt: iso(l.deletedAt), plays: l.playCount,
+      lastActiveAt: null, plan: l.lastPlan, founding: false, phone: "none", phoneNumber: null, deleted: true, deletedAt: iso(l.deletedAt), plays: l.playCount,
       griddyMonth: 0, griddyPeakDay: 0, photosMonth: 0, exports: 0, exports24h: 0, devices: 0, devicePeers: 0, griddyFirstDay: 0, captures7d: 0, suspended: false,
       phoneSignups: l.phoneHash ? phoneUse.get(l.phoneHash) ?? 1 : 0, flags: [],
     });
@@ -225,7 +228,7 @@ const cell = (v: unknown) => {
 export function usersCsv(users: UserRow[]) {
   const cols: [string, (u: UserRow) => unknown][] = [
     ["Email", (u) => u.email], ["Name", (u) => u.name], ["Signed up", (u) => u.signedUpAt], ["Email confirmed", (u) => u.confirmed ? "yes" : "no"],
-    ["Sign-in method", (u) => u.provider], ["Last sign-in", (u) => u.lastSignInAt], ["Last active", (u) => u.lastActiveAt], ["Plan", (u) => u.plan],
+    ["Sign-in method", (u) => u.provider], ["Last sign-in", (u) => u.lastSignInAt], ["Last active", (u) => u.lastActiveAt], ["Plan", (u) => u.plan], ["Founding coach", (u) => (u.founding ? "yes" : "")],
     ["Phone", (u) => u.phoneNumber ?? ""], ["Phone verified", (u) => (u.phone === "verified" ? "yes" : "no")], ["Account", (u) => (u.deleted ? `deleted ${u.deletedAt}` : u.suspended ? "switched off" : "active")], ["Plays", (u) => u.plays],
     ["Griddy this month", (u) => u.griddyMonth], ["Photo reviews this month", (u) => u.photosMonth], ["Exports", (u) => u.exports],
     ["Devices", (u) => u.devices], ["Accounts on this phone", (u) => u.phoneSignups], ["Accounts on one device (7 days)", (u) => u.devicePeers], ["Griddy on signup day", (u) => u.griddyFirstDay], ["Captures (7 days)", (u) => u.captures7d], ["Flags", (u) => u.flags.join("; ")], ["User id", (u) => u.id],

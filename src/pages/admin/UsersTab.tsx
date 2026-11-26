@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
+import { TIERS, type TierId } from "../../lib/plan";
 import { useToast } from "../../lib/toast";
 
 export type AdminUser = {
   id: string; email: string; name: string; signedUpAt: string | null; confirmed: boolean; provider: string;
-  lastSignInAt: string | null; lastActiveAt: string | null; plan: string; phone: "verified" | "none"; phoneNumber?: string | null;
+  lastSignInAt: string | null; lastActiveAt: string | null; plan: string; founding: boolean; phone: "verified" | "none"; phoneNumber?: string | null;
   deleted: boolean; deletedAt: string | null; plays: number; griddyMonth: number; griddyPeakDay: number;
   photosMonth: number; exports: number; exports24h: number; devices: number; phoneSignups: number; devicePeers: number; griddyFirstDay: number; captures7d: number; suspended: boolean; flags: string[];
 };
+
+/** A plan's name as coaches see it ("Sideline", not "free"); an id no plan has any more (an old "beta") stays as it is. */
+const planName = (id: string) => TIERS[id as TierId]?.name ?? id;
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 
@@ -39,8 +43,16 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
     const needle = q.trim().toLowerCase();
     return (users ?? [])
       .filter((u) => (watch ? u.flags.length > 0 : true))
-      .filter((u) => !needle || `${u.email} ${u.name} ${u.id} ${u.plan} ${u.phoneNumber ?? ""}`.toLowerCase().includes(needle));
+      .filter((u) => !needle || `${u.email} ${u.name} ${u.id} ${u.plan} ${planName(u.plan)} ${u.founding ? "founding" : ""} ${u.phoneNumber ?? ""}`.toLowerCase().includes(needle));
   }, [users, q, watch]);
+
+  // Live accounts on each plan, most first, and how many founding coaches can still take the $9 rate.
+  const plans = useMemo(() => {
+    const live = (users ?? []).filter((u) => !u.deleted);
+    const counts = new Map<string, number>();
+    for (const u of live) counts.set(u.plan, (counts.get(u.plan) ?? 0) + 1);
+    return { counts: [...counts].sort((a, b) => b[1] - a[1]), founding: live.filter((u) => u.founding).length };
+  }, [users]);
 
   async function download() {
     try {
@@ -72,6 +84,21 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
           Download CSV
         </button>
       </div>
+      {!watch && (
+        <p className="adm-plans" aria-label="Accounts on each plan">
+          {plans.counts.map(([plan, n]) => (
+            <button type="button" key={plan} className="chip" onClick={() => setQ(planName(plan))}>
+              {planName(plan)} <b>{n}</b>
+            </button>
+          ))}
+          {plans.founding > 0 && (
+            <button type="button" className="chip" onClick={() => setQ("founding")} title="Joined during the Beta Coach plan, so the $9 founding rate is theirs">
+              Founding coaches <b>{plans.founding}</b>
+            </button>
+          )}
+          <small className="hint">The Beta Coach plan ended Nov 26, 2026: its coaches are on Sideline and keep the founding rate.</small>
+        </p>
+      )}
       {!identity && (
         <p className="adm-note">Sign-in provider list unavailable here, so this shows only coaches who have used the app (profiles).</p>
       )}
@@ -94,7 +121,10 @@ export function UsersTab({ users, identity, error, watch, onOpen }: Props) {
                 </td>
                 <td>{when(u.signedUpAt)}</td>
                 <td>{when(u.lastActiveAt ?? u.lastSignInAt)}</td>
-                <td><span className={`pill${u.plan === "master" ? " pill-cyan" : ""}`}>{u.plan}</span></td>
+                <td>
+                  <span className={`pill${u.plan === "master" ? " pill-cyan" : ""}`}>{planName(u.plan)}</span>
+                  {u.founding && <small>Founding coach</small>}
+                </td>
                 <td>
                   {u.phoneNumber ?? "None"}
                   {u.phoneNumber && <small>{u.phone === "verified" ? "verified" : "not verified"}{u.phoneSignups > 1 && ` · ${u.phoneSignups} accounts`}</small>}
