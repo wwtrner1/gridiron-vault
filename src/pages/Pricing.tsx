@@ -117,7 +117,8 @@ export function Pricing() {
       alive = false;
     };
   }, []);
-  const paying = tier.id === "solo" || tier.id === "crew" || tier.id === "program" || tier.id === "master";
+  // Only an account pays; a signed-out browser's remembered plan is just a choice, not a subscription.
+  const paying = Boolean(account) && (tier.id === "solo" || tier.id === "crew" || tier.id === "program" || tier.id === "master");
   const foundingOpen = Boolean(founding && founding.left > 0) && !paying;
   const navigate = useNavigate();
 
