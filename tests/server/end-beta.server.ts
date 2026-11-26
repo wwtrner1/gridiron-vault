@@ -1,5 +1,5 @@
 /**
- * The Beta Coach plan ends (migration 20261126061947): every Beta coach moves to Sideline, the owner's audit log
+ * The Beta Coach plan ends (migration 20261126045945): every Beta coach moves to Sideline, the owner's audit log
  * records how many moved, and nobody else's plan changes. Runs the migrations before it, puts coaches on the old plans,
  * then runs it, the way production's data meets it.
  *
@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 delete process.env.TRIAL_SIGNUPS;
 delete process.env.STRIPE_SECRET_KEY;
 
-const END_BETA = "20261126061947";
+const END_BETA = "20261126045945";
 const { migrate, client } = await import("./fake-db.ts");
 const { signInAs } = await import("./fake-identity.ts");
 const { default: api } = await import("../../netlify/functions/api.ts");

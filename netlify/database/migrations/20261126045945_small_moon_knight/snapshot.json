@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5c8d85ed-3c2e-40c3-9658-a3d3291660d3",
+  "id": "e1397b9a-66db-41f3-aaad-43ce31b789a6",
   "prevIds": [
     "a1e9e2be-9328-4985-a8a1-af1583171fc7"
   ],
@@ -45,12 +45,6 @@
     {
       "isRlsEnabled": false,
       "name": "events",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "founding_seats",
       "entityType": "tables",
       "schema": "public"
     },
@@ -887,32 +881,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "events"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "founding_seats"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "claimed_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "founding_seats"
     },
     {
       "type": "uuid",
@@ -3172,6 +3140,19 @@
       "generated": null,
       "identity": null,
       "name": "plan",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "profiles"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "founding_coach",
       "entityType": "columns",
       "schema": "public",
       "table": "profiles"
@@ -5985,16 +5966,6 @@
       "name": "events_pkey",
       "schema": "public",
       "table": "events",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "user_id"
-      ],
-      "nameExplicit": false,
-      "name": "founding_seats_pkey",
-      "schema": "public",
-      "table": "founding_seats",
       "entityType": "pks"
     },
     {
