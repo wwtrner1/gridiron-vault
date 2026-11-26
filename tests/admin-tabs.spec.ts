@@ -279,7 +279,7 @@ test("Play archive and Reader memory: every coach's plays, purge one, and switch
   await expect(page.getByText("Nothing in the archive matches.")).toBeVisible();
 
   await page.getByRole("tab", { name: "Reader memory" }).click();
-  const rows = page.locator(".adm-days tbody tr");
+  const rows = page.locator(".adm-table tbody tr");
   await expect(rows.first()).toContainText('A board mark "0" means Q');
   await expect(rows.first()).toContainText("Yes");
   await expect(rows.nth(1)).toContainText("Not yet (needs 3 coaches)");
