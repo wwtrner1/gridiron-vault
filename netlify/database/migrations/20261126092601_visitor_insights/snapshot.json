@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e6da6c86-eb5e-4091-8cf3-e592c63a9309",
+  "id": "a3e19769-cf02-4a2b-bf93-0e88678a1153",
   "prevIds": [
-    "a1e9e2be-9328-4985-a8a1-af1583171fc7"
+    "002e93b4-e058-454f-b7e4-26e8620f999f"
   ],
   "ddl": [
     {
@@ -45,6 +45,12 @@
     {
       "isRlsEnabled": false,
       "name": "events",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "founding_seats",
       "entityType": "tables",
       "schema": "public"
     },
@@ -887,6 +893,32 @@
       "entityType": "columns",
       "schema": "public",
       "table": "events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "founding_seats"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "claimed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "founding_seats"
     },
     {
       "type": "uuid",
@@ -3246,7 +3278,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'beta'",
+      "default": "'free'",
       "generated": null,
       "identity": null,
       "name": "plan",
@@ -6159,6 +6191,16 @@
       "name": "events_pkey",
       "schema": "public",
       "table": "events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "founding_seats_pkey",
+      "schema": "public",
+      "table": "founding_seats",
       "entityType": "pks"
     },
     {
