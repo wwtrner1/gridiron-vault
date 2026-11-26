@@ -132,11 +132,14 @@ export function Shell({ title, actions, tabs, children }: Props) {
         <div className="rail-foot">
           {tier.id === "free" && (
             <div className="rail-plan">
-              <p>
+              {/* A coach who joined in beta (it ended 2026-11-26) hears about the founding rate here instead of the plain upgrade. */}
+              {founding && <span className="pill pill-cyan">Founding coach</span>}
+              <p style={founding ? { marginTop: 8 } : undefined}>
                 You are on Sideline — {plays.length} of {tier.playLimit} plays used.
+                {founding && " Beta has ended. You joined during it, so Head Coach is yours at $9 a month for life."}
               </p>
               <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
-                Unlock the full kit
+                {founding ? "Take the founding rate" : "Unlock the full kit"}
               </Link>
             </div>
           )}
@@ -148,15 +151,6 @@ export function Shell({ title, actions, tabs, children }: Props) {
               </p>
               <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
                 Keep Head Coach
-              </Link>
-            </div>
-          )}
-          {founding && tier.id === "free" && (
-            <div className="rail-plan">
-              <span className="pill pill-cyan">Founding coach</span>
-              <p style={{ marginTop: 8 }}>Beta has ended. You joined during it, so Head Coach is yours at $9 a month for life.</p>
-              <Link to="/pricing" className="btn btn-primary btn-sm btn-block">
-                Take the founding rate
               </Link>
             </div>
           )}
