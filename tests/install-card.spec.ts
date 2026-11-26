@@ -46,7 +46,7 @@ test("a signed-in coach is never asked for a phone number or a code, whatever th
   await signIn(context, async (route, path, method) => {
     if (path === "me") {
       meCalls += 1;
-      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "beta", security } });
+      await route.fulfill({ json: { user: { id: "u1", email: "coach@example.com", name: "Coach" }, plan: "free", security } });
       return true;
     }
     if (path.startsWith("phone/") && method === "POST") posts.push(path);

@@ -6,15 +6,14 @@ export async function quiet(context: BrowserContext) {
 }
 
 /**
- * A beta account this browser already follows. The tests' browser starts on Head Coach
- * (playwright.config.ts), which a first sign-in would otherwise hand up to the account.
+ * A Sideline account this browser already follows. The tests' browser starts on Head Coach
+ * (playwright.config.ts), so this sets Sideline before the page loads and the screen never shows the bigger plan first.
  */
-export async function onBeta(context: BrowserContext) {
+export async function onSideline(context: BrowserContext) {
   await context.addInitScript(() => {
-    if (sessionStorage.getItem("beta-set")) return;
-    sessionStorage.setItem("beta-set", "1");
-    localStorage.setItem("nextplay.tier.v1", "beta");
-    localStorage.setItem("nextplay.tier.synced.v1", "1");
+    if (sessionStorage.getItem("sideline-set")) return;
+    sessionStorage.setItem("sideline-set", "1");
+    localStorage.setItem("nextplay.tier.v1", "free");
   });
 }
 

@@ -38,6 +38,8 @@ async function coach() {
   const id = randomUUID();
   signInAs({ id, email: `${id.slice(0, 8)}@example.com` });
   await call("GET", "me");
+  // Head Coach, so these tests aren't held to Sideline's one playbook and one Call Sheet (new coaches start on Sideline).
+  await client.query("update profiles set plan = 'solo' where id = $1", [id]);
   return id;
 }
 

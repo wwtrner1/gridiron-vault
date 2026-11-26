@@ -36,7 +36,7 @@ import {
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { SUPPORT_EMAIL } from "../../src/lib/site.js";
 import { emailKey, isDisposable, trialsOn } from "../security/trial.js";
-import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
+import { billingOn, cancelBilling, expireSeason, foundingState, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
@@ -153,10 +153,10 @@ async function isOwnersLogo(logo: string): Promise<boolean> {
 }
 
 async function ensureProfile(user: Session, origin?: Origin) {
-  // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
+  // A new coach joins on Sideline; with TRIAL_SIGNUPS=on startTrial upgrades them if they have not had a trial before.
   const created = await db
     .insert(profiles)
-    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : trialsOn() ? "free" : "beta" })
+    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : "free" })
     .onConflictDoNothing()
     .returning({ id: profiles.id });
   // `created` is true for exactly one request per account, so this is the one place a new coach is announced. The
@@ -198,6 +198,7 @@ async function announceSignup(user: Session, origin?: Origin) {
       method: user.method,
       accountCreatedAt: user.accountCreatedAt,
       plan: row?.plan ?? "free",
+      trials: trialsOn(),
       trialEndsAt: row?.trialEndsAt,
       place: origin ? placeOf(origin) : "",
       at: new Date(),
@@ -324,6 +325,10 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
 
     // Stripe's webhook proves itself with a signature, not a sign-in.
     if (resource === "billing" && id === "webhook" && req.method === "POST") return await handleWebhook(req);
+
+    // How many founding spots ($9 Head Coach for life) are left, for the Pricing page, signed in or not.
+    if (resource === "billing" && id === "founding" && req.method === "GET")
+      return Response.json(await foundingState(), { headers: { "Cache-Control": "public, max-age=60" } });
 
     // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
     if (resource === "visit") {
@@ -559,7 +564,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}, defer?
     if (resource === "my-team" && id) {
       if (!me) return fail("Sign in to text your team from GridIronVault.", 401);
       await ensureProfile(me);
-      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3]);
+      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3], (await planOf(me)).id);
     }
     if (resource === "my-team-signups" && id && req.method === "DELETE") {
       if (!me) return fail("Sign in first.", 401);
@@ -1064,8 +1069,8 @@ async function monthlyAi(me: Session, kind: AiKind) {
 }
 
 /**
- * During beta a coach picks their own plan (Account and Pricing pages). Set
- * PLAN_SELF_SERVE=false when billing takes over, and only billing changes it.
+ * While billing is off a coach picks their own plan (Account and Pricing pages).
+ * Once billing is on, only Sideline can be picked here; PLAN_SELF_SERVE=false shuts it.
  */
 async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);
