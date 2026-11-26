@@ -104,7 +104,9 @@ export function Privacy() {
         </li>
         <li>
           <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
-          from, your device type and how many seconds the page was in view. We keep no IP address and set no cookie for this,
+          from, the campaign tag on the link if it has one (such as which social post it was), your device type, how many
+          seconds the page was in view, and whether this browser has been here before (a note your browser keeps for
+          itself; no id goes with it). We keep no IP address and set no cookie for this,
           and the visitor count uses a code that changes every day, so we can't follow you from one day to the next. If your
           browser sends Do Not Track or Global Privacy Control, nothing is sent.
         </li>

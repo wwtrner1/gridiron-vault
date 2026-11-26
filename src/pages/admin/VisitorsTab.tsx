@@ -1,31 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../../lib/api";
+import { TIERS, type TierId } from "../../lib/plan";
 import { BEFORE_COUNTER as B } from "./beforeCounter";
+import { Insights, type InsightData } from "./VisitorInsights";
 
-type Stats = {
+type Stats = Partial<InsightData> & {
   days: number;
   liveNow: number;
   totals: { sessions: number; visitorDays: number; avgSeconds: number; medianSeconds: number; totalSeconds: number; signedInSessions: number; pagesPerVisit: number };
   perDay: { day: string; visitors: number; sessions: number; avgSeconds: number; bounced: number; signups: number }[];
-  landing: { name: string; n: number }[];
+  landing: { name: string; n: number; bounced?: number }[];
   referrers: { name: string; n: number }[];
   devices: { name: string; n: number }[];
 };
 
 const dur = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
 
-function Top({ title, rows }: { title: string; rows: { name: string; n: number }[] }) {
+function Top({ title, rows, note }: { title: string; rows: { name: string; n: number }[]; note?: (r: { name: string; n: number }) => string }) {
+  const max = Math.max(1, ...rows.map((r) => r.n));
   return (
     <section className="card adm-card">
       <h3>{title}</h3>
       {rows.length === 0 ? <p className="hint">Nothing yet.</p> : (
-        <ol className="adm-top">
-          {rows.map((r) => <li key={r.name}><span>{r.name}</span><b>{r.n}</b></li>)}
+        <ol className="adm-top adm-top-bars">
+          {rows.map((r) => (
+            <li key={r.name} style={{ "--share": `${(r.n / max) * 100}%` } as CSSProperties}>
+              <span>{r.name}{note?.(r) ? <small>{note(r)}</small> : null}</span><b>{r.n}</b>
+            </li>
+          ))}
         </ol>
       )}
     </section>
   );
 }
+
+const planName = (id: string) => TIERS[id as TierId]?.name ?? id;
 
 /** Fixed figures from Netlify Web Analytics, for the weeks before our own counter existed. */
 function BeforeCounter() {
@@ -88,8 +97,10 @@ export function VisitorsTab() {
           <p className="hint">
             A visitor-day is one browser on one day: the same person on two days counts twice, because we never link days. Your own visits are not counted.
           </p>
+          {s.funnel && <Insights s={s as Stats & InsightData} planName={planName} />}
+          <h3 className="adm-h">Day by day</h3>
           <div className="adm-scroll">
-            <table className="adm-table">
+            <table className="adm-table adm-days">
               <thead><tr><th>Day</th><th>Visitors</th><th></th><th>Visits</th><th>Avg time</th><th>Left within 10 s</th><th>New accounts</th></tr></thead>
               <tbody>
                 {[...s.perDay].reverse().map((d) => (
@@ -104,9 +115,17 @@ export function VisitorsTab() {
             </table>
           </div>
           <div className="adm-tops">
-            <Top title="Where visits start" rows={s.landing} />
+            <Top
+              title="Where visits start"
+              rows={s.landing}
+              note={(r) => {
+                const b = s.landing.find((l) => l.name === r.name)?.bounced;
+                return b === undefined || !r.n ? "" : `${Math.round((b / r.n) * 100)}% left within 10 s`;
+              }}
+            />
             <Top title="Referring sites" rows={s.referrers} />
             <Top title="Devices" rows={s.devices} />
+            {s.campaigns && <Top title="Campaign tags" rows={s.campaigns} />}
           </div>
         </>
       )}

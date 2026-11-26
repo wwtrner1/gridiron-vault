@@ -313,6 +313,10 @@ export const visits = pgTable(
     landing: text().notNull().default("/"),
     referrer: text().notNull().default(""), // host only
     device: text().notNull().default("desktop"),
+    /** The link's utm_source (or ?ref=) tag, lowercased, for which post or campaign brought the visit. */
+    campaign: text().notNull().default(""),
+    /** The browser had visited before (a flag it keeps for itself; no id is sent or stored). */
+    returning: boolean().notNull().default(false),
     pages: integer().notNull().default(1),
     /** Seconds the page was visible, summed from heartbeats. */
     seconds: integer().notNull().default(0),
@@ -320,6 +324,26 @@ export const visits = pgTable(
     lastBeatAt: timestamp("last_beat_at").defaultNow(),
   },
   (t) => [uniqueIndex("visits_sid_idx").on(t.sid), index("visits_day_idx").on(t.day)],
+);
+
+/**
+ * One row per page opened in a visit, with the seconds that page was in view. It holds the same nothing as
+ * `visits` (no IP, cookie or user id): it lets the owner console show every page's views, time on page and
+ * where visits end. `pv` is a random id the browser makes for each page it opens.
+ */
+export const pageViews = pgTable(
+  "page_views",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    pv: text().notNull(),
+    sid: text().notNull(),
+    day: text().notNull(), // YYYY-MM-DD, UTC
+    path: text().notNull(),
+    seconds: integer().notNull().default(0),
+    at: timestamp().defaultNow(),
+    lastBeatAt: timestamp("last_beat_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("page_views_pv_idx").on(t.pv), index("page_views_day_idx").on(t.day), index("page_views_sid_idx").on(t.sid, t.at)],
 );
 
 /**
