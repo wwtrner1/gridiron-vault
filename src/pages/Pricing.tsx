@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { MarketingFooter, MarketingNav } from "../components/Marketing";
@@ -5,7 +6,7 @@ import { CREATE_ACCOUNT_PATH, OFFERS, PUBLIC_TIERS, TIERS, TRIAL_DAYS, TRIAL_WOR
 import type { TierId } from "../lib/plan";
 import { useAuth } from "../lib/auth";
 import { choosePlan, goToBilling, useBilling, useTier } from "../lib/tier";
-import { coachError } from "../lib/api";
+import { api, coachError } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "../styles/home.css";
 import "../styles/pricing.css";
@@ -103,6 +104,22 @@ export function Pricing() {
   const toast = useToast();
   const { account } = useAuth();
   const billing = useBilling();
+  // The founding rate ($9 Head Coach for life) while any of its spots are left, for anyone not already paying for a plan.
+  // Unknown (the count didn't load) reads as closed, so nobody is shown a rate the server might refuse.
+  const [founding, setFounding] = useState<{ total: number; left: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .foundingSpots()
+      .then((f) => alive && setFounding(f))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Only an account pays; a signed-out browser's remembered plan is just a choice, not a subscription.
+  const paying = Boolean(account) && (tier.id === "solo" || tier.id === "crew" || tier.id === "program" || tier.id === "master");
+  const foundingOpen = Boolean(founding && founding.left > 0) && !paying;
   const navigate = useNavigate();
 
   /** What a plan button buys when billing is open; Program is by quote. */
@@ -170,11 +187,6 @@ export function Pricing() {
                   Stripe, so we never see your card. Cancel any time from your account page and keep access until the period you paid
                   for ends.
                 </>
-              ) : tier.id === "beta" ? (
-                <>
-                  You are on <b>Beta Coach</b> — every drawing tool is on and your own plays stay yours. Exports are watermarked, 3
-                  plays at a time, and the full starter library comes with Head Coach. Beta coaches keep founding rates.
-                </>
               ) : tier.id === "trial" ? (
                 <>
                   You are on the <b>Head Coach trial</b> — every tool is on and your plays stay when it ends. After that you keep
@@ -193,6 +205,21 @@ export function Pricing() {
               <Link to={CREATE_ACCOUNT_PATH} className="btn btn-primary">
                 {TRIAL_WORDS.cta}
               </Link>
+            </div>
+          )}
+          {foundingOpen && founding && (
+            <div className="price-founding">
+              <p>
+                <b>Founding rate:</b> the first {founding.total} coaches on Head Coach pay $9 a month for life.{" "}
+                <span className="price-founding-left">
+                  {founding.left} of {founding.total} spots left.
+                </span>
+              </p>
+              {account && billing && (
+                <button type="button" className="btn btn-primary" onClick={() => pay("founding")}>
+                  Take the founding rate
+                </button>
+              )}
             </div>
           )}
           <div className="home-plan-grid">
@@ -231,12 +258,12 @@ export function Pricing() {
               </article>
             ))}
           </div>
-          {/* Yearly rates and the Season Pass sit behind one closed row so the page opens on four prices, not nine. Founding is only for beta coaches, so nobody else sees a rate the server would refuse. */}
+          {/* Yearly rates and the Season Pass sit behind one closed row so the page opens on four prices, not nine. Founding is listed only while spots are left (the strip above says how many). */}
           <div className="faq price-more">
             <details name="pricing-offers">
               <summary>Yearly rates, the Season Pass and other ways to pay</summary>
               <div className="price-offers">
-            {OFFERS.filter((o) => o.id !== "founding" || tier.id === "beta").map((o) => (
+            {OFFERS.filter((o) => o.id !== "founding" || foundingOpen).map((o) => (
               <article className={`price-offer${o.highlight ? " is-highlight" : ""}`} key={o.id}>
                 <h3>{o.name}</h3>
                 <div className="home-plan-price">

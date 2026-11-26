@@ -2,11 +2,10 @@
  * GridIronVault plans and entitlements.
  *
  * One module owns every gate so the UI, the export pipeline and the API all
- * read the same rules. Plans are stored per-account; until billing is wired up
- * the tier is read from the workspace so beta coaches can be upgraded by hand.
+ * read the same rules. Plans are stored per-account on the server.
  */
 
-export type TierId = "master" | "beta" | "trial" | "free" | "solo" | "crew" | "program";
+export type TierId = "master" | "trial" | "free" | "solo" | "crew" | "program";
 
 export type Tier = {
   id: TierId;
@@ -53,7 +52,7 @@ export type Tier = {
 
 /** Full kit: what every paid plan, the trial and the owner get past the gates below. */
 const OPEN = { allStarters: true, readyBook: true, exportPlays: 1_000_000 } as const;
-/** Sideline and beta: a taste of the library, a few plays per export, so the material can't walk out the door. */
+/** Sideline: a taste of the library, a few plays per export, so the material can't walk out the door. */
 const SAMPLE = { allStarters: false, readyBook: false, exportPlays: 3 } as const;
 
 export const TIERS: Record<TierId, Tier> = {
@@ -80,35 +79,6 @@ export const TIERS: Record<TierId, Tier> = {
     assistantCalls: 1_000_000,
     ...OPEN,
     perks: ["Every tool and export", "No Vault, Griddy or photo limits", "Owner admin console"],
-  },
-  // Coaches who joined before trials. Their own drawing stays roomy; the library and exports match Sideline.
-  beta: {
-    id: "beta",
-    name: "Beta Coach",
-    blurb: "Draw and keep your own plays. Exports are watermarked; the full library and clean prints come with Head Coach.",
-    price: "Free",
-    cadence: "during beta",
-    seats: "1 coach",
-    playLimit: 200,
-    gridLimit: 10,
-    playbookLimit: 1_000_000,
-    copyLimit: 5,
-    sizes: "starter",
-    maxDpi: 86,
-    watermark: true,
-    sheets: false,
-    share: false,
-    orgSeats: 12,
-    lockedTools: [],
-    photoReviews: 30,
-    assistantCalls: 300,
-    ...SAMPLE,
-    perks: [
-      "Every drawing tool on",
-      "200 plays of your own",
-      "5 starter plays, watermarked exports 3 plays at a time",
-      "Founding-coach pricing: Head Coach at $9 a month for life",
-    ],
   },
   // Not on the pricing page: the server starts it for a new coach (netlify/security/trial.ts) and drops them to Sideline after TRIAL_DAYS.
   trial: {
@@ -277,12 +247,15 @@ export const CREATE_ACCOUNT_PATH = "/signin?tab=up";
 export const PUBLIC_TIERS: Tier[] = [TIERS.free, TIERS.solo, TIERS.crew, TIERS.program];
 
 /** Other ways to buy Head Coach, for coaches who only need it for a season or a year. */
+/** Coaches who can take the founding rate (Head Coach at $9 a month for life); the server counts them in founding_seats. */
+export const FOUNDING_SEATS = 50;
+
 export const OFFERS: { id: string; name: string; price: string; cadence: string; blurb: string; highlight?: boolean }[] = [
   { id: "season", name: "Season Pass", price: "$29", cadence: "for 4 months", blurb: "Head Coach for one season. Pay once — it does not renew." },
   { id: "yearly", name: "Head Coach yearly", price: "$99", cadence: "per year", blurb: "Every Head Coach feature for about $8 a month, billed once a year." },
   { id: "staff-yearly", name: "Staff yearly", price: "$249", cadence: "per year", blurb: "Staff seats for the whole coaching staff, billed once a year." },
   { id: "program-yearly", name: "Program yearly", price: "$699", cadence: "per year", blurb: "Program seats and Front Office for a league or club, billed once a year." },
-  { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: "Coach with us during the beta and keep Head Coach at $9 for as long as you stay.", highlight: true },
+  { id: "founding", name: "Founding coaches", price: "$9", cadence: "per month, for life", blurb: `The first ${FOUNDING_SEATS} coaches on Head Coach keep $9 a month for as long as they stay.`, highlight: true },
 ];
 
 /** Prices are tax-exclusive (`stripe:setup` makes them so and Checkout adds sales tax where it applies), so every paid price says so. */
@@ -292,7 +265,8 @@ export const plusTax = (price: string): string => (price === "$0" ? "" : " + tax
 export const STARTER_SIZES = ["wristband", "wristband-lg", "letter-p"];
 
 export function tierFor(id: string | null | undefined): Tier {
-  return TIERS[(id as TierId) ?? "beta"] ?? TIERS.beta;
+  // Anything unknown (a retired plan id, a typo) is Sideline: more than that comes from the account's plan.
+  return TIERS[(id as TierId) ?? "free"] ?? TIERS.free;
 }
 
 /** Starter play numbers open on every plan (the rest come with Head Coach). */
@@ -306,7 +280,7 @@ export const starterOpen = (tier: Tier, n: number) => tier.allStarters || SAMPLE
  * A play copied from the library this plan doesn't open: the Ready-to-Go
  * playbook, or a starter outside the sample. Copies already in a Vault are
  * kept and stay editable; they just don't export, print, sync up or get copied
- * again on Sideline or beta. Read from the play's tags (and a starter's name).
+ * again on Sideline. Read from the play's tags (and a starter's name).
  */
 export function heldBack(tier: Tier, play: { name?: string | null; tags?: readonly string[] | null }): boolean {
   const tags = play.tags ?? [];

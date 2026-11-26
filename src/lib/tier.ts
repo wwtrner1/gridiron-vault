@@ -52,7 +52,7 @@ export function useTier(): Tier {
   return tierFor(id);
 }
 
-/** Whether the server can take payments yet (Stripe set up). Until it can, plan buttons keep their beta behaviour. */
+/** Whether the server can take payments yet (Stripe set up). Until it can, plan buttons only change the plan on file. */
 let billingOpen = false;
 const billingListeners = new Set<() => void>();
 export const useBilling = () =>
@@ -103,32 +103,10 @@ export async function goToBilling(offer?: string) {
   window.location.assign(url);
 }
 
-/** Set once this browser has handed its plan choice to the account. */
-const SYNCED = "nextplay.tier.synced.v1";
-
-/**
- * After sign-in: follow the account's plan. The first time, a plan picked in
- * this browser before the server kept plans is handed up, so nobody drops to
- * the default limits when the server starts enforcing them.
- */
+/** After sign-in: follow the account's plan, which the server enforces. */
 export async function syncPlan(serverPlan: string | undefined, trialEndsAt?: string) {
   if (!serverPlan || !(serverPlan in TIERS)) return;
   trialEnds = serverPlan === "trial" && trialEndsAt ? Date.parse(trialEndsAt) : null;
-  let synced = false;
-  try {
-    synced = localStorage.getItem(SYNCED) === "1";
-    localStorage.setItem(SYNCED, "1");
-  } catch {
-    /* storage blocked — the account's plan still wins below */
-  }
-  if (!synced && serverPlan === "beta" && current !== "beta") {
-    try {
-      await api.setPlan(current);
-      return;
-    } catch {
-      /* self-serve is closed; take the account's plan */
-    }
-  }
   if (serverPlan !== current) tierStore.set(serverPlan as TierId);
   else tierStore.set(current); // same plan: still tell the screen the trial days changed
 }

@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 25, 2026";
+const UPDATED = "November 26, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -257,8 +257,8 @@ export function Terms() {
         </li>
         <li>Keep your password and devices safe — you're responsible for what happens on your account.</li>
         <li>
-          GridIronVault is in <b>beta</b>. It's free while we test, features may change, and things may break. Download a
-          backup of anything you can't afford to lose.
+          GridIronVault is growing fast: features may change, and things can break. Download a backup of anything you can't
+          afford to lose.
         </li>
       </ul>
 

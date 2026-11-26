@@ -10,13 +10,16 @@ import {
   signed,
   signer,
   signupsFor,
+  TEAM_TEXTS_LOCKED,
   TEAM_TEXTS_PER_DAY,
+  teamTextsOn,
   TEXT_MAX,
   type Audience,
   type TeamText,
   type TeamTextRecipient,
   type TextStatus,
 } from "../../src/lib/textTeam.js";
+import type { TierId } from "../../src/lib/plan.js";
 import { sendTextEach, smsOn, textStatus } from "./send.js";
 
 /**
@@ -184,9 +187,13 @@ async function refresh(me: Me, teamId: string, textId: string): Promise<Response
   return json({ text });
 }
 
-/** `/api/my-team/:teamId/(texts|link)[/:textId]` after the sign-in check. */
-export async function myTeamTextsRoute(me: Me, req: Request, teamId: string, action: string, textId?: string): Promise<Response> {
+/**
+ * `/api/my-team/:teamId/(texts|link)[/:textId]` after the sign-in check. `tier` is the plan the server holds for the
+ * coach: on Sideline every route here answers 403 `plan_required` (no link, no list, no sends, no history).
+ */
+export async function myTeamTextsRoute(me: Me, req: Request, teamId: string, action: string, textId: string | undefined, tier: TierId): Promise<Response> {
   if (!TEAM_ID.test(teamId)) return fail("That address is not part of the playbook API.", 404);
+  if (!teamTextsOn(tier)) return json({ error: TEAM_TEXTS_LOCKED, code: "plan_required" }, 403);
   const team = await myTeam(me.id, teamId);
   if (!team) return fail("Save this team to your account first. It saves on its own while you're signed in, so try again in a moment.", 404);
 

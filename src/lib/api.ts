@@ -111,8 +111,10 @@ export const api = {
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
-  /** During beta a coach picks their own plan; the server enforces it. */
+  /** While billing is off a coach picks their own plan (Sideline only once billing is on); the server enforces it. */
   checkout: (offer: string) => request<{ url: string }>("billing/checkout", { method: "POST", body: JSON.stringify({ offer }) }),
+  /** How many of the founding spots ($9 Head Coach for life) are left. Public: the Pricing page asks signed in or not. */
+  foundingSpots: () => request<{ total: number; left: number }>("billing/founding"),
   billingPortal: () => request<{ url: string }>("billing/portal", { method: "POST", body: "{}" }),
   pausePlan: (months: number) => request<{ pausedUntil: string }>("billing/pause", { method: "POST", body: JSON.stringify({ months }) }),
   resumePlan: () => request<{ ok: true }>("billing/resume", { method: "POST", body: "{}" }),

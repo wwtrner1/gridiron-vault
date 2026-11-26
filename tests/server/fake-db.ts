@@ -12,9 +12,11 @@ export function drizzle(opts: Record<string, unknown>) {
   return pglite({ client, ...opts } as never);
 }
 
-export async function migrate() {
+/** Every migration, or only those before `before` / from `from` on (folder names sort by date), to test one on old data. */
+export async function migrate({ before, from }: { before?: string; from?: string } = {}) {
   const root = new URL("../../netlify/database/migrations/", import.meta.url);
   for (const dir of readdirSync(root).sort()) {
+    if ((before && dir >= before) || (from && dir < from)) continue;
     const sql = readFileSync(new URL(`${dir}/migration.sql`, root), "utf8");
     for (const statement of sql.split("--> statement-breakpoint")) if (statement.trim()) await client.exec(statement);
   }
