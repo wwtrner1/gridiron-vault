@@ -179,11 +179,6 @@ export function Privacy() {
           it.
         </li>
         <li>
-          <b>Metricool</b> measures visits to our public home and pricing pages, so we can see which social posts bring
-          people in. It does not load on the tools, your plays or a team link, and nothing is sent if your browser sends Do
-          Not Track or Global Privacy Control. Metricool's own privacy policy applies to what it collects.
-        </li>
-        <li>
           <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you
           press play; after that, YouTube's own privacy policy applies. A Hudl film you link opens on Hudl, or plays in Hudl's own player here once you press Show the film here; from then on Hudl's privacy policy applies to that player.
         </li>
