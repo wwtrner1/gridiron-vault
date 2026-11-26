@@ -57,7 +57,7 @@ on a new deploy).
    Messages app links.
 
 Text the team, in either form, is for paid plans and the Head Coach trial;
-Sideline coaches and signed-out visitors see an upgrade prompt instead
+Sideline and Beta coaches and signed-out visitors see an upgrade prompt instead
 (`TEAM_TEXT_PLANS` in `src/lib/textTeam.ts`).
 
 Leave `TEAM_SMS` off until Twilio approves the campaign: before that, carriers

@@ -154,6 +154,14 @@ describe("Text the team from GridIronVault", () => {
     assert.equal(sent.length, 0);
   });
 
+  test("a Beta Coach gets no texting either", async () => {
+    smsOn();
+    await coachWithTeam("Beta Coach", "beta");
+    const res = await call("GET", "my-team/my-team/texts");
+    assert.equal(res.status, 403);
+    assert.equal(res.data.code, "plan_required");
+  });
+
   test("the Head Coach trial can send", async () => {
     smsOn();
     const coach = await coachWithTeam("Trial Coach", "trial");
