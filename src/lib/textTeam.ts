@@ -162,9 +162,8 @@ export function tally(recipients: TeamTextRecipient[]): Record<Outcome, number> 
 /**
  * The plans that can text the team at all (one tap, the sign-up link, Sent texts, and the phone groups while one-tap
  * sending is switched off). Wes 2026-11-25: "Free sideline shouldn't benefit from this feature" and "Free users do
- * not have access for texting. They need to upgrade to use those services." Wes 2026-11-26: "Beta should be over
- * with", so Beta Coach (free) is left out too. Head Coach, Staff, Program, the Head Coach trial and the owner text;
- * Sideline, Beta and signed-out visitors see an upgrade prompt instead.
+ * not have access for texting. They need to upgrade to use those services." Head Coach, Staff, Program, the Head
+ * Coach trial and the owner text; Sideline and signed-out visitors see an upgrade prompt instead.
  */
 export const TEAM_TEXT_PLANS: TierId[] = ["solo", "crew", "program", "trial", "master"];
 export const teamTextsOn = (tier: TierId) => TEAM_TEXT_PLANS.includes(tier);
