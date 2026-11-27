@@ -2,6 +2,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { aiUsage, events, pageViews, playbookShares, profiles, teamTexts, visits } from "../../db/schema.js";
 import { sha } from "./admin.js";
+import { smsOn } from "../front-office/send.js";
 
 /**
  * Visitor counts and time on site, kept in our own database. A visit is one
@@ -238,6 +239,8 @@ export async function siteInsights(from: string) {
         pricing: sql<number>`count(distinct ${pageViews.sid}) filter (where ${pageViews.path} = '/pricing')`,
         designer: sql<number>`count(distinct ${pageViews.sid}) filter (where ${pageViews.path} = '/build' or ${pageViews.path} = '/build/*')`,
         signin: sql<number>`count(distinct ${pageViews.sid}) filter (where ${pageViews.path} = '/signin')`,
+        // Visits with page tracking: the base for the page steps, since page views began after visits did.
+        tracked: sql<number>`count(distinct ${pageViews.sid})`,
       })
       .from(pageViews)
       .where(pvRange),
@@ -255,7 +258,12 @@ export async function siteInsights(from: string) {
       .from(visits)
       .where(gte(visits.day, from))
       .groupBy(sql`1, 2`),
-    db.select({ returning: visits.returning, n: sql<number>`count(*)` }).from(visits).where(gte(visits.day, from)).groupBy(visits.returning),
+    // The "been here before" flag shipped with page tracking, so only visits with page views carry it; older ones would all read as new.
+    db
+      .select({ returning: visits.returning, n: sql<number>`count(*)` })
+      .from(visits)
+      .where(and(gte(visits.day, from), sql`exists (select 1 from "page_views" where "page_views"."sid" = "visits"."sid")`))
+      .groupBy(visits.returning),
     db
       .select({ k: visits.campaign, n: sql<number>`count(*)`, signedIn: sql<number>`count(*) filter (where ${visits.signedIn})` })
       .from(visits)
@@ -307,6 +315,7 @@ export async function siteInsights(from: string) {
       pricing: num(r?.pricing),
       designer: num(r?.designer),
       signin: num(r?.signin),
+      tracked: num(r?.tracked),
       accounts: num(c?.accounts),
       madePlay: num(c?.madePlay),
       paying: num(c?.paying),
@@ -319,7 +328,8 @@ export async function siteInsights(from: string) {
       ...eventUse.map((e) => ({ name: EVENT_WORDS[e.k] ?? e.k, n: num(e.n), coaches: num(e.coaches) })),
       ...aiUse.map((a) => ({ name: AI_WORDS[a.k] ?? a.k, n: num(a.n), coaches: num(a.coaches) })),
       { name: "Playbooks shared with players", n: num(shares[0]?.n), coaches: num(shares[0]?.coaches) },
-      { name: "Team texts sent", n: num(texts[0]?.n), coaches: num(texts[0]?.coaches) },
+      // Switched off until the texting provider approves the number, so a zero here says nothing about coaches.
+      { name: "Team texts sent", n: num(texts[0]?.n), coaches: num(texts[0]?.coaches), ...(smsOn() ? {} : { off: true }) },
     ].sort((a, b) => b.n - a.n),
   };
 }

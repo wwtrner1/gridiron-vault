@@ -10,12 +10,14 @@ export type InsightData = {
   perDay: { day: string; visitors: number; signups: number }[];
   pages: { path: string; views: number; visits: number; avgSeconds: number }[];
   exits: { path: string; n: number; views: number }[];
-  funnel: { pricing: number; designer: number; signin: number; accounts: number; madePlay: number; paying: number };
+  /** `tracked`: visits with page tracking (page views began after visits did), the base for the page steps. */
+  funnel: { pricing: number; designer: number; signin: number; tracked?: number; accounts: number; madePlay: number; paying: number };
   heat: { dow: number; hour: number; n: number }[];
   newVsReturning: { new: number; returning: number };
   campaigns: { name: string; n: number; signedIn: number }[];
   plans: { plan: string; coaches: number; active: number; joined: number }[];
-  features: { name: string; n: number; coaches: number }[];
+  /** `off`: switched off on the site, so its zero isn't a signal. */
+  features: { name: string; n: number; coaches: number; off?: boolean }[];
 };
 
 const dur = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
@@ -76,6 +78,10 @@ function Funnel({ s }: { s: InsightData }) {
     { label: "On a paid plan", n: f.paying },
   ];
   const top = Math.max(1, steps[0].n);
+  // The page steps count only visits made since page tracking began; the first step counts every visit.
+  const tracked = f.tracked ?? s.totals.sessions;
+  const share = (i: number, n: number) =>
+    i === 4 ? `${pct(n, steps[3].n)}% of sign-in visits` : i >= 5 ? `${pct(n, steps[4].n)}% of accounts` : `${pct(n, tracked)}% of ${tracked < s.totals.sessions ? "tracked " : ""}visits`;
   return (
     <section className="card adm-card">
       <h3>Path to a paying coach</h3>
@@ -85,10 +91,13 @@ function Funnel({ s }: { s: InsightData }) {
             <span className="adm-funnel-label">{st.label}</span>
             <span className="adm-funnel-bar" />
             <b>{st.n}</b>
-            <small>{i === 0 ? "" : i === 4 ? `${pct(st.n, steps[3].n)}% of sign-in visits` : `${pct(st.n, steps[i === 5 || i === 6 ? 4 : 0].n)}% of ${i >= 5 ? "accounts" : "visits"}`}</small>
+            <small>{i === 0 ? "" : share(i, st.n)}</small>
           </li>
         ))}
       </ol>
+      {tracked < s.totals.sessions && (
+        <p className="hint">Pages are tracked from a later start than visits: the page steps count the {tracked} tracked visit{tracked === 1 ? "" : "s"}.</p>
+      )}
       <p className="hint">Accounts count by the day they were made, so a coach who visited last week and signed up today shows here today.</p>
     </section>
   );
@@ -120,11 +129,14 @@ function Heat({ heat }: { heat: InsightData["heat"] }) {
   );
 }
 
+/** Fewest views or visits behind a "Worth a look" line, so a handful of visits doesn't read as a trend. */
+const ENOUGH = 20;
+
 /** "Worth a look": the clearest leaks and wins, worked out from the numbers above. */
 function hintsOf(s: InsightData) {
   const out: string[] = [];
   const exitRate = s.exits
-    .filter((e) => e.views >= 5)
+    .filter((e) => e.views >= ENOUGH)
     .map((e) => ({ ...e, rate: pct(e.n, e.views) }))
     .sort((a, b) => b.rate - a.rate)[0];
   if (exitRate && exitRate.rate >= 40) out.push(`${exitRate.rate}% of visits to ${exitRate.path} end there. It's the page losing the most people.`);
@@ -133,13 +145,16 @@ function hintsOf(s: InsightData) {
     out.push(`${f.signin} visits opened sign-in but ${f.accounts} account${f.accounts === 1 ? " was" : "s were"} made. The sign-up form may be where coaches stop.`);
   if (f.accounts >= 3 && f.madePlay / f.accounts < 0.5)
     out.push(`Only ${pct(f.madePlay, f.accounts)}% of new accounts saved a play. The first few minutes after sign-up need a clearer first step.`);
-  if (s.totals.sessions >= 20 && f.pricing / s.totals.sessions < 0.05) out.push("Hardly anyone opens Pricing. A clearer link to it on the home page could help.");
-  const longest = [...s.pages].filter((p) => p.views >= 5).sort((a, b) => b.avgSeconds - a.avgSeconds)[0];
+  const tracked = f.tracked ?? s.totals.sessions;
+  if (tracked >= ENOUGH && f.pricing / tracked < 0.05) out.push("Hardly anyone opens Pricing. A clearer link to it on the home page could help.");
+  // "Longest" needs at least two pages with enough views to compare, and some time actually recorded.
+  const timed = [...s.pages].filter((p) => p.views >= ENOUGH).sort((a, b) => b.avgSeconds - a.avgSeconds);
+  const longest = timed.length >= 2 && timed[0].avgSeconds > 0 ? timed[0] : undefined;
   if (longest) out.push(`Coaches spend the longest on ${longest.path} (${dur(longest.avgSeconds)} a view on average). That's the tool holding attention.`);
-  const unused = s.features.filter((x) => x.n === 0).map((x) => x.name);
+  const unused = s.features.filter((x) => x.n === 0 && !x.off).map((x) => x.name);
   if (unused.length) out.push(`Not used in this period: ${unused.join(", ")}.`);
   const nr = s.newVsReturning;
-  if (nr.new + nr.returning >= 20) out.push(`${pct(nr.returning, nr.new + nr.returning)}% of visits came from browsers that had been here before.`);
+  if (nr.new + nr.returning >= ENOUGH) out.push(`${pct(nr.returning, nr.new + nr.returning)}% of visits came from browsers that had been here before.`);
   return out.slice(0, 5);
 }
 

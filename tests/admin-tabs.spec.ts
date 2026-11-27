@@ -44,11 +44,14 @@ const insights = {
   pages: [
     { path: "/", views: 30, visits: 25, avgSeconds: 40 },
     { path: "/pricing", views: 10, visits: 9, avgSeconds: 65 },
-    { path: "/build", views: 8, visits: 6, avgSeconds: 400 },
-    { path: "/signin", views: 6, visits: 6, avgSeconds: 30 },
+    { path: "/build", views: 20, visits: 6, avgSeconds: 400 },
+    { path: "/signin", views: 24, visits: 6, avgSeconds: 30 },
+    // Too few views to stand for anything: no line is drawn from it.
+    { path: "/vault", views: 5, visits: 5, avgSeconds: 900 },
   ],
-  exits: [{ path: "/", n: 15, views: 30 }, { path: "/signin", n: 4, views: 6 }],
-  funnel: { pricing: 9, designer: 6, signin: 6, accounts: 1, madePlay: 0, paying: 0 },
+  exits: [{ path: "/", n: 15, views: 30 }, { path: "/signin", n: 16, views: 24 }, { path: "/vault", n: 5, views: 5 }],
+  // 30 of the 40 visits came after page tracking began.
+  funnel: { pricing: 9, designer: 6, signin: 6, tracked: 30, accounts: 1, madePlay: 0, paying: 0 },
   heat: [{ dow: 2, hour: 19, n: 6 }, { dow: 6, hour: 9, n: 2 }],
   newVsReturning: { new: 30, returning: 10 },
   campaigns: [{ name: "instagram / launch", n: 7, signedIn: 1 }],
@@ -56,7 +59,9 @@ const insights = {
   features: [
     { name: "Plays created", n: 12, coaches: 3 },
     { name: "Griddy messages", n: 5, coaches: 2 },
-    { name: "Team texts sent", n: 0, coaches: 0 },
+    { name: "Playbooks shared with players", n: 0, coaches: 0 },
+    // Switched off on the site: its zero isn't listed as unused.
+    { name: "Team texts sent", n: 0, coaches: 0, off: true },
   ],
 };
 const audit = [
@@ -126,19 +131,20 @@ test("Visitors, Watch list, Audit log and Find a PDF's owner, with the console's
     "67% of visits to /signin end there. It's the page losing the most people.",
     "6 visits opened sign-in but 1 account was made. The sign-up form may be where coaches stop.",
     "Coaches spend the longest on /build (6m 40s a view on average). That's the tool holding attention.",
-    "Not used in this period: Team texts sent.",
+    "Not used in this period: Playbooks shared with players.",
     "25% of visits came from browsers that had been here before.",
   ]);
   await expect(card("Visitors and new accounts").locator("circle")).toHaveCount(1);
   const steps = card("Path to a paying coach").locator("li");
   await expect(steps).toHaveCount(7);
   await expect(steps.nth(1)).toContainText("Saw Pricing9");
-  await expect(steps.nth(1)).toContainText("23% of visits");
+  await expect(steps.nth(1)).toContainText("30% of tracked visits");
+  await expect(card("Path to a paying coach")).toContainText("the page steps count the 30 tracked visits.");
   await expect(steps.nth(4)).toContainText("17% of sign-in visits");
   await expect(card("When coaches visit (Central time)")).toContainText("Busiest: Tue around 7p (6 visits).");
   await expect(card("New and returning").locator("li")).toHaveText([/First visit\s*30/, /Been here before\s*10/]);
   const pageRows = page.locator(".adm-pages tbody tr");
-  await expect(pageRows).toHaveCount(4);
+  await expect(pageRows).toHaveCount(5);
   await expect(pageRows.first().locator("td")).toHaveText(["/", "30", "", "25", "40s", "15 50%"]);
   await expect(card("Coaches by plan").locator("tbody tr").first()).toContainText("Head Coach trial4");
   await expect(card("Tools used").locator("tbody tr").first()).toHaveText("Plays created123");
