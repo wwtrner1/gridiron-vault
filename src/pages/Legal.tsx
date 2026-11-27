@@ -104,7 +104,9 @@ export function Privacy() {
         </li>
         <li>
           <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
-          from, your device type and how many seconds the page was in view. We keep no IP address and set no cookie for this,
+          from, the campaign tag on the link if it has one (such as which social post it was), your device type, how many
+          seconds the page was in view, and whether this browser has been here before (a note your browser keeps for
+          itself; no id goes with it). We keep no IP address and set no cookie for this,
           and the visitor count uses a code that changes every day, so we can't follow you from one day to the next. If your
           browser sends Do Not Track or Global Privacy Control, nothing is sent.
         </li>
@@ -175,11 +177,6 @@ export function Privacy() {
         <li>
           <b>Stripe</b> takes payments for paid plans. Your card goes straight to Stripe; GridIronVault never sees or stores
           it.
-        </li>
-        <li>
-          <b>Metricool</b> measures visits to our public home and pricing pages, so we can see which social posts bring
-          people in. It does not load on the tools, your plays or a team link, and nothing is sent if your browser sends Do
-          Not Track or Global Privacy Control. Metricool's own privacy policy applies to what it collects.
         </li>
         <li>
           <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you

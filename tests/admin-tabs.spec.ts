@@ -34,10 +34,31 @@ const stats = (days: number) => ({
     { day: "2026-10-29", visitors: 5, sessions: 7, avgSeconds: 90, bounced: 1, signups: 0 },
     { day: "2026-10-30", visitors: 10, sessions: 14, avgSeconds: 3700, bounced: 2, signups: 1 },
   ],
-  landing: [{ name: "/", n: 12 }, { name: "/vault", n: 5 }],
+  landing: [{ name: "/", n: 12, bounced: 3 }, { name: "/vault", n: 5 }],
   referrers: days === 90 ? [] : [{ name: "google.com", n: 4 }],
   devices: [{ name: "Phone", n: 9 }, { name: "Desktop", n: 8 }],
+  ...(days === 90 ? {} : insights),
 });
+// The visual half (VisitorInsights.tsx). Left out of the 90-day answer, as an older server would send it.
+const insights = {
+  pages: [
+    { path: "/", views: 30, visits: 25, avgSeconds: 40 },
+    { path: "/pricing", views: 10, visits: 9, avgSeconds: 65 },
+    { path: "/build", views: 8, visits: 6, avgSeconds: 400 },
+    { path: "/signin", views: 6, visits: 6, avgSeconds: 30 },
+  ],
+  exits: [{ path: "/", n: 15, views: 30 }, { path: "/signin", n: 4, views: 6 }],
+  funnel: { pricing: 9, designer: 6, signin: 6, accounts: 1, madePlay: 0, paying: 0 },
+  heat: [{ dow: 2, hour: 19, n: 6 }, { dow: 6, hour: 9, n: 2 }],
+  newVsReturning: { new: 30, returning: 10 },
+  campaigns: [{ name: "instagram / launch", n: 7, signedIn: 1 }],
+  plans: [{ plan: "trial", coaches: 4, active: 3, joined: 1 }, { plan: "solo", coaches: 2, active: 2, joined: 0 }],
+  features: [
+    { name: "Plays created", n: 12, coaches: 3 },
+    { name: "Griddy messages", n: 5, coaches: 2 },
+    { name: "Team texts sent", n: 0, coaches: 0 },
+  ],
+};
 const audit = [
   { id: "e1", actorEmail: "coach@example.com", action: "trace_lookup", targetId: COACH, detail: { code: "GV-1A2B3C4D5E", found: true }, at: "2026-10-30T09:00:00.000Z" },
   { id: "e2", actorEmail: "coach@example.com", action: "export_users_csv", targetId: "", detail: { rows: 2 }, at: "2026-10-30T08:00:00.000Z" },
@@ -87,17 +108,41 @@ test("Visitors, Watch list, Audit log and Find a PDF's owner, with the console's
   await expect(tiles.locator(".stat")).toHaveText([
     "2On the site now", "25Visitor-days", "40Visits", "3m 20sAverage time per visit", "1m 15sMedian time per visit", "2h 13mTotal time on site", "3.2Pages per visit", "25%Visits signed in",
   ]);
-  const rows = page.locator(".adm-table tbody tr");
+  const rows = page.locator(".adm-days tbody tr");
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("2026-10-30");
   await expect(rows.first().locator("td").nth(4)).toHaveText("1h 2m");
   await expect(rows.first().locator(".adm-bar-fill")).toHaveAttribute("style", /width: 100%/);
   await expect(rows.last().locator(".adm-bar-fill")).toHaveAttribute("style", /width: 50%/);
   const top = (title: string) => page.locator(".adm-card", { has: page.getByRole("heading", { name: title, exact: true }) });
-  await expect(top("Where visits start").locator("li")).toHaveText(["/12", "/vault5"]);
+  await expect(top("Where visits start").locator("li")).toHaveText(["/25% left within 10 s12", "/vault5"]);
   await expect(top("Referring sites").locator("li")).toHaveText(["google.com4"]);
   await expect(top("Devices").locator("li")).toHaveText(["Phone9", "Desktop8"]);
   await expect(page.getByRole("heading", { name: "Before the counter" })).toBeVisible();
+
+  // The visual insights: the hints, the trend, the path to a paying coach, when coaches visit, pages, plans and tools.
+  const card = (title: string) => page.locator(".adm-card", { has: page.getByRole("heading", { name: title, exact: true }) });
+  await expect(card("Worth a look").locator("li")).toHaveText([
+    "67% of visits to /signin end there. It's the page losing the most people.",
+    "6 visits opened sign-in but 1 account was made. The sign-up form may be where coaches stop.",
+    "Coaches spend the longest on /build (6m 40s a view on average). That's the tool holding attention.",
+    "Not used in this period: Team texts sent.",
+    "25% of visits came from browsers that had been here before.",
+  ]);
+  await expect(card("Visitors and new accounts").locator("circle")).toHaveCount(1);
+  const steps = card("Path to a paying coach").locator("li");
+  await expect(steps).toHaveCount(7);
+  await expect(steps.nth(1)).toContainText("Saw Pricing9");
+  await expect(steps.nth(1)).toContainText("23% of visits");
+  await expect(steps.nth(4)).toContainText("17% of sign-in visits");
+  await expect(card("When coaches visit (Central time)")).toContainText("Busiest: Tue around 7p (6 visits).");
+  await expect(card("New and returning").locator("li")).toHaveText([/First visit\s*30/, /Been here before\s*10/]);
+  const pageRows = page.locator(".adm-pages tbody tr");
+  await expect(pageRows).toHaveCount(4);
+  await expect(pageRows.first().locator("td")).toHaveText(["/", "30", "", "25", "40s", "15 50%"]);
+  await expect(card("Coaches by plan").locator("tbody tr").first()).toContainText("Head Coach trial4");
+  await expect(card("Tools used").locator("tbody tr").first()).toHaveText("Plays created123");
+  await expect(top("Campaign tags").locator("li")).toHaveText(["instagram / launch7"]);
 
   // Another period asks again; with no days back, the table says so and an empty top says Nothing yet.
   await period.getByRole("button", { name: "Last 90 days" }).click();
@@ -105,6 +150,7 @@ test("Visitors, Watch list, Audit log and Find a PDF's owner, with the console's
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("No visits recorded yet.");
   await expect(top("Referring sites")).toContainText("Nothing yet.");
+  await expect(page.getByRole("heading", { name: "Worth a look" })).toHaveCount(0);
   expect(asked.filter((a) => a.startsWith("visitors"))).toEqual(["visitors 30", "visitors 90"]);
 
   // A refusal shows in the server's words.
