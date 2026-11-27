@@ -118,12 +118,15 @@ describe("Visitor insights in the owner console", () => {
     assert.equal(s.funnel.pricing, 1);
     assert.equal(s.funnel.designer, 1);
     assert.equal(s.funnel.signin, 1);
+    // Only visits with page views are tracked: the older beacon with no page id is a visit but not a tracked one.
+    assert.equal(s.funnel.tracked, 2);
     assert.equal(s.funnel.accounts, 1, "the owner's own account isn't a new coach");
     assert.equal(s.funnel.paying, 0);
 
     // Campaign tags are plain words; new against returning comes from the browser's own flag.
     assert.deepEqual(s.campaigns, [{ name: "instagram / launch", n: 1, signedIn: 0 }]);
-    assert.deepEqual(s.newVsReturning, { new: 2, returning: 1 });
+    // Only tracked visits carry the flag, so the older beacon isn't counted as a new browser.
+    assert.deepEqual(s.newVsReturning, { new: 1, returning: 1 });
     assert.equal(s.referrers[0].name, "l.instagram.com");
     assert.equal(s.devices[0].name, "mobile");
 
@@ -139,6 +142,8 @@ describe("Visitor insights in the owner console", () => {
     assert.equal(s.plans.reduce((n: number, p: { coaches: number }) => n + p.coaches, 0), 1);
     const plays = s.features.find((f: { name: string }) => f.name === "Plays created");
     assert.deepEqual(plays, { name: "Plays created", n: 1, coaches: 1 });
+    // Texting isn't switched on in the tests, so its zero is marked off and left out of "Not used".
+    assert.equal(s.features.find((f: { name: string }) => f.name === "Team texts sent").off, true);
 
     // No person in it: no email, no ids.
     const text = JSON.stringify(s);
