@@ -89,6 +89,22 @@ test("the founding rate shows its spots left while any are left, and a signed-in
   await strip.getByRole("button", { name: "Take the founding rate" }).click();
   await expect(page).toHaveURL(/\/account\?billing=checkout-mock/);
   expect(offers).toEqual(["founding"]);
+
+  // Choose Head Coach is the founding rate too while spots are left, so nobody pays $12 by mistake.
+  await page.goto("/pricing");
+  await expect(strip).toContainText("12 of 50 spots left.");
+  await page.getByRole("button", { name: "Choose Head Coach" }).click();
+  await expect(page).toHaveURL(/\/account\?billing=checkout-mock/);
+  expect(offers).toEqual(["founding", "founding"]);
+
+  // Every spot taken: Choose Head Coach is the regular monthly price again.
+  left = 0;
+  await page.goto("/pricing");
+  await expect(page.locator(".home-plan")).toHaveCount(4);
+  await expect(strip).toHaveCount(0);
+  await page.getByRole("button", { name: "Choose Head Coach" }).click();
+  await expect(page).toHaveURL(/\/account\?billing=checkout-mock/);
+  expect(offers).toEqual(["founding", "founding", "solo_month"]);
 });
 
 test("signed in, the account keeps the plan, and its refusal shows in coach words", async ({ page, context }) => {

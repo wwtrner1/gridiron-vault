@@ -140,7 +140,8 @@ export function Pricing() {
       return;
     }
     if (billing && id !== "free") {
-      const offer = OFFER_OF[id];
+      // While founding spots are left, Head Coach is the founding rate ($9 for life), so nobody pays $12 by mistake.
+      const offer = id === "solo" && foundingOpen ? "founding" : OFFER_OF[id];
       if (offer) return pay(offer);
       return toast("Program plans are set up with us directly. Use Help & feedback and we'll reply the same day.");
     }
