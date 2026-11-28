@@ -12,7 +12,22 @@ import { useToast } from "../../lib/toast";
  * that opted in that way, so a coach can share the link or take someone off,
  * but never add a number.
  */
-export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: TextList; onChange: (next: TextList) => void }) {
+export function FamilyTexts({
+  team,
+  list,
+  onChange,
+  renew = () => api.textSignups(team.id, true),
+  remove = (id) => api.removeTextSignup(id),
+  defaultOpen = false,
+}: {
+  team: Pick<HubTeam, "id" | "name">;
+  list: TextList;
+  onChange: (next: TextList) => void;
+  /** A new link; a coach's own team (Text the team) passes its own route. */
+  renew?: () => Promise<TextList>;
+  remove?: (id: string) => Promise<TextList>;
+  defaultOpen?: boolean;
+}) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [renewing, setRenewing] = useState(false);
@@ -30,7 +45,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
   };
 
   return (
-    <Panel title="Family texts sign-up" icon="phone" count={list.signups.length} defaultOpen={false}>
+    <Panel title="Family texts sign-up" icon="phone" count={list.signups.length} defaultOpen={defaultOpen}>
       <p className="hint">
         Send this link to {team.name} families (team email, registration form, first-practice handout). Each parent, guardian or older player signs up their own
         mobile number. Only they can add a number, because phone carriers block team texts to anyone who didn't sign up themselves.
@@ -74,7 +89,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
                   className="btn btn-quiet btn-sm"
                   disabled={busy}
                   aria-label={`Take ${s.name} off team texts`}
-                  onClick={() => run(api.removeTextSignup(s.id), `${s.name} is off team texts.`)}
+                  onClick={() => run(remove(s.id), `${s.name} is off team texts.`)}
                 >
                   <Icon name="trash" size={13} />
                 </button>
@@ -90,7 +105,7 @@ export function FamilyTexts({ team, list, onChange }: { team: HubTeam; list: Tex
           busy={busy}
           onConfirm={() => {
             setRenewing(false);
-            run(api.textSignups(team.id, true), "New sign-up link ready.");
+            run(renew(), "New sign-up link ready.");
           }}
           onClose={() => setRenewing(false)}
         >

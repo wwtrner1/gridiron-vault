@@ -22,8 +22,8 @@ export const profiles = pgTable("profiles", {
    */
   phone: text().unique(),
   phoneVerifiedAt: timestamp("phone_verified_at"),
-  /** Plan id from src/lib/plan.ts. The server enforces its limits; billing will be the only writer once beta ends. */
-  plan: text().notNull().default("beta"),
+  /** Plan id from src/lib/plan.ts. The server enforces its limits; billing is its writer for anyone who pays. */
+  plan: text().notNull().default("free"),
   createdAt: timestamp("created_at").defaultNow(),
   /** Last time the app talked to the server as this coach (throttled to every few minutes). */
   lastActiveAt: timestamp("last_active_at"),
@@ -43,6 +43,16 @@ export const profiles = pgTable("profiles", {
   suspendedReason: text("suspended_reason").notNull().default(""),
   /** Retired with the phone codes (2026-11-22): the owner's per-coach "skip the phone code" switch. No longer read or written. */
   phoneSkipAt: timestamp("phone_skip_at"),
+});
+
+/**
+ * The founding rate, Head Coach at $9 a month for life, goes to the first FOUNDING_SEATS (50) coaches who subscribe to
+ * it: one row per coach who has, written when Stripe says their founding subscription is paid. Kept after the account
+ * is deleted (like trial claims), so a deleted account's spot is not handed out again.
+ */
+export const foundingSeats = pgTable("founding_seats", {
+  userId: text("user_id").primaryKey(),
+  claimedAt: timestamp("claimed_at").defaultNow(),
 });
 
 /**
@@ -313,6 +323,10 @@ export const visits = pgTable(
     landing: text().notNull().default("/"),
     referrer: text().notNull().default(""), // host only
     device: text().notNull().default("desktop"),
+    /** The link's utm_source (or ?ref=) tag, lowercased, for which post or campaign brought the visit. */
+    campaign: text().notNull().default(""),
+    /** The browser had visited before (a flag it keeps for itself; no id is sent or stored). */
+    returning: boolean().notNull().default(false),
     pages: integer().notNull().default(1),
     /** Seconds the page was visible, summed from heartbeats. */
     seconds: integer().notNull().default(0),
@@ -320,6 +334,26 @@ export const visits = pgTable(
     lastBeatAt: timestamp("last_beat_at").defaultNow(),
   },
   (t) => [uniqueIndex("visits_sid_idx").on(t.sid), index("visits_day_idx").on(t.day)],
+);
+
+/**
+ * One row per page opened in a visit, with the seconds that page was in view. It holds the same nothing as
+ * `visits` (no IP, cookie or user id): it lets the owner console show every page's views, time on page and
+ * where visits end. `pv` is a random id the browser makes for each page it opens.
+ */
+export const pageViews = pgTable(
+  "page_views",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    pv: text().notNull(),
+    sid: text().notNull(),
+    day: text().notNull(), // YYYY-MM-DD, UTC
+    path: text().notNull(),
+    seconds: integer().notNull().default(0),
+    at: timestamp().defaultNow(),
+    lastBeatAt: timestamp("last_beat_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("page_views_pv_idx").on(t.pv), index("page_views_day_idx").on(t.day), index("page_views_sid_idx").on(t.sid, t.at)],
 );
 
 /**
@@ -650,6 +684,63 @@ export const myTeams = pgTable("my_teams", {
   data: jsonb().$type<unknown>().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/**
+ * A My team team's family texts sign-up link (`/join/:token`), the solo
+ * coach's counterpart of `teams.joinToken`. `teamId` is the `MyTeamDoc` id
+ * inside that coach's `my_teams` row. Made the first time the coach opens
+ * Text the team signed in; a new link replaces the row.
+ */
+export const myTeamLinks = pgTable(
+  "my_team_links",
+  {
+    token: text().primaryKey(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("my_team_links_team_idx").on(t.ownerId, t.teamId)],
+);
+
+/**
+ * A parent, guardian or player who signed themselves up on a My team team's
+ * `/join/:token` page. As with `text_signups`, only these numbers are ever
+ * texted by the server, never the roster's. A number that replied STOP is
+ * taken off the moment a send comes back refused for it.
+ */
+export const myTeamSignups = pgTable(
+  "my_team_signups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    phone: text().notNull(),
+    name: text().notNull().default(""),
+    player: text().notNull().default(""),
+    consent: text().notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [uniqueIndex("my_team_signups_phone_idx").on(t.ownerId, t.teamId, t.phone)],
+);
+
+/**
+ * One Text the team send from GridIronVault's number: the coach's words and
+ * every recipient with Twilio's message id and its latest status
+ * (`TeamTextRecipient` in src/lib/textTeam.ts), so the coach sees who got it
+ * and who didn't, on any device. Owner only.
+ */
+export const teamTexts = pgTable(
+  "team_texts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    teamId: text("team_id").notNull(),
+    body: text().notNull(),
+    recipients: jsonb().$type<unknown[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (t) => [index("team_texts_owner_idx").on(t.ownerId, t.createdAt)],
+);
 
 /**
  * Team branding (name, logo as a small PNG data URL, two colors): one row per

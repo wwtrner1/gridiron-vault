@@ -18,4 +18,6 @@ export const SOCIALS: ReadonlyArray<readonly [label: string, url: string]> = [
   ["Facebook", "https://www.facebook.com/profile.php?id=61596063004257"],
   ["YouTube", "https://www.youtube.com/@grid1ron-vault"],
   ["TikTok", "https://www.tiktok.com/@grid1ronvault"],
+  ["LinkedIn", "https://www.linkedin.com/company/gridiron-vault"],
+  ["X", "https://x.com/grid1ronvault"],
 ];

@@ -11,7 +11,7 @@ import type { Scene, SceneNode } from "./types";
 export const LIVE_LIMITS = { plays: 20, nodes: 400, bytes: 400_000, name: 80, poll: 2500, pollHidden: 8000, here: 15_000 };
 
 /** The plans whose organisations may draw together (the director's plan decides; joining is free). */
-export const LIVE_PLANS = ["crew", "program", "beta", "master"];
+export const LIVE_PLANS = ["crew", "program", "master"];
 
 export type LivePatch = {
   /** Nodes added or changed, whole. */

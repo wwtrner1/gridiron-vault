@@ -12,6 +12,7 @@ import type { Delivery, DepthChart, HubFolder, DepthSlot, DepthUnit, EventDraft,
 import type { TeamBrand } from "./brandData";
 import type { StaffTerms, TermsState } from "./termsData";
 import type { LivePatch, LivePlay } from "./live";
+import type { Audience, TeamText } from "./textTeam";
 
 export type ApiPlay = {
   id: string;
@@ -36,6 +37,9 @@ export const ACCOUNT_EVENT = "grid1ronvault:security";
 
 /** A team's family texts link and the people who signed up on it. */
 export type TextList = { token: string; signups: TextSignup[]; sms: boolean };
+
+/** A coach's own team's texts (Text the team): the sign-up link and list, the last texts sent from GridIronVault's number, and today's count. */
+export type MyTeamTexts = TextList & { texts: TeamText[]; sentToday: number; perDay: number };
 
 /** What a coach reads when a request never reached us (no signal, or the connection dropped). */
 export const OFFLINE_MESSAGE = "No signal right now. Try again when you're back online.";
@@ -107,8 +111,10 @@ export const api = {
   /** Tells the owner's sign-in audit that this was a fresh sign-in (not just an app open). */
   reportSignIn: () => request<void>("me/signin", { method: "POST", body: "{}" }),
 
-  /** During beta a coach picks their own plan; the server enforces it. */
+  /** While billing is off a coach picks their own plan (Sideline only once billing is on); the server enforces it. */
   checkout: (offer: string) => request<{ url: string }>("billing/checkout", { method: "POST", body: JSON.stringify({ offer }) }),
+  /** How many of the founding spots ($9 Head Coach for life) are left. Public: the Pricing page asks signed in or not. */
+  foundingSpots: () => request<{ total: number; left: number }>("billing/founding"),
   billingPortal: () => request<{ url: string }>("billing/portal", { method: "POST", body: "{}" }),
   pausePlan: (months: number) => request<{ pausedUntil: string }>("billing/pause", { method: "POST", body: JSON.stringify({ months }) }),
   resumePlan: () => request<{ ok: true }>("billing/resume", { method: "POST", body: "{}" }),
@@ -207,6 +213,13 @@ export const api = {
   textSignups: (teamId: string, fresh = false) =>
     request<TextList>(`teams/${teamId}/texts`, fresh ? { method: "POST", body: JSON.stringify({ fresh: true }) } : undefined),
   removeTextSignup: (id: string) => request<TextList>(`text-signups/${id}`, { method: "DELETE" }),
+  /* Text the team from GridIronVault's number (a coach's own team). */
+  myTeamTexts: (teamId: string) => request<MyTeamTexts>(`my-team/${encodeURIComponent(teamId)}/texts`),
+  sendTeamText: (teamId: string, body: string, audience: Audience) =>
+    request<MyTeamTexts & { text: TeamText }>(`my-team/${encodeURIComponent(teamId)}/texts`, { method: "POST", body: JSON.stringify({ body, audience }) }),
+  teamTextStatus: (teamId: string, textId: string) => request<{ text: TeamText }>(`my-team/${encodeURIComponent(teamId)}/texts/${textId}`),
+  renewMyTeamLink: (teamId: string) => request<MyTeamTexts>(`my-team/${encodeURIComponent(teamId)}/link`, { method: "POST" }),
+  removeMyTeamSignup: (id: string) => request<MyTeamTexts>(`my-team-signups/${id}`, { method: "DELETE" }),
   /** The public family sign-up page. */
   joinInfo: (token: string) => request<{ team: string; org: string }>(`join/${token}`),
   join: (token: string, body: { name: string; player: string; phone: string; consent: boolean }) =>

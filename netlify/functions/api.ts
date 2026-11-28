@@ -10,6 +10,9 @@ import {
   callSheets,
   events,
   myTeams,
+  myTeamLinks,
+  myTeamSignups,
+  teamTexts,
   playerFiles,
   lessonVoices,
   teamBrands,
@@ -33,15 +36,17 @@ import {
 import { isOwner, onOwnerList } from "../security/owner.js";
 import { SUPPORT_EMAIL } from "../../src/lib/site.js";
 import { emailKey, isDisposable, trialsOn } from "../security/trial.js";
-import { billingOn, cancelBilling, expireSeason, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
+import { billingOn, cancelBilling, expireSeason, foundingState, handleWebhook, openPortal, pauseSubscription, resumeSubscription, startCheckout } from "../billing/stripe.js";
 import { recordVisit, visitorStats } from "../admin/visits.js";
 import { keepInTrash, restoreItem, setUserPlan, userDetail, userExport } from "../admin/recovery.js";
 import { audit, recentAudit, sha, userRows, usersCsv } from "../admin/admin.js";
-import { activityFeed, recordAccess, recordCapture, findTrace, type Origin } from "../admin/activity.js";
+import { activityFeed, placeOf, recordAccess, recordCapture, findTrace, type Origin } from "../admin/activity.js";
+import { notifySignup } from "../admin/signupAlert.js";
 import { frontOfficeRoute } from "../front-office/orgs.js";
 import { hubRoute } from "../front-office/hub.js";
 import { liveRoute } from "../front-office/live.js";
 import { JOIN_TOKEN, joinRoute } from "../front-office/texts.js";
+import { dropMyTeamSignup, myTeamTextsRoute } from "../front-office/myTeamTexts.js";
 import { dropBlobs, filesRoute, orgFileKeys } from "../front-office/files.js";
 import { ownerPlayerFileKeys, playerFilesRoute } from "../front-office/playerFiles.js";
 import { dropVoiceBlobs, ownerVoiceKeys, playVoice, voiceRoute } from "../film-room/voice.js";
@@ -78,7 +83,19 @@ const json = (body: unknown, status = 200) =>
 const fail = (message: string, status = 400) => json({ error: message }, status);
 
 /** `owner` is the All-Access Master account: decided server-side by netlify/security/owner.ts, never by anything the browser sends. */
-type Session = { id: string; email: string; name: string; owner: boolean; /** Why an address on the owner list was not accepted (shown only to that signed-in person). */ ownerHint?: string };
+type Session = {
+  id: string;
+  email: string;
+  name: string;
+  owner: boolean;
+  /** Why an address on the owner list was not accepted (shown only to that signed-in person). */
+  ownerHint?: string;
+  /** How Identity says the account was made ("email", "google"…) and when: only for the owner's new-signup email. */
+  method?: string;
+  accountCreatedAt?: string;
+  /** Netlify's `context.waitUntil` for this request, when there is one: work that may finish after the answer goes out. */
+  defer?: (work: Promise<unknown>) => void;
+};
 
 async function session(): Promise<Session | null> {
   try {
@@ -112,9 +129,12 @@ async function session(): Promise<Session | null> {
     return {
       id: user.id,
       email,
-      name: user.name || meta.full_name || email.split("@")[0] || "Coach",
+      // Identity keeps whatever a sign-up put in its metadata, so only a real string can be a name.
+      name: user.name || (typeof meta.full_name === "string" ? meta.full_name : "") || email.split("@")[0] || "Coach",
       owner: isOwner({ email, confirmed }),
       ownerHint,
+      method: user.provider,
+      accountCreatedAt: user.createdAt,
     };
   } catch {
     return null;
@@ -132,14 +152,25 @@ async function isOwnersLogo(logo: string): Promise<boolean> {
   return !!row;
 }
 
-async function ensureProfile(user: Session) {
-  // With TRIAL_SIGNUPS=on a new coach joins on Sideline and startTrial upgrades them if they have not had a trial before.
+async function ensureProfile(user: Session, origin?: Origin) {
+  // A new coach joins on Sideline; with TRIAL_SIGNUPS=on startTrial upgrades them if they have not had a trial before.
   const created = await db
     .insert(profiles)
-    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : trialsOn() ? "free" : "beta" })
+    .values({ id: user.id, email: user.email, displayName: user.name, plan: user.owner ? "master" : "free" })
     .onConflictDoNothing()
     .returning({ id: profiles.id });
-  if (created.length && !user.owner && trialsOn()) await startTrial(user);
+  // `created` is true for exactly one request per account, so this is the one place a new coach is announced. The
+  // announcement runs even if the trial step throws (the profile is saved either way), and after the answer is sent
+  // when Netlify lets it (`defer`), so the coach's first call never waits on the email.
+  if (created.length && !user.owner) {
+    try {
+      if (trialsOn()) await startTrial(user);
+    } finally {
+      const announcing = announceSignup(user, origin);
+      if (user.defer) user.defer(announcing);
+      else await announcing;
+    }
+  }
   // The owner's row follows the owner list, so the plan on file matches what the server enforces.
   if (user.owner) await db.update(profiles).set({ plan: "master" }).where(and(eq(profiles.id, user.id), ne(profiles.plan, "master")));
   // "Last active" for the owner's user list: touched at most every five minutes.
@@ -147,6 +178,34 @@ async function ensureProfile(user: Session) {
     .update(profiles)
     .set({ lastActiveAt: new Date() })
     .where(and(eq(profiles.id, user.id), or(sql`${profiles.lastActiveAt} is null`, lt(profiles.lastActiveAt, new Date(Date.now() - 300_000)))));
+}
+
+/**
+ * Emails the owner that a coach just joined (netlify/admin/signupAlert.ts), after the trial decision so the email
+ * names the plan they got. It never rejects: the profile is already saved, so nothing here may fail the request.
+ */
+async function announceSignup(user: Session, origin?: Origin) {
+  try {
+    // A deleted account whose sign-in token is still valid gets its profile row made again by the next call. That
+    // is not a new coach: eraseAccount wrote this id to the ledger, so say nothing.
+    const [gone] = await db.select({ id: accountLedger.userId }).from(accountLedger).where(eq(accountLedger.userId, user.id));
+    if (gone) return;
+    const [row] = await db.select({ plan: profiles.plan, trialEndsAt: profiles.trialEndsAt }).from(profiles).where(eq(profiles.id, user.id));
+    await notifySignup({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      method: user.method,
+      accountCreatedAt: user.accountCreatedAt,
+      plan: row?.plan ?? "free",
+      trials: trialsOn(),
+      trialEndsAt: row?.trialEndsAt,
+      place: origin ? placeOf(origin) : "",
+      at: new Date(),
+    });
+  } catch (e) {
+    console.error("signup alert", e instanceof Error ? e.message : e);
+  }
 }
 
 /**
@@ -183,18 +242,19 @@ export default async (req: Request, context?: Context) => {
   const fromCookie = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)gv_device=([^;]+)/)?.[1] ?? "";
   const fromHeader = (req.headers.get("x-device") ?? "").slice(0, 100);
   const deviceId = DEVICE_ID.test(fromCookie) ? fromCookie : DEVICE_ID.test(fromHeader) ? fromHeader : "";
-  const res = await route(req, deviceId, { ip: context?.ip, geo: context?.geo });
+  const res = await route(req, deviceId, { ip: context?.ip, geo: context?.geo }, context?.waitUntil ? (work) => context.waitUntil(work) : undefined);
   if (deviceId && deviceId !== fromCookie) {
     res.headers.append("Set-Cookie", `${DEVICE_COOKIE}=${deviceId}; Max-Age=${400 * 86400}; Path=/api; Secure; HttpOnly; SameSite=Lax`);
   }
   return res;
 };
 
-async function route(req: Request, deviceId: string, origin: Origin = {}): Promise<Response> {
+async function route(req: Request, deviceId: string, origin: Origin = {}, defer?: Session["defer"]): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
   const [resource, id, action] = parts;
   const me = await session();
+  if (me) me.defer = defer;
   // Where this request came from, for the owner's sign-in audit (netlify/admin/activity.ts).
   const where = { ua: req.headers.get("user-agent") ?? "", deviceId, origin };
 
@@ -205,7 +265,7 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
         return await deleteAccount(me, await req.json().catch(() => ({})));
       }
       if (!me) return json({ user: null });
-      await ensureProfile(me);
+      await ensureProfile(me, origin);
       if (id === "plan" && req.method === "PUT") return await choosePlan(me, await req.json().catch(() => ({})));
       // The browser reports a fresh sign-in; every other read of /me is an app open (one per device each half hour).
       if (id === "signin" && req.method === "POST") {
@@ -265,6 +325,10 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
 
     // Stripe's webhook proves itself with a signature, not a sign-in.
     if (resource === "billing" && id === "webhook" && req.method === "POST") return await handleWebhook(req);
+
+    // How many founding spots ($9 Head Coach for life) are left, for the Pricing page, signed in or not.
+    if (resource === "billing" && id === "founding" && req.method === "GET")
+      return Response.json(await foundingState(), { headers: { "Cache-Control": "public, max-age=60" } });
 
     // The visitor counter: a beacon from every page view, signed in or not. The owner's own visits aren't counted.
     if (resource === "visit") {
@@ -496,6 +560,16 @@ async function route(req: Request, deviceId: string, origin: Origin = {}): Promi
     /* -------------------------------------------------------- my team --- */
     // The coach's own teams (minors' contacts): owner only, never cached.
     // `team` is the first team, for a tab still open from before a coach could keep more than one.
+    // Text the team from GridIronVault's number: the sign-up link, the list, one-tap sends and their statuses.
+    if (resource === "my-team" && id) {
+      if (!me) return fail("Sign in to text your team from GridIronVault.", 401);
+      await ensureProfile(me);
+      return await myTeamTextsRoute(me, req, id, action ?? "", parts[3], (await planOf(me)).id);
+    }
+    if (resource === "my-team-signups" && id && req.method === "DELETE") {
+      if (!me) return fail("Sign in first.", 401);
+      return await dropMyTeamSignup(me, id);
+    }
     if (resource === "my-team") {
       const mine = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
       if (!me) return req.method === "GET" ? mine({ teams: null, team: null }) : fail("Sign in to keep your roster on your account.", 401);
@@ -995,8 +1069,8 @@ async function monthlyAi(me: Session, kind: AiKind) {
 }
 
 /**
- * During beta a coach picks their own plan (Account and Pricing pages). Set
- * PLAN_SELF_SERVE=false when billing takes over, and only billing changes it.
+ * While billing is off a coach picks their own plan (Account and Pricing pages).
+ * Once billing is on, only Sideline can be picked here; PLAN_SELF_SERVE=false shuts it.
  */
 async function choosePlan(me: Session, body: Record<string, unknown>) {
   if (process.env.PLAN_SELF_SERVE === "false") return fail("Plans change through billing. Open Plans to switch.", 403);
@@ -1370,6 +1444,9 @@ async function eraseAccount(me: { id: string; email: string; name: string }) {
     await tx.delete(orgMembers).where(eq(orgMembers.userId, me.id));
     await tx.delete(callSheets).where(eq(callSheets.ownerId, me.id));
     await tx.delete(myTeams).where(eq(myTeams.ownerId, me.id));
+    await tx.delete(myTeamSignups).where(eq(myTeamSignups.ownerId, me.id));
+    await tx.delete(myTeamLinks).where(eq(myTeamLinks.ownerId, me.id));
+    await tx.delete(teamTexts).where(eq(teamTexts.ownerId, me.id));
     await tx.delete(playerFiles).where(and(eq(playerFiles.ownerId, me.id), isNull(playerFiles.orgId)));
     await tx.delete(lessonVoices).where(eq(lessonVoices.ownerId, me.id));
     await tx.delete(teamBrands).where(eq(teamBrands.ownerId, me.id));

@@ -44,6 +44,10 @@
 .price-note svg { flex: none; margin-top: 2px; color: var(--amber-fg); }
 .price-trial { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; max-width: 820px; margin: 0 auto; padding: 14px 18px; border: 1px solid var(--cyan); border-radius: var(--radius-lg); background: var(--cyan-soft); color: var(--ink); }
 .price-trial p { margin: 0; flex: 1 1 320px; font-size: 15px; line-height: 1.5; }
+/* The founding rate's strip under the plans' heading: same shape as the trial strip, gold so the two read apart. */
+.price-founding { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; max-width: 820px; margin: 12px auto 0; padding: 14px 18px; border: 1px solid var(--amber, #d99a1e); border-radius: var(--radius-lg); background: var(--amber-bg, #fdf4e3); color: var(--ink); }
+.price-founding p { margin: 0; flex: 1 1 320px; font-size: 15px; line-height: 1.5; }
+.price-founding-left { font-weight: 600; }
 .price-more { max-width: none; margin: var(--space-5) 0 0; }
 .price-more details[open] summary { border-bottom: 1px solid var(--border); margin-bottom: 18px; }
 .price-more .price-offers { margin: 0 0 18px; }

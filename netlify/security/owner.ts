@@ -14,6 +14,9 @@ const owners = () =>
       .filter(Boolean),
   );
 
+/** Every address on the owner list, lower-cased: where the site's own notices (a new signup) go unless told otherwise. */
+export const ownerEmails = () => [...owners()];
+
 /** True for a confirmed Identity email on the owner list. */
 export function isOwner(user: { email: string; confirmed: boolean } | null | undefined): boolean {
   return Boolean(user?.confirmed && owners().has(user.email.trim().toLowerCase()));

@@ -12,7 +12,7 @@ import "../styles/legal.css";
  * players-and-kids section, which covers minors' roster data) before relying on them.
  */
 
-const UPDATED = "November 22, 2026";
+const UPDATED = "November 26, 2026";
 /** The company behind GridIronVault, exactly as filed with the Tennessee Secretary of State. */
 const COMPANY = "Vaultline Sports LLC";
 
@@ -104,7 +104,9 @@ export function Privacy() {
         </li>
         <li>
           <b>Visits:</b> to count visitors and how long people stay, each page view sends us the page name, the site you came
-          from, your device type and how many seconds the page was in view. We keep no IP address and set no cookie for this,
+          from, the campaign tag on the link if it has one (such as which social post it was), your device type, how many
+          seconds the page was in view, and whether this browser has been here before (a note your browser keeps for
+          itself; no id goes with it). We keep no IP address and set no cookie for this,
           and the visitor count uses a code that changes every day, so we can't follow you from one day to the next. If your
           browser sends Do Not Track or Global Privacy Control, nothing is sent.
         </li>
@@ -113,6 +115,13 @@ export function Privacy() {
           your email (not your plays), so one person can't open an endless run of free trials. If your account had a mobile
           number from before November 22, 2026, we also keep a one-way fingerprint of it, not the number, so we can spot one
           number used on several accounts.
+        </li>
+        <li>
+          <b>New-account notice:</b> the first time you sign in to a new account we email our own team your name, email
+          address, plan, how you signed up (email or Google), roughly where you were (city, state and country) and the time,
+          so we know someone new joined and can help. It goes to the people who run GridIronVault, once per account, and
+          nowhere else. That email stays in our team's inbox and in Resend's send log after you delete your account; ask us
+          and we'll remove it.
         </li>
         <li>
           <b>Your work:</b> plays, playbooks and Call Sheets you save to your account, and while you're signed in your own drills, starred drills and practice script.
@@ -154,6 +163,10 @@ export function Privacy() {
           <b>Netlify</b> hosts the site and stores accounts, plays, team information and feedback.
         </li>
         <li>
+          <b>Resend</b> delivers the emails GridIronVault sends itself: the new-account notice to our team and, when a team's
+          coaches use it, team announcements to families.
+        </li>
+        <li>
           <b>Twilio</b> sends team texts.
         </li>
         <li>
@@ -166,11 +179,6 @@ export function Privacy() {
           it.
         </li>
         <li>
-          <b>Metricool</b> measures visits to our public home and pricing pages, so we can see which social posts bring
-          people in. It does not load on the tools, your plays or a team link, and nothing is sent if your browser sends Do
-          Not Track or Global Privacy Control. Metricool's own privacy policy applies to what it collects.
-        </li>
-        <li>
           <b>YouTube</b> plays film links you add, in its privacy-enhanced player. Nothing loads from YouTube until you
           press play; after that, YouTube's own privacy policy applies. A Hudl film you link opens on Hudl, or plays in Hudl's own player here once you press Show the film here; from then on Hudl's privacy policy applies to that player.
         </li>
@@ -181,8 +189,9 @@ export function Privacy() {
       <p>
         No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text
         messaging opt-in data and consent will not be shared with any third parties. Your number is used only for the
-        texts you signed up for: team updates from the coaches of a team you joined. Reply STOP to any
-        team text to stop them, or ask the team's coach to take you off.
+        texts you signed up for: team updates from the coaches of a team you joined. Message frequency varies, usually
+        1 to 4 a week during the season. Message and data rates may apply. Reply STOP to any team text to stop them,
+        HELP for help, or ask the team's coach to take you off.
       </p>
 
       <h2>Players, parents and kids</h2>
@@ -248,8 +257,8 @@ export function Terms() {
         </li>
         <li>Keep your password and devices safe — you're responsible for what happens on your account.</li>
         <li>
-          GridIronVault is in <b>beta</b>. It's free while we test, features may change, and things may break. Download a
-          backup of anything you can't afford to lose.
+          GridIronVault is growing fast: features may change, and things can break. Download a backup of anything you can't
+          afford to lose.
         </li>
       </ul>
 
