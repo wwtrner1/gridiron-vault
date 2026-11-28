@@ -196,5 +196,44 @@
    "Follow *a player*",
    "One play. *Twelve ways.*"
   ]
+ },
+ "20-tape-smash": {
+  "title": "Smash: Hitch Under, Corner Over",
+  "end": "Grid Iron Vault",
+  "lines": [
+   "One Defender",
+   "Smash Concept",
+   "Hitch Under",
+   "Corner Over",
+   "Read Him",
+   "High-Low Read",
+   "Grid Iron Vault"
+  ]
+ },
+ "20-tape-flood": {
+  "title": "Flood Right: Read It High to Low",
+  "end": "Grid Iron Vault",
+  "lines": [
+   "One Side Overloaded",
+   "Flood Right",
+   "Three Levels",
+   "Read High-Low",
+   "Find Open",
+   "Simple Math",
+   "Grid Iron Vault"
+  ]
+ },
+ "20-tape-mesh": {
+  "title": "Mesh: Two Drags, One Open Man",
+  "end": "Grid Iron Vault",
+  "lines": [
+   "Cross and Collide",
+   "Mesh Concept",
+   "Two Drags",
+   "Traffic Jam",
+   "Find Him",
+   "Every Time",
+   "Grid Iron Vault"
+  ]
  }
 }

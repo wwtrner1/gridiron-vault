@@ -1,0 +1,13 @@
+# Attach data/drills-needing-video.csv to the session first.
+events:
+  - type: user.define_outcome
+    description: |-
+      Find one verified example video for every drill in the attached drills-needing-video.csv, following your instructions, and write /mnt/session/outputs/drill-videos.csv. Report how many drills got a verified video and how many are "not found".
+    rubric:
+      type: text
+      content: |-
+        - Every row has the columns the instructions list, in that order.
+        - Every video id on the file was checked with YouTube oEmbed in this session (oEmbed ok = yes), and its title and channel are exactly what oEmbed returned.
+        - No id appears that was not verified; drills with no verified video say "not found", never a guess.
+        - Videos come from coaching channels and show the skill; Fit says drill or skill only, and a skill-only fit has a Note.
+        - The file covers every drill it was given.

@@ -1,0 +1,7 @@
+# Unrestricted on purpose: the job reads ~300 different school sites, too many to list in allowed_hosts.
+# Nothing secret is in this sandbox (no vault, no credentials; the CSV is public data), so the cost of
+# open egress is low. Tighten to `limited` + allowed_hosts if you ever add a credential or private data.
+config:
+  type: cloud
+  networking:
+    type: unrestricted

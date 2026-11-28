@@ -1,0 +1,5 @@
+# The writer only reads the attached CSV and writes JSON, so it needs no outside network.
+config:
+  type: cloud
+  networking:
+    type: limited

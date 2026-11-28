@@ -1,0 +1,16 @@
+# Starts one run: `ant beta:sessions:events send --session-id "$SID" < kickoff.yaml`
+# Attach plays-to-teach.csv and cameras.txt (one Film Room camera name per line) to the session first.
+events:
+- type: user.define_outcome
+  description: |-
+    Write teaching-tape scripts for the first 3 rows of the attached plays-to-teach.csv, following your instructions, and write /mnt/session/outputs/tapes.json. Stop after 3. Report how many you finished and any Review flags.
+  rubric:
+    type: text
+    content: |-
+      - Exactly one tape per row, exactly 3 coaching points each, 5 to 7 voiceover lines each under 14 words.
+      - Every camera is a name from cameras.txt.
+      - Every line has a style tag, and "Grid Iron Vault" is spelled that way.
+      - Headlines has the same length as lines, 2 to 4 words each.
+      - No other company named, no NFL or real-player references, no free-trial, price or safety claims.
+      - Any detail not in the CSV is under review_flags, not stated as fact.
+      - The file is valid JSON at /mnt/session/outputs/tapes.json.
