@@ -1,0 +1,179 @@
+[
+  {
+    "play": "Single Back — Smash",
+    "title": "Smash: Hitch Under, Corner Over",
+    "camera": "QB cam",
+    "coaching_points": [
+      "The hitch settles short and stays in front of the cornerback.",
+      "The corner route runs over the top of that same cornerback.",
+      "Read the cornerback: if he sits on the hitch, throw the corner."
+    ],
+    "lines": [
+      {
+        "style": "[confident]",
+        "text": "One cornerback. Two routes. He can't cover both."
+      },
+      {
+        "style": "[confident]",
+        "text": "Smash puts a hitch under and a corner over the top."
+      },
+      {
+        "style": "[calm]",
+        "text": "First: the hitch settles short, right in front of him."
+      },
+      {
+        "style": "[calm]",
+        "text": "Second: the corner runs over the top of the same defender."
+      },
+      {
+        "style": "[confident]",
+        "text": "Third: read the cornerback and throw away from his choice."
+      },
+      {
+        "style": "[excited]",
+        "text": "High-low on one defender, every single snap."
+      },
+      {
+        "style": "[confident]",
+        "text": "Smash, in Grid Iron Vault."
+      }
+    ],
+    "headlines": [
+      "One Defender",
+      "Smash Concept",
+      "Hitch Under",
+      "Corner Over",
+      "Read Him",
+      "High-Low Read",
+      "Grid Iron Vault"
+    ],
+    "caption": "Smash: hitch under, corner over the top. One cornerback, two routes, one right throw. Draw it, teach it, run it. Build your playbook in Grid Iron Vault.",
+    "hashtags": [
+      "#flagfootball",
+      "#footballplaybook",
+      "#coachlife",
+      "#smashconcept"
+    ],
+    "review_flags": [
+      "Which coverage Smash beats is not in the CSV row, so the script makes no coverage claim."
+    ]
+  },
+  {
+    "play": "Spread — Flood Right",
+    "title": "Flood Right: Read It High to Low",
+    "camera": "QB cam",
+    "coaching_points": [
+      "Three receivers run to the right at three depths: flat, out, corner.",
+      "Read the three routes from the deepest down to the shortest.",
+      "Throw to the receiver the defense has left uncovered."
+    ],
+    "lines": [
+      {
+        "style": "[confident]",
+        "text": "Three receivers. One side. Not enough defenders."
+      },
+      {
+        "style": "[confident]",
+        "text": "Flood Right sends three players to one side at three depths."
+      },
+      {
+        "style": "[calm]",
+        "text": "First: flat, out and corner stack up at three levels."
+      },
+      {
+        "style": "[calm]",
+        "text": "Second: read the routes high to low, starting deep."
+      },
+      {
+        "style": "[confident]",
+        "text": "Third: throw to whoever the defense left uncovered."
+      },
+      {
+        "style": "[excited]",
+        "text": "Three levels beat two defenders. Simple math."
+      },
+      {
+        "style": "[confident]",
+        "text": "Flood Right, in Grid Iron Vault."
+      }
+    ],
+    "headlines": [
+      "One Side Overloaded",
+      "Flood Right",
+      "Three Levels",
+      "Read High-Low",
+      "Find Open",
+      "Simple Math",
+      "Grid Iron Vault"
+    ],
+    "caption": "Flood Right: flat, out and corner on one side. Read it high to low and throw to the open receiver. Teach your team the read. Build your playbook in Grid Iron Vault.",
+    "hashtags": [
+      "#flagfootball",
+      "#footballplaybook",
+      "#coachlife",
+      "#floodconcept"
+    ],
+    "review_flags": [
+      "Row says three levels outnumber the two defenders who can cover that side; the script uses that sentence as given and names no coverage."
+    ]
+  },
+  {
+    "play": "Spread — Mesh",
+    "title": "Mesh: Two Drags, One Open Man",
+    "camera": "Overhead",
+    "coaching_points": [
+      "Two receivers run drags that cross each other at four yards.",
+      "The crossing receivers run defenders into each other.",
+      "Throw to whichever receiver comes free."
+    ],
+    "lines": [
+      {
+        "style": "[confident]",
+        "text": "Two receivers cross. Defenders collide. Someone comes free."
+      },
+      {
+        "style": "[confident]",
+        "text": "That's Mesh: two drags crossing at four yards."
+      },
+      {
+        "style": "[calm]",
+        "text": "First: both receivers run drags and cross each other."
+      },
+      {
+        "style": "[calm]",
+        "text": "Second: crossing routes run defenders into each other."
+      },
+      {
+        "style": "[confident]",
+        "text": "Third: throw to whoever comes free."
+      },
+      {
+        "style": "[excited]",
+        "text": "Somebody comes free every single time."
+      },
+      {
+        "style": "[confident]",
+        "text": "Mesh, in Grid Iron Vault."
+      }
+    ],
+    "headlines": [
+      "Cross and Collide",
+      "Mesh Concept",
+      "Two Drags",
+      "Traffic Jam",
+      "Find Him",
+      "Every Time",
+      "Grid Iron Vault"
+    ],
+    "caption": "Mesh: two drags crossing at four yards. Defenders run into each other and somebody comes free. See it from above, then draw it in Grid Iron Vault.",
+    "hashtags": [
+      "#flagfootball",
+      "#footballplaybook",
+      "#coachlife",
+      "#meshconcept"
+    ],
+    "review_flags": [
+      "Starter notes say man coverage gets picked and zone must pass two men; left out of the voiceover to stay short."
+    ]
+  }
+]
