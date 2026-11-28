@@ -4,7 +4,7 @@
 events:
   - type: user.define_outcome
     description: |-
-      Research the programs in the attached programs-to-research.csv, following your instructions. Start with the first 40 rows and write /mnt/session/outputs/program-accounts.csv, then keep going until every row is covered or you run out of budget. Report how many rows you finished.
+      Research the programs in the attached programs-to-research.csv, following your instructions. Research ONLY the first 40 rows (a sample to measure quality and cost) and write /mnt/session/outputs/program-accounts.csv. Stop after row 40. Report how many rows you finished.
     rubric:
       type: text
       content: |-
@@ -13,4 +13,4 @@ events:
         - No handle or name appears without a source; gaps say "not found" or "blocked", never a guess.
         - A personal coach account appears only where the school's staff page links it.
         - Confidence is high only for the school's own pages.
-        - The file is at /mnt/session/outputs/program-accounts.csv and covers every program it was given, or says which it did not reach and why.
+        - The file is at /mnt/session/outputs/program-accounts.csv and covers all 40 programs it was given, or says which it did not reach and why.

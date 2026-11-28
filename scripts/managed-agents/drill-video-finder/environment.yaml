@@ -1,0 +1,5 @@
+# Unrestricted on purpose: the job opens coaching-channel pages and YouTube oEmbed. No secrets in this sandbox.
+config:
+  type: cloud
+  networking:
+    type: unrestricted
