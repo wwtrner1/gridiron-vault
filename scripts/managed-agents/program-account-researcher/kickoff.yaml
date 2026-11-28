@@ -1,0 +1,16 @@
+# Starts one run: `ant beta:sessions:events send --session-id "$SID" < kickoff.yaml`
+# Attach data/programs-to-research.csv to the session as a file first (or paste its first 40 rows for a smoke test).
+# The task is worded inside the outcome, so no separate user.message is sent.
+events:
+  - type: user.define_outcome
+    description: |-
+      Research the programs in the attached programs-to-research.csv, following your instructions. Start with the first 40 rows and write /mnt/session/outputs/program-accounts.csv, then keep going until every row is covered or you run out of budget. Report how many rows you finished.
+    rubric:
+      type: text
+      content: |-
+        - Every row has the columns the instructions list, in that order.
+        - Every Instagram handle, X handle, coach name and title has a source URL on the same row, and the source is a page about that program or school.
+        - No handle or name appears without a source; gaps say "not found" or "blocked", never a guess.
+        - A personal coach account appears only where the school's staff page links it.
+        - Confidence is high only for the school's own pages.
+        - The file is at /mnt/session/outputs/program-accounts.csv and covers every program it was given, or says which it did not reach and why.
